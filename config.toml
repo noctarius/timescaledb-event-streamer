@@ -1,0 +1,21 @@
+postgresql.connstring = 'postgres://repl_user@localhost:5432/postgres'
+postgresql.password = '...'
+
+sink.type = 'nats'
+sink.nats.address = 'nats://localhost:4222'
+sink.nats.authorization = "userinfo"
+sink.nats.userinfo.username = 'publisher'
+sink.nats.userinfo.password = '...'
+
+topic.namingstrategy.type = 'debezium'
+topic.prefix = 'timescaledb'
+
+timescaledb.hypertables.excludes = []
+timescaledb.hypertables.includes = ['public.test']
+timescaledb.events.read = true
+timescaledb.events.insert = true
+timescaledb.events.update = true
+timescaledb.events.delete = true
+timescaledb.events.truncate = true
+timescaledb.events.compression = true
+timescaledb.events.decompression = true
