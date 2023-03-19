@@ -61,16 +61,21 @@ func main() {
 		fmt.Fprintf(os.Stderr, "PostgreSQL connection string required: %v\n", err)
 		os.Exit(6)
 	}
-	connConfig, err := pgx.ParseConfig(config.PostgreSQL.Connection)
+
+	connection := configuration.GetOrDefault(config, "postgresql.connection", "host=localhost user=repl_user")
+	connConfig, err := pgx.ParseConfig(connection)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "PostgreSQL connection string failed to parse: %v\n", err)
 		os.Exit(6)
 	}
-	if config.PostgreSQL.Password != "" {
-		connConfig.Password = config.PostgreSQL.Password
+
+	pgPassword := configuration.GetOrDefault(config, "postgresql.password", "")
+	if pgPassword != "" {
+		connConfig.Password = pgPassword
 	}
 
-	if config.PostgreSQL.Publication == "" {
+	pgPublication := configuration.GetOrDefault(config, "postgresql.publication", "")
+	if pgPublication == "" {
 		config.PostgreSQL.Publication = publicationName
 	}
 
@@ -122,7 +127,7 @@ func newEventEmitter(config *configuration.Config, schemaRegistry *schema.Regist
 }
 
 func newSink(config *configuration.Config) (sink.Sink, error) {
-	switch config.Sink.Type {
+	switch configuration.GetOrDefault(config, "sink.type", configuration.Stdout) {
 	case configuration.Stdout:
 		return stdout.NewStdoutSink(), nil
 	case configuration.NATS:
@@ -142,7 +147,7 @@ func newNameGenerator(config *configuration.Config) (*topic.NameGenerator, error
 }
 
 func newNamingStrategy(config *configuration.Config) (topic.NamingStrategy, error) {
-	switch config.Topic.NamingStrategy.Type {
+	switch configuration.GetOrDefault(config, "topic.namingstrategy.type", configuration.Debezium) {
 	case configuration.Debezium:
 		return &topic.DebeziumNamingStrategy{}, nil
 	}

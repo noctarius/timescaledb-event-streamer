@@ -48,6 +48,13 @@ configuration file format due to its simplicity.
 
 The actual configuration values are designed as canonical name (dotted keys).
 
+In addition to the configuration file, all values can be provided as envrionment
+variables. In this case, the property name uses underscore (_) characters instead
+of dots (.) characters and all characters are used as uppercase. That means,
+`postgresql.connection` becomes `POSTGRESQL_CONNECTION`. In case the standard
+property name already contains an underscore the one underscore character is
+duplicated (`test.some_value` becomes `TEST_SOME__VALUE`).
+
 ## PostgreSQL Configuration
 
 | Property                |                                               Description | Data Type |                                 Default Value |
@@ -78,15 +85,34 @@ The actual configuration values are designed as canonical name (dotted keys).
 
 ## Sink Configuration
 
-| Property                            |                                                                                       Description |        Data Type | Default Value |
-|-------------------------------------|--------------------------------------------------------------------------------------------------:|-----------------:|--------------:|
-| `sink.type`                         | The property defines which sink adapter is to be used. Valid values are `stdout`, `nats`, `kafka` |           string |      `stdout` |
-| `sink.nats.address`                 |                   The NATS connection address, according to the NATS connection string definition |           string |  empty string |
-| `sink.nats.authorization`           |                   The NATS authorization type. Valued values are `userinfo`, `credentials`, `jwt` |           string |  empty string |
-| `sink.nats.userinfo.username`       |                                                    The username of userinfo authorization details |           string |  empty string | 
-| `sink.nats.userinfo.password`       |                                                    The password of userinfo authorization details |           string |  empty string | 
-| `sink.nats.credentials.certificate` |                             The path of the certificate file of credentials authorization details |           string |  empty string | 
-| `sink.nats.credentials.seeds`       |                                   The paths of seeding files of credentials authorization details | array of strings |   empty array | 
+| Property    |                                                                                       Description | Data Type | Default Value |
+|-------------|--------------------------------------------------------------------------------------------------:|----------:|--------------:|
+| `sink.type` | The property defines which sink adapter is to be used. Valid values are `stdout`, `nats`, `kafka` |    string |      `stdout` |
+
+NATS specific configuration, which is only used if `sink.type` is set to `nats`.
+
+| Property                            |                                                                     Description |        Data Type | Default Value |
+|-------------------------------------|--------------------------------------------------------------------------------:|-----------------:|--------------:|
+| `sink.nats.address`                 | The NATS connection address, according to the NATS connection string definition |           string |  empty string |
+| `sink.nats.authorization`           | The NATS authorization type. Valued values are `userinfo`, `credentials`, `jwt` |           string |  empty string |
+| `sink.nats.userinfo.username`       |                                  The username of userinfo authorization details |           string |  empty string | 
+| `sink.nats.userinfo.password`       |                                  The password of userinfo authorization details |           string |  empty string | 
+| `sink.nats.credentials.certificate` |           The path of the certificate file of credentials authorization details |           string |  empty string | 
+| `sink.nats.credentials.seeds`       |                 The paths of seeding files of credentials authorization details | array of strings |   empty array | 
+
+Kafka specific configuration, which is only used if `sink.type` is set to `kafka`.
+
+| Property                    |                                                                                                  Description |       Data Type | Default Value |
+|-----------------------------|-------------------------------------------------------------------------------------------------------------:|----------------:|--------------:|
+| `sink.kafka.brokers`        |                                                                                        The Kafka broker urls | array of string |   empty array |
+| `sink.kafka.idempotent`     |                                                       The property defines if message handling is idempotent |         boolean |         false |
+| `sink.kafka.sasl.enabled`   |                                                        The property defines if SASL authorization is enabled |         boolean |         false | 
+| `sink.kafka.sasl.user`      |                                                            The user value to be used with SASL authorization |          string |  empty string | 
+| `sink.kafka.sasl.password`  |                                                        The password value to be used with SASL authorization |          string |  empty string | 
+| `sink.kafka.sasl.mechanism` |                                   The mechanism to be used with SASL authorization. Valid values are `PLAIN` |          string |       `PLAIN` | 
+| `sink.kafka.tls.enabled`    |                                                                       The property defines if TLS is enabled |         boolean |         false | 
+| `sink.kafka.tls.skipverify` |                                          The property defines if verification of TLS certificates is skipped |         boolean |         false | 
+| `sink.kafka.tls.clientauth` | The property defines the client auth value (as defined in [Go](https://pkg.go.dev/crypto/tls#ClientAuthType) |         boolean |         false | 
 
 # Includes and Excludes Patterns
 

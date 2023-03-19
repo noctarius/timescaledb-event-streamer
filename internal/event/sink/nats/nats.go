@@ -16,18 +16,23 @@ type natsSink struct {
 }
 
 func NewNatsSink(config *configuration.Config) (sink.Sink, error) {
-	natsConfig := config.Sink.Nats
-	switch natsConfig.Authorization {
+	address := configuration.GetOrDefault(config, "sink.nats.address", "nats://localhost:4222")
+	authorization := configuration.GetOrDefault(config, "sink.nats.authorization", "userinfo")
+	switch configuration.NatsAuthorizationType(authorization) {
 	case configuration.UserInfo:
-		return newNatsSinkWithUserInfo(
-			natsConfig.Address, natsConfig.UserInfo.Username, natsConfig.UserInfo.Password)
+		username := configuration.GetOrDefault(config, "sink.nats.userinfo.username", "")
+		password := configuration.GetOrDefault(config, "sink.nats.userinfo.password", "")
+		return newNatsSinkWithUserInfo(address, username, password)
 	case configuration.Credentials:
-		return newNatsSinkWithUserCredentials(
-			natsConfig.Address, natsConfig.Credentials.Certificate, natsConfig.Credentials.Seeds...)
+		certificate := configuration.GetOrDefault(config, "sink.nats.credentials.certificate", "")
+		seeds := configuration.GetOrDefault(config, "sink.nats.credentials.seeds", []string{})
+		return newNatsSinkWithUserCredentials(address, certificate, seeds...)
 	case configuration.Jwt:
-		return newNatsSinkWithUserJWT(natsConfig.Address, natsConfig.JWT.JWT, natsConfig.JWT.Seed)
+		jwt := configuration.GetOrDefault(config, "sink.nats.jwt.jwt", "")
+		seed := configuration.GetOrDefault(config, "sink.nats.jwt.seed", "")
+		return newNatsSinkWithUserJWT(address, jwt, seed)
 	}
-	return nil, fmt.Errorf("NATS AuthorizationType '%s' doesn't exist", config.Sink.Nats.Authorization)
+	return nil, fmt.Errorf("NATS AuthorizationType '%s' doesn't exist", authorization)
 }
 
 func newNatsSinkWithUserInfo(address, user, password string) (sink.Sink, error) {

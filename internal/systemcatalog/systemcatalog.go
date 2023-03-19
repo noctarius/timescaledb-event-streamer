@@ -509,7 +509,7 @@ func (sc *SystemCatalog) initiateChunkSnapshot(
 
 func (sc *SystemCatalog) attachChunkToPublication(chunk *model.Chunk) error {
 	chunkName := chunk.CanonicalName()
-	publicationName := sc.config.PostgreSQL.Publication
+	publicationName := configuration.GetOrDefault(sc.config, "postgresql.publication", "")
 	attachingQuery := fmt.Sprintf(addTableToPublication, publicationName, chunkName)
 
 	return sc.queryAdapter.NewSession(func(session channel.QuerySession) error {
