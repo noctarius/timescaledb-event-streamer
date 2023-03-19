@@ -1,7 +1,10 @@
 package sink
 
-import "github.com/noctarius/event-stream-prototype/internal/schema"
+import (
+	"github.com/noctarius/event-stream-prototype/internal/schema"
+	"time"
+)
 
 type Sink interface {
-	Emit(topicName string, envelope schema.Struct) bool
+	Emit(timestamp time.Time, topicName string, envelope schema.Struct) error
 }

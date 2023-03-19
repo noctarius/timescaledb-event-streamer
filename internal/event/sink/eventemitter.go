@@ -47,9 +47,9 @@ func (ee *EventEmitter) envelopeSchema(hypertable *model.Hypertable) schema.Stru
 	})
 }
 
-func (ee *EventEmitter) emit(hypertable *model.Hypertable, envelope schema.Struct) bool {
+func (ee *EventEmitter) emit(hypertable *model.Hypertable, timestamp time.Time, envelope schema.Struct) error {
 	eventTopicName := ee.topicNameGenerator.EventTopicName(hypertable)
-	return ee.sink.Emit(eventTopicName, envelope)
+	return ee.sink.Emit(timestamp, eventTopicName, envelope)
 }
 
 type eventEmitterEventHandler struct {
@@ -126,8 +126,7 @@ func (e *eventEmitterEventHandler) emit0(lsn pglogrepl.LSN, timestamp time.Time,
 	envelopeSchema := e.eventEmitter.envelopeSchema(hypertable)
 	source := schema.Source(lsn, timestamp, snapshot, hypertable)
 	payload := eventProvider(source)
-	e.eventEmitter.emit(hypertable, schema.Envelope(envelopeSchema, payload))
-	return nil
+	return e.eventEmitter.emit(hypertable, timestamp, schema.Envelope(envelopeSchema, payload))
 }
 
 type compressionAwareEventEmitterEventHandler struct {

@@ -67,14 +67,12 @@ func connectJetStreamContext(address string, options ...nats.Option) (sink.Sink,
 	}, nil
 }
 
-func (n *natsSink) Emit(topicName string, envelope schema.Struct) bool {
+func (n *natsSink) Emit(_ time.Time, topicName string, envelope schema.Struct) error {
 	data, err := json.Marshal(envelope)
 	if err != nil {
-		return false
+		return err
 	}
 
-	if _, err := n.jetStreamContext.Publish(topicName, data, nats.Context(context.Background())); err != nil {
-		return false
-	}
-	return true
+	_, err = n.jetStreamContext.Publish(topicName, data, nats.Context(context.Background()))
+	return err
 }

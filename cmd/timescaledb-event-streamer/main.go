@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/noctarius/event-stream-prototype/internal/configuration"
 	"github.com/noctarius/event-stream-prototype/internal/event/sink"
+	"github.com/noctarius/event-stream-prototype/internal/event/sink/kafka"
 	"github.com/noctarius/event-stream-prototype/internal/event/sink/nats"
 	"github.com/noctarius/event-stream-prototype/internal/event/sink/stdout"
 	"github.com/noctarius/event-stream-prototype/internal/event/topic"
@@ -126,6 +127,8 @@ func newSink(config *configuration.Config) (sink.Sink, error) {
 		return stdout.NewStdoutSink(), nil
 	case configuration.NATS:
 		return nats.NewNatsSink(config)
+	case configuration.Kafka:
+		return kafka.NewKafkaSink(config)
 	}
 	return nil, fmt.Errorf("SinkType '%s' doesn't exist", config.Sink.Type)
 }
