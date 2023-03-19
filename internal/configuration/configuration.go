@@ -23,7 +23,7 @@ const (
 
 type Config struct {
 	PostgreSQL struct {
-		ConnString  string `toml:"connstring"`
+		Connection  string `toml:"connection"`
 		Password    string `toml:"password"`
 		Publication string `toml:"publication"`
 	} `toml:"postgresql"`

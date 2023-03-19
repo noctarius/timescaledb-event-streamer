@@ -56,11 +56,11 @@ func main() {
 		os.Exit(5)
 	}
 
-	if config.PostgreSQL.ConnString == "" {
+	if config.PostgreSQL.Connection == "" {
 		fmt.Fprintf(os.Stderr, "PostgreSQL connection string required: %v\n", err)
 		os.Exit(6)
 	}
-	connConfig, err := pgx.ParseConfig(config.PostgreSQL.ConnString)
+	connConfig, err := pgx.ParseConfig(config.PostgreSQL.Connection)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "PostgreSQL connection string failed to parse: %v\n", err)
 		os.Exit(6)
