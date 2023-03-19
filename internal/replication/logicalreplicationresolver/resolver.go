@@ -3,6 +3,7 @@ package logicalreplicationresolver
 import (
 	"github.com/go-errors/errors"
 	"github.com/jackc/pglogrepl"
+	"github.com/noctarius/event-stream-prototype/internal/configuration"
 	"github.com/noctarius/event-stream-prototype/internal/eventhandler"
 	"github.com/noctarius/event-stream-prototype/internal/logging"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog"
@@ -16,9 +17,17 @@ type LogicalReplicationResolver struct {
 	systemCatalog *systemcatalog.SystemCatalog
 	relations     map[uint32]*pglogrepl.RelationMessage
 	eventQueues   map[string]*replicationQueue
+
+	genReadEvent          bool
+	genInsertEvent        bool
+	genUpdateEvent        bool
+	genDeleteEvent        bool
+	genTruncateEvent      bool
+	genCompressionEvent   bool
+	genDecompressionEvent bool
 }
 
-func NewLogicalReplicationResolver(dispatcher *eventhandler.Dispatcher,
+func NewLogicalReplicationResolver(config *configuration.Config, dispatcher *eventhandler.Dispatcher,
 	systemCatalog *systemcatalog.SystemCatalog) *LogicalReplicationResolver {
 
 	return &LogicalReplicationResolver{
@@ -26,6 +35,14 @@ func NewLogicalReplicationResolver(dispatcher *eventhandler.Dispatcher,
 		systemCatalog: systemCatalog,
 		relations:     make(map[uint32]*pglogrepl.RelationMessage, 0),
 		eventQueues:   make(map[string]*replicationQueue, 0),
+
+		genReadEvent:          configuration.GetOrDefault(config, "timescaledb.events.read", true),
+		genInsertEvent:        configuration.GetOrDefault(config, "timescaledb.events.insert", true),
+		genUpdateEvent:        configuration.GetOrDefault(config, "timescaledb.events.update", true),
+		genDeleteEvent:        configuration.GetOrDefault(config, "timescaledb.events.delete", true),
+		genTruncateEvent:      configuration.GetOrDefault(config, "timescaledb.events.truncate", true),
+		genCompressionEvent:   configuration.GetOrDefault(config, "timescaledb.events.compression", true),
+		genDecompressionEvent: configuration.GetOrDefault(config, "timescaledb.events.decompression", true),
 	}
 }
 
@@ -119,6 +136,11 @@ func (l *LogicalReplicationResolver) OnInsertEvent(
 					"COMPRESSION EVENT %s.%s FOR CHUNK %s.%s", uncompressedHypertable.SchemaName(),
 					uncompressedHypertable.HypertableName(), rel.Namespace, rel.RelationName,
 				)
+
+				if !l.genCompressionEvent {
+					return nil
+				}
+
 				return l.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
 					notificator.NotifyCompressionReplicationEventHandler(
 						func(handler eventhandler.CompressionReplicationEventHandler) error {
@@ -127,6 +149,10 @@ func (l *LogicalReplicationResolver) OnInsertEvent(
 					)
 				})
 			} else {
+				if !l.genInsertEvent {
+					return nil
+				}
+
 				enqueue := func() error {
 					return l.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
 						notificator.NotifyHypertableReplicationEventHandler(
@@ -147,11 +173,6 @@ func (l *LogicalReplicationResolver) OnInsertEvent(
 					}); ok {
 						return nil
 					}
-				}
-
-				// TODO implement real selection filtering
-				if hypertable.HypertableName() != "test" {
-					return nil
 				}
 
 				if chunk.CompressedChunkId() != nil && !chunk.IsPartiallyCompressed() {
@@ -190,15 +211,35 @@ func (l *LogicalReplicationResolver) OnUpdateEvent(
 			})
 		}
 	} else {
+		if !l.genUpdateEvent {
+			return nil
+		}
+
 		chunk, hypertable := l.resolveChunkAndHypertable(rel.Namespace, rel.RelationName)
 		if hypertable != nil {
-			return l.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
-				notificator.NotifyHypertableReplicationEventHandler(
-					func(handler eventhandler.HypertableReplicationEventHandler) error {
-						return handler.OnUpdateEvent(xld, hypertable, chunk, oldValues, newValues)
-					},
-				)
-			})
+			enqueue := func() error {
+				return l.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
+					notificator.NotifyHypertableReplicationEventHandler(
+						func(handler eventhandler.HypertableReplicationEventHandler) error {
+							return handler.OnUpdateEvent(xld, hypertable, chunk, oldValues, newValues)
+						},
+					)
+				})
+			}
+
+			if l.isSnapshotting(chunk) {
+				queue := l.eventQueues[chunk.CanonicalName()]
+				if ok := queue.push(func(snapshot pglogrepl.LSN) error {
+					if xld.ServerWALEnd < snapshot {
+						return nil
+					}
+					return enqueue()
+				}); ok {
+					return nil
+				}
+			}
+
+			return enqueue()
 		}
 	}
 	return nil
@@ -230,6 +271,11 @@ func (l *LogicalReplicationResolver) OnDeleteEvent(
 						"DECOMPRESSION EVENT %s.%s FOR CHUNK %s.%s", uncompressedHypertable.SchemaName(),
 						uncompressedHypertable.HypertableName(), chunk.SchemaName(), chunk.TableName(),
 					)
+
+					if !l.genDecompressionEvent {
+						return nil
+					}
+
 					if err := l.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
 						notificator.NotifyCompressionReplicationEventHandler(
 							func(handler eventhandler.CompressionReplicationEventHandler) error {
@@ -251,21 +297,45 @@ func (l *LogicalReplicationResolver) OnDeleteEvent(
 			})
 		}
 	} else {
+		if !l.genUpdateEvent {
+			return nil
+		}
+
 		chunk, hypertable := l.resolveChunkAndHypertable(rel.Namespace, rel.RelationName)
 		if hypertable != nil {
-			return l.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
-				notificator.NotifyHypertableReplicationEventHandler(
-					func(handler eventhandler.HypertableReplicationEventHandler) error {
-						return handler.OnDeleteEvent(xld, hypertable, chunk, oldValues)
-					},
-				)
-			})
+			enqueue := func() error {
+				return l.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
+					notificator.NotifyHypertableReplicationEventHandler(
+						func(handler eventhandler.HypertableReplicationEventHandler) error {
+							return handler.OnDeleteEvent(xld, hypertable, chunk, oldValues)
+						},
+					)
+				})
+			}
+
+			if l.isSnapshotting(chunk) {
+				queue := l.eventQueues[chunk.CanonicalName()]
+				if ok := queue.push(func(snapshot pglogrepl.LSN) error {
+					if xld.ServerWALEnd < snapshot {
+						return nil
+					}
+					return enqueue()
+				}); ok {
+					return nil
+				}
+			}
+
+			return enqueue()
 		}
 	}
 	return nil
 }
 
 func (l *LogicalReplicationResolver) OnTruncateEvent(xld pglogrepl.XLogData, msg *pglogrepl.TruncateMessage) error {
+	if !l.genTruncateEvent {
+		return nil
+	}
+
 	//TODO implement me
 	logger.Printf("Truncate: %+v", msg)
 	return nil
