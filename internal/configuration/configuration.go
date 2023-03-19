@@ -114,7 +114,7 @@ func GetOrDefault[V any](config *Config, canonicalProperty string, defaultValue 
 
 	if !element.IsZero() &&
 		!(element.Kind() == reflect.Ptr && element.IsNil()) {
-		return element.Interface().(V)
+		return element.Convert(reflect.TypeOf(defaultValue)).Interface().(V)
 	}
 	return defaultValue
 }

@@ -2,14 +2,14 @@ package model
 
 type Column struct {
 	name         string
-	dataType     int
+	dataType     uint32
 	typeName     string
 	nullable     bool
 	identity     bool
 	defaultValue *string
 }
 
-func NewColumn(name string, dataType int, typeName string, nullable, identity bool, defaultValue *string) Column {
+func NewColumn(name string, dataType uint32, typeName string, nullable, identity bool, defaultValue *string) Column {
 	return Column{
 		name:         name,
 		dataType:     dataType,
@@ -24,7 +24,7 @@ func (c Column) Name() string {
 	return c.name
 }
 
-func (c Column) DataType() int {
+func (c Column) DataType() uint32 {
 	return c.dataType
 }
 

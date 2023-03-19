@@ -24,12 +24,12 @@ func (s *systemCatalogReplicationEventHandler) OnRelationEvent(
 		hypertable := s.systemCatalog.FindHypertableByName(msg.Namespace, msg.RelationName)
 		columns := make([]model.Column, len(msg.Columns))
 		for i, c := range msg.Columns {
-			dataType, err := model.DataTypeByOID(int(c.DataType))
+			dataType, err := model.DataTypeByOID(c.DataType)
 			if err != nil {
 				return err
 			}
 
-			columns[i] = model.NewColumn(c.Name, int(c.DataType), string(dataType), false, false, nil)
+			columns[i] = model.NewColumn(c.Name, c.DataType, string(dataType), false, false, nil)
 		}
 		s.systemCatalog.ApplySchemaUpdate(hypertable, columns)
 	}

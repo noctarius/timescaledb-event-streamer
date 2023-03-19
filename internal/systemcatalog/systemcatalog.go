@@ -371,7 +371,7 @@ func (sc *SystemCatalog) readHypertableSchema(
 	columns := make([]model.Column, 0)
 	if err := session.QueryFunc(context.Background(), func(row pgx.Row) error {
 		var name string
-		var oid int
+		var oid uint32
 		var nullable, identifier bool
 		var defaultValue *string
 

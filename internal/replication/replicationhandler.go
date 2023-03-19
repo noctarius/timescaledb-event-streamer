@@ -250,8 +250,10 @@ func (rh *replicationHandler) receiveNextMessage(connection *pgconn.PgConn,
 	return msg, nil
 }
 
-func (rh *replicationHandler) decodeValues(relation *pglogrepl.RelationMessage, tupleData *pglogrepl.TupleData) map[string]interface{} {
-	values := map[string]interface{}{}
+func (rh *replicationHandler) decodeValues(relation *pglogrepl.RelationMessage,
+	tupleData *pglogrepl.TupleData) map[string]any {
+
+	values := map[string]any{}
 	if tupleData == nil {
 		return values
 	}
@@ -262,7 +264,8 @@ func (rh *replicationHandler) decodeValues(relation *pglogrepl.RelationMessage, 
 		case 'n': // null
 			values[colName] = nil
 		case 'u': // unchanged toast
-			// This TOAST value was not changed. TOAST values are not stored in the tuple, and logical replication doesn't want to spend a disk read to fetch its value for you.
+			// This TOAST value was not changed. TOAST values are not stored in the tuple, and
+			// logical replication doesn't want to spend a disk read to fetch its value for you.
 		case 't': //text
 			val, err := decodeTextColumnData(rh.typeMap, col.Data, relation.Columns[idx].DataType)
 			if err != nil {
@@ -274,7 +277,7 @@ func (rh *replicationHandler) decodeValues(relation *pglogrepl.RelationMessage, 
 	return values
 }
 
-func decodeTextColumnData(mi *pgtype.Map, data []byte, dataType uint32) (interface{}, error) {
+func decodeTextColumnData(mi *pgtype.Map, data []byte, dataType uint32) (any, error) {
 	if dt, ok := mi.TypeForOID(dataType); ok {
 		return dt.Codec.DecodeValue(mi, dataType, pgtype.TextFormatCode, data)
 	}

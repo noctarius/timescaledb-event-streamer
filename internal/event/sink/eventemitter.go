@@ -79,24 +79,43 @@ func (e *eventEmitterEventHandler) OnCommitEvent(xld pglogrepl.XLogData, msg *pg
 func (e *eventEmitterEventHandler) OnInsertEvent(xld pglogrepl.XLogData, hypertable *model.Hypertable,
 	_ *model.Chunk, newValues map[string]any) error {
 
+	cnValues, err := e.convertValues(hypertable, newValues)
+	if err != nil {
+		return err
+	}
+
 	return e.emit(xld, hypertable, func(source schema.Struct) schema.Struct {
-		return schema.CreateEvent(newValues, source)
+		return schema.CreateEvent(cnValues, source)
 	})
 }
 
 func (e *eventEmitterEventHandler) OnUpdateEvent(xld pglogrepl.XLogData, hypertable *model.Hypertable,
 	_ *model.Chunk, oldValues, newValues map[string]any) error {
 
+	coValues, err := e.convertValues(hypertable, oldValues)
+	if err != nil {
+		return err
+	}
+	cnValues, err := e.convertValues(hypertable, newValues)
+	if err != nil {
+		return err
+	}
+
 	return e.emit(xld, hypertable, func(source schema.Struct) schema.Struct {
-		return schema.UpdateEvent(oldValues, newValues, source)
+		return schema.UpdateEvent(coValues, cnValues, source)
 	})
 }
 
 func (e *eventEmitterEventHandler) OnDeleteEvent(xld pglogrepl.XLogData, hypertable *model.Hypertable,
 	_ *model.Chunk, oldValues map[string]any) error {
 
+	coValues, err := e.convertValues(hypertable, oldValues)
+	if err != nil {
+		return err
+	}
+
 	return e.emit(xld, hypertable, func(source schema.Struct) schema.Struct {
-		return schema.DeleteEvent(oldValues, source)
+		return schema.DeleteEvent(coValues, source)
 	})
 }
 
@@ -127,6 +146,32 @@ func (e *eventEmitterEventHandler) emit0(lsn pglogrepl.LSN, timestamp time.Time,
 	source := schema.Source(lsn, timestamp, snapshot, hypertable)
 	payload := eventProvider(source)
 	return e.eventEmitter.emit(hypertable, timestamp, schema.Envelope(envelopeSchema, payload))
+}
+
+func (e *eventEmitterEventHandler) convertValues(hypertable *model.Hypertable,
+	values map[string]any) (map[string]any, error) {
+
+	if values == nil {
+		return nil, nil
+	}
+
+	result := make(map[string]any)
+	for _, column := range hypertable.Columns() {
+		if v, present := values[column.Name()]; present {
+			converter, err := model.ConverterByOID(column.DataType())
+			if err != nil {
+				return nil, err
+			}
+			if converter != nil {
+				v, err = converter(column.DataType(), v)
+				if err != nil {
+					return nil, err
+				}
+			}
+			result[column.Name()] = v
+		}
+	}
+	return result, nil
 }
 
 type compressionAwareEventEmitterEventHandler struct {
