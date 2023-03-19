@@ -102,17 +102,17 @@ NATS specific configuration, which is only used if `sink.type` is set to `nats`.
 
 Kafka specific configuration, which is only used if `sink.type` is set to `kafka`.
 
-| Property                    |                                                                                                  Description |       Data Type | Default Value |
-|-----------------------------|-------------------------------------------------------------------------------------------------------------:|----------------:|--------------:|
-| `sink.kafka.brokers`        |                                                                                        The Kafka broker urls | array of string |   empty array |
-| `sink.kafka.idempotent`     |                                                       The property defines if message handling is idempotent |         boolean |         false |
-| `sink.kafka.sasl.enabled`   |                                                        The property defines if SASL authorization is enabled |         boolean |         false | 
-| `sink.kafka.sasl.user`      |                                                            The user value to be used with SASL authorization |          string |  empty string | 
-| `sink.kafka.sasl.password`  |                                                        The password value to be used with SASL authorization |          string |  empty string | 
-| `sink.kafka.sasl.mechanism` |                                   The mechanism to be used with SASL authorization. Valid values are `PLAIN` |          string |       `PLAIN` | 
-| `sink.kafka.tls.enabled`    |                                                                       The property defines if TLS is enabled |         boolean |         false | 
-| `sink.kafka.tls.skipverify` |                                          The property defines if verification of TLS certificates is skipped |         boolean |         false | 
-| `sink.kafka.tls.clientauth` | The property defines the client auth value (as defined in [Go](https://pkg.go.dev/crypto/tls#ClientAuthType) |         boolean |         false | 
+| Property                    |                                                                                                   Description |       Data Type | Default Value |
+|-----------------------------|--------------------------------------------------------------------------------------------------------------:|----------------:|--------------:|
+| `sink.kafka.brokers`        |                                                                                         The Kafka broker urls | array of string |   empty array |
+| `sink.kafka.idempotent`     |                                                        The property defines if message handling is idempotent |         boolean |         false |
+| `sink.kafka.sasl.enabled`   |                                                         The property defines if SASL authorization is enabled |         boolean |         false | 
+| `sink.kafka.sasl.user`      |                                                             The user value to be used with SASL authorization |          string |  empty string | 
+| `sink.kafka.sasl.password`  |                                                         The password value to be used with SASL authorization |          string |  empty string | 
+| `sink.kafka.sasl.mechanism` |                                    The mechanism to be used with SASL authorization. Valid values are `PLAIN` |          string |       `PLAIN` | 
+| `sink.kafka.tls.enabled`    |                                                                        The property defines if TLS is enabled |         boolean |         false | 
+| `sink.kafka.tls.skipverify` |                                           The property defines if verification of TLS certificates is skipped |         boolean |         false | 
+| `sink.kafka.tls.clientauth` | The property defines the client auth value (as defined in [Go](https://pkg.go.dev/crypto/tls#ClientAuthType)) |         boolean |         false | 
 
 # Includes and Excludes Patterns
 
