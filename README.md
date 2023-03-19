@@ -9,6 +9,9 @@ operations inside the database generate a corresponding set of events, which
 are commonly distributed through a messaging connector, such as Kafka, NATS,
 or similar.
 
+_**Attention:** This software is in prototyping / alpha stage and not meant for
+production usage. No guarantees on the functionality are given._
+
 # Getting Started
 
 `timescaledb-event-streamer` requires the [Go runtime (version 1.20+)](https://go.dev/doc/install)
