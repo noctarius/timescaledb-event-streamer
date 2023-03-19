@@ -48,7 +48,7 @@ func (r *replicatorImpl) StartReplication(schemaRegistry *schema.Registry,
 	}
 
 	// Set the mapping of logical replication events to the internal catalog
-	resolver := logicalreplicationresolver.NewLogicalReplicationResolver(dispatcher, systemCatalog)
+	resolver := logicalreplicationresolver.NewLogicalReplicationResolver(r.config, dispatcher, systemCatalog)
 
 	// Register event handlers
 	dispatcher.RegisterReplicationEventHandler(resolver)
