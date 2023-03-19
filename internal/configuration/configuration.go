@@ -103,7 +103,7 @@ func GetOrDefault[V any](config *Config, canonicalProperty string, defaultValue 
 
 	properties := strings.Split(canonicalProperty, ".")
 
-	element := reflect.ValueOf(config)
+	element := reflect.ValueOf(*config)
 	for _, property := range properties {
 		if e, ok := findProperty(element, property); ok {
 			element = e
@@ -112,8 +112,9 @@ func GetOrDefault[V any](config *Config, canonicalProperty string, defaultValue 
 		}
 	}
 
-	if !element.IsZero() && !element.IsNil() {
-		return element.Interface()
+	if !element.IsZero() &&
+		!(element.Kind() == reflect.Ptr && element.IsNil()) {
+		return element.Interface().(V)
 	}
 	return defaultValue
 }
@@ -127,11 +128,12 @@ func findEnvProperty[V any](canonicalProperty string, defaultValue V) (V, bool) 
 	if val, ok := os.LookupEnv(envVarName); ok {
 		v := reflect.ValueOf(val)
 		cv := v.Convert(t)
-		if !cv.IsZero() && !cv.IsNil() {
-			return cv.Interface(), true
+		if !cv.IsZero() &&
+			!(cv.Kind() == reflect.Ptr && cv.IsNil()) {
+			return cv.Interface().(V), true
 		}
 	}
-	return reflect.Zero(t).Interface(), false
+	return reflect.Zero(t).Interface().(V), false
 }
 
 func findProperty(element reflect.Value, property string) (reflect.Value, bool) {
