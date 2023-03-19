@@ -1,4 +1,4 @@
-postgresql.connstring = 'postgres://repl_user@localhost:5432/postgres'
+postgresql.connection = 'postgres://repl_user@localhost:5432/postgres'
 postgresql.password = '...'
 
 sink.type = 'nats'
@@ -6,6 +6,17 @@ sink.nats.address = 'nats://localhost:4222'
 sink.nats.authorization = "userinfo"
 sink.nats.userinfo.username = 'publisher'
 sink.nats.userinfo.password = '...'
+
+#sink.type = 'stdout'
+
+#sink.type = 'kafka'
+#sink.kafka.brokers = ['']
+#sink.kafka.sasl.enabled = true
+#sink.kafka.sasl.user = '$ConnectionString'
+#sink.kafka.sasl.mechanism = 'PLAIN'
+#sink.kafka.tls.enabled = true
+#sink.kafka.tsl.skipverify = true
+#sink.kafka.tsl.clientauth = 0
 
 topic.namingstrategy.type = 'debezium'
 topic.prefix = 'timescaledb'

@@ -1,10 +1,19 @@
 package configuration
 
+import (
+	"crypto/tls"
+	"github.com/Shopify/sarama"
+	"os"
+	"reflect"
+	"strings"
+)
+
 type SinkType string
 
 const (
 	Stdout SinkType = "stdout"
 	NATS   SinkType = "nats"
+	Kafka  SinkType = "kafka"
 )
 
 type NamingStrategyType string
@@ -46,6 +55,21 @@ type Config struct {
 				Seed string `toml:"seed"`
 			} `toml:"jwt"`
 		} `toml:"nats"`
+		Kafka struct {
+			Brokers    []string `toml:"brokers"`
+			Idempotent bool     `toml:"idempotent"`
+			Sasl       struct {
+				Enabled   bool                 `toml:"user"`
+				User      string               `toml:"user"`
+				Password  string               `toml:"password"`
+				Mechanism sarama.SASLMechanism `toml:"mechanism"`
+			} `toml:"sasl"`
+			TLS struct {
+				Enabled    bool               `toml:"enabled"`
+				SkipVerify bool               `toml:"skipverify"`
+				ClientAuth tls.ClientAuthType `toml:"clientauth"`
+			} `toml:"tls"`
+		} `toml:"kafka"`
 	} `toml:"sink"`
 
 	Topic struct {
@@ -70,4 +94,57 @@ type Config struct {
 			Decompression bool `toml:"decompression"`
 		} `toml:"events"`
 	} `toml:"timescaledb"`
+}
+
+func GetOrDefault[V any](config *Config, canonicalProperty string, defaultValue V) V {
+	if env, ok := findEnvProperty(canonicalProperty, defaultValue); ok {
+		return env
+	}
+
+	properties := strings.Split(canonicalProperty, ".")
+
+	element := reflect.ValueOf(config)
+	for _, property := range properties {
+		if e, ok := findProperty(element, property); ok {
+			element = e
+		} else {
+			return defaultValue
+		}
+	}
+
+	if !element.IsZero() && !element.IsNil() {
+		return element.Interface()
+	}
+	return defaultValue
+}
+
+func findEnvProperty[V any](canonicalProperty string, defaultValue V) (V, bool) {
+	t := reflect.TypeOf(defaultValue)
+
+	envVarName := strings.ToUpper(canonicalProperty)
+	envVarName = strings.ReplaceAll(envVarName, "_", "__")
+	envVarName = strings.ReplaceAll(envVarName, ".", "_")
+	if val, ok := os.LookupEnv(envVarName); ok {
+		v := reflect.ValueOf(val)
+		cv := v.Convert(t)
+		if !cv.IsZero() && !cv.IsNil() {
+			return cv.Interface(), true
+		}
+	}
+	return reflect.Zero(t).Interface(), false
+}
+
+func findProperty(element reflect.Value, property string) (reflect.Value, bool) {
+	t := element.Type()
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+		if f.PkgPath != "" && !f.Anonymous {
+			continue
+		}
+
+		if f.Tag.Get("toml") == property {
+			return element.Field(i), true
+		}
+	}
+	return reflect.Value{}, false
 }
