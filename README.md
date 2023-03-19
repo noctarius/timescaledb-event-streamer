@@ -184,7 +184,7 @@ and `public.status_12h`, but not `public.status_messages`.
 Accordingly, it is possible to match a specific hypertable in all customer schemata
 using a pattern such as `timescaledb.hypertables.includes = [ 'customer*.metrics' ]`.
 
-# Plus: One or More Matching
+### Plus: One or More Matching
 
 | Schema |     Hypertable |         Canonical Name |
 |--------|---------------:|-----------------------:|
@@ -204,7 +204,7 @@ hypertables `public.status_1_month` and `public.status_12_month`, but not
 Accordingly, it is possible to match a specific hypertable in all customer schemata
 using a pattern such as `timescaledb.hypertables.includes = [ 'customer+.metrics' ]`.
 
-# Question Mark: Exactly One Matching
+### Question Mark: Exactly One Matching
 
 | Schema |    Hypertable |       Canonical Name |
 |--------|--------------:|---------------------:|
