@@ -5,22 +5,13 @@ import (
 	"fmt"
 	"github.com/BurntSushi/toml"
 	"github.com/go-errors/errors"
-	"github.com/jackc/pgx/v5"
+	"github.com/noctarius/event-stream-prototype/internal"
 	"github.com/noctarius/event-stream-prototype/internal/configuration"
-	"github.com/noctarius/event-stream-prototype/internal/event/sink"
-	"github.com/noctarius/event-stream-prototype/internal/event/sink/kafka"
-	"github.com/noctarius/event-stream-prototype/internal/event/sink/nats"
-	"github.com/noctarius/event-stream-prototype/internal/event/sink/stdout"
-	"github.com/noctarius/event-stream-prototype/internal/event/topic"
-	"github.com/noctarius/event-stream-prototype/internal/replication"
-	"github.com/noctarius/event-stream-prototype/internal/schema"
 	"io"
 	"os"
 	"os/signal"
 	"syscall"
 )
-
-const publicationName = "pg_ts_streamer"
 
 var (
 	configurationFile string
@@ -62,36 +53,10 @@ func main() {
 		os.Exit(6)
 	}
 
-	connection := configuration.GetOrDefault(config, "postgresql.connection", "host=localhost user=repl_user")
-	connConfig, err := pgx.ParseConfig(connection)
+	streamer, err, exitCode := internal.NewStreamer(config)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "PostgreSQL connection string failed to parse: %v\n", err)
-		os.Exit(6)
-	}
-
-	pgPassword := configuration.GetOrDefault(config, "postgresql.password", "")
-	if pgPassword != "" {
-		connConfig.Password = pgPassword
-	}
-
-	pgPublication := configuration.GetOrDefault(config, "postgresql.publication", "")
-	if pgPublication == "" {
-		config.PostgreSQL.Publication = publicationName
-	}
-
-	replicator := replication.NewReplicator(config, connConfig)
-	schemaRegistry := schema.NewSchemaRegistry()
-
-	topicNameGenerator, err := newNameGenerator(config)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v", err)
-		os.Exit(7)
-	}
-
-	eventEmitter, err := newEventEmitter(config, schemaRegistry, topicNameGenerator)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v", err)
-		os.Exit(8)
+		fmt.Fprintf(os.Stderr, err.Error())
+		os.Exit(exitCode)
 	}
 
 	sigs := make(chan os.Signal, 1)
@@ -100,56 +65,17 @@ func main() {
 
 	go func() {
 		<-sigs
-		if err := replicator.StopReplication(); err != nil {
+		if err := streamer.Stop(); err != nil {
 			fmt.Fprintf(os.Stderr, "Hard error when stopping replication: %v\n", err)
 			os.Exit(1)
 		}
 		done <- true
 	}()
 
-	if err := replicator.StartReplication(schemaRegistry, topicNameGenerator, eventEmitter); err != nil {
+	if err := streamer.Start(); err != nil {
 		fmt.Fprintln(os.Stderr, err.(*errors.Error).ErrorStack())
 		os.Exit(1)
 	}
 
 	<-done
-}
-
-func newEventEmitter(config *configuration.Config, schemaRegistry *schema.Registry,
-	topicNameGenerator *topic.NameGenerator) (*sink.EventEmitter, error) {
-
-	s, err := newSink(config)
-	if err != nil {
-		return nil, err
-	}
-
-	return sink.NewEventEmitter(schemaRegistry, topicNameGenerator, s), nil
-}
-
-func newSink(config *configuration.Config) (sink.Sink, error) {
-	switch configuration.GetOrDefault(config, "sink.type", configuration.Stdout) {
-	case configuration.Stdout:
-		return stdout.NewStdoutSink(), nil
-	case configuration.NATS:
-		return nats.NewNatsSink(config)
-	case configuration.Kafka:
-		return kafka.NewKafkaSink(config)
-	}
-	return nil, fmt.Errorf("SinkType '%s' doesn't exist", config.Sink.Type)
-}
-
-func newNameGenerator(config *configuration.Config) (*topic.NameGenerator, error) {
-	namingStrategy, err := newNamingStrategy(config)
-	if err != nil {
-		return nil, err
-	}
-	return topic.NewNameGenerator(config.Topic.Prefix, namingStrategy), nil
-}
-
-func newNamingStrategy(config *configuration.Config) (topic.NamingStrategy, error) {
-	switch configuration.GetOrDefault(config, "topic.namingstrategy.type", configuration.Debezium) {
-	case configuration.Debezium:
-		return &topic.DebeziumNamingStrategy{}, nil
-	}
-	return nil, fmt.Errorf("NamingStrategyType '%s' doesn't exist", config.Topic.NamingStrategy.Type)
 }
