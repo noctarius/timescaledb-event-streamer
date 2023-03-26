@@ -21,15 +21,19 @@ type Streamer struct {
 }
 
 func NewStreamer(config *configuration.Config) (*Streamer, error, int) {
-	connection := configuration.GetOrDefault(config, "postgresql.connection", "host=localhost user=repl_user")
-	connConfig, err := pgx.ParseConfig(connection)
-	if err != nil {
-		return nil, errors.Wrap(err, "PostgreSQL connection string failed to parse"), 6
-	}
+	if config.PostgreSQL.PgxConfig == nil {
+		connection := configuration.GetOrDefault(config, "postgresql.connection", "host=localhost user=repl_user")
+		connConfig, err := pgx.ParseConfig(connection)
+		if err != nil {
+			return nil, errors.Wrap(err, "PostgreSQL connection string failed to parse"), 6
+		}
 
-	pgPassword := configuration.GetOrDefault(config, "postgresql.password", "")
-	if pgPassword != "" {
-		connConfig.Password = pgPassword
+		pgPassword := configuration.GetOrDefault(config, "postgresql.password", "")
+		if pgPassword != "" {
+			connConfig.Password = pgPassword
+		}
+
+		config.PostgreSQL.PgxConfig = connConfig
 	}
 
 	pgPublication := configuration.GetOrDefault(config, "postgresql.publication", "")
@@ -37,7 +41,7 @@ func NewStreamer(config *configuration.Config) (*Streamer, error, int) {
 		config.PostgreSQL.Publication = publicationName
 	}
 
-	replicator := replication.NewReplicator(config, connConfig)
+	replicator := replication.NewReplicator(config, config.PostgreSQL.PgxConfig)
 	schemaRegistry := schema.NewSchemaRegistry()
 
 	topicNameGenerator, err := newNameGenerator(config)

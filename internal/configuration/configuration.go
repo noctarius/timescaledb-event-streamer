@@ -3,6 +3,7 @@ package configuration
 import (
 	"crypto/tls"
 	"github.com/Shopify/sarama"
+	"github.com/jackc/pgx/v5"
 	"os"
 	"reflect"
 	"strings"
@@ -34,6 +35,7 @@ type PostgreSQLConfig struct {
 	Connection  string `toml:"connection"`
 	Password    string `toml:"password"`
 	Publication string `toml:"publication"`
+	PgxConfig   *pgx.ConnConfig
 }
 
 type SinkConfig struct {
