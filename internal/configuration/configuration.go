@@ -30,70 +30,95 @@ const (
 	Jwt         NatsAuthorizationType = "jwt"
 )
 
+type PostgreSQLConfig struct {
+	Connection  string `toml:"connection"`
+	Password    string `toml:"password"`
+	Publication string `toml:"publication"`
+}
+
+type SinkConfig struct {
+	Type  SinkType    `toml:"type"`
+	Nats  NatsConfig  `toml:"nats"`
+	Kafka KafkaConfig `toml:"kafka"`
+}
+
+type TopicConfig struct {
+	NamingStrategy TopicNamingStrategyConfig `toml:"namingstrategy"`
+	Prefix         string                    `toml:"prefix"`
+}
+
+type TimescaleDBConfig struct {
+	Hypertables TimescaleHypertablesConfig `toml:"hypertables"`
+	Events      TimescaleEventsConfig      `toml:"events"`
+}
+
+type NatsUserInfoConfig struct {
+	Username string `toml:"username"`
+	Password string `toml:"password"`
+}
+
+type NatsCredentialsConfig struct {
+	Certificate string   `toml:"certificate"`
+	Seeds       []string `toml:"seeds"`
+}
+
+type NatsJWTConfig struct {
+	JWT  string `toml:"jwt"`
+	Seed string `toml:"seed"`
+}
+
+type NatsConfig struct {
+	Address       string                `toml:"address"`
+	Authorization NatsAuthorizationType `toml:"authorization"`
+	UserInfo      NatsUserInfoConfig    `toml:"userinfo"`
+	Credentials   NatsCredentialsConfig `toml:"credentials"`
+	JWT           NatsJWTConfig         `toml:"jwt"`
+}
+
+type KafkaSaslConfig struct {
+	Enabled   bool                 `toml:"user"`
+	User      string               `toml:"user"`
+	Password  string               `toml:"password"`
+	Mechanism sarama.SASLMechanism `toml:"mechanism"`
+}
+
+type KafkaTLSConfig struct {
+	Enabled    bool               `toml:"enabled"`
+	SkipVerify bool               `toml:"skipverify"`
+	ClientAuth tls.ClientAuthType `toml:"clientauth"`
+}
+
+type KafkaConfig struct {
+	Brokers    []string        `toml:"brokers"`
+	Idempotent bool            `toml:"idempotent"`
+	Sasl       KafkaSaslConfig `toml:"sasl"`
+	TLS        KafkaTLSConfig  `toml:"tls"`
+}
+
+type TopicNamingStrategyConfig struct {
+	Type NamingStrategyType `toml:"type"`
+}
+
+type TimescaleHypertablesConfig struct {
+	Excludes []string `toml:"excludes"`
+	Includes []string `toml:"includes"`
+}
+
+type TimescaleEventsConfig struct {
+	Read          bool `toml:"read"`
+	Insert        bool `toml:"insert"`
+	Update        bool `toml:"update"`
+	Delete        bool `toml:"delete"`
+	Truncate      bool `toml:"truncate"`
+	Compression   bool `toml:"compression"`
+	Decompression bool `toml:"decompression"`
+}
+
 type Config struct {
-	PostgreSQL struct {
-		Connection  string `toml:"connection"`
-		Password    string `toml:"password"`
-		Publication string `toml:"publication"`
-	} `toml:"postgresql"`
-
-	Sink struct {
-		Type SinkType `toml:"type"`
-		Nats struct {
-			Address       string                `toml:"address"`
-			Authorization NatsAuthorizationType `toml:"authorization"`
-			UserInfo      struct {
-				Username string `toml:"username"`
-				Password string `toml:"password"`
-			} `toml:"userinfo"`
-			Credentials struct {
-				Certificate string   `toml:"certificate"`
-				Seeds       []string `toml:"seeds"`
-			} `toml:"credentials"`
-			JWT struct {
-				JWT  string `toml:"jwt"`
-				Seed string `toml:"seed"`
-			} `toml:"jwt"`
-		} `toml:"nats"`
-		Kafka struct {
-			Brokers    []string `toml:"brokers"`
-			Idempotent bool     `toml:"idempotent"`
-			Sasl       struct {
-				Enabled   bool                 `toml:"user"`
-				User      string               `toml:"user"`
-				Password  string               `toml:"password"`
-				Mechanism sarama.SASLMechanism `toml:"mechanism"`
-			} `toml:"sasl"`
-			TLS struct {
-				Enabled    bool               `toml:"enabled"`
-				SkipVerify bool               `toml:"skipverify"`
-				ClientAuth tls.ClientAuthType `toml:"clientauth"`
-			} `toml:"tls"`
-		} `toml:"kafka"`
-	} `toml:"sink"`
-
-	Topic struct {
-		NamingStrategy struct {
-			Type NamingStrategyType `toml:"type"`
-		} `toml:"namingstrategy"`
-		Prefix string `toml:"prefix"`
-	} `toml:"topic"`
-
-	TimescaleDB struct {
-		Hypertables struct {
-			Excludes []string `toml:"excludes"`
-			Includes []string `toml:"includes"`
-		} `toml:"hypertables"`
-		Events struct {
-			Read          bool `toml:"read"`
-			Insert        bool `toml:"insert"`
-			Update        bool `toml:"update"`
-			Delete        bool `toml:"delete"`
-			Truncate      bool `toml:"truncate"`
-			Compression   bool `toml:"compression"`
-			Decompression bool `toml:"decompression"`
-		} `toml:"events"`
-	} `toml:"timescaledb"`
+	PostgreSQL  PostgreSQLConfig  `toml:"postgresql"`
+	Sink        SinkConfig        `toml:"sink"`
+	Topic       TopicConfig       `toml:"topic"`
+	TimescaleDB TimescaleDBConfig `toml:"timescaledb"`
 }
 
 func GetOrDefault[V any](config *Config, canonicalProperty string, defaultValue V) V {
