@@ -50,8 +50,8 @@ func (r *replicatorImpl) StartReplication(schemaRegistry *schema.Registry,
 	snapshotter := snapshotting.NewSnapshotter(32, r.sideChannel, dispatcher)
 
 	// Set up the system catalog (replicating the Timescale internal representation)
-	systemCatalog, err := systemcatalog.NewSystemCatalog(r.connConfig.Database, r.publicationName, r.config,
-		schemaRegistry, topicNameGenerator, dispatcher, r.sideChannel, snapshotter)
+	systemCatalog, err := systemcatalog.NewSystemCatalog(r.connConfig.Database, r.config, schemaRegistry,
+		topicNameGenerator, dispatcher, r.sideChannel, snapshotter)
 	if err != nil {
 		return errors.Wrap(err, 0)
 	}

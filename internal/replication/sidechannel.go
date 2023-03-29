@@ -14,7 +14,42 @@ import (
 )
 
 const addTableToPublication = "ALTER PUBLICATION %s ADD TABLE %s"
+
 const dropTableFromPublication = "ALTER PUBLICATION %s DROP TABLE %s"
+
+const initialHypertableQuery = `
+SELECT h1.id, h1.schema_name, h1.table_name, h1.associated_schema_name, h1.associated_table_prefix, 
+	 h1.compression_state, h1.compressed_hypertable_id, coalesce(h2.is_distributed, false)
+FROM _timescaledb_catalog.hypertable h1
+LEFT JOIN timescaledb_information.hypertables h2 
+	 ON h2.hypertable_schema = h1.schema_name 
+	AND h2.hypertable_name = h1.table_name`
+
+const initialChunkQuery = `
+SELECT c1.id, c1.hypertable_id, c1.schema_name, c1.table_name, c1.compressed_chunk_id, c1.dropped, c1.status
+FROM _timescaledb_catalog.chunk c1
+LEFT JOIN timescaledb_information.chunks c2
+       ON c2.chunk_schema = c1.schema_name
+      AND c2.chunk_name = c1.table_name
+LEFT JOIN _timescaledb_catalog.chunk c3 ON c3.compressed_chunk_id = c1.id
+LEFT JOIN timescaledb_information.chunks c4
+       ON c4.chunk_schema = c3.schema_name
+      AND c4.chunk_name = c3.table_name
+ORDER BY c1.hypertable_id, coalesce(c2.range_start, c4.range_start)`
+
+const initialTableSchema = `
+SELECT
+   c.column_name,
+   t.oid::int,
+   CASE WHEN c.is_nullable = 'YES' THEN true ELSE false END,
+   CASE WHEN c.is_identity = 'YES' THEN true ELSE false END,
+   c.column_default
+FROM information_schema.columns c
+LEFT JOIN pg_catalog.pg_namespace n ON n.nspname = c.udt_schema
+LEFT JOIN pg_catalog.pg_type t ON t.typnamespace = n.oid AND t.typname = c.udt_name
+WHERE c.table_schema = '%s'
+  AND c.table_name = '%s'
+ORDER BY c.ordinal_position`
 
 type sideChannel struct {
 	connConfig        *pgx.ConnConfig
@@ -47,7 +82,7 @@ func (sc *sideChannel) QueryFuncWithTimeout(ctx context.Context, timeout time.Du
 	return sc.queryFuncWithTimeout(connection, ctx, timeout, fn, query, args...)
 }
 
-func (sc *sideChannel) NewSession(fn func(adapter channel.QuerySession) error) error {
+func (sc *sideChannel) NewSession(fn func(session channel.QuerySession) error) error {
 	connection, err := pgx.ConnectConfig(context.Background(), sc.connConfig)
 	if err != nil {
 		return fmt.Errorf("unable to connect to database: %v", err)
@@ -55,6 +90,76 @@ func (sc *sideChannel) NewSession(fn func(adapter channel.QuerySession) error) e
 	defer connection.Close(context.Background())
 
 	return fn(&sessionAdapter{connection: connection})
+}
+
+func (sc *sideChannel) ReadHypertables(cb func(hypertable *model.Hypertable) error) error {
+	return sc.NewSession(func(session channel.QuerySession) error {
+		return session.QueryFunc(context.Background(), func(row pgx.Row) error {
+			var id int32
+			var schemaName, hypertableName, associatedSchemaName, associatedTablePrefix string
+			var compressionState int16
+			var compressedHypertableId *int32
+			var distributed bool
+
+			if err := row.Scan(&id, &schemaName, &hypertableName, &associatedSchemaName,
+				&associatedTablePrefix, &compressionState, &compressedHypertableId, &distributed); err != nil {
+				return errors.Wrap(err, 0)
+			}
+
+			hypertable := model.NewHypertable(id, sc.connConfig.Database, schemaName, hypertableName,
+				associatedSchemaName, associatedTablePrefix, compressedHypertableId, compressionState, distributed)
+
+			logger.Printf("ADDED CATALOG ENTRY: HYPERTABLE %d => %+v", hypertable.Id(), hypertable)
+			return cb(hypertable)
+		}, initialHypertableQuery)
+	})
+}
+
+func (sc *sideChannel) ReadChunks(cb func(chunk *model.Chunk) error) error {
+	return sc.NewSession(func(session channel.QuerySession) error {
+		return session.QueryFunc(context.Background(), func(row pgx.Row) error {
+			var id, hypertableId int32
+			var schemaName, tableName string
+			var compressedChunkId *int32
+			var dropped bool
+			var status int32
+
+			if err := row.Scan(&id, &hypertableId, &schemaName, &tableName,
+				&compressedChunkId, &dropped, &status); err != nil {
+				return errors.Wrap(err, 0)
+			}
+
+			return cb(model.NewChunk(id, hypertableId, schemaName, tableName, dropped, status, compressedChunkId))
+		}, initialChunkQuery)
+	})
+}
+
+func (sc *sideChannel) ReadHypertableSchema(
+	session channel.QuerySession, hypertable *model.Hypertable) ([]model.Column, error) {
+
+	columns := make([]model.Column, 0)
+	if err := session.QueryFunc(context.Background(), func(row pgx.Row) error {
+		var name string
+		var oid uint32
+		var nullable, identifier bool
+		var defaultValue *string
+
+		if err := row.Scan(&name, &oid, &nullable, &identifier, &defaultValue); err != nil {
+			return errors.Wrap(err, 0)
+		}
+
+		dataType, err := model.DataTypeByOID(oid)
+		if err != nil {
+			return errors.Wrap(err, 0)
+		}
+
+		column := model.NewColumn(name, oid, string(dataType), nullable, identifier, defaultValue)
+		columns = append(columns, column)
+		return nil
+	}, fmt.Sprintf(initialTableSchema, hypertable.SchemaName(), hypertable.HypertableName())); err != nil {
+		return nil, errors.Wrap(err, 0)
+	}
+	return columns, nil
 }
 
 func (sc *sideChannel) AttachChunkToPublication(chunk *model.Chunk) error {

@@ -30,4 +30,10 @@ type QueryAdapter interface {
 
 	SnapshotTable(canonicalName string, startingLSN *pglogrepl.LSN,
 		cb func(lsn pglogrepl.LSN, values map[string]any) error) (pglogrepl.LSN, error)
+
+	ReadHypertables(cb func(hypertable *model.Hypertable) error) error
+
+	ReadChunks(cb func(chunk *model.Chunk) error) error
+
+	ReadHypertableSchema(session QuerySession, hypertable *model.Hypertable) ([]model.Column, error)
 }

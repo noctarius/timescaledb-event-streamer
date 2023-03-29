@@ -1,10 +1,8 @@
 package systemcatalog
 
 import (
-	"context"
 	"fmt"
 	"github.com/go-errors/errors"
-	"github.com/jackc/pgx/v5"
 	"github.com/noctarius/event-stream-prototype/internal/configuring"
 	"github.com/noctarius/event-stream-prototype/internal/event/topic"
 	"github.com/noctarius/event-stream-prototype/internal/eventhandler"
@@ -19,48 +17,10 @@ import (
 
 var logger = logging.NewLogger("SystemCatalog")
 
-const initialHypertableQuery = `
-SELECT h1.id, h1.schema_name, h1.table_name, h1.associated_schema_name, h1.associated_table_prefix, 
-	 h1.compression_state, h1.compressed_hypertable_id, coalesce(h2.is_distributed, false)
-FROM _timescaledb_catalog.hypertable h1
-LEFT JOIN timescaledb_information.hypertables h2 
-	 ON h2.hypertable_schema = h1.schema_name 
-	AND h2.hypertable_name = h1.table_name`
-
-const initialChunkQuery = `
-SELECT c1.id, c1.hypertable_id, c1.schema_name, c1.table_name, c1.compressed_chunk_id, c1.dropped, c1.status
-FROM _timescaledb_catalog.chunk c1
-LEFT JOIN timescaledb_information.chunks c2
-       ON c2.chunk_schema = c1.schema_name
-      AND c2.chunk_name = c1.table_name
-LEFT JOIN _timescaledb_catalog.chunk c3 ON c3.compressed_chunk_id = c1.id
-LEFT JOIN timescaledb_information.chunks c4
-       ON c4.chunk_schema = c3.schema_name
-      AND c4.chunk_name = c3.table_name
-ORDER BY c1.hypertable_id, coalesce(c2.range_start, c4.range_start)
-`
-
-const initialTableSchema = `
-SELECT
-   c.column_name,
-   t.oid::int,
-   CASE WHEN c.is_nullable = 'YES' THEN true ELSE false END,
-   CASE WHEN c.is_identity = 'YES' THEN true ELSE false END,
-   c.column_default
-FROM information_schema.columns c
-LEFT JOIN pg_catalog.pg_namespace n ON n.nspname = c.udt_schema
-LEFT JOIN pg_catalog.pg_type t ON t.typnamespace = n.oid AND t.typname = c.udt_name
-WHERE c.table_schema = '%s'
-  AND c.table_name = '%s'
-ORDER BY c.ordinal_position
-`
-
 var prefixExtractor = regexp.MustCompile("(distributed)?(compressed)?(_hyper_[0-9]+)_[0-9]+_chunk")
 
 type SystemCatalog struct {
 	databaseName          string
-	publicationName       string
-	snapshotBatchSize     int
 	hypertables           map[int32]*model.Hypertable
 	chunks                map[int32]*model.Chunk
 	hypertableNameIndex   map[string]int32
@@ -78,9 +38,8 @@ type SystemCatalog struct {
 	snapshotter           *snapshotting.Snapshotter
 }
 
-func NewSystemCatalog(databaseName, publicationName string, config *configuring.Config,
-	schemaRegistry *schema.Registry, topicNameGenerator *topic.NameGenerator,
-	dispatcher *eventhandler.Dispatcher, queryAdapter channel.QueryAdapter,
+func NewSystemCatalog(databaseName string, config *configuring.Config, schemaRegistry *schema.Registry,
+	topicNameGenerator *topic.NameGenerator, dispatcher *eventhandler.Dispatcher, queryAdapter channel.QueryAdapter,
 	snapshotter *snapshotting.Snapshotter) (*SystemCatalog, error) {
 
 	replicationFilter, err := newReplicationFilter(config)
@@ -90,8 +49,6 @@ func NewSystemCatalog(databaseName, publicationName string, config *configuring.
 
 	catalog := &SystemCatalog{
 		databaseName:          databaseName,
-		publicationName:       publicationName,
-		snapshotBatchSize:     configuring.GetOrDefault(config, "postgresql.snapshot.batchsize", 1000),
 		hypertables:           make(map[int32]*model.Hypertable, 0),
 		chunks:                make(map[int32]*model.Chunk, 0),
 		hypertableNameIndex:   make(map[string]int32),
@@ -109,47 +66,15 @@ func NewSystemCatalog(databaseName, publicationName string, config *configuring.
 		snapshotter:           snapshotter,
 	}
 
+	if err := queryAdapter.ReadHypertables(catalog.RegisterHypertable); err != nil {
+		return nil, errors.Wrap(err, 0)
+	}
+
+	if err := queryAdapter.ReadChunks(catalog.RegisterChunk); err != nil {
+		return nil, errors.Wrap(err, 0)
+	}
+
 	if err := queryAdapter.NewSession(func(session channel.QuerySession) error {
-		if err := session.QueryFunc(context.Background(), func(row pgx.Row) error {
-			var id int32
-			var schemaName, hypertableName, associatedSchemaName, associatedTablePrefix string
-			var compressionState int16
-			var compressedHypertableId *int32
-			var distributed bool
-
-			if err := row.Scan(&id, &schemaName, &hypertableName, &associatedSchemaName,
-				&associatedTablePrefix, &compressionState, &compressedHypertableId, &distributed); err != nil {
-				return errors.Wrap(err, 0)
-			}
-
-			hypertable := model.NewHypertable(id, databaseName, schemaName, hypertableName, associatedSchemaName,
-				associatedTablePrefix, compressedHypertableId, compressionState, distributed)
-
-			logger.Printf("ADDED CATALOG ENTRY: HYPERTABLE %d => %+v", hypertable.Id(), hypertable)
-			return catalog.RegisterHypertable(hypertable)
-		}, initialHypertableQuery); err != nil {
-			return errors.Wrap(err, 0)
-		}
-
-		if err := session.QueryFunc(context.Background(), func(row pgx.Row) error {
-			var id, hypertableId int32
-			var schemaName, tableName string
-			var compressedChunkId *int32
-			var dropped bool
-			var status int32
-
-			if err := row.Scan(&id, &hypertableId, &schemaName, &tableName,
-				&compressedChunkId, &dropped, &status); err != nil {
-				return errors.Wrap(err, 0)
-			}
-
-			return catalog.RegisterChunk(
-				model.NewChunk(id, hypertableId, schemaName, tableName, dropped, status, compressedChunkId),
-			)
-		}, initialChunkQuery); err != nil {
-			return errors.Wrap(err, 0)
-		}
-
 		for _, hypertable := range catalog.hypertables {
 			if hypertable.SchemaName() == "_timescaledb_internal" ||
 				hypertable.SchemaName() == "_timescaledb_catalog" {
@@ -157,7 +82,7 @@ func NewSystemCatalog(databaseName, publicationName string, config *configuring.
 				continue
 			}
 
-			columns, err := catalog.readHypertableSchema(session, hypertable)
+			columns, err := catalog.queryAdapter.ReadHypertableSchema(session, hypertable)
 			if err != nil {
 				return errors.Wrap(err, 0)
 			}
@@ -347,41 +272,13 @@ func (sc *SystemCatalog) initiateHypertableSchema(hypertable *model.Hypertable) 
 	}
 
 	return sc.queryAdapter.NewSession(func(session channel.QuerySession) error {
-		columns, err := sc.readHypertableSchema(session, hypertable)
+		columns, err := sc.queryAdapter.ReadHypertableSchema(session, hypertable)
 		if err != nil {
 			return errors.Wrap(err, 0)
 		}
 		sc.ApplySchemaUpdate(hypertable, columns)
 		return nil
 	})
-}
-
-func (sc *SystemCatalog) readHypertableSchema(
-	session channel.QuerySession, hypertable *model.Hypertable) ([]model.Column, error) {
-
-	columns := make([]model.Column, 0)
-	if err := session.QueryFunc(context.Background(), func(row pgx.Row) error {
-		var name string
-		var oid uint32
-		var nullable, identifier bool
-		var defaultValue *string
-
-		if err := row.Scan(&name, &oid, &nullable, &identifier, &defaultValue); err != nil {
-			return errors.Wrap(err, 0)
-		}
-
-		dataType, err := model.DataTypeByOID(oid)
-		if err != nil {
-			return errors.Wrap(err, 0)
-		}
-
-		column := model.NewColumn(name, oid, string(dataType), nullable, identifier, defaultValue)
-		columns = append(columns, column)
-		return nil
-	}, fmt.Sprintf(initialTableSchema, hypertable.SchemaName(), hypertable.HypertableName())); err != nil {
-		return nil, errors.Wrap(err, 0)
-	}
-	return columns, nil
 }
 
 func (sc *SystemCatalog) snapshotChunk(chunk *model.Chunk) error {
