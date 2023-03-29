@@ -4,16 +4,15 @@ import (
 	"context"
 	"fmt"
 	"github.com/go-errors/errors"
-	"github.com/jackc/pglogrepl"
 	"github.com/jackc/pgx/v5"
 	"github.com/noctarius/event-stream-prototype/internal/configuring"
 	"github.com/noctarius/event-stream-prototype/internal/event/topic"
 	"github.com/noctarius/event-stream-prototype/internal/eventhandler"
 	"github.com/noctarius/event-stream-prototype/internal/logging"
-	"github.com/noctarius/event-stream-prototype/internal/pg/decoding"
 	"github.com/noctarius/event-stream-prototype/internal/replication/channel"
 	"github.com/noctarius/event-stream-prototype/internal/schema"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/model"
+	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/snapshotting"
 	"os"
 	"regexp"
 )
@@ -56,10 +55,6 @@ WHERE c.table_schema = '%s'
 ORDER BY c.ordinal_position
 `
 
-const addTableToPublication = "ALTER PUBLICATION %s ADD TABLE %s"
-
-//const dropTableToPublication = "ALTER PUBLICATION %s DROP TABLE %s"
-
 var prefixExtractor = regexp.MustCompile("(distributed)?(compressed)?(_hyper_[0-9]+)_[0-9]+_chunk")
 
 type SystemCatalog struct {
@@ -80,11 +75,13 @@ type SystemCatalog struct {
 	dispatcher            *eventhandler.Dispatcher
 	queryAdapter          channel.QueryAdapter
 	replicationFilter     *replicationFilter
+	snapshotter           *snapshotting.Snapshotter
 }
 
 func NewSystemCatalog(databaseName, publicationName string, config *configuring.Config,
 	schemaRegistry *schema.Registry, topicNameGenerator *topic.NameGenerator,
-	dispatcher *eventhandler.Dispatcher, queryAdapter channel.QueryAdapter) (*SystemCatalog, error) {
+	dispatcher *eventhandler.Dispatcher, queryAdapter channel.QueryAdapter,
+	snapshotter *snapshotting.Snapshotter) (*SystemCatalog, error) {
 
 	replicationFilter, err := newReplicationFilter(config)
 	if err != nil {
@@ -109,6 +106,7 @@ func NewSystemCatalog(databaseName, publicationName string, config *configuring.
 		dispatcher:            dispatcher,
 		queryAdapter:          queryAdapter,
 		replicationFilter:     replicationFilter,
+		snapshotter:           snapshotter,
 	}
 
 	if err := queryAdapter.NewSession(func(session channel.QuerySession) error {
@@ -386,142 +384,13 @@ func (sc *SystemCatalog) readHypertableSchema(
 	return columns, nil
 }
 
-func (sc *SystemCatalog) snapshotChunk(c *model.Chunk) error {
-	h := sc.FindHypertableById(c.HypertableId())
-	err := sc.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
-		notificator.NotifyChunkSnapshotEventHandler(func(handler eventhandler.ChunkSnapshotEventHandler) error {
-			return handler.OnChunkSnapshotStartedEvent(h, c)
-		})
-	})
-	if err != nil {
-		return errors.Wrap(err, 0)
-	}
-
-	if err := sc.attachChunkToPublication(c); err != nil {
-		return errors.Wrap(err, 0)
-	}
-
-	go func() {
-		lsn, err := sc.initiateChunkSnapshot(c, func(lsn pglogrepl.LSN, values map[string]any) error {
-			return sc.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
-				notificator.NotifyHypertableReplicationEventHandler(
-					func(handler eventhandler.HypertableReplicationEventHandler) error {
-						return handler.OnReadEvent(lsn, h, c, values)
-					},
-				)
-			})
-		})
-
-		if err != nil {
-			logger.Printf("Error while snapshotting chunk %d: %v", c.Id(), err)
-		}
-
-		if err := sc.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
-			notificator.NotifyChunkSnapshotEventHandler(func(handler eventhandler.ChunkSnapshotEventHandler) error {
-				return handler.OnChunkSnapshotFinishedEvent(h, c, lsn)
-			})
-		}); err != nil {
-			logger.Printf("Error while notifying on snapshot finishing of chunk %d: %v", c.Id(), err)
-		}
-	}()
-	return nil
-}
-
-func (sc *SystemCatalog) initiateChunkSnapshot(
-	chunk *model.Chunk, readCallback func(lsn pglogrepl.LSN, values map[string]any) error) (pglogrepl.LSN, error) {
-
-	// PG internal regclass reference
-	regClass := fmt.Sprintf("%s.%s", chunk.SchemaName(), chunk.TableName())
-
-	var currentLSN pglogrepl.LSN
-	err := sc.queryAdapter.NewSession(func(session channel.QuerySession) error {
-		if _, err := session.Exec(context.Background(),
-			"BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ"); err != nil {
-
-			return err
-		}
-
-		if err := session.QueryRow(context.Background(),
-			"SELECT pg_current_wal_lsn()").Scan(&currentLSN); err != nil {
-
-			return err
-		}
-
-		if _, err := session.Exec(context.Background(),
-			fmt.Sprintf("DECLARE clone SCROLL CURSOR FOR SELECT * FROM %s", regClass)); err != nil {
-			return errors.Wrap(err, 0)
-		}
-
-		var rowDecoder *decoding.RowDecoder
-		for {
-			count := 0
-			if err := session.QueryFunc(context.Background(), func(row pgx.Row) error {
-				rows := row.(pgx.Rows)
-
-				if rowDecoder == nil {
-					rd, err := decoding.NewRowDecoder(rows.FieldDescriptions())
-					if err != nil {
-						return err
-					}
-					rowDecoder = rd
-				}
-
-				return rowDecoder.DecodeMapAndSink(rows.RawValues(), func(values map[string]any) error {
-					count++
-					return readCallback(currentLSN, values)
-				})
-			}, fmt.Sprintf("FETCH FORWARD %d FROM clone", sc.snapshotBatchSize)); err != nil {
-				return errors.Wrap(err, 0)
-			}
-			if count == 0 || count < sc.snapshotBatchSize {
-				break
-			}
-		}
-
-		_, err := session.Exec(context.Background(), "CLOSE clone")
-		if err != nil {
-			return errors.Wrap(err, 0)
-		}
-
-		_, err = session.Exec(context.Background(), "ROLLBACK")
-		if err != nil {
-			return errors.Wrap(err, 0)
-		}
-		return nil
-	})
-
-	if err != nil {
-		return 0, errors.Wrap(err, 0)
-	}
-
-	return currentLSN, nil
-}
-
-func (sc *SystemCatalog) attachChunkToPublication(chunk *model.Chunk) error {
-	chunkName := chunk.CanonicalName()
-	attachingQuery := fmt.Sprintf(addTableToPublication, sc.publicationName, chunkName)
-	return sc.queryAdapter.NewSession(func(session channel.QuerySession) error {
-		if _, err := session.Exec(context.Background(), attachingQuery); err != nil {
-			return errors.Wrap(err, 0)
-		}
-		logger.Printf("Updated publication %s to add table %s", sc.publicationName, chunkName)
-		return nil
+func (sc *SystemCatalog) snapshotChunk(chunk *model.Chunk) error {
+	hypertable := sc.FindHypertableById(chunk.HypertableId())
+	return sc.snapshotter.EnqueueSnapshot(snapshotting.SnapshotTask{
+		Hypertable: hypertable,
+		Chunk:      chunk,
 	})
 }
-
-/*func (sc *SystemCatalog) detachChunkToPublication(chunk *model.Chunk) error {
-	chunkName := chunk.CanonicalName()
-	publicationName := sc.config.PostgreSQL.Publication
-	detachingQuery := fmt.Sprintf(dropTableToPublication, publicationName, chunkName)
-
-	return sc.queryAdapter.NewSession(func(session channel.QuerySession) error {
-		if _, err := session.Exec(context.Background(), detachingQuery); err != nil {
-			return errors.Wrap(err, 0)
-		}
-		logger.Printf("Updated publication %s to drop table %s", publicationName, chunkName)
-		return nil
-	})
-}*/
 
 func indexOf[T comparable](slice []T, item T) int {
 	for i, x := range slice {

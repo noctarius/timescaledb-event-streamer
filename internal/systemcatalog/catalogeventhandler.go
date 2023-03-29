@@ -109,7 +109,11 @@ func (s *systemCatalogReplicationEventHandler) OnChunkAddedEvent(_ uint32, newVa
 			if !c.IsCompressed() &&
 				s.systemCatalog.IsHypertableSelectedForReplication(hypertableId) {
 
-				return s.systemCatalog.snapshotChunk(c)
+				go func() {
+					if err := s.systemCatalog.snapshotChunk(c); err != nil {
+						logger.Fatalf("failed to snapshot chunk %s", c.CanonicalName())
+					}
+				}()
 			}
 
 			return nil

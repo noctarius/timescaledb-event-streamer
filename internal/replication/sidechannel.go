@@ -4,20 +4,29 @@ import (
 	"context"
 	"fmt"
 	"github.com/go-errors/errors"
+	"github.com/jackc/pglogrepl"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/noctarius/event-stream-prototype/internal/pg/decoding"
 	"github.com/noctarius/event-stream-prototype/internal/replication/channel"
+	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/model"
 	"time"
 )
 
+const addTableToPublication = "ALTER PUBLICATION %s ADD TABLE %s"
+const dropTableFromPublication = "ALTER PUBLICATION %s DROP TABLE %s"
+
 type sideChannel struct {
-	connConfig *pgx.ConnConfig
+	connConfig        *pgx.ConnConfig
+	publicationName   string
+	snapshotBatchSize int
 }
 
-func newSideChannel(connConfig *pgx.ConnConfig) *sideChannel {
+func newSideChannel(connConfig *pgx.ConnConfig, publicationName string, snapshotBatchSize int) *sideChannel {
 	sc := &sideChannel{
-		connConfig: connConfig,
+		connConfig:        connConfig,
+		publicationName:   publicationName,
+		snapshotBatchSize: snapshotBatchSize,
 	}
 	return sc
 }
@@ -46,6 +55,105 @@ func (sc *sideChannel) NewSession(fn func(adapter channel.QuerySession) error) e
 	defer connection.Close(context.Background())
 
 	return fn(&sessionAdapter{connection: connection})
+}
+
+func (sc *sideChannel) AttachChunkToPublication(chunk *model.Chunk) error {
+	canonicalChunkName := chunk.CanonicalName()
+	attachingQuery := fmt.Sprintf(addTableToPublication, sc.publicationName, canonicalChunkName)
+	return sc.NewSession(func(session channel.QuerySession) error {
+		if _, err := session.Exec(context.Background(), attachingQuery); err != nil {
+			return errors.Wrap(err, 0)
+		}
+		logger.Printf("Updated publication %s to add table %s", sc.publicationName, canonicalChunkName)
+		return nil
+	})
+}
+
+func (sc *sideChannel) DetachChunkFromPublication(chunk *model.Chunk) error {
+	canonicalChunkName := chunk.CanonicalName()
+	detachingQuery := fmt.Sprintf(dropTableFromPublication, sc.publicationName, canonicalChunkName)
+	return sc.NewSession(func(session channel.QuerySession) error {
+		if _, err := session.Exec(context.Background(), detachingQuery); err != nil {
+			return errors.Wrap(err, 0)
+		}
+		logger.Printf("Updated publication %s to drop table %s", sc.publicationName, canonicalChunkName)
+		return nil
+	})
+}
+
+func (sc *sideChannel) SnapshotTable(canonicalName string, startingLSN *pglogrepl.LSN,
+	cb func(lsn pglogrepl.LSN, values map[string]any) error) (pglogrepl.LSN, error) {
+
+	var currentLSN pglogrepl.LSN
+
+	err := sc.NewSession(func(session channel.QuerySession) error {
+		if _, err := session.Exec(context.Background(),
+			"BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ"); err != nil {
+
+			return err
+		}
+
+		if err := session.QueryRow(context.Background(),
+			"SELECT pg_current_wal_lsn()").Scan(&currentLSN); err != nil {
+
+			return err
+		}
+
+		if startingLSN != nil {
+			if _, err := session.Exec(context.Background(),
+				fmt.Sprintf("SET TRANSACTION SNAPSHOT '%s'", startingLSN.String()),
+			); err != nil {
+				return err
+			}
+		}
+
+		if _, err := session.Exec(context.Background(),
+			fmt.Sprintf("DECLARE clone SCROLL CURSOR FOR SELECT * FROM %s", canonicalName)); err != nil {
+			return errors.Wrap(err, 0)
+		}
+
+		var rowDecoder *decoding.RowDecoder
+		for {
+			count := 0
+			if err := session.QueryFunc(context.Background(), func(row pgx.Row) error {
+				rows := row.(pgx.Rows)
+
+				if rowDecoder == nil {
+					rd, err := decoding.NewRowDecoder(rows.FieldDescriptions())
+					if err != nil {
+						return err
+					}
+					rowDecoder = rd
+				}
+
+				return rowDecoder.DecodeMapAndSink(rows.RawValues(), func(values map[string]any) error {
+					count++
+					return cb(currentLSN, values)
+				})
+			}, fmt.Sprintf("FETCH FORWARD %d FROM clone", sc.snapshotBatchSize)); err != nil {
+				return errors.Wrap(err, 0)
+			}
+			if count == 0 || count < sc.snapshotBatchSize {
+				break
+			}
+		}
+
+		_, err := session.Exec(context.Background(), "CLOSE clone")
+		if err != nil {
+			return errors.Wrap(err, 0)
+		}
+
+		_, err = session.Exec(context.Background(), "ROLLBACK")
+		if err != nil {
+			return errors.Wrap(err, 0)
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, errors.Wrap(err, 0)
+	}
+
+	return currentLSN, nil
 }
 
 func (sc *sideChannel) InitialSnapshot(snapshotName string, next func() (schema, table string, ok bool)) error {

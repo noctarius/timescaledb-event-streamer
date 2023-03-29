@@ -28,8 +28,8 @@ func NewDispatcher(queueLength int) *Dispatcher {
 	d := &Dispatcher{
 		taskQueue:     make(chan Task, queueLength),
 		handlers:      make([]BaseReplicationEventHandler, 0),
-		shutdownStart: make(chan bool),
-		shutdownDone:  make(chan bool),
+		shutdownStart: make(chan bool, 1),
+		shutdownDone:  make(chan bool, 1),
 	}
 	return d
 }
@@ -84,6 +84,19 @@ func (d *Dispatcher) EnqueueTask(task Task) error {
 		return fmt.Errorf("shutdown active, draining only")
 	}
 	d.taskQueue <- task
+	return nil
+}
+
+func (d *Dispatcher) EnqueueTaskAndWait(task Task) error {
+	if d.shutdownActive {
+		return fmt.Errorf("shutdown active, draining only")
+	}
+	done := make(chan bool, 1)
+	d.taskQueue <- func(notificator Notificator) {
+		task(notificator)
+		done <- true
+	}
+	<-done
 	return nil
 }
 

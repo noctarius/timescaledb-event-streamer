@@ -15,7 +15,6 @@ import (
 const dropPublication = "DROP PUBLICATION IF EXISTS %s"
 const checkExistingPublication = "SELECT true FROM pg_publication WHERE pubname = '%s'"
 const createPublication = "SELECT create_timescaledb_catalog_publication('%s', '%s');"
-const addTableToPublication = "ALTER PUBLICATION %s ADD TABLE %s"
 
 const outputPlugin = "pgoutput"
 
