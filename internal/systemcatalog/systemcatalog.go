@@ -6,11 +6,11 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/jackc/pglogrepl"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/noctarius/event-stream-prototype/internal/configuration"
+	"github.com/noctarius/event-stream-prototype/internal/configuring"
 	"github.com/noctarius/event-stream-prototype/internal/event/topic"
 	"github.com/noctarius/event-stream-prototype/internal/eventhandler"
 	"github.com/noctarius/event-stream-prototype/internal/logging"
+	"github.com/noctarius/event-stream-prototype/internal/pg/decoding"
 	"github.com/noctarius/event-stream-prototype/internal/replication/channel"
 	"github.com/noctarius/event-stream-prototype/internal/schema"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/model"
@@ -64,7 +64,8 @@ var prefixExtractor = regexp.MustCompile("(distributed)?(compressed)?(_hyper_[0-
 
 type SystemCatalog struct {
 	databaseName          string
-	config                *configuration.Config
+	publicationName       string
+	snapshotBatchSize     int
 	hypertables           map[int32]*model.Hypertable
 	chunks                map[int32]*model.Chunk
 	hypertableNameIndex   map[string]int32
@@ -79,12 +80,11 @@ type SystemCatalog struct {
 	dispatcher            *eventhandler.Dispatcher
 	queryAdapter          channel.QueryAdapter
 	replicationFilter     *replicationFilter
-	typeMap               *pgtype.Map
 }
 
-func NewSystemCatalog(databaseName string, config *configuration.Config, schemaRegistry *schema.Registry,
-	topicNameGenerator *topic.NameGenerator, dispatcher *eventhandler.Dispatcher,
-	queryAdapter channel.QueryAdapter) (*SystemCatalog, error) {
+func NewSystemCatalog(databaseName, publicationName string, config *configuring.Config,
+	schemaRegistry *schema.Registry, topicNameGenerator *topic.NameGenerator,
+	dispatcher *eventhandler.Dispatcher, queryAdapter channel.QueryAdapter) (*SystemCatalog, error) {
 
 	replicationFilter, err := newReplicationFilter(config)
 	if err != nil {
@@ -93,7 +93,8 @@ func NewSystemCatalog(databaseName string, config *configuration.Config, schemaR
 
 	catalog := &SystemCatalog{
 		databaseName:          databaseName,
-		config:                config,
+		publicationName:       publicationName,
+		snapshotBatchSize:     configuring.GetOrDefault(config, "postgresql.snapshot.batchsize", 1000),
 		hypertables:           make(map[int32]*model.Hypertable, 0),
 		chunks:                make(map[int32]*model.Chunk, 0),
 		hypertableNameIndex:   make(map[string]int32),
@@ -108,7 +109,6 @@ func NewSystemCatalog(databaseName string, config *configuration.Config, schemaR
 		dispatcher:            dispatcher,
 		queryAdapter:          queryAdapter,
 		replicationFilter:     replicationFilter,
-		typeMap:               pgtype.NewMap(),
 	}
 
 	if err := queryAdapter.NewSession(func(session channel.QuerySession) error {
@@ -268,15 +268,6 @@ func (sc *SystemCatalog) IsHypertableSelectedForReplication(hypertableId int32) 
 	return sc.replicationFilter.enabled(hypertable)
 }
 
-/*func (sc *SystemCatalog) IterateChunks(hypertable *model.Hypertable, fn func(chunk *model.Chunk) error) error {
-	for _, chunkId := range sc.hypertable2chunks[hypertable.Id()] {
-		if err := fn(sc.FindChunkById(chunkId)); err != nil {
-			return err
-		}
-	}
-	return nil
-}*/
-
 func (sc *SystemCatalog) RegisterHypertable(hypertable *model.Hypertable) error {
 	sc.hypertables[hypertable.Id()] = hypertable
 	sc.chunkTablePrefixIndex[hypertable.CanonicalChunkTablePrefix()] = hypertable.Id()
@@ -329,13 +320,15 @@ func (sc *SystemCatalog) NewEventHandler() eventhandler.SystemCatalogReplication
 	return &systemCatalogReplicationEventHandler{systemCatalog: sc}
 }
 
-func (sc *SystemCatalog) ApplySchemaUpdate(hypertable *model.Hypertable, columns []model.Column) {
+func (sc *SystemCatalog) ApplySchemaUpdate(hypertable *model.Hypertable, columns []model.Column) bool {
 	if difference := hypertable.ApplyTableSchema(columns); difference != nil {
 		hypertableSchemaName := fmt.Sprintf("%s.Value", sc.topicNameGenerator.SchemaTopicName(hypertable))
 		hypertableSchema := schema.HypertableSchema(hypertableSchemaName, hypertable.Columns())
 		sc.schemaRegistry.RegisterSchema(hypertableSchemaName, hypertableSchema)
 		logger.Printf("SCHEMA UPDATE: HYPERTABLE %d => %+v", hypertable.Id(), difference)
+		return len(difference) > 0
 	}
+	return false
 }
 
 func (sc *SystemCatalog) GetAllChunks() []string {
@@ -459,31 +452,28 @@ func (sc *SystemCatalog) initiateChunkSnapshot(
 			return errors.Wrap(err, 0)
 		}
 
+		var rowDecoder *decoding.RowDecoder
 		for {
 			count := 0
 			if err := session.QueryFunc(context.Background(), func(row pgx.Row) error {
 				rows := row.(pgx.Rows)
 
-				values := make(map[string]any, len(rows.FieldDescriptions()))
-				for i, field := range rows.FieldDescriptions() {
-					if t, ok := sc.typeMap.TypeForOID(field.DataTypeOID); ok {
-						v, err := t.Codec.DecodeValue(sc.typeMap, field.DataTypeOID, field.Format, rows.RawValues()[i])
-						if err != nil {
-							return errors.Wrap(err, 0)
-						}
-						values[field.Name] = v
+				if rowDecoder == nil {
+					rd, err := decoding.NewRowDecoder(rows.FieldDescriptions())
+					if err != nil {
+						return err
 					}
+					rowDecoder = rd
 				}
-				if err := readCallback(currentLSN, values); err != nil {
-					return errors.Wrap(err, 0)
-				}
-				count++
 
-				return nil
-			}, "FETCH FORWARD 10 FROM clone"); err != nil {
+				return rowDecoder.DecodeMapAndSink(rows.RawValues(), func(values map[string]any) error {
+					count++
+					return readCallback(currentLSN, values)
+				})
+			}, fmt.Sprintf("FETCH FORWARD %d FROM clone", sc.snapshotBatchSize)); err != nil {
 				return errors.Wrap(err, 0)
 			}
-			if count == 0 {
+			if count == 0 || count < sc.snapshotBatchSize {
 				break
 			}
 		}
@@ -509,14 +499,12 @@ func (sc *SystemCatalog) initiateChunkSnapshot(
 
 func (sc *SystemCatalog) attachChunkToPublication(chunk *model.Chunk) error {
 	chunkName := chunk.CanonicalName()
-	publicationName := configuration.GetOrDefault(sc.config, "postgresql.publication", "")
-	attachingQuery := fmt.Sprintf(addTableToPublication, publicationName, chunkName)
-
+	attachingQuery := fmt.Sprintf(addTableToPublication, sc.publicationName, chunkName)
 	return sc.queryAdapter.NewSession(func(session channel.QuerySession) error {
 		if _, err := session.Exec(context.Background(), attachingQuery); err != nil {
 			return errors.Wrap(err, 0)
 		}
-		logger.Printf("Updated publication %s to add table %s", publicationName, chunkName)
+		logger.Printf("Updated publication %s to add table %s", sc.publicationName, chunkName)
 		return nil
 	})
 }

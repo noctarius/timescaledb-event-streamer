@@ -2,54 +2,59 @@ package internal
 
 import (
 	"github.com/jackc/pgx/v5"
-	"github.com/noctarius/event-stream-prototype/internal/configuration"
+	"github.com/noctarius/event-stream-prototype/internal/configuring"
+	"github.com/noctarius/event-stream-prototype/internal/configuring/sysconfig"
 	"github.com/noctarius/event-stream-prototype/internal/event/sink"
 	"github.com/noctarius/event-stream-prototype/internal/event/topic"
 	"github.com/noctarius/event-stream-prototype/internal/replication"
 	"github.com/noctarius/event-stream-prototype/internal/schema"
+	"github.com/noctarius/event-stream-prototype/internal/supporting"
 	"github.com/pkg/errors"
 )
 
 const publicationName = "pg_ts_streamer"
 
 type Streamer struct {
-	shutdownDone       chan bool
 	replicator         replication.Replicator
 	schemaRegistry     *schema.Registry
 	topicNameGenerator *topic.NameGenerator
 	eventEmitter       *sink.EventEmitter
 }
 
-func NewStreamer(config *configuration.Config) (*Streamer, error, int) {
-	if config.PostgreSQL.PgxConfig == nil {
-		connection := configuration.GetOrDefault(config, "postgresql.connection", "host=localhost user=repl_user")
+func NewStreamer(config *sysconfig.SystemConfig) (*Streamer, error, int) {
+	if config.PgxConfig == nil {
+		connection := configuring.GetOrDefault(config.Config, "postgresql.connection", "host=localhost user=repl_user")
 		connConfig, err := pgx.ParseConfig(connection)
 		if err != nil {
 			return nil, errors.Wrap(err, "PostgreSQL connection string failed to parse"), 6
 		}
 
-		pgPassword := configuration.GetOrDefault(config, "postgresql.password", "")
+		pgPassword := configuring.GetOrDefault(config.Config, "postgresql.password", "")
 		if pgPassword != "" {
 			connConfig.Password = pgPassword
 		}
 
-		config.PostgreSQL.PgxConfig = connConfig
+		config.PgxConfig = connConfig
 	}
 
-	pgPublication := configuration.GetOrDefault(config, "postgresql.publication", "")
+	pgPublication := configuring.GetOrDefault(config.Config, "postgresql.publication", "")
 	if pgPublication == "" {
 		config.PostgreSQL.Publication = publicationName
 	}
 
-	replicator := replication.NewReplicator(config, config.PostgreSQL.PgxConfig)
+	if config.Topic.Prefix == "" {
+		config.Topic.Prefix = supporting.RandomTextString(20)
+	}
+
+	replicator := replication.NewReplicator(config.Config, config.PgxConfig)
 	schemaRegistry := schema.NewSchemaRegistry()
 
-	topicNameGenerator, err := newNameGenerator(config)
+	topicNameGenerator, err := config.NameGeneratorProvider()
 	if err != nil {
 		return nil, err, 7
 	}
 
-	eventEmitter, err := newEventEmitter(config, schemaRegistry, topicNameGenerator)
+	eventEmitter, err := config.EventEmitterProvider(schemaRegistry, topicNameGenerator)
 	if err != nil {
 		return nil, err, 8
 	}
@@ -59,7 +64,6 @@ func NewStreamer(config *configuration.Config) (*Streamer, error, int) {
 		schemaRegistry:     schemaRegistry,
 		topicNameGenerator: topicNameGenerator,
 		eventEmitter:       eventEmitter,
-		shutdownDone:       make(chan bool, 1),
 	}, nil, 0
 }
 
@@ -67,7 +71,6 @@ func (s *Streamer) Start() error {
 	if err := s.replicator.StartReplication(s.schemaRegistry, s.topicNameGenerator, s.eventEmitter); err != nil {
 		return err
 	}
-	s.shutdownDone <- true
 	return nil
 }
 
@@ -75,6 +78,5 @@ func (s *Streamer) Stop() error {
 	if err := s.replicator.StopReplication(); err != nil {
 		return err
 	}
-	<-s.shutdownDone
 	return nil
 }

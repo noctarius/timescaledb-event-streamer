@@ -3,7 +3,7 @@ package logicalreplicationresolver
 import (
 	"github.com/go-errors/errors"
 	"github.com/jackc/pglogrepl"
-	"github.com/noctarius/event-stream-prototype/internal/configuration"
+	"github.com/noctarius/event-stream-prototype/internal/configuring"
 	"github.com/noctarius/event-stream-prototype/internal/eventhandler"
 	"github.com/noctarius/event-stream-prototype/internal/logging"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog"
@@ -27,7 +27,7 @@ type LogicalReplicationResolver struct {
 	genDecompressionEvent bool
 }
 
-func NewLogicalReplicationResolver(config *configuration.Config, dispatcher *eventhandler.Dispatcher,
+func NewLogicalReplicationResolver(config *configuring.Config, dispatcher *eventhandler.Dispatcher,
 	systemCatalog *systemcatalog.SystemCatalog) *LogicalReplicationResolver {
 
 	return &LogicalReplicationResolver{
@@ -36,13 +36,13 @@ func NewLogicalReplicationResolver(config *configuration.Config, dispatcher *eve
 		relations:     make(map[uint32]*pglogrepl.RelationMessage, 0),
 		eventQueues:   make(map[string]*replicationQueue, 0),
 
-		genReadEvent:          configuration.GetOrDefault(config, "timescaledb.events.read", true),
-		genInsertEvent:        configuration.GetOrDefault(config, "timescaledb.events.insert", true),
-		genUpdateEvent:        configuration.GetOrDefault(config, "timescaledb.events.update", true),
-		genDeleteEvent:        configuration.GetOrDefault(config, "timescaledb.events.delete", true),
-		genTruncateEvent:      configuration.GetOrDefault(config, "timescaledb.events.truncate", true),
-		genCompressionEvent:   configuration.GetOrDefault(config, "timescaledb.events.compression", true),
-		genDecompressionEvent: configuration.GetOrDefault(config, "timescaledb.events.decompression", true),
+		genReadEvent:          configuring.GetOrDefault(config, "timescaledb.events.read", true),
+		genInsertEvent:        configuring.GetOrDefault(config, "timescaledb.events.insert", true),
+		genUpdateEvent:        configuring.GetOrDefault(config, "timescaledb.events.update", true),
+		genDeleteEvent:        configuring.GetOrDefault(config, "timescaledb.events.delete", true),
+		genTruncateEvent:      configuring.GetOrDefault(config, "timescaledb.events.truncate", true),
+		genCompressionEvent:   configuring.GetOrDefault(config, "timescaledb.events.compression", true),
+		genDecompressionEvent: configuring.GetOrDefault(config, "timescaledb.events.decompression", true),
 	}
 }
 

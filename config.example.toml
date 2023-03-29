@@ -1,5 +1,8 @@
 postgresql.connection = 'postgres://repl_user@localhost:5432/postgres'
 postgresql.password = '...'
+#postgresql.publication = 'replication_name'
+#postgresql.snapshot.batchsize = 1000
+#postgresql.snapshot.initial = 'always'
 
 sink.type = 'nats'
 sink.nats.address = 'nats://localhost:4222'

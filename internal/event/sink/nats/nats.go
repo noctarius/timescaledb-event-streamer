@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/nats-io/nats.go"
-	"github.com/noctarius/event-stream-prototype/internal/configuration"
+	"github.com/noctarius/event-stream-prototype/internal/configuring"
 	"github.com/noctarius/event-stream-prototype/internal/event/sink"
 	"github.com/noctarius/event-stream-prototype/internal/schema"
 	"time"
@@ -15,21 +15,21 @@ type natsSink struct {
 	jetStreamContext nats.JetStreamContext
 }
 
-func NewNatsSink(config *configuration.Config) (sink.Sink, error) {
-	address := configuration.GetOrDefault(config, "sink.nats.address", "nats://localhost:4222")
-	authorization := configuration.GetOrDefault(config, "sink.nats.authorization", "userinfo")
-	switch configuration.NatsAuthorizationType(authorization) {
-	case configuration.UserInfo:
-		username := configuration.GetOrDefault(config, "sink.nats.userinfo.username", "")
-		password := configuration.GetOrDefault(config, "sink.nats.userinfo.password", "")
+func NewNatsSink(config *configuring.Config) (sink.Sink, error) {
+	address := configuring.GetOrDefault(config, "sink.nats.address", "nats://localhost:4222")
+	authorization := configuring.GetOrDefault(config, "sink.nats.authorization", "userinfo")
+	switch configuring.NatsAuthorizationType(authorization) {
+	case configuring.UserInfo:
+		username := configuring.GetOrDefault(config, "sink.nats.userinfo.username", "")
+		password := configuring.GetOrDefault(config, "sink.nats.userinfo.password", "")
 		return newNatsSinkWithUserInfo(address, username, password)
-	case configuration.Credentials:
-		certificate := configuration.GetOrDefault(config, "sink.nats.credentials.certificate", "")
-		seeds := configuration.GetOrDefault(config, "sink.nats.credentials.seeds", []string{})
+	case configuring.Credentials:
+		certificate := configuring.GetOrDefault(config, "sink.nats.credentials.certificate", "")
+		seeds := configuring.GetOrDefault(config, "sink.nats.credentials.seeds", []string{})
 		return newNatsSinkWithUserCredentials(address, certificate, seeds...)
-	case configuration.Jwt:
-		jwt := configuration.GetOrDefault(config, "sink.nats.jwt.jwt", "")
-		seed := configuration.GetOrDefault(config, "sink.nats.jwt.seed", "")
+	case configuring.Jwt:
+		jwt := configuring.GetOrDefault(config, "sink.nats.jwt.jwt", "")
+		seed := configuring.GetOrDefault(config, "sink.nats.jwt.seed", "")
 		return newNatsSinkWithUserJWT(address, jwt, seed)
 	}
 	return nil, fmt.Errorf("NATS AuthorizationType '%s' doesn't exist", authorization)

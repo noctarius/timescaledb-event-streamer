@@ -2,7 +2,7 @@ package systemcatalog
 
 import (
 	"fmt"
-	"github.com/noctarius/event-stream-prototype/internal/configuration"
+	"github.com/noctarius/event-stream-prototype/internal/configuring"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/model"
 	"regexp"
 	"strings"
@@ -14,7 +14,7 @@ type replicationFilter struct {
 	filterCache map[string]bool
 }
 
-func newReplicationFilter(config *configuration.Config) (*replicationFilter, error) {
+func newReplicationFilter(config *configuring.Config) (*replicationFilter, error) {
 	excludes := make([]*filter, 0)
 	for _, exclude := range config.TimescaleDB.Hypertables.Excludes {
 		f, err := parseFilter(exclude)

@@ -8,20 +8,23 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/noctarius/event-stream-prototype/internal/eventhandler"
+	"github.com/noctarius/event-stream-prototype/internal/pg/decoding"
 	"strings"
 )
 
 const dropPublication = "DROP PUBLICATION IF EXISTS %s"
-const createPublication = "CREATE PUBLICATION %s FOR TABLE _timescaledb_catalog.chunk, _timescaledb_catalog.hypertable"
+const checkExistingPublication = "SELECT true FROM pg_publication WHERE pubname = '%s'"
+const createPublication = "SELECT create_timescaledb_catalog_publication('%s', '%s');"
 const addTableToPublication = "ALTER PUBLICATION %s ADD TABLE %s"
 
 const outputPlugin = "pgoutput"
 
 type replicationChannel struct {
-	connConfig      *pgconn.Config
-	publicationName string
-	shutdownStart   chan bool
-	shutdownEnd     chan bool
+	connConfig         *pgconn.Config
+	publicationName    string
+	createdPublication bool
+	shutdownStart      chan bool
+	shutdownEnd        chan bool
 }
 
 func newReplicationChannel(connConfig *pgx.ConnConfig, publicationName string) *replicationChannel {
@@ -53,16 +56,17 @@ func (rc *replicationChannel) startReplicationChannel(
 		return errors.Wrap(err, 0)
 	}
 
-	if err := rc.executeQuery(connection, fmt.Sprintf(dropPublication, rc.publicationName)); err != nil {
-		return errors.Wrap(err, 0)
-	}
-	if err := rc.executeQuery(connection, fmt.Sprintf(createPublication, rc.publicationName)); err != nil {
+	if created, err := rc.createPublication(connection); created {
+		rc.createdPublication = true
+	} else if err != nil {
 		return errors.Wrap(err, 0)
 	}
 
-	attachingQuery := fmt.Sprintf(addTableToPublication, rc.publicationName, strings.Join(initialChunkTables, ","))
-	if err := rc.executeQuery(connection, attachingQuery); err != nil {
-		return errors.Wrap(err, 0)
+	if len(initialChunkTables) > 0 {
+		attachingQuery := fmt.Sprintf(addTableToPublication, rc.publicationName, strings.Join(initialChunkTables, ","))
+		if err := rc.executeQuery(connection, attachingQuery); err != nil {
+			return errors.Wrap(err, 0)
+		}
 	}
 
 	identification, err := pglogrepl.IdentifySystem(context.Background(), connection)
@@ -95,18 +99,20 @@ func (rc *replicationChannel) startReplicationChannel(
 		rc.shutdownStart <- true
 	}()
 
-	<-rc.shutdownStart
-	replicationHandler.stopReplicationHandler()
-	if _, err := pglogrepl.SendStandbyCopyDone(context.Background(), connection); err != nil {
-		return errors.Wrap(err, 0)
-	}
-	if err := pglogrepl.DropReplicationSlot(context.Background(), connection, rc.publicationName, pglogrepl.DropReplicationSlotOptions{Wait: true}); err != nil {
-		return errors.Wrap(err, 0)
-	}
-	if err := rc.executeQuery(connection, fmt.Sprintf(dropPublication, rc.publicationName)); err != nil {
-		return errors.Wrap(err, 0)
-	}
-	rc.shutdownEnd <- true
+	go func() {
+		<-rc.shutdownStart
+		replicationHandler.stopReplicationHandler()
+		if _, err := pglogrepl.SendStandbyCopyDone(context.Background(), connection); err != nil {
+			logger.Fatalf("shutdown failed: %+v", err)
+		}
+		if err := pglogrepl.DropReplicationSlot(context.Background(), connection, rc.publicationName, pglogrepl.DropReplicationSlotOptions{Wait: true}); err != nil {
+			logger.Fatalf("shutdown failed: %+v", err)
+		}
+		if err := rc.executeQuery(connection, fmt.Sprintf(dropPublication, rc.publicationName)); err != nil {
+			logger.Fatalf("shutdown failed: %+v", err)
+		}
+		rc.shutdownEnd <- true
+	}()
 
 	return nil
 }
@@ -114,5 +120,49 @@ func (rc *replicationChannel) startReplicationChannel(
 func (rc *replicationChannel) executeQuery(connection *pgconn.PgConn, query string) error {
 	result := connection.Exec(context.Background(), query)
 	_, err := result.ReadAll()
-	return errors.Wrap(err, 0)
+	if err != nil {
+		return errors.Wrap(err, 0)
+	}
+	return nil
+}
+
+func (rc *replicationChannel) publicationExists(connection *pgconn.PgConn) bool {
+	reader := connection.Exec(context.Background(), fmt.Sprintf(checkExistingPublication, rc.publicationName))
+	if v, err := reader.ReadAll(); err != nil {
+		return false
+	} else {
+		return len(v) > 0
+	}
+}
+
+func (rc *replicationChannel) createPublication(connection *pgconn.PgConn) (bool, error) {
+	reader := connection.Exec(context.Background(),
+		fmt.Sprintf(createPublication, rc.publicationName, rc.connConfig.User))
+
+	defer reader.Close()
+	for reader.NextResult() {
+		fields := reader.ResultReader().FieldDescriptions()
+		if reader.ResultReader().NextRow() {
+			rawRow := reader.ResultReader().Values()
+			for i := 0; i < len(fields); i++ {
+				val, err := decoding.DecodeValue(fields[i], rawRow[i])
+				if err != nil {
+					return false, err
+				}
+				if v, ok := val.(bool); ok {
+					return v, nil
+				}
+			}
+		}
+	}
+	return false, nil
+}
+
+func (rc *replicationChannel) attachChunkTables(connection *pgconn.PgConn, initialChunkTables []string) error {
+	chunkTableList := strings.Join(initialChunkTables, ",")
+	attachingQuery := fmt.Sprintf(addTableToPublication, rc.publicationName, chunkTableList)
+	if err := rc.executeQuery(connection, attachingQuery); err != nil {
+		return errors.Wrap(err, 0)
+	}
+	return nil
 }

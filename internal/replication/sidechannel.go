@@ -6,20 +6,18 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/noctarius/event-stream-prototype/internal/pg/decoding"
 	"github.com/noctarius/event-stream-prototype/internal/replication/channel"
 	"time"
 )
 
 type sideChannel struct {
 	connConfig *pgx.ConnConfig
-	typeMap    *pgtype.Map
 }
 
 func newSideChannel(connConfig *pgx.ConnConfig) *sideChannel {
 	sc := &sideChannel{
 		connConfig: connConfig,
-		typeMap:    pgtype.NewMap(),
 	}
 	return sc
 }
@@ -86,21 +84,11 @@ func (sc *sideChannel) InitialSnapshot(snapshotName string, next func() (schema,
 				return errors.Wrap(err, 0)
 			}
 			count := 0
-			for rows.Next() {
-				values := make([]any, len(rows.FieldDescriptions()))
-				for i, field := range rows.FieldDescriptions() {
-					if t, ok := sc.typeMap.TypeForOID(field.DataTypeOID); ok {
-						v, err := t.Codec.DecodeValue(sc.typeMap, field.DataTypeOID, field.Format, rows.RawValues()[i])
-						if err != nil {
-							return errors.Wrap(err, 0)
-						}
-						values[i] = v
-					}
-				}
+			if err := decoding.DecodeRowValues(rows, func(values []any) error {
 				logger.Printf("%+v", values)
 				count++
-			}
-			if err := rows.Err(); err != nil {
+				return nil
+			}); err != nil {
 				return errors.Wrap(err, 0)
 			}
 			if count == 0 {

@@ -6,7 +6,8 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/go-errors/errors"
 	"github.com/noctarius/event-stream-prototype/internal"
-	"github.com/noctarius/event-stream-prototype/internal/configuration"
+	"github.com/noctarius/event-stream-prototype/internal/configuring"
+	"github.com/noctarius/event-stream-prototype/internal/configuring/sysconfig"
 	"io"
 	"os"
 	"os/signal"
@@ -42,7 +43,7 @@ func main() {
 		os.Exit(4)
 	}
 
-	config := &configuration.Config{}
+	config := &configuring.Config{}
 	if err := toml.Unmarshal(b, &config); err != nil {
 		fmt.Fprintf(os.Stderr, "Configuration file couldn't be decoded: %v\n", err)
 		os.Exit(5)
@@ -53,7 +54,8 @@ func main() {
 		os.Exit(6)
 	}
 
-	streamer, err, exitCode := internal.NewStreamer(config)
+	systemConfig := sysconfig.NewSystemConfig(config)
+	streamer, err, exitCode := internal.NewStreamer(systemConfig)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, err.Error())
 		os.Exit(exitCode)

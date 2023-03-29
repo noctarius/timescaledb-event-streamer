@@ -14,20 +14,20 @@ const SourceSchemaName = "io.debezium.connector.postgresql.Source"
 type Operation string
 
 const (
-	opREAD      Operation = "r"
-	opCREATE    Operation = "c"
-	opUPDATE    Operation = "u"
-	opDELETE    Operation = "d"
-	opTRUNCATE  Operation = "t"
-	opMESSAGE   Operation = "m"
-	opTIMESCALE Operation = "$"
+	OP_READ   Operation = "r"
+	OP_CREATE Operation = "c"
+	OP_UPDATE  Operation = "u"
+	OP_DELETE   Operation = "d"
+	OP_TRUNCATE Operation = "t"
+	OP_MESSAGE   Operation = "m"
+	OP_TIMESCALE Operation = "$"
 )
 
 type TimescaleOperation string
 
 const (
-	opCOMPRESSION   TimescaleOperation = "c"
-	opDECOMPRESSION TimescaleOperation = "d"
+	OP_COMPRESSION   TimescaleOperation = "c"
+	OP_DECOMPRESSION TimescaleOperation = "d"
 )
 
 const (
@@ -61,7 +61,7 @@ type Struct = map[string]any
 
 func ReadEvent(record Struct, source Struct) Struct {
 	event := make(Struct, 0)
-	event[fieldNameOperation] = opREAD
+	event[fieldNameOperation] = OP_READ
 	event[fieldNameAfter] = record
 	if source != nil {
 		event[fieldNameSource] = source
@@ -72,7 +72,7 @@ func ReadEvent(record Struct, source Struct) Struct {
 
 func CreateEvent(record Struct, source Struct) Struct {
 	event := make(Struct, 0)
-	event[fieldNameOperation] = opCREATE
+	event[fieldNameOperation] = OP_CREATE
 	event[fieldNameAfter] = record
 	if source != nil {
 		event[fieldNameSource] = source
@@ -83,7 +83,7 @@ func CreateEvent(record Struct, source Struct) Struct {
 
 func UpdateEvent(before, after, source Struct) Struct {
 	event := make(Struct, 0)
-	event[fieldNameOperation] = opUPDATE
+	event[fieldNameOperation] = OP_UPDATE
 	if before != nil {
 		event[fieldNameBefore] = before
 	}
@@ -97,7 +97,7 @@ func UpdateEvent(before, after, source Struct) Struct {
 
 func DeleteEvent(before, source Struct) Struct {
 	event := make(Struct, 0)
-	event[fieldNameOperation] = opDELETE
+	event[fieldNameOperation] = OP_DELETE
 	event[fieldNameBefore] = before
 	if source != nil {
 		event[fieldNameSource] = source
@@ -108,7 +108,7 @@ func DeleteEvent(before, source Struct) Struct {
 
 func TruncateEvent(source Struct) Struct {
 	event := make(Struct, 0)
-	event[fieldNameOperation] = opTRUNCATE
+	event[fieldNameOperation] = OP_TRUNCATE
 	if source != nil {
 		event[fieldNameSource] = source
 	}
@@ -118,8 +118,8 @@ func TruncateEvent(source Struct) Struct {
 
 func CompressionEvent(source Struct) Struct {
 	event := make(Struct, 0)
-	event[fieldNameOperation] = opTIMESCALE
-	event[fieldNameTimescaleOp] = opCOMPRESSION
+	event[fieldNameOperation] = OP_TIMESCALE
+	event[fieldNameTimescaleOp] = OP_COMPRESSION
 	if source != nil {
 		event[fieldNameSource] = source
 	}
@@ -129,8 +129,8 @@ func CompressionEvent(source Struct) Struct {
 
 func DecompressionEvent(source Struct) Struct {
 	event := make(Struct, 0)
-	event[fieldNameOperation] = opTIMESCALE
-	event[fieldNameTimescaleOp] = opDECOMPRESSION
+	event[fieldNameOperation] = OP_TIMESCALE
+	event[fieldNameTimescaleOp] = OP_DECOMPRESSION
 	if source != nil {
 		event[fieldNameSource] = source
 	}

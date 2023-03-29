@@ -3,7 +3,7 @@ package replication
 import (
 	"github.com/go-errors/errors"
 	"github.com/jackc/pgx/v5"
-	"github.com/noctarius/event-stream-prototype/internal/configuration"
+	"github.com/noctarius/event-stream-prototype/internal/configuring"
 	"github.com/noctarius/event-stream-prototype/internal/event/sink"
 	"github.com/noctarius/event-stream-prototype/internal/event/topic"
 	"github.com/noctarius/event-stream-prototype/internal/eventhandler"
@@ -21,16 +21,19 @@ type Replicator interface {
 type replicatorImpl struct {
 	sideChannel        *sideChannel
 	replicationChannel *replicationChannel
-	config             *configuration.Config
+	publicationName    string
+	config             *configuring.Config
 	connConfig         *pgx.ConnConfig
 }
 
-func NewReplicator(config *configuration.Config, connConfig *pgx.ConnConfig) Replicator {
+func NewReplicator(config *configuring.Config, connConfig *pgx.ConnConfig) Replicator {
+	publicationName := configuring.GetOrDefault(config, "postgresql.publication", "")
 	return &replicatorImpl{
 		config:             config,
 		connConfig:         connConfig,
+		publicationName:    publicationName,
 		sideChannel:        newSideChannel(connConfig),
-		replicationChannel: newReplicationChannel(connConfig, config.PostgreSQL.Publication),
+		replicationChannel: newReplicationChannel(connConfig, publicationName),
 	}
 }
 
@@ -38,10 +41,10 @@ func (r *replicatorImpl) StartReplication(schemaRegistry *schema.Registry,
 	topicNameGenerator *topic.NameGenerator, eventEmitter *sink.EventEmitter) error {
 
 	// Instantiate the event dispatcher
-	dispatcher := eventhandler.NewDispatcher(1000)
+	dispatcher := eventhandler.NewDispatcher(2000)
 
 	// Set up the system catalog (replicating the Timescale internal representation)
-	systemCatalog, err := systemcatalog.NewSystemCatalog(r.connConfig.Database, r.config,
+	systemCatalog, err := systemcatalog.NewSystemCatalog(r.connConfig.Database, r.publicationName, r.config,
 		schemaRegistry, topicNameGenerator, dispatcher, r.sideChannel)
 	if err != nil {
 		return errors.Wrap(err, 0)

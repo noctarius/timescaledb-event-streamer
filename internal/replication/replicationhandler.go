@@ -7,9 +7,9 @@ import (
 	"github.com/jackc/pglogrepl"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgproto3"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/noctarius/event-stream-prototype/internal/eventhandler"
 	"github.com/noctarius/event-stream-prototype/internal/logging"
+	"github.com/noctarius/event-stream-prototype/internal/pg/decoding"
 	"runtime"
 	"time"
 )
@@ -19,7 +19,6 @@ var logger = logging.NewLogger("ReplicationHandler")
 type replicationHandler struct {
 	dispatcher    *eventhandler.Dispatcher
 	clientXLogPos pglogrepl.LSN
-	typeMap       *pgtype.Map
 	relations     map[uint32]*pglogrepl.RelationMessage
 
 	shutdownStart chan bool
@@ -29,7 +28,6 @@ type replicationHandler struct {
 func newReplicationHandler(dispatcher *eventhandler.Dispatcher) *replicationHandler {
 	return &replicationHandler{
 		dispatcher: dispatcher,
-		typeMap:    pgtype.NewMap(),
 		relations:  make(map[uint32]*pglogrepl.RelationMessage, 0),
 
 		shutdownStart: make(chan bool, 1),
@@ -266,8 +264,8 @@ func (rh *replicationHandler) decodeValues(relation *pglogrepl.RelationMessage,
 		case 'u': // unchanged toast
 			// This TOAST value was not changed. TOAST values are not stored in the tuple, and
 			// logical replication doesn't want to spend a disk read to fetch its value for you.
-		case 't': //text
-			val, err := decodeTextColumnData(rh.typeMap, col.Data, relation.Columns[idx].DataType)
+		case 't': // text (basically anything other than the two above)
+			val, err := decoding.DecodeTextColumn(col.Data, relation.Columns[idx].DataType)
 			if err != nil {
 				logger.Fatalln("error decoding column data:", err)
 			}
@@ -275,11 +273,4 @@ func (rh *replicationHandler) decodeValues(relation *pglogrepl.RelationMessage,
 		}
 	}
 	return values
-}
-
-func decodeTextColumnData(mi *pgtype.Map, data []byte, dataType uint32) (any, error) {
-	if dt, ok := mi.TypeForOID(dataType); ok {
-		return dt.Codec.DecodeValue(mi, dataType, pgtype.TextFormatCode, data)
-	}
-	return string(data), nil
 }
