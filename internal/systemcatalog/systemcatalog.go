@@ -66,7 +66,12 @@ func NewSystemCatalog(databaseName string, config *configuring.Config, schemaReg
 		snapshotter:           snapshotter,
 	}
 
-	if err := sideChannel.ReadHypertables(catalog.RegisterHypertable); err != nil {
+	if err := sideChannel.ReadHypertables(func(hypertable *model.Hypertable) error {
+		if !catalog.replicationFilter.enabled(hypertable) {
+			return nil
+		}
+		return catalog.RegisterHypertable(hypertable)
+	}); err != nil {
 		return nil, errors.Wrap(err, 0)
 	}
 
@@ -190,6 +195,7 @@ func (sc *SystemCatalog) RegisterHypertable(hypertable *model.Hypertable) error 
 		sc.hypertable2compressed[hypertable.Id()] = compressedHypertableId
 		sc.compressed2hypertable[compressedHypertableId] = hypertable.Id()
 	}
+	logger.Printf("ADDED CATALOG ENTRY: HYPERTABLE %d => %+v", hypertable.Id(), hypertable)
 	return nil
 }
 
@@ -209,6 +215,8 @@ func (sc *SystemCatalog) RegisterChunk(chunk *model.Chunk) error {
 		sc.chunkNameIndex[chunk.CanonicalName()] = chunk.Id()
 		sc.chunk2Hypertable[chunk.Id()] = chunk.HypertableId()
 		sc.hypertable2chunks[hypertable.Id()] = append(sc.hypertable2chunks[hypertable.Id()], chunk.Id())
+		logger.Printf("ADDED CATALOG ENTRY: CHUNK %d FOR HYPERTABLE %s => %+v",
+			chunk.Id(), hypertable.CanonicalName(), *chunk)
 	}
 	return nil
 }
@@ -217,11 +225,13 @@ func (sc *SystemCatalog) UnregisterChunk(chunk *model.Chunk) error {
 	if hypertable := sc.FindHypertableByChunkId(chunk.Id()); hypertable != nil {
 		index := indexOf(sc.hypertable2chunks[hypertable.Id()], chunk.Id())
 		// Erase element (zero value) to prevent memory leak
-		sc.hypertable2chunks[hypertable.Id()][index] = 0
-		sc.hypertable2chunks[hypertable.Id()] = append(
-			sc.hypertable2chunks[hypertable.Id()][:index],
-			sc.hypertable2chunks[hypertable.Id()][index+1:]...,
-		)
+		if index >= 0 {
+			sc.hypertable2chunks[hypertable.Id()][index] = 0
+			sc.hypertable2chunks[hypertable.Id()] = append(
+				sc.hypertable2chunks[hypertable.Id()][:index],
+				sc.hypertable2chunks[hypertable.Id()][index+1:]...,
+			)
+		}
 	}
 	delete(sc.chunkNameIndex, chunk.CanonicalName())
 	delete(sc.chunk2Hypertable, chunk.Id())

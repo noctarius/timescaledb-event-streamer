@@ -47,7 +47,6 @@ func (s *systemCatalogReplicationEventHandler) OnHypertableAddedEvent(_ uint32, 
 			if err := s.systemCatalog.RegisterHypertable(h); err != nil {
 				return fmt.Errorf("registering hypertable failed: %v", h)
 			}
-			logger.Printf("ADDED CATALOG ENTRY: HYPERTABLE %d => %+v", id, *h)
 
 			return s.systemCatalog.sideChannel.ReadHypertableSchema(h, s.systemCatalog.ApplySchemaUpdate)
 		},
@@ -104,7 +103,6 @@ func (s *systemCatalogReplicationEventHandler) OnChunkAddedEvent(_ uint32, newVa
 			if err := s.systemCatalog.RegisterChunk(c); err != nil {
 				return fmt.Errorf("registering chunk failed: %v", c)
 			}
-			logger.Printf("ADDED CATALOG ENTRY: CHUNK %d FOR HYPERTABLE %s => %+v", id, hypertableName, *c)
 
 			if !c.IsCompressed() &&
 				s.systemCatalog.IsHypertableSelectedForReplication(hypertableId) {

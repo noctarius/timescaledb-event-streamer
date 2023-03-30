@@ -15,11 +15,12 @@ type Source struct {
 }
 
 type Payload struct {
-	Before map[string]any   `json:"before"`
-	After  map[string]any   `json:"after"`
-	Op     schema.Operation `json:"op"`
-	Source Source           `json:"source"`
-	TsMs   uint64           `json:"ts_ms"`
+	Before map[string]any            `json:"before"`
+	After  map[string]any            `json:"after"`
+	Op     schema.Operation          `json:"op"`
+	TsdbOp schema.TimescaleOperation `json:"tsdb_op"`
+	Source Source                    `json:"source"`
+	TsMs   uint64                    `json:"ts_ms"`
 }
 
 type Field struct {

@@ -26,15 +26,7 @@ func NewEventEmitter(schemaRegistry *schema.Registry,
 	}
 }
 
-func (ee *EventEmitter) NewEventHandler(withCompression bool) eventhandler.BaseReplicationEventHandler {
-	if withCompression {
-		return compressionAwareEventEmitterEventHandler{
-			&eventEmitterEventHandler{
-				eventEmitter: ee,
-			},
-		}
-	}
-
+func (ee *EventEmitter) NewEventHandler() eventhandler.BaseReplicationEventHandler {
 	return &eventEmitterEventHandler{
 		eventEmitter: ee,
 	}
@@ -174,22 +166,18 @@ func (e *eventEmitterEventHandler) convertValues(hypertable *model.Hypertable,
 	return result, nil
 }
 
-type compressionAwareEventEmitterEventHandler struct {
-	*eventEmitterEventHandler
-}
-
-func (c *compressionAwareEventEmitterEventHandler) OnChunkCompressedEvent(
+func (e *eventEmitterEventHandler) OnChunkCompressedEvent(
 	xld pglogrepl.XLogData, hypertable *model.Hypertable, chunk *model.Chunk) error {
 
-	return c.emit(xld, hypertable, func(source schema.Struct) schema.Struct {
+	return e.emit(xld, hypertable, func(source schema.Struct) schema.Struct {
 		return schema.CompressionEvent(source)
 	})
 }
 
-func (c *compressionAwareEventEmitterEventHandler) OnChunkDecompressedEvent(
+func (e *eventEmitterEventHandler) OnChunkDecompressedEvent(
 	xld pglogrepl.XLogData, hypertable *model.Hypertable, chunk *model.Chunk) error {
 
-	return c.emit(xld, hypertable, func(source schema.Struct) schema.Struct {
+	return e.emit(xld, hypertable, func(source schema.Struct) schema.Struct {
 		return schema.DecompressionEvent(source)
 	})
 }

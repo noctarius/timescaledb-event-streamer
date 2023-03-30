@@ -82,7 +82,6 @@ func (sc *sideChannel) ReadHypertables(cb func(hypertable *model.Hypertable) err
 			hypertable := model.NewHypertable(id, sc.connConfig.Database, schemaName, hypertableName,
 				associatedSchemaName, associatedTablePrefix, compressedHypertableId, compressionState, distributed)
 
-			logger.Printf("ADDED CATALOG ENTRY: HYPERTABLE %d => %+v", hypertable.Id(), hypertable)
 			return cb(hypertable)
 		}, initialHypertableQuery)
 	})
@@ -117,7 +116,9 @@ func (sc *sideChannel) ReadHypertablesSchema(hypertables []*model.Hypertable,
 
 				continue
 			}
-			return sc.readHypertableSchema(session, hypertable, cb)
+			if err := sc.readHypertableSchema(session, hypertable, cb); err != nil {
+				return err
+			}
 		}
 		return nil
 	})

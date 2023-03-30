@@ -63,7 +63,7 @@ func (r *replicatorImpl) StartReplication(schemaRegistry *schema.Registry,
 	// Register event handlers
 	dispatcher.RegisterReplicationEventHandler(resolver)
 	dispatcher.RegisterReplicationEventHandler(systemCatalog.NewEventHandler())
-	dispatcher.RegisterReplicationEventHandler(eventEmitter.NewEventHandler(true))
+	dispatcher.RegisterReplicationEventHandler(eventEmitter.NewEventHandler())
 
 	// Start dispatching events
 	dispatcher.StartDispatcher()

@@ -89,16 +89,19 @@ func (l *LogicalReplicationResolver) OnChunkSnapshotFinishedEvent(
 }
 
 func (l *LogicalReplicationResolver) OnRelationEvent(xld pglogrepl.XLogData, msg *pglogrepl.RelationMessage) error {
+	logger.Printf("RELATION MSG: %+v", msg)
 	l.relations[msg.RelationID] = msg
 	return nil
 }
 
 func (l *LogicalReplicationResolver) OnBeginEvent(xld pglogrepl.XLogData, msg *pglogrepl.BeginMessage) error {
+	logger.Printf("BEGIN MSG: %+v", msg)
 	//TODO implement me
 	return nil
 }
 
 func (l *LogicalReplicationResolver) OnCommitEvent(xld pglogrepl.XLogData, msg *pglogrepl.CommitMessage) error {
+	logger.Printf("COMMIT MSG: %+v", msg)
 	//TODO implement me
 	return nil
 }
@@ -121,11 +124,6 @@ func (l *LogicalReplicationResolver) OnInsertEvent(
 
 	chunk, hypertable := l.resolveChunkAndHypertable(rel.Namespace, rel.RelationName)
 	if hypertable != nil {
-		if hypertable.IsCompressedTable() {
-			if err := l.onChunkCompressionEvent(xld, hypertable, rel, chunk); err != nil {
-				return err
-			}
-		}
 
 		if !l.genInsertEvent {
 			return nil
@@ -157,14 +155,22 @@ func (l *LogicalReplicationResolver) OnUpdateEvent(
 	}
 
 	if l.isChunkEvent(rel) {
+		chunkId := newValues["id"].(int32)
+		if chunk := l.systemCatalog.FindChunkById(chunkId); chunk != nil {
+			hypertable := l.systemCatalog.FindHypertableById(chunk.HypertableId())
+			if chunk.Status() == 0 && (newValues["status"].(int32)) == 1 {
+				return l.onChunkCompressionEvent(xld, hypertable, rel, chunk)
+			}
+		}
+
 		return l.onChunkUpdateEvent(msg, oldValues, newValues)
 	}
 
+	chunk, hypertable := l.resolveChunkAndHypertable(rel.Namespace, rel.RelationName)
 	if !l.genUpdateEvent {
 		return nil
 	}
 
-	chunk, hypertable := l.resolveChunkAndHypertable(rel.Namespace, rel.RelationName)
 	if hypertable != nil {
 		return l.enqueueOrExecute(chunk, xld, func() error {
 			return l.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
@@ -256,11 +262,13 @@ func (l *LogicalReplicationResolver) OnTruncateEvent(xld pglogrepl.XLogData, msg
 }
 
 func (l *LogicalReplicationResolver) OnTypeEvent(xld pglogrepl.XLogData, msg *pglogrepl.TypeMessage) error {
+	logger.Printf("TYPE MSG: %+v", msg)
 	//TODO implement me
 	return nil
 }
 
 func (l *LogicalReplicationResolver) OnOriginEvent(xld pglogrepl.XLogData, msg *pglogrepl.OriginMessage) error {
+	logger.Printf("ORIGIN MSG: %+v", msg)
 	//TODO implement me
 	logger.Printf("Origin: %+v", msg)
 	return nil
@@ -350,15 +358,15 @@ func (l *LogicalReplicationResolver) onChunkDeleteEvent(xld pglogrepl.XLogData,
 func (l *LogicalReplicationResolver) onChunkCompressionEvent(xld pglogrepl.XLogData,
 	hypertable *model.Hypertable, rel *pglogrepl.RelationMessage, chunk *model.Chunk) error {
 
-	uncompressedHypertable := l.systemCatalog.FindHypertableByCompressedHypertableId(hypertable.Id())
-	logger.Printf(
-		"COMPRESSION EVENT %s.%s FOR CHUNK %s.%s", uncompressedHypertable.SchemaName(),
-		uncompressedHypertable.HypertableName(), rel.Namespace, rel.RelationName,
-	)
-
 	if !l.genCompressionEvent {
 		return nil
 	}
+
+	//uncompressedHypertable := l.systemCatalog.FindHypertableByCompressedHypertableId(hypertable.Id())
+	logger.Printf(
+		"COMPRESSION EVENT %s.%s FOR CHUNK %s.%s", hypertable.SchemaName(),
+		hypertable.HypertableName(), rel.Namespace, rel.RelationName,
+	)
 
 	return l.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
 		notificator.NotifyCompressionReplicationEventHandler(
