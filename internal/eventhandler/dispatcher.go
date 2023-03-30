@@ -2,6 +2,7 @@ package eventhandler
 
 import (
 	"fmt"
+	"github.com/noctarius/event-stream-prototype/internal/supporting"
 	"os"
 )
 
@@ -17,19 +18,17 @@ type Notificator interface {
 }
 
 type Dispatcher struct {
-	taskQueue      chan Task
-	handlers       []BaseReplicationEventHandler
-	shutdownStart  chan bool
-	shutdownDone   chan bool
-	shutdownActive bool
+	taskQueue       chan Task
+	handlers        []BaseReplicationEventHandler
+	shutdownAwaiter *supporting.ShutdownAwaiter
+	shutdownActive  bool
 }
 
 func NewDispatcher(queueLength int) *Dispatcher {
 	d := &Dispatcher{
-		taskQueue:     make(chan Task, queueLength),
-		handlers:      make([]BaseReplicationEventHandler, 0),
-		shutdownStart: make(chan bool, 1),
-		shutdownDone:  make(chan bool, 1),
+		taskQueue:       make(chan Task, queueLength),
+		handlers:        make([]BaseReplicationEventHandler, 0),
+		shutdownAwaiter: supporting.NewShutdownAwaiter(),
 	}
 	return d
 }
@@ -61,22 +60,20 @@ func (d *Dispatcher) StartDispatcher() {
 			case task := <-d.taskQueue:
 				task(notificator)
 
-			default:
-				if d.shutdownActive {
-					goto finish
-				}
+			case <-d.shutdownAwaiter.AwaitShutdownChan():
+				goto finish
 			}
 		}
 
 	finish:
-		d.shutdownDone <- true
+		d.shutdownAwaiter.SignalDone()
 	}()
 }
 
 func (d *Dispatcher) StopDispatcher() {
 	d.shutdownActive = true
-	d.shutdownStart <- true
-	<-d.shutdownDone
+	d.shutdownAwaiter.SignalShutdown()
+	d.shutdownAwaiter.AwaitDone()
 }
 
 func (d *Dispatcher) EnqueueTask(task Task) error {
@@ -91,12 +88,12 @@ func (d *Dispatcher) EnqueueTaskAndWait(task Task) error {
 	if d.shutdownActive {
 		return fmt.Errorf("shutdown active, draining only")
 	}
-	done := make(chan bool, 1)
+	done := supporting.NewWaiter()
 	d.taskQueue <- func(notificator Notificator) {
 		task(notificator)
-		done <- true
+		done.Signal()
 	}
-	<-done
+	done.Await()
 	return nil
 }
 

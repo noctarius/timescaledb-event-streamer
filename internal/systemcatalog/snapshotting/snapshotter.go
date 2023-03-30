@@ -6,9 +6,9 @@ import (
 	"github.com/noctarius/event-stream-prototype/internal/eventhandler"
 	"github.com/noctarius/event-stream-prototype/internal/logging"
 	"github.com/noctarius/event-stream-prototype/internal/replication/channels"
+	"github.com/noctarius/event-stream-prototype/internal/supporting"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/model"
 	"hash/fnv"
-	"sync"
 	"time"
 )
 
@@ -20,31 +20,27 @@ type SnapshotTask struct {
 }
 
 type Snapshotter struct {
-	partitionCount    uint64
-	dispatcher        *eventhandler.Dispatcher
-	sideChannel       channels.SideChannel
-	snapshotQueues    []chan SnapshotTask
-	shutdownStarts    []chan bool
-	shutdownWaitGroup sync.WaitGroup
+	partitionCount  uint64
+	dispatcher      *eventhandler.Dispatcher
+	sideChannel     channels.SideChannel
+	snapshotQueues  []chan SnapshotTask
+	shutdownAwaiter *supporting.MultiShutdownAwaiter
 }
 
 func NewSnapshotter(partitionCount uint8, sideChannel channels.SideChannel,
 	dispatcher *eventhandler.Dispatcher) *Snapshotter {
 
 	snapshotQueues := make([]chan SnapshotTask, partitionCount)
-	shutdownStarts := make([]chan bool, partitionCount)
 	for i := range snapshotQueues {
 		snapshotQueues[i] = make(chan SnapshotTask, 128)
-		shutdownStarts[i] = make(chan bool, 1)
 	}
 
 	return &Snapshotter{
-		partitionCount:    uint64(partitionCount),
-		dispatcher:        dispatcher,
-		sideChannel:       sideChannel,
-		snapshotQueues:    snapshotQueues,
-		shutdownStarts:    shutdownStarts,
-		shutdownWaitGroup: sync.WaitGroup{},
+		partitionCount:  uint64(partitionCount),
+		dispatcher:      dispatcher,
+		sideChannel:     sideChannel,
+		snapshotQueues:  snapshotQueues,
+		shutdownAwaiter: supporting.NewMultiShutdownAwaiter(uint(partitionCount)),
 	}
 }
 
@@ -80,7 +76,7 @@ func (s *Snapshotter) StartSnapshotter() {
 					if err := s.snapshot(task); err != nil {
 						logger.Fatalf("snapshotting of task '%+v' failed: %+v", task, err)
 					}
-				case <-s.shutdownStarts[partition]:
+				case <-s.shutdownAwaiter.AwaitShutdownChan(uint(partition)):
 					goto shutdown
 				case <-time.After(time.Second * 5):
 					// timeout, keep running
@@ -89,17 +85,14 @@ func (s *Snapshotter) StartSnapshotter() {
 			}
 
 		shutdown:
-			s.shutdownWaitGroup.Done()
+			s.shutdownAwaiter.SignalDone()
 		}(i)
 	}
-	s.shutdownWaitGroup.Add(int(s.partitionCount))
 }
 
 func (s *Snapshotter) StopSnapshotter() {
-	for i := 0; i < int(s.partitionCount); i++ {
-		s.shutdownStarts[i] <- true
-	}
-	s.shutdownWaitGroup.Wait()
+	s.shutdownAwaiter.SignalShutdown()
+	s.shutdownAwaiter.AwaitDone()
 }
 
 func (s *Snapshotter) snapshot(task SnapshotTask) error {

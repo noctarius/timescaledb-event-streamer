@@ -10,6 +10,7 @@ import (
 	"github.com/noctarius/event-stream-prototype/internal/eventhandler"
 	"github.com/noctarius/event-stream-prototype/internal/logging"
 	"github.com/noctarius/event-stream-prototype/internal/pg/decoding"
+	"github.com/noctarius/event-stream-prototype/internal/supporting"
 	"runtime"
 	"time"
 )
@@ -17,28 +18,24 @@ import (
 var logger = logging.NewLogger("ReplicationHandler")
 
 type replicationHandler struct {
-	dispatcher    *eventhandler.Dispatcher
-	clientXLogPos pglogrepl.LSN
-	relations     map[uint32]*pglogrepl.RelationMessage
-
-	shutdownStart chan bool
-	shutdownDone  chan bool
+	dispatcher      *eventhandler.Dispatcher
+	clientXLogPos   pglogrepl.LSN
+	relations       map[uint32]*pglogrepl.RelationMessage
+	shutdownAwaiter *supporting.ShutdownAwaiter
 }
 
 func newReplicationHandler(dispatcher *eventhandler.Dispatcher) *replicationHandler {
 	return &replicationHandler{
-		dispatcher: dispatcher,
-		relations:  make(map[uint32]*pglogrepl.RelationMessage, 0),
-
-		shutdownStart: make(chan bool, 1),
-		shutdownDone:  make(chan bool, 1),
+		dispatcher:      dispatcher,
+		relations:       make(map[uint32]*pglogrepl.RelationMessage, 0),
+		shutdownAwaiter: supporting.NewShutdownAwaiter(),
 	}
 }
 
 func (rh *replicationHandler) stopReplicationHandler() {
 	logger.Println("Starting to shutdown")
-	rh.shutdownStart <- true
-	<-rh.shutdownDone
+	rh.shutdownAwaiter.SignalShutdown()
+	rh.shutdownAwaiter.AwaitDone()
 }
 
 func (rh *replicationHandler) startReplicationHandler(connection *pgconn.PgConn,
@@ -51,9 +48,9 @@ func (rh *replicationHandler) startReplicationHandler(connection *pgconn.PgConn,
 	runtime.LockOSThread()
 	for {
 		select {
-		case <-rh.shutdownStart:
+		case <-rh.shutdownAwaiter.AwaitShutdownChan():
 			runtime.UnlockOSThread()
-			rh.shutdownDone <- true
+			rh.shutdownAwaiter.SignalDone()
 			return nil
 		default:
 		}

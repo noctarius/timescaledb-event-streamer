@@ -8,6 +8,7 @@ import (
 	"github.com/noctarius/event-stream-prototype/internal"
 	"github.com/noctarius/event-stream-prototype/internal/configuring"
 	"github.com/noctarius/event-stream-prototype/internal/configuring/sysconfig"
+	"github.com/noctarius/event-stream-prototype/internal/supporting"
 	"io"
 	"os"
 	"os/signal"
@@ -61,17 +62,17 @@ func main() {
 		os.Exit(exitCode)
 	}
 
-	sigs := make(chan os.Signal, 1)
-	done := make(chan bool, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
+	done := supporting.NewWaiter()
 	go func() {
-		<-sigs
+		<-signals
 		if err := streamer.Stop(); err != nil {
 			fmt.Fprintf(os.Stderr, "Hard error when stopping replication: %v\n", err)
 			os.Exit(1)
 		}
-		done <- true
+		done.Signal()
 	}()
 
 	if err := streamer.Start(); err != nil {
@@ -79,5 +80,5 @@ func main() {
 		os.Exit(1)
 	}
 
-	<-done
+	done.Await()
 }

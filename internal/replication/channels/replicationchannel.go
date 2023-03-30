@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/noctarius/event-stream-prototype/internal/eventhandler"
 	"github.com/noctarius/event-stream-prototype/internal/pg/decoding"
+	"github.com/noctarius/event-stream-prototype/internal/supporting"
 	"strings"
 )
 
@@ -22,8 +23,7 @@ type replicationChannel struct {
 	connConfig         *pgconn.Config
 	publicationName    string
 	createdPublication bool
-	shutdownStart      chan bool
-	shutdownEnd        chan bool
+	shutdownAwaiter    *supporting.ShutdownAwaiter
 }
 
 func NewReplicationChannel(connConfig *pgx.ConnConfig, publicationName string) ReplicationChannel {
@@ -36,14 +36,13 @@ func NewReplicationChannel(connConfig *pgx.ConnConfig, publicationName string) R
 	return &replicationChannel{
 		connConfig:      &connConfig.Config,
 		publicationName: publicationName,
-		shutdownStart:   make(chan bool, 1),
-		shutdownEnd:     make(chan bool, 1),
+		shutdownAwaiter: supporting.NewShutdownAwaiter(),
 	}
 }
 
 func (rc *replicationChannel) StopReplicationChannel() {
-	rc.shutdownStart <- true
-	<-rc.shutdownEnd
+	rc.shutdownAwaiter.SignalShutdown()
+	rc.shutdownAwaiter.AwaitDone()
 }
 
 func (rc *replicationChannel) StartReplicationChannel(
@@ -95,11 +94,11 @@ func (rc *replicationChannel) StartReplicationChannel(
 		if err != nil {
 			logger.Fatalf("Issue handling WAL stream: %s", err)
 		}
-		rc.shutdownStart <- true
+		rc.shutdownAwaiter.SignalShutdown()
 	}()
 
 	go func() {
-		<-rc.shutdownStart
+		rc.shutdownAwaiter.AwaitShutdown()
 		replicationHandler.stopReplicationHandler()
 		if _, err := pglogrepl.SendStandbyCopyDone(context.Background(), connection); err != nil {
 			logger.Fatalf("shutdown failed: %+v", err)
@@ -110,7 +109,7 @@ func (rc *replicationChannel) StartReplicationChannel(
 		if err := rc.executeQuery(connection, fmt.Sprintf(dropPublication, rc.publicationName)); err != nil {
 			logger.Fatalf("shutdown failed: %+v", err)
 		}
-		rc.shutdownEnd <- true
+		rc.shutdownAwaiter.SignalDone()
 	}()
 
 	return nil
