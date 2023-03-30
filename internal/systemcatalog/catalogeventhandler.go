@@ -80,7 +80,6 @@ func (s *systemCatalogReplicationEventHandler) OnHypertableDeletedEvent(_ uint32
 			logger.Fatalf("unregistering hypertable failed: %v", hypertable)
 		}
 	}
-	logger.Printf("REMOVED CATALOG ENTRY: HYPERTABLE %d", hypertableId)
 	return nil
 }
 

@@ -206,6 +206,7 @@ func (sc *SystemCatalog) UnregisterHypertable(hypertable *model.Hypertable) erro
 	delete(sc.hypertable2compressed, hypertable.Id())
 	delete(sc.compressed2hypertable, hypertable.Id())
 	delete(sc.hypertable2chunks, hypertable.Id())
+	logger.Printf("REMOVED CATALOG ENTRY: HYPERTABLE %d", hypertable.Id())
 	return nil
 }
 
