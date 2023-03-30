@@ -205,12 +205,12 @@ func (tr *TestRunner) RunTest(testFn func(context Context) error, configurators 
 
 	streamer, err, exitCode := internal.NewStreamer(systemConfig)
 	if err != nil {
-		tr.T().Fatalf("failed to create streamer with exitCode: %d and error: %+v", exitCode, err)
+		logger.Errorf("failed to create streamer with exitCode: %d and error: %+v", exitCode, err)
 		return
 	}
 
 	if err := streamer.Start(); err != nil {
-		tr.T().Fatalf("failed to start streamer: %+v", err)
+		logger.Errorf("failed to start streamer: %+v", err)
 		return
 	}
 

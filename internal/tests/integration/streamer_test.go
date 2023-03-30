@@ -241,7 +241,7 @@ func (its *IntegrationTestSuite) TestCreateEvents() {
 	)
 }
 
-func (its *IntegrationTestSuite) Ignore_TestUpdateEvents() {
+func (its *IntegrationTestSuite) TestUpdateEvents() {
 	collected := make(chan bool, 1)
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
@@ -270,8 +270,7 @@ func (its *IntegrationTestSuite) Ignore_TestUpdateEvents() {
 			<-collected
 			if _, err := context.Exec(stdctx.Background(),
 				fmt.Sprintf(
-					"UPDATE %s SET val = t.val + 10 FROM %s t",
-					testrunner.GetAttribute[string](context, "tableName"),
+					"UPDATE %s SET val = val + 10",
 					testrunner.GetAttribute[string](context, "tableName"),
 				),
 			); err != nil {
@@ -297,7 +296,7 @@ func (its *IntegrationTestSuite) Ignore_TestUpdateEvents() {
 
 			// Next 10 events have to be of type update (chunk should already be replicated)
 			for i := 0; i < 10; i++ {
-				expected := i + 1
+				expected := i + 11
 				event := testSink.Events()[i+10]
 				val := int(event.Envelope.Payload.After["val"].(float64))
 				if expected != val {
@@ -315,7 +314,7 @@ func (its *IntegrationTestSuite) Ignore_TestUpdateEvents() {
 
 		testrunner.WithSetup(func(context testrunner.SetupContext) error {
 			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
-				model.NewColumn("ts", pgtype.TimestamptzOID, "timestamptz", false, false, nil),
+				model.NewColumn("ts", pgtype.TimestamptzOID, "timestamptz", false, true, nil),
 				model.NewColumn("val", pgtype.Int4OID, "integer", false, false, nil),
 			)
 			if err != nil {
@@ -336,7 +335,7 @@ func (its *IntegrationTestSuite) Ignore_TestUpdateEvents() {
 	)
 }
 
-func (its *IntegrationTestSuite) Ignore_TestDeleteEvents() {
+func (its *IntegrationTestSuite) TestDeleteEvents() {
 	collected := make(chan bool, 1)
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
@@ -391,13 +390,7 @@ func (its *IntegrationTestSuite) Ignore_TestDeleteEvents() {
 
 			// Next 10 events have to be of type delete (chunk should already be replicated)
 			for i := 0; i < 10; i++ {
-				expected := i + 1
 				event := testSink.Events()[i+10]
-				val := int(event.Envelope.Payload.After["val"].(float64))
-				if expected != val {
-					its.T().Errorf("event order inconsistent %d != %d", expected, val)
-					return nil
-				}
 				if event.Envelope.Payload.Op != schema.OP_DELETE {
 					its.T().Errorf("event should be of type 'd' but was %s", event.Envelope.Payload.Op)
 					return nil
@@ -409,7 +402,7 @@ func (its *IntegrationTestSuite) Ignore_TestDeleteEvents() {
 
 		testrunner.WithSetup(func(context testrunner.SetupContext) error {
 			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
-				model.NewColumn("ts", pgtype.TimestamptzOID, "timestamptz", false, false, nil),
+				model.NewColumn("ts", pgtype.TimestamptzOID, "timestamptz", false, true, nil),
 				model.NewColumn("val", pgtype.Int4OID, "integer", false, false, nil),
 			)
 			if err != nil {

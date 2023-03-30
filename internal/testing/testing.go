@@ -305,5 +305,8 @@ func toDefinition(column model.Column) string {
 	if column.DefaultValue() != nil {
 		builder.WriteString(fmt.Sprintf(" DEFAULT '%s'", *column.DefaultValue()))
 	}
+	if column.Identify() {
+		builder.WriteString(" PRIMARY KEY")
+	}
 	return builder.String()
 }
