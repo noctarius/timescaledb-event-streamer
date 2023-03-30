@@ -7,6 +7,7 @@ import (
 	"github.com/noctarius/event-stream-prototype/internal/event/sink"
 	"github.com/noctarius/event-stream-prototype/internal/event/topic"
 	"github.com/noctarius/event-stream-prototype/internal/eventhandler"
+	"github.com/noctarius/event-stream-prototype/internal/replication/channels"
 	"github.com/noctarius/event-stream-prototype/internal/replication/logicalreplicationresolver"
 	"github.com/noctarius/event-stream-prototype/internal/schema"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog"
@@ -20,8 +21,8 @@ type Replicator interface {
 }
 
 type replicatorImpl struct {
-	sideChannel        *sideChannel
-	replicationChannel *replicationChannel
+	sideChannel        channels.SideChannel
+	replicationChannel channels.ReplicationChannel
 	publicationName    string
 	config             *configuring.Config
 	connConfig         *pgx.ConnConfig
@@ -35,8 +36,8 @@ func NewReplicator(config *configuring.Config, connConfig *pgx.ConnConfig) Repli
 		config:             config,
 		connConfig:         connConfig,
 		publicationName:    publicationName,
-		sideChannel:        newSideChannel(connConfig, publicationName, snapshotBatchSize),
-		replicationChannel: newReplicationChannel(connConfig, publicationName),
+		sideChannel:        channels.NewSideChannel(connConfig, publicationName, snapshotBatchSize),
+		replicationChannel: channels.NewReplicationChannel(connConfig, publicationName),
 	}
 }
 
@@ -73,7 +74,7 @@ func (r *replicatorImpl) StartReplication(schemaRegistry *schema.Registry,
 	// Get initial list of chunks to add to publication
 	initialChunkTables := systemCatalog.GetAllChunks()
 
-	if err := r.replicationChannel.startReplicationChannel(dispatcher, initialChunkTables); err != nil {
+	if err := r.replicationChannel.StartReplicationChannel(dispatcher, initialChunkTables); err != nil {
 		return errors.Wrap(err, 0)
 	}
 
@@ -86,7 +87,7 @@ func (r *replicatorImpl) StartReplication(schemaRegistry *schema.Registry,
 }
 
 func (r *replicatorImpl) StopReplication() error {
-	r.replicationChannel.stopReplicationChannel()
+	r.replicationChannel.StopReplicationChannel()
 	if r.shutdownTask != nil {
 		r.shutdownTask()
 	}

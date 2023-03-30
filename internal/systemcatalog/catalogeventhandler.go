@@ -49,7 +49,7 @@ func (s *systemCatalogReplicationEventHandler) OnHypertableAddedEvent(_ uint32, 
 			}
 			logger.Printf("ADDED CATALOG ENTRY: HYPERTABLE %d => %+v", id, *h)
 
-			return s.systemCatalog.initiateHypertableSchema(h)
+			return s.systemCatalog.sideChannel.ReadHypertableSchema(h, s.systemCatalog.ApplySchemaUpdate)
 		},
 	)
 }

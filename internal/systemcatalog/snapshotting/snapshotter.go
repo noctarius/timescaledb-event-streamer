@@ -5,7 +5,7 @@ import (
 	"github.com/jackc/pglogrepl"
 	"github.com/noctarius/event-stream-prototype/internal/eventhandler"
 	"github.com/noctarius/event-stream-prototype/internal/logging"
-	"github.com/noctarius/event-stream-prototype/internal/replication/channel"
+	"github.com/noctarius/event-stream-prototype/internal/replication/channels"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/model"
 	"hash/fnv"
 	"sync"
@@ -22,13 +22,13 @@ type SnapshotTask struct {
 type Snapshotter struct {
 	partitionCount    uint64
 	dispatcher        *eventhandler.Dispatcher
-	queryAdapter      channel.QueryAdapter
+	sideChannel       channels.SideChannel
 	snapshotQueues    []chan SnapshotTask
 	shutdownStarts    []chan bool
 	shutdownWaitGroup sync.WaitGroup
 }
 
-func NewSnapshotter(partitionCount uint8, queryAdapter channel.QueryAdapter,
+func NewSnapshotter(partitionCount uint8, sideChannel channels.SideChannel,
 	dispatcher *eventhandler.Dispatcher) *Snapshotter {
 
 	snapshotQueues := make([]chan SnapshotTask, partitionCount)
@@ -41,7 +41,7 @@ func NewSnapshotter(partitionCount uint8, queryAdapter channel.QueryAdapter,
 	return &Snapshotter{
 		partitionCount:    uint64(partitionCount),
 		dispatcher:        dispatcher,
-		queryAdapter:      queryAdapter,
+		sideChannel:       sideChannel,
 		snapshotQueues:    snapshotQueues,
 		shutdownStarts:    shutdownStarts,
 		shutdownWaitGroup: sync.WaitGroup{},
@@ -110,11 +110,11 @@ func (s *Snapshotter) snapshot(task SnapshotTask) error {
 }
 
 func (s *Snapshotter) snapshotChunk(task SnapshotTask) error {
-	if err := s.queryAdapter.AttachChunkToPublication(task.Chunk); err != nil {
+	if err := s.sideChannel.AttachChunkToPublication(task.Chunk); err != nil {
 		return errors.Wrap(err, 0)
 	}
 
-	lsn, err := s.queryAdapter.SnapshotTable(
+	lsn, err := s.sideChannel.SnapshotTable(
 		task.Chunk.CanonicalName(), nil,
 		func(lsn pglogrepl.LSN, values map[string]any) error {
 			return s.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {

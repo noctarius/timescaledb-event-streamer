@@ -7,7 +7,7 @@ import (
 	"github.com/noctarius/event-stream-prototype/internal/event/topic"
 	"github.com/noctarius/event-stream-prototype/internal/eventhandler"
 	"github.com/noctarius/event-stream-prototype/internal/logging"
-	"github.com/noctarius/event-stream-prototype/internal/replication/channel"
+	"github.com/noctarius/event-stream-prototype/internal/replication/channels"
 	"github.com/noctarius/event-stream-prototype/internal/schema"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/model"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/snapshotting"
@@ -33,13 +33,13 @@ type SystemCatalog struct {
 	schemaRegistry        *schema.Registry
 	topicNameGenerator    *topic.NameGenerator
 	dispatcher            *eventhandler.Dispatcher
-	queryAdapter          channel.QueryAdapter
+	sideChannel           channels.SideChannel
 	replicationFilter     *replicationFilter
 	snapshotter           *snapshotting.Snapshotter
 }
 
 func NewSystemCatalog(databaseName string, config *configuring.Config, schemaRegistry *schema.Registry,
-	topicNameGenerator *topic.NameGenerator, dispatcher *eventhandler.Dispatcher, queryAdapter channel.QueryAdapter,
+	topicNameGenerator *topic.NameGenerator, dispatcher *eventhandler.Dispatcher, sideChannel channels.SideChannel,
 	snapshotter *snapshotting.Snapshotter) (*SystemCatalog, error) {
 
 	replicationFilter, err := newReplicationFilter(config)
@@ -61,36 +61,26 @@ func NewSystemCatalog(databaseName string, config *configuring.Config, schemaReg
 		schemaRegistry:        schemaRegistry,
 		topicNameGenerator:    topicNameGenerator,
 		dispatcher:            dispatcher,
-		queryAdapter:          queryAdapter,
+		sideChannel:           sideChannel,
 		replicationFilter:     replicationFilter,
 		snapshotter:           snapshotter,
 	}
 
-	if err := queryAdapter.ReadHypertables(catalog.RegisterHypertable); err != nil {
+	if err := sideChannel.ReadHypertables(catalog.RegisterHypertable); err != nil {
 		return nil, errors.Wrap(err, 0)
 	}
 
-	if err := queryAdapter.ReadChunks(catalog.RegisterChunk); err != nil {
+	if err := sideChannel.ReadChunks(catalog.RegisterChunk); err != nil {
 		return nil, errors.Wrap(err, 0)
 	}
 
-	if err := queryAdapter.NewSession(func(session channel.QuerySession) error {
-		for _, hypertable := range catalog.hypertables {
-			if hypertable.SchemaName() == "_timescaledb_internal" ||
-				hypertable.SchemaName() == "_timescaledb_catalog" {
+	hypertables := make([]*model.Hypertable, 0)
+	for _, hypertable := range hypertables {
+		hypertables = append(hypertables, hypertable)
+	}
 
-				continue
-			}
-
-			columns, err := catalog.queryAdapter.ReadHypertableSchema(session, hypertable)
-			if err != nil {
-				return errors.Wrap(err, 0)
-			}
-			catalog.ApplySchemaUpdate(hypertable, columns)
-		}
-		return nil
-	}); err != nil {
-		return nil, err
+	if err := sideChannel.ReadHypertablesSchema(hypertables, catalog.ApplySchemaUpdate); err != nil {
+		return nil, errors.Wrap(err, 0)
 	}
 
 	logger.Println("Selected hypertables for replication:")
@@ -262,23 +252,6 @@ func (sc *SystemCatalog) GetAllChunks() []string {
 		}
 	}
 	return chunkTables
-}
-
-func (sc *SystemCatalog) initiateHypertableSchema(hypertable *model.Hypertable) error {
-	if hypertable.SchemaName() == "_timescaledb_internal" ||
-		hypertable.SchemaName() == "_timescaledb_catalog" {
-
-		return nil
-	}
-
-	return sc.queryAdapter.NewSession(func(session channel.QuerySession) error {
-		columns, err := sc.queryAdapter.ReadHypertableSchema(session, hypertable)
-		if err != nil {
-			return errors.Wrap(err, 0)
-		}
-		sc.ApplySchemaUpdate(hypertable, columns)
-		return nil
-	})
 }
 
 func (sc *SystemCatalog) snapshotChunk(chunk *model.Chunk) error {

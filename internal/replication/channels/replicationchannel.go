@@ -1,4 +1,4 @@
-package replication
+package channels
 
 import (
 	"context"
@@ -26,7 +26,7 @@ type replicationChannel struct {
 	shutdownEnd        chan bool
 }
 
-func newReplicationChannel(connConfig *pgx.ConnConfig, publicationName string) *replicationChannel {
+func NewReplicationChannel(connConfig *pgx.ConnConfig, publicationName string) ReplicationChannel {
 	connConfig = connConfig.Copy()
 	if connConfig.RuntimeParams == nil {
 		connConfig.RuntimeParams = make(map[string]string)
@@ -41,12 +41,12 @@ func newReplicationChannel(connConfig *pgx.ConnConfig, publicationName string) *
 	}
 }
 
-func (rc *replicationChannel) stopReplicationChannel() {
+func (rc *replicationChannel) StopReplicationChannel() {
 	rc.shutdownStart <- true
 	<-rc.shutdownEnd
 }
 
-func (rc *replicationChannel) startReplicationChannel(
+func (rc *replicationChannel) StartReplicationChannel(
 	dispatcher *eventhandler.Dispatcher, initialChunkTables []string) error {
 
 	replicationHandler := newReplicationHandler(dispatcher)

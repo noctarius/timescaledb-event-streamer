@@ -1,4 +1,4 @@
-package replication
+package channels
 
 import (
 	"context"
@@ -56,7 +56,7 @@ type sideChannel struct {
 	snapshotBatchSize int
 }
 
-func newSideChannel(connConfig *pgx.ConnConfig, publicationName string, snapshotBatchSize int) *sideChannel {
+func NewSideChannel(connConfig *pgx.ConnConfig, publicationName string, snapshotBatchSize int) SideChannel {
 	sc := &sideChannel{
 		connConfig:        connConfig,
 		publicationName:   publicationName,
@@ -107,32 +107,33 @@ func (sc *sideChannel) ReadChunks(cb func(chunk *model.Chunk) error) error {
 	})
 }
 
-func (sc *sideChannel) ReadHypertableSchema(
-	session session, hypertable *model.Hypertable) ([]model.Column, error) {
+func (sc *sideChannel) ReadHypertablesSchema(hypertables []*model.Hypertable,
+	cb func(hypertable *model.Hypertable, columns []model.Column) bool) error {
 
-	columns := make([]model.Column, 0)
-	if err := session.queryFunc(context.Background(), func(row pgx.Row) error {
-		var name string
-		var oid uint32
-		var nullable, identifier bool
-		var defaultValue *string
+	return sc.newSession(func(session session) error {
+		for _, hypertable := range hypertables {
+			if hypertable.SchemaName() == "_timescaledb_internal" ||
+				hypertable.SchemaName() == "_timescaledb_catalog" {
 
-		if err := row.Scan(&name, &oid, &nullable, &identifier, &defaultValue); err != nil {
-			return errors.Wrap(err, 0)
+				continue
+			}
+			return sc.readHypertableSchema(session, hypertable, cb)
 		}
-
-		dataType, err := model.DataTypeByOID(oid)
-		if err != nil {
-			return errors.Wrap(err, 0)
-		}
-
-		column := model.NewColumn(name, oid, string(dataType), nullable, identifier, defaultValue)
-		columns = append(columns, column)
 		return nil
-	}, fmt.Sprintf(initialTableSchema, hypertable.SchemaName(), hypertable.HypertableName())); err != nil {
-		return nil, errors.Wrap(err, 0)
+	})
+}
+
+func (sc *sideChannel) ReadHypertableSchema(hypertable *model.Hypertable,
+	cb func(hypertable *model.Hypertable, columns []model.Column) bool) error {
+
+	if hypertable.SchemaName() != "_timescaledb_internal" &&
+		hypertable.SchemaName() != "_timescaledb_catalog" {
+
+		return sc.newSession(func(session session) error {
+			return sc.readHypertableSchema(session, hypertable, cb)
+		})
 	}
-	return columns, nil
+	return nil
 }
 
 func (sc *sideChannel) AttachChunkToPublication(chunk *model.Chunk) error {
@@ -291,6 +292,40 @@ func (sc *sideChannel) InitialSnapshot(snapshotName string, next func() (schema,
 	if err != nil {
 		return errors.Wrap(err, 0)
 	}
+	return nil
+}
+
+func (sc *sideChannel) readHypertableSchema(
+	session session, hypertable *model.Hypertable,
+	cb func(hypertable *model.Hypertable, columns []model.Column) bool) error {
+
+	columns := make([]model.Column, 0)
+	if err := session.queryFunc(context.Background(), func(row pgx.Row) error {
+		var name string
+		var oid uint32
+		var nullable, identifier bool
+		var defaultValue *string
+
+		if err := row.Scan(&name, &oid, &nullable, &identifier, &defaultValue); err != nil {
+			return errors.Wrap(err, 0)
+		}
+
+		dataType, err := model.DataTypeByOID(oid)
+		if err != nil {
+			return errors.Wrap(err, 0)
+		}
+
+		column := model.NewColumn(name, oid, string(dataType), nullable, identifier, defaultValue)
+		columns = append(columns, column)
+		return nil
+	}, fmt.Sprintf(initialTableSchema, hypertable.SchemaName(), hypertable.HypertableName())); err != nil {
+		return errors.Wrap(err, 0)
+	}
+
+	if !cb(hypertable, columns) {
+		return errors.Errorf("hypertable schema callback failed")
+	}
+
 	return nil
 }
 
