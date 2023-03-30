@@ -4,8 +4,6 @@ import (
 	stdctx "context"
 	"fmt"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/noctarius/event-stream-prototype/internal/configuring/sysconfig"
-	"github.com/noctarius/event-stream-prototype/internal/event/sink"
 	"github.com/noctarius/event-stream-prototype/internal/schema"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/model"
 	inttest "github.com/noctarius/event-stream-prototype/internal/testing"
@@ -50,12 +48,7 @@ func (its *IntegrationTestSuite) TestInitialSnapshot_Single_Chunk() {
 			}
 			tableName = tn
 
-			context.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
-				config.SinkProvider = func() (sink.Sink, error) {
-					return testSink, nil
-				}
-			})
-
+			context.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
 			return nil
 		},
 		func(context testrunner.Context) error {
@@ -112,12 +105,7 @@ func (its *IntegrationTestSuite) TestInitialSnapshot_Multi_Chunk() {
 			}
 			tableName = tn
 
-			context.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
-				config.SinkProvider = func() (sink.Sink, error) {
-					return testSink, nil
-				}
-			})
-
+			context.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
 			return nil
 		},
 		func(context testrunner.Context) error {

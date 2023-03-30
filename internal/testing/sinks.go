@@ -2,6 +2,8 @@ package testing
 
 import (
 	"encoding/json"
+	"github.com/noctarius/event-stream-prototype/internal/configuring/sysconfig"
+	"github.com/noctarius/event-stream-prototype/internal/event/sink"
 	"github.com/noctarius/event-stream-prototype/internal/schema"
 	"time"
 )
@@ -62,6 +64,12 @@ func NewEventCollectorSink(options ...EventCollectorSinkOption) *EventCollectorS
 		option(eventCollectorSink)
 	}
 	return eventCollectorSink
+}
+
+func (t *EventCollectorSink) SystemConfigConfigurator(config *sysconfig.SystemConfig) {
+	config.SinkProvider = func() (sink.Sink, error) {
+		return t, nil
+	}
 }
 
 func (t *EventCollectorSink) Events() []CollectedEvent {
