@@ -9,6 +9,7 @@ import (
 	"github.com/noctarius/event-stream-prototype/internal/configuring"
 	"github.com/noctarius/event-stream-prototype/internal/configuring/sysconfig"
 	"github.com/noctarius/event-stream-prototype/internal/logging"
+	"github.com/noctarius/event-stream-prototype/internal/supporting"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/model"
 	inttest "github.com/noctarius/event-stream-prototype/internal/testing"
 	"github.com/stretchr/testify/suite"
@@ -28,6 +29,8 @@ type Context interface {
 	BeginTx(ctx context.Context, txOptions pgx.TxOptions) (pgx.Tx, error)
 	Ping(ctx context.Context) error
 	CreateHypertable(timeDimension string, chunkSize time.Duration, columns ...model.Column) (string, string, error)
+	attribute(key string, value any)
+	getAttribute(key string) any
 }
 
 type SetupContext interface {
@@ -35,9 +38,21 @@ type SetupContext interface {
 	AddSystemConfigConfigurator(fn func(config *sysconfig.SystemConfig))
 }
 
+func Attribute[V any](context Context, key string, value V) {
+	context.attribute(key, value)
+}
+
+func GetAttribute[V any](context Context, key string) V {
+	return context.getAttribute(key).(V)
+}
+
 type testContext struct {
-	pool                      *pgxpool.Pool
-	hypertables               []string
+	pool        *pgxpool.Pool
+	hypertables []string
+	attributes  map[string]any
+
+	setupFunctions            []func(setupContext SetupContext) error
+	tearDownFunction          []func(Context) error
 	systemConfigConfigurators []func(config *sysconfig.SystemConfig)
 }
 
@@ -98,6 +113,28 @@ type TestRunner struct {
 	replPgxConfig *pgx.ConnConfig
 }
 
+func (t *testContext) attribute(key string, value any) {
+	t.attributes[key] = value
+}
+
+func (t *testContext) getAttribute(key string) any {
+	return t.attributes[key]
+}
+
+type testConfigurator func(context *testContext)
+
+func WithSetup(fn func(setupContext SetupContext) error) testConfigurator {
+	return func(context *testContext) {
+		context.setupFunctions = append(context.setupFunctions, fn)
+	}
+}
+
+func WithTearDown(fn func(context Context) error) testConfigurator {
+	return func(context *testContext) {
+		context.tearDownFunction = append(context.tearDownFunction, fn)
+	}
+}
+
 func (tr *TestRunner) SetupSuite() {
 	container, configProvider, err := inttest.SetupTimescaleContainer()
 	if err != nil {
@@ -124,11 +161,7 @@ func (tr *TestRunner) TearDownSuite() {
 	}
 }
 
-func (tr *TestRunner) RunTest(
-	setupFn func(context SetupContext) error,
-	testFn func(context Context) error,
-	tearDownFn func(context Context) error,
-) {
+func (tr *TestRunner) RunTest(testFn func(context Context) error, configurators ...testConfigurator) {
 	pool, err := pgxpool.NewWithConfig(context.Background(), tr.userConfig)
 	if err != nil {
 		tr.T().Fatalf("failed to create connection pool: %+v", err)
@@ -139,16 +172,23 @@ func (tr *TestRunner) RunTest(
 	tc := &testContext{
 		pool:        pool,
 		hypertables: make([]string, 0),
+		attributes:  make(map[string]any, 0),
 	}
 
-	if err := setupFn(tc); err != nil {
-		tr.T().Fatalf("failed to setup test: %+v", err)
-		return
+	for _, configurator := range configurators {
+		configurator(tc)
+	}
+
+	for _, setupFn := range tc.setupFunctions {
+		if err := setupFn(tc); err != nil {
+			tr.T().Fatalf("failed to setup test: %+v", err)
+			return
+		}
 	}
 
 	replConfig := &configuring.Config{
 		PostgreSQL: configuring.PostgreSQLConfig{
-			Publication: inttest.PublicationName,
+			Publication: supporting.RandomTextString(10),
 		},
 		TimescaleDB: configuring.TimescaleDBConfig{
 			Hypertables: configuring.TimescaleHypertablesConfig{
@@ -174,17 +214,21 @@ func (tr *TestRunner) RunTest(
 		return
 	}
 
+	defer func() {
+		for _, tearDownFn := range tc.tearDownFunction {
+			if err := tearDownFn(tc); err != nil {
+				tr.T().Fatalf("failed to tear down test: %+v", err)
+				return
+			}
+		}
+
+		if err := streamer.Stop(); err != nil {
+			tr.T().Fatalf("failed to stop streamer: %+v", err)
+		}
+	}()
+
 	if err := testFn(tc); err != nil {
 		tr.T().Fatalf("failure in test: %+v", err)
 		return
-	}
-
-	if err := tearDownFn(tc); err != nil {
-		tr.T().Fatalf("failed to tear down test: %+v", err)
-		return
-	}
-
-	if err := streamer.Stop(); err != nil {
-		tr.T().Fatalf("failed to stop streamer: %+v", err)
 	}
 }

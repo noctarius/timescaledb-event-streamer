@@ -80,7 +80,6 @@ func (s *Snapshotter) StartSnapshotter() {
 					goto shutdown
 				case <-time.After(time.Second * 5):
 					// timeout, keep running
-					logger.Printf("Partition handler: %d", partition)
 				}
 			}
 

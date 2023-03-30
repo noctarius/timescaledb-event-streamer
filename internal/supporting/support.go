@@ -20,6 +20,19 @@ func RandomTextString(length int) string {
 	return builder.String()
 }
 
+func DistinctItems[V any](items []V, identityFn func(item V) string) []V {
+	distincting := make(map[string]V, 0)
+	for _, item := range items {
+		identity := identityFn(item)
+		distincting[identity] = item
+	}
+	distinctItems := make([]V, 0, len(distincting))
+	for _, item := range distincting {
+		distinctItems = append(distinctItems, item)
+	}
+	return distinctItems
+}
+
 type Waiter struct {
 	done chan bool
 }

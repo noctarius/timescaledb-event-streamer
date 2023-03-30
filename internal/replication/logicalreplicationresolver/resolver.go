@@ -6,6 +6,7 @@ import (
 	"github.com/noctarius/event-stream-prototype/internal/configuring"
 	"github.com/noctarius/event-stream-prototype/internal/eventhandler"
 	"github.com/noctarius/event-stream-prototype/internal/logging"
+	"github.com/noctarius/event-stream-prototype/internal/supporting"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/model"
 )
@@ -220,8 +221,37 @@ func (l *LogicalReplicationResolver) OnTruncateEvent(xld pglogrepl.XLogData, msg
 		return nil
 	}
 
-	//TODO implement me
-	logger.Printf("Truncate: %+v", msg)
+	truncatedHypertables := make([]*model.Hypertable, 0)
+	for i := 0; i < int(msg.RelationNum); i++ {
+		rel, ok := l.relations[msg.RelationIDs[i]]
+		if !ok {
+			logger.Fatalf("unknown relation ID %d", msg.RelationIDs[i])
+		}
+
+		if l.isHypertableEvent(rel) || l.isChunkEvent(rel) {
+			// Catalog tables shouldn't be truncated; EVER!
+			continue
+		}
+
+		_, hypertable := l.resolveChunkAndHypertable(rel.Namespace, rel.RelationName)
+		truncatedHypertables = append(truncatedHypertables, hypertable)
+	}
+
+	truncatedHypertables = supporting.DistinctItems(truncatedHypertables, func(item *model.Hypertable) string {
+		return item.CanonicalName()
+	})
+
+	for _, hypertable := range truncatedHypertables {
+		if err := l.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
+			notificator.NotifyHypertableReplicationEventHandler(
+				func(handler eventhandler.HypertableReplicationEventHandler) error {
+					return handler.OnTruncateEvent(xld, hypertable)
+				},
+			)
+		}); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -369,6 +399,10 @@ func (l *LogicalReplicationResolver) isHypertableEvent(relation *pglogrepl.Relat
 
 func (l *LogicalReplicationResolver) isChunkEvent(relation *pglogrepl.RelationMessage) bool {
 	return relation.Namespace == "_timescaledb_catalog" && relation.RelationName == "chunk"
+}
+
+func (l *LogicalReplicationResolver) isHypertableChunkEvent(relation *pglogrepl.RelationMessage) bool {
+	return relation.Namespace == "_timescaledb_internal"
 }
 
 func (l *LogicalReplicationResolver) enqueueOrExecute(chunk *model.Chunk,

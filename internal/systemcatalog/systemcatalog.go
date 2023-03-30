@@ -75,7 +75,7 @@ func NewSystemCatalog(databaseName string, config *configuring.Config, schemaReg
 	}
 
 	hypertables := make([]*model.Hypertable, 0)
-	for _, hypertable := range hypertables {
+	for _, hypertable := range catalog.hypertables {
 		hypertables = append(hypertables, hypertable)
 	}
 
