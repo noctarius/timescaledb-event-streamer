@@ -8,7 +8,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/noctarius/event-stream-prototype/internal/pg/decoding"
-	"github.com/noctarius/event-stream-prototype/internal/replication/channel"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/model"
 	"time"
 )
@@ -66,35 +65,9 @@ func newSideChannel(connConfig *pgx.ConnConfig, publicationName string, snapshot
 	return sc
 }
 
-func (sc *sideChannel) QueryFunc(ctx context.Context, fn channel.RowFunction, query string, args ...any) error {
-	return sc.QueryFuncWithTimeout(ctx, time.Second*20, fn, query, args...)
-}
-
-func (sc *sideChannel) QueryFuncWithTimeout(ctx context.Context, timeout time.Duration,
-	fn channel.RowFunction, query string, args ...any) error {
-
-	connection, err := pgx.ConnectConfig(context.Background(), sc.connConfig)
-	if err != nil {
-		return fmt.Errorf("unable to connect to database: %v", err)
-	}
-	defer connection.Close(context.Background())
-
-	return sc.queryFuncWithTimeout(connection, ctx, timeout, fn, query, args...)
-}
-
-func (sc *sideChannel) NewSession(fn func(session channel.QuerySession) error) error {
-	connection, err := pgx.ConnectConfig(context.Background(), sc.connConfig)
-	if err != nil {
-		return fmt.Errorf("unable to connect to database: %v", err)
-	}
-	defer connection.Close(context.Background())
-
-	return fn(&sessionAdapter{connection: connection})
-}
-
 func (sc *sideChannel) ReadHypertables(cb func(hypertable *model.Hypertable) error) error {
-	return sc.NewSession(func(session channel.QuerySession) error {
-		return session.QueryFunc(context.Background(), func(row pgx.Row) error {
+	return sc.newSession(func(session session) error {
+		return session.queryFunc(context.Background(), func(row pgx.Row) error {
 			var id int32
 			var schemaName, hypertableName, associatedSchemaName, associatedTablePrefix string
 			var compressionState int16
@@ -116,8 +89,8 @@ func (sc *sideChannel) ReadHypertables(cb func(hypertable *model.Hypertable) err
 }
 
 func (sc *sideChannel) ReadChunks(cb func(chunk *model.Chunk) error) error {
-	return sc.NewSession(func(session channel.QuerySession) error {
-		return session.QueryFunc(context.Background(), func(row pgx.Row) error {
+	return sc.newSession(func(session session) error {
+		return session.queryFunc(context.Background(), func(row pgx.Row) error {
 			var id, hypertableId int32
 			var schemaName, tableName string
 			var compressedChunkId *int32
@@ -135,10 +108,10 @@ func (sc *sideChannel) ReadChunks(cb func(chunk *model.Chunk) error) error {
 }
 
 func (sc *sideChannel) ReadHypertableSchema(
-	session channel.QuerySession, hypertable *model.Hypertable) ([]model.Column, error) {
+	session session, hypertable *model.Hypertable) ([]model.Column, error) {
 
 	columns := make([]model.Column, 0)
-	if err := session.QueryFunc(context.Background(), func(row pgx.Row) error {
+	if err := session.queryFunc(context.Background(), func(row pgx.Row) error {
 		var name string
 		var oid uint32
 		var nullable, identifier bool
@@ -165,8 +138,8 @@ func (sc *sideChannel) ReadHypertableSchema(
 func (sc *sideChannel) AttachChunkToPublication(chunk *model.Chunk) error {
 	canonicalChunkName := chunk.CanonicalName()
 	attachingQuery := fmt.Sprintf(addTableToPublication, sc.publicationName, canonicalChunkName)
-	return sc.NewSession(func(session channel.QuerySession) error {
-		if _, err := session.Exec(context.Background(), attachingQuery); err != nil {
+	return sc.newSession(func(session session) error {
+		if _, err := session.exec(context.Background(), attachingQuery); err != nil {
 			return errors.Wrap(err, 0)
 		}
 		logger.Printf("Updated publication %s to add table %s", sc.publicationName, canonicalChunkName)
@@ -177,8 +150,8 @@ func (sc *sideChannel) AttachChunkToPublication(chunk *model.Chunk) error {
 func (sc *sideChannel) DetachChunkFromPublication(chunk *model.Chunk) error {
 	canonicalChunkName := chunk.CanonicalName()
 	detachingQuery := fmt.Sprintf(dropTableFromPublication, sc.publicationName, canonicalChunkName)
-	return sc.NewSession(func(session channel.QuerySession) error {
-		if _, err := session.Exec(context.Background(), detachingQuery); err != nil {
+	return sc.newSession(func(session session) error {
+		if _, err := session.exec(context.Background(), detachingQuery); err != nil {
 			return errors.Wrap(err, 0)
 		}
 		logger.Printf("Updated publication %s to drop table %s", sc.publicationName, canonicalChunkName)
@@ -191,28 +164,28 @@ func (sc *sideChannel) SnapshotTable(canonicalName string, startingLSN *pglogrep
 
 	var currentLSN pglogrepl.LSN
 
-	err := sc.NewSession(func(session channel.QuerySession) error {
-		if _, err := session.Exec(context.Background(),
+	err := sc.newSession(func(session session) error {
+		if _, err := session.exec(context.Background(),
 			"BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ"); err != nil {
 
 			return err
 		}
 
-		if err := session.QueryRow(context.Background(),
+		if err := session.queryRow(context.Background(),
 			"SELECT pg_current_wal_lsn()").Scan(&currentLSN); err != nil {
 
 			return err
 		}
 
 		if startingLSN != nil {
-			if _, err := session.Exec(context.Background(),
+			if _, err := session.exec(context.Background(),
 				fmt.Sprintf("SET TRANSACTION SNAPSHOT '%s'", startingLSN.String()),
 			); err != nil {
 				return err
 			}
 		}
 
-		if _, err := session.Exec(context.Background(),
+		if _, err := session.exec(context.Background(),
 			fmt.Sprintf("DECLARE clone SCROLL CURSOR FOR SELECT * FROM %s", canonicalName)); err != nil {
 			return errors.Wrap(err, 0)
 		}
@@ -220,7 +193,7 @@ func (sc *sideChannel) SnapshotTable(canonicalName string, startingLSN *pglogrep
 		var rowDecoder *decoding.RowDecoder
 		for {
 			count := 0
-			if err := session.QueryFunc(context.Background(), func(row pgx.Row) error {
+			if err := session.queryFunc(context.Background(), func(row pgx.Row) error {
 				rows := row.(pgx.Rows)
 
 				if rowDecoder == nil {
@@ -243,12 +216,12 @@ func (sc *sideChannel) SnapshotTable(canonicalName string, startingLSN *pglogrep
 			}
 		}
 
-		_, err := session.Exec(context.Background(), "CLOSE clone")
+		_, err := session.exec(context.Background(), "CLOSE clone")
 		if err != nil {
 			return errors.Wrap(err, 0)
 		}
 
-		_, err = session.Exec(context.Background(), "ROLLBACK")
+		_, err = session.exec(context.Background(), "ROLLBACK")
 		if err != nil {
 			return errors.Wrap(err, 0)
 		}
@@ -321,13 +294,40 @@ func (sc *sideChannel) InitialSnapshot(snapshotName string, next func() (schema,
 	return nil
 }
 
-func (sc *sideChannel) queryFuncWithTimeout(connection *pgx.Conn, ctx context.Context, timeout time.Duration,
-	fn channel.RowFunction, query string, args ...any) error {
+func (sc *sideChannel) newSession(fn func(session session) error) error {
+	connection, err := pgx.ConnectConfig(context.Background(), sc.connConfig)
+	if err != nil {
+		return fmt.Errorf("unable to connect to database: %v", err)
+	}
+	defer connection.Close(context.Background())
+
+	return fn(&sessionAdapter{connection: connection})
+}
+
+type sessionAdapter struct {
+	sideChannel *sideChannel
+	connection  *pgx.Conn
+}
+
+func (s *sessionAdapter) exec(ctx context.Context, query string, args ...any) (pgconn.CommandTag, error) {
+	return s.queryExecWithTimeout(s.connection, ctx, time.Second*20, query, args...)
+}
+
+func (s *sessionAdapter) queryRow(ctx context.Context, query string, args ...any) pgx.Row {
+	return s.queryRowWithTimeout(ctx, time.Second*20, query, args...)
+}
+
+func (s *sessionAdapter) queryFunc(ctx context.Context, fn rowFunction, query string, args ...any) error {
+	return s.queryFuncWithTimeout(ctx, time.Second*20, fn, query, args...)
+}
+
+func (s *sessionAdapter) queryFuncWithTimeout(ctx context.Context, timeout time.Duration,
+	fn rowFunction, query string, args ...any) error {
 
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	rows, err := connection.Query(ctx, query, args...)
+	rows, err := s.connection.Query(ctx, query, args...)
 	if err != nil {
 		return err
 	}
@@ -342,43 +342,20 @@ func (sc *sideChannel) queryFuncWithTimeout(connection *pgx.Conn, ctx context.Co
 	return rows.Err()
 }
 
-func (sc *sideChannel) queryExecWithTimeout(connection *pgx.Conn, ctx context.Context,
+func (s *sessionAdapter) queryRowWithTimeout(ctx context.Context,
+	timeout time.Duration, query string, args ...any) pgx.Row {
+
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	return s.connection.QueryRow(ctx, query, args...)
+}
+
+func (s *sessionAdapter) queryExecWithTimeout(connection *pgx.Conn, ctx context.Context,
 	timeout time.Duration, query string, args ...any) (pgconn.CommandTag, error) {
 
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	return connection.Exec(ctx, query, args...)
-}
-
-func (sc *sideChannel) queryRowWithTimeout(connection *pgx.Conn, ctx context.Context,
-	timeout time.Duration, query string, args ...any) pgx.Row {
-
-	ctx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-
-	return connection.QueryRow(ctx, query, args...)
-}
-
-type sessionAdapter struct {
-	sideChannel *sideChannel
-	connection  *pgx.Conn
-}
-
-func (s *sessionAdapter) Exec(ctx context.Context, query string, args ...any) (pgconn.CommandTag, error) {
-	return s.sideChannel.queryExecWithTimeout(s.connection, ctx, time.Second*20, query, args...)
-}
-
-func (s *sessionAdapter) QueryRow(ctx context.Context, query string, args ...any) pgx.Row {
-	return s.sideChannel.queryRowWithTimeout(s.connection, ctx, time.Second*20, query, args...)
-}
-
-func (s *sessionAdapter) QueryFunc(ctx context.Context, fn channel.RowFunction, query string, args ...any) error {
-	return s.sideChannel.queryFuncWithTimeout(s.connection, ctx, time.Second*20, fn, query, args...)
-}
-
-func (s *sessionAdapter) QueryFuncWithTimeout(ctx context.Context, timeout time.Duration,
-	fn channel.RowFunction, query string, args ...any) error {
-
-	return s.sideChannel.queryFuncWithTimeout(s.connection, ctx, timeout, fn, query, args...)
 }
