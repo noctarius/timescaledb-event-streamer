@@ -61,7 +61,7 @@ func (rc *replicationChannel) StartReplicationChannel(
 	}
 
 	if len(initialChunkTables) > 0 {
-		attachingQuery := fmt.Sprintf(addTableToPublication, rc.publicationName, strings.Join(initialChunkTables, ","))
+		attachingQuery := fmt.Sprintf(addTableToPublicationQuery, rc.publicationName, strings.Join(initialChunkTables, ","))
 		if err := rc.executeQuery(connection, attachingQuery); err != nil {
 			return errors.Wrap(err, 0)
 		}
@@ -158,7 +158,7 @@ func (rc *replicationChannel) createPublication(connection *pgconn.PgConn) (bool
 
 func (rc *replicationChannel) attachChunkTables(connection *pgconn.PgConn, initialChunkTables []string) error {
 	chunkTableList := strings.Join(initialChunkTables, ",")
-	attachingQuery := fmt.Sprintf(addTableToPublication, rc.publicationName, chunkTableList)
+	attachingQuery := fmt.Sprintf(addTableToPublicationQuery, rc.publicationName, chunkTableList)
 	if err := rc.executeQuery(connection, attachingQuery); err != nil {
 		return errors.Wrap(err, 0)
 	}

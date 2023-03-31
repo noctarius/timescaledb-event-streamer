@@ -12,9 +12,9 @@ import (
 	"time"
 )
 
-const addTableToPublication = "ALTER PUBLICATION %s ADD TABLE %s"
+const addTableToPublicationQuery = "ALTER PUBLICATION %s ADD TABLE %s"
 
-const dropTableFromPublication = "ALTER PUBLICATION %s DROP TABLE %s"
+const dropTableFromPublicationQuery = "ALTER PUBLICATION %s DROP TABLE %s"
 
 const initialHypertableQuery = `
 SELECT h1.id, h1.schema_name, h1.table_name, h1.associated_schema_name, h1.associated_table_prefix, 
@@ -36,16 +36,28 @@ LEFT JOIN timescaledb_information.chunks c4
       AND c4.chunk_name = c3.table_name
 ORDER BY c1.hypertable_id, coalesce(c2.range_start, c4.range_start)`
 
-const initialTableSchema = `
+const initialTableSchemaQuery = `
 SELECT
    c.column_name,
    t.oid::int,
    CASE WHEN c.is_nullable = 'YES' THEN true ELSE false END,
-   CASE WHEN c.is_identity = 'YES' THEN true ELSE false END,
+   CASE WHEN p.attname IS NOT NULL THEN true ELSE false END,
    c.column_default
 FROM information_schema.columns c
 LEFT JOIN pg_catalog.pg_namespace n ON n.nspname = c.udt_schema
 LEFT JOIN pg_catalog.pg_type t ON t.typnamespace = n.oid AND t.typname = c.udt_name
+LEFT JOIN LATERAL (
+    SELECT a.attname
+    FROM pg_index i, pg_attribute a, pg_class cl, pg_namespace n
+    WHERE cl.relname = c.table_name
+      AND n.nspname = c.table_schema
+      AND cl.relnamespace = n.oid
+      AND a.attrelid = cl.oid
+      AND i.indrelid = cl.oid
+      AND a.attname = c.column_name
+      AND a.attnum = any(i.indkey)
+      AND i.indisprimary
+) p ON TRUE
 WHERE c.table_schema = '%s'
   AND c.table_name = '%s'
 ORDER BY c.ordinal_position`
@@ -139,7 +151,7 @@ func (sc *sideChannel) ReadHypertableSchema(hypertable *model.Hypertable,
 
 func (sc *sideChannel) AttachChunkToPublication(chunk *model.Chunk) error {
 	canonicalChunkName := chunk.CanonicalName()
-	attachingQuery := fmt.Sprintf(addTableToPublication, sc.publicationName, canonicalChunkName)
+	attachingQuery := fmt.Sprintf(addTableToPublicationQuery, sc.publicationName, canonicalChunkName)
 	return sc.newSession(func(session session) error {
 		if _, err := session.exec(context.Background(), attachingQuery); err != nil {
 			return errors.Wrap(err, 0)
@@ -151,7 +163,7 @@ func (sc *sideChannel) AttachChunkToPublication(chunk *model.Chunk) error {
 
 func (sc *sideChannel) DetachChunkFromPublication(chunk *model.Chunk) error {
 	canonicalChunkName := chunk.CanonicalName()
-	detachingQuery := fmt.Sprintf(dropTableFromPublication, sc.publicationName, canonicalChunkName)
+	detachingQuery := fmt.Sprintf(dropTableFromPublicationQuery, sc.publicationName, canonicalChunkName)
 	return sc.newSession(func(session session) error {
 		if _, err := session.exec(context.Background(), detachingQuery); err != nil {
 			return errors.Wrap(err, 0)
@@ -304,10 +316,10 @@ func (sc *sideChannel) readHypertableSchema(
 	if err := session.queryFunc(context.Background(), func(row pgx.Row) error {
 		var name string
 		var oid uint32
-		var nullable, identifier bool
+		var nullable, primaryKey bool
 		var defaultValue *string
 
-		if err := row.Scan(&name, &oid, &nullable, &identifier, &defaultValue); err != nil {
+		if err := row.Scan(&name, &oid, &nullable, &primaryKey, &defaultValue); err != nil {
 			return errors.Wrap(err, 0)
 		}
 
@@ -316,10 +328,10 @@ func (sc *sideChannel) readHypertableSchema(
 			return errors.Wrap(err, 0)
 		}
 
-		column := model.NewColumn(name, oid, string(dataType), nullable, identifier, defaultValue)
+		column := model.NewColumn(name, oid, string(dataType), nullable, primaryKey, defaultValue)
 		columns = append(columns, column)
 		return nil
-	}, fmt.Sprintf(initialTableSchema, hypertable.SchemaName(), hypertable.HypertableName())); err != nil {
+	}, fmt.Sprintf(initialTableSchemaQuery, hypertable.SchemaName(), hypertable.HypertableName())); err != nil {
 		return errors.Wrap(err, 0)
 	}
 
