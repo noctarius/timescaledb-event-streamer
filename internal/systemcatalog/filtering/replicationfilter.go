@@ -199,7 +199,7 @@ func parseToken(token string) (string, bool, error) {
 		} else if char == '+' {
 			builder.WriteString(".+?")
 			isRegex = true
-		} else if unicode.IsLetter(char) || char == '_' || isQuoted {
+		} else if unicode.IsLetter(char) || unicode.IsNumber(char) || char == '_' || isQuoted {
 			builder.WriteRune(char)
 		} else {
 			return "", false, errors.Errorf(

@@ -513,6 +513,41 @@ func Test_Include_Both_With_Wildcard(t *testing.T) {
 	assert.Equal(t, false, replicationFilter.Enabled(hypertable))
 }
 
+func Test_Valid_Strings(t *testing.T) {
+	validStringParsing(t, "Customers5", "customers5")
+	validStringParsing(t, "\"5Customers\"", "5Customers")
+	validStringParsing(t, "dataField", "datafield")
+	validStringParsing(t, "_dataField1", "_datafield1")
+	validStringParsing(t, "ADGROUP", "adgroup")
+	validStringParsing(t, "\"tableName~\"", "tableName~")
+	validStringParsing(t, "\"GROUP\"", "GROUP")
+}
+
+func Test_Invalid_Strings(t *testing.T) {
+	invalidStringParsing(t, "5Customers", "5 is an illegal first character of pattern '5customers'")
+	invalidStringParsing(t, "_dataField!", "illegal character in pattern '_datafield!' at index 10")
+	invalidStringParsing(t, "GROUP", "an unquoted pattern cannot match a reserved keyword: GROUP")
+}
+
+func validStringParsing(t *testing.T, token, expected string) {
+	token, regex, err := parseToken(token)
+	if err != nil {
+		t.FailNow()
+	}
+	if regex {
+		t.FailNow()
+	}
+	assert.Equal(t, expected, token)
+}
+
+func invalidStringParsing(t *testing.T, token, expected string) {
+	_, _, err := parseToken(token)
+	if err == nil {
+		t.FailNow()
+	}
+	assert.ErrorContains(t, err, expected)
+}
+
 func makeHypertable(id int32, schemaName, tableName string) *model.Hypertable {
 	return model.NewHypertable(
 		id,
