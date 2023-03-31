@@ -2,10 +2,12 @@ package filtering
 
 import (
 	"fmt"
+	"github.com/go-errors/errors"
 	"github.com/noctarius/event-stream-prototype/internal/configuring/sysconfig"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/model"
 	"regexp"
 	"strings"
+	"unicode"
 )
 
 type ReplicationFilter struct {
@@ -82,53 +84,25 @@ func parseFilter(filterTerm string) (*filter, error) {
 		return nil, fmt.Errorf("failed parsing filter term: %s", filterTerm)
 	}
 
-	namespace := tokens[0]
-	namespaceIsRegex := false
-	if strings.Contains(namespace, "*") {
-		namespace = strings.ReplaceAll(namespace, "*", ".*?")
-		namespaceIsRegex = true
-	}
-	if strings.Contains(namespace, "?") {
-		namespace = strings.ReplaceAll(namespace, "?", ".{1}")
-		namespaceIsRegex = true
-	}
-	if strings.Contains(namespace, "+") {
-		namespace = strings.ReplaceAll(namespace, "+", ".+?")
-		namespaceIsRegex = true
+	namespace, namespaceIsRegex, err := parseToken(tokens[0])
+	if err != nil {
+		return nil, errors.Wrap(err, 0)
 	}
 
-	table := tokens[1]
-	tableIsRegex := false
-	if strings.Contains(table, "*") {
-		table = strings.ReplaceAll(table, "*", ".*?")
-		tableIsRegex = true
-	}
-	if strings.Contains(table, "?") {
-		table = strings.ReplaceAll(table, "?", ".{1}")
-		tableIsRegex = true
-	}
-	if strings.Contains(table, "+") {
-		table = strings.ReplaceAll(table, "+", ".+?")
-		tableIsRegex = true
+	table, tableIsRegex, err := parseToken(tokens[1])
+	if err != nil {
+		return nil, errors.Wrap(err, 0)
 	}
 
 	f := &filter{}
 	if namespaceIsRegex {
-		nr, err := regexp.Compile(namespace)
-		if err != nil {
-			return nil, err
-		}
-		f.namespaceRegex = nr
+		f.namespaceRegex = regexp.MustCompile(fmt.Sprintf("^%s$", namespace))
 	} else {
 		f.namespace = namespace
 	}
 
 	if tableIsRegex {
-		tr, err := regexp.Compile(table)
-		if err != nil {
-			return nil, err
-		}
-		f.tableRegex = tr
+		f.tableRegex = regexp.MustCompile(fmt.Sprintf("^%s$", table))
 	} else {
 		f.table = table
 	}
@@ -156,4 +130,95 @@ func (f *filter) matches(namespace, table string) bool {
 		}
 	}
 	return true
+}
+
+func parseToken(token string) (string, bool, error) {
+	isQuoted := token[0] == '"' && token[len(token)-1] == '"'
+
+	// When not quoted, all identifiers are folded to lowercase
+	if !isQuoted {
+		token = strings.ToLower(token)
+	}
+
+	// Check identifier length
+	if len(token) > 63 {
+		if !isQuoted || len(token) > 65 {
+			return "", false, errors.Errorf("an pattern cannot be longer than 63 characters")
+		}
+	}
+
+	firstIndex := 0
+	if isQuoted {
+		firstIndex++
+	}
+	lastIndex := len(token)
+	if isQuoted {
+		lastIndex--
+	}
+
+	// If unquoted the first character needs to be a letter, underscore, or a valid wildcard (*|?|+)
+	if !isQuoted {
+		if !unicode.IsLetter(rune(token[0])) &&
+			token[0] != '_' &&
+			token[0] != '*' &&
+			token[0] != '?' &&
+			token[0] != '+' {
+
+			return "", false, errors.Errorf(
+				"%s is an illegal first character of pattern '%s'", string(token[0]), token,
+			)
+		}
+	}
+
+	isRegex := false
+	runedToken := []rune(token)
+	builder := strings.Builder{}
+	for i := firstIndex; i < lastIndex; i++ {
+		char := runedToken[i]
+
+		if char == '\\' && isQuoted {
+			if i < len(runedToken)-1 {
+				peekNextChar := runedToken[i+1]
+				if peekNextChar == '*' {
+					builder.WriteString("\\*")
+					i++
+				} else if peekNextChar == '?' {
+					builder.WriteString("\\?")
+					i++
+				} else if peekNextChar == '+' {
+					builder.WriteString("\\+")
+					i++
+				}
+			}
+		} else if char == '*' {
+			builder.WriteString(".*?")
+			isRegex = true
+		} else if char == '?' {
+			builder.WriteString(".{1}")
+			isRegex = true
+		} else if char == '+' {
+			builder.WriteString(".+?")
+			isRegex = true
+		} else if unicode.IsLetter(char) || char == '_' || isQuoted {
+			builder.WriteRune(char)
+		} else {
+			return "", false, errors.Errorf(
+				"illegal character in pattern '%s' at index %d", token, i,
+			)
+		}
+	}
+
+	parsedToken := builder.String()
+	if !isQuoted && !isRegex {
+		uppercaseParsedToken := strings.ToUpper(parsedToken)
+		for _, keyword := range reservedKeywords {
+			if keyword == uppercaseParsedToken {
+				return "", false, errors.Errorf(
+					"an unquoted pattern cannot match a reserved keyword: %s", keyword,
+				)
+			}
+		}
+	}
+
+	return parsedToken, isRegex, nil
 }
