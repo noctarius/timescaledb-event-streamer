@@ -21,38 +21,39 @@ type Replicator interface {
 }
 
 type replicatorImpl struct {
-	sideChannel        channels.SideChannel
-	replicationChannel channels.ReplicationChannel
-	publicationName    string
-	config             *configuring.Config
-	connConfig         *pgx.ConnConfig
-	shutdownTask       func()
+	publicationName   string
+	snapshotBatchSize int
+	config            *configuring.Config
+	connConfig        *pgx.ConnConfig
+	shutdownTask      func()
 }
 
 func NewReplicator(config *configuring.Config, connConfig *pgx.ConnConfig) Replicator {
 	publicationName := configuring.GetOrDefault(config, "postgresql.publication", "")
 	snapshotBatchSize := configuring.GetOrDefault(config, "postgresql.snapshot.batchsize", 1000)
 	return &replicatorImpl{
-		config:             config,
-		connConfig:         connConfig,
-		publicationName:    publicationName,
-		sideChannel:        channels.NewSideChannel(connConfig, publicationName, snapshotBatchSize),
-		replicationChannel: channels.NewReplicationChannel(connConfig, publicationName),
+		config:            config,
+		connConfig:        connConfig,
+		publicationName:   publicationName,
+		snapshotBatchSize: snapshotBatchSize,
 	}
 }
 
 func (r *replicatorImpl) StartReplication(schemaRegistry *schema.Registry,
 	topicNameGenerator *topic.NameGenerator, eventEmitter *sink.EventEmitter) error {
 
+	sideChannel := channels.NewSideChannel(r.connConfig, r.publicationName, r.snapshotBatchSize)
+	replicationChannel := channels.NewReplicationChannel(r.connConfig, r.publicationName)
+
 	// Instantiate the event dispatcher
 	dispatcher := eventhandler.NewDispatcher(2000)
 
 	// Instantiate the snapshotter
-	snapshotter := snapshotting.NewSnapshotter(32, r.sideChannel, dispatcher)
+	snapshotter := snapshotting.NewSnapshotter(32, sideChannel, dispatcher)
 
 	// Set up the system catalog (replicating the Timescale internal representation)
 	systemCatalog, err := systemcatalog.NewSystemCatalog(r.connConfig.Database, r.config, schemaRegistry,
-		topicNameGenerator, dispatcher, r.sideChannel, snapshotter)
+		topicNameGenerator, dispatcher, sideChannel, snapshotter)
 	if err != nil {
 		return errors.Wrap(err, 0)
 	}
@@ -74,12 +75,13 @@ func (r *replicatorImpl) StartReplication(schemaRegistry *schema.Registry,
 	// Get initial list of chunks to add to publication
 	initialChunkTables := systemCatalog.GetAllChunks()
 
-	if err := r.replicationChannel.StartReplicationChannel(dispatcher, initialChunkTables); err != nil {
+	if err := replicationChannel.StartReplicationChannel(dispatcher, initialChunkTables); err != nil {
 		return errors.Wrap(err, 0)
 	}
 
 	r.shutdownTask = func() {
 		snapshotter.StopSnapshotter()
+		replicationChannel.StopReplicationChannel()
 		dispatcher.StopDispatcher()
 	}
 
@@ -87,7 +89,6 @@ func (r *replicatorImpl) StartReplication(schemaRegistry *schema.Registry,
 }
 
 func (r *replicatorImpl) StopReplication() error {
-	r.replicationChannel.StopReplicationChannel()
 	if r.shutdownTask != nil {
 		r.shutdownTask()
 	}
