@@ -4,6 +4,7 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/jackc/pglogrepl"
 	"github.com/noctarius/event-stream-prototype/internal/configuring"
+	"github.com/noctarius/event-stream-prototype/internal/configuring/sysconfig"
 	"github.com/noctarius/event-stream-prototype/internal/eventhandler"
 	"github.com/noctarius/event-stream-prototype/internal/logging"
 	"github.com/noctarius/event-stream-prototype/internal/supporting"
@@ -28,7 +29,7 @@ type LogicalReplicationResolver struct {
 	genDecompressionEvent bool
 }
 
-func NewLogicalReplicationResolver(config *configuring.Config, dispatcher *eventhandler.Dispatcher,
+func NewLogicalReplicationResolver(config *sysconfig.SystemConfig, dispatcher *eventhandler.Dispatcher,
 	systemCatalog *systemcatalog.SystemCatalog) *LogicalReplicationResolver {
 
 	return &LogicalReplicationResolver{
@@ -37,13 +38,13 @@ func NewLogicalReplicationResolver(config *configuring.Config, dispatcher *event
 		relations:     make(map[uint32]*pglogrepl.RelationMessage, 0),
 		eventQueues:   make(map[string]*replicationQueue, 0),
 
-		genReadEvent:          configuring.GetOrDefault(config, "timescaledb.events.read", true),
-		genInsertEvent:        configuring.GetOrDefault(config, "timescaledb.events.insert", true),
-		genUpdateEvent:        configuring.GetOrDefault(config, "timescaledb.events.update", true),
-		genDeleteEvent:        configuring.GetOrDefault(config, "timescaledb.events.delete", true),
-		genTruncateEvent:      configuring.GetOrDefault(config, "timescaledb.events.truncate", true),
-		genCompressionEvent:   configuring.GetOrDefault(config, "timescaledb.events.compression", true),
-		genDecompressionEvent: configuring.GetOrDefault(config, "timescaledb.events.decompression", true),
+		genReadEvent:          configuring.GetOrDefault(config.Config, "timescaledb.events.read", true),
+		genInsertEvent:        configuring.GetOrDefault(config.Config, "timescaledb.events.insert", true),
+		genUpdateEvent:        configuring.GetOrDefault(config.Config, "timescaledb.events.update", true),
+		genDeleteEvent:        configuring.GetOrDefault(config.Config, "timescaledb.events.delete", true),
+		genTruncateEvent:      configuring.GetOrDefault(config.Config, "timescaledb.events.truncate", true),
+		genCompressionEvent:   configuring.GetOrDefault(config.Config, "timescaledb.events.compression", false),
+		genDecompressionEvent: configuring.GetOrDefault(config.Config, "timescaledb.events.decompression", false),
 	}
 }
 
@@ -59,8 +60,7 @@ func (l *LogicalReplicationResolver) OnChunkSnapshotFinishedEvent(
 	queue := l.eventQueues[chunk.CanonicalName()]
 	for {
 		fn := queue.pop()
-		// initial queue empty, remove it now, to prevent additional messages
-		// being enqueued.
+		// Initial queue empty, remove it now, to prevent additional messages being enqueued.
 		if fn == nil {
 			delete(l.eventQueues, chunk.CanonicalName())
 			queue.lock()
@@ -72,7 +72,7 @@ func (l *LogicalReplicationResolver) OnChunkSnapshotFinishedEvent(
 		}
 	}
 
-	// second round to make sure there wasn't any concurrent writes
+	// Second round to make sure there wasn't any concurrent writes
 	for {
 		fn := queue.pop()
 		if fn == nil {

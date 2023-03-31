@@ -1,20 +1,20 @@
-package systemcatalog
+package filtering
 
 import (
 	"fmt"
-	"github.com/noctarius/event-stream-prototype/internal/configuring"
+	"github.com/noctarius/event-stream-prototype/internal/configuring/sysconfig"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/model"
 	"regexp"
 	"strings"
 )
 
-type replicationFilter struct {
+type ReplicationFilter struct {
 	includes    []*filter
 	excludes    []*filter
 	filterCache map[string]bool
 }
 
-func newReplicationFilter(config *configuring.Config) (*replicationFilter, error) {
+func NewReplicationFilter(config *sysconfig.SystemConfig) (*ReplicationFilter, error) {
 	excludes := make([]*filter, 0)
 	for _, exclude := range config.TimescaleDB.Hypertables.Excludes {
 		f, err := parseFilter(exclude)
@@ -33,14 +33,14 @@ func newReplicationFilter(config *configuring.Config) (*replicationFilter, error
 		includes = append(includes, f)
 	}
 
-	return &replicationFilter{
+	return &ReplicationFilter{
 		includes:    includes,
 		excludes:    excludes,
 		filterCache: make(map[string]bool, 0),
 	}, nil
 }
 
-func (rf *replicationFilter) enabled(hypertable *model.Hypertable) bool {
+func (rf *ReplicationFilter) Enabled(hypertable *model.Hypertable) bool {
 	// already tested?
 	canonicalName := hypertable.CanonicalName()
 	// _timescaledb_internal._compressed_hypertable_246

@@ -3,12 +3,13 @@ package systemcatalog
 import (
 	"fmt"
 	"github.com/go-errors/errors"
-	"github.com/noctarius/event-stream-prototype/internal/configuring"
+	"github.com/noctarius/event-stream-prototype/internal/configuring/sysconfig"
 	"github.com/noctarius/event-stream-prototype/internal/event/topic"
 	"github.com/noctarius/event-stream-prototype/internal/eventhandler"
 	"github.com/noctarius/event-stream-prototype/internal/logging"
 	"github.com/noctarius/event-stream-prototype/internal/replication/channels"
 	"github.com/noctarius/event-stream-prototype/internal/schema"
+	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/filtering"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/model"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/snapshotting"
 	"os"
@@ -34,21 +35,21 @@ type SystemCatalog struct {
 	topicNameGenerator    *topic.NameGenerator
 	dispatcher            *eventhandler.Dispatcher
 	sideChannel           channels.SideChannel
-	replicationFilter     *replicationFilter
+	replicationFilter     *filtering.ReplicationFilter
 	snapshotter           *snapshotting.Snapshotter
 }
 
-func NewSystemCatalog(databaseName string, config *configuring.Config, schemaRegistry *schema.Registry,
-	topicNameGenerator *topic.NameGenerator, dispatcher *eventhandler.Dispatcher, sideChannel channels.SideChannel,
+func NewSystemCatalog(config *sysconfig.SystemConfig, topicNameGenerator *topic.NameGenerator,
+	dispatcher *eventhandler.Dispatcher, sideChannel channels.SideChannel, schemaRegistry *schema.Registry,
 	snapshotter *snapshotting.Snapshotter) (*SystemCatalog, error) {
 
-	replicationFilter, err := newReplicationFilter(config)
+	// Create the Replication Filter, selecting enabled and blocking disabled hypertables for replication
+	replicationFilter, err := filtering.NewReplicationFilter(config)
 	if err != nil {
 		return nil, err
 	}
 
-	catalog := &SystemCatalog{
-		databaseName:          databaseName,
+	return initializeSystemCatalog(&SystemCatalog{
 		hypertables:           make(map[int32]*model.Hypertable, 0),
 		chunks:                make(map[int32]*model.Chunk, 0),
 		hypertableNameIndex:   make(map[string]int32),
@@ -58,51 +59,15 @@ func NewSystemCatalog(databaseName string, config *configuring.Config, schemaReg
 		hypertable2chunks:     make(map[int32][]int32),
 		hypertable2compressed: make(map[int32]int32),
 		compressed2hypertable: make(map[int32]int32),
-		schemaRegistry:        schemaRegistry,
-		topicNameGenerator:    topicNameGenerator,
-		dispatcher:            dispatcher,
-		sideChannel:           sideChannel,
-		replicationFilter:     replicationFilter,
-		snapshotter:           snapshotter,
-	}
 
-	if err := sideChannel.ReadHypertables(func(hypertable *model.Hypertable) error {
-		if !catalog.replicationFilter.enabled(hypertable) {
-			return nil
-		}
-		return catalog.RegisterHypertable(hypertable)
-	}); err != nil {
-		return nil, errors.Wrap(err, 0)
-	}
-
-	if err := sideChannel.ReadChunks(catalog.RegisterChunk); err != nil {
-		return nil, errors.Wrap(err, 0)
-	}
-
-	hypertables := make([]*model.Hypertable, 0)
-	for _, hypertable := range catalog.hypertables {
-		hypertables = append(hypertables, hypertable)
-	}
-
-	if err := sideChannel.ReadHypertablesSchema(hypertables, catalog.ApplySchemaUpdate); err != nil {
-		return nil, errors.Wrap(err, 0)
-	}
-
-	logger.Println("Selected hypertables for replication:")
-	atLeastOneHypertableSelected := false
-	for _, hypertable := range catalog.hypertables {
-		if !hypertable.IsCompressedTable() && catalog.IsHypertableSelectedForReplication(hypertable.Id()) {
-			logger.Printf("\t* %s\n", hypertable.CanonicalName())
-			atLeastOneHypertableSelected = true
-		}
-	}
-
-	if !atLeastOneHypertableSelected {
-		logger.Println("No hypertable was selected, exiting.")
-		os.Exit(11)
-	}
-
-	return catalog, nil
+		databaseName:       config.PgxConfig.Database,
+		schemaRegistry:     schemaRegistry,
+		topicNameGenerator: topicNameGenerator,
+		dispatcher:         dispatcher,
+		sideChannel:        sideChannel,
+		replicationFilter:  replicationFilter,
+		snapshotter:        snapshotter,
+	})
 }
 
 func (sc *SystemCatalog) FindHypertableById(hypertableId int32) *model.Hypertable {
@@ -183,7 +148,7 @@ func (sc *SystemCatalog) IsHypertableSelectedForReplication(hypertableId int32) 
 		return false
 	}
 
-	return sc.replicationFilter.enabled(hypertable)
+	return sc.replicationFilter.Enabled(hypertable)
 }
 
 func (sc *SystemCatalog) RegisterHypertable(hypertable *model.Hypertable) error {
@@ -280,4 +245,44 @@ func indexOf[T comparable](slice []T, item T) int {
 		}
 	}
 	return -1
+}
+
+func initializeSystemCatalog(sc *SystemCatalog) (*SystemCatalog, error) {
+	if err := sc.sideChannel.ReadHypertables(func(hypertable *model.Hypertable) error {
+		if !sc.replicationFilter.Enabled(hypertable) {
+			return nil
+		}
+		return sc.RegisterHypertable(hypertable)
+	}); err != nil {
+		return nil, errors.Wrap(err, 0)
+	}
+
+	if err := sc.sideChannel.ReadChunks(sc.RegisterChunk); err != nil {
+		return nil, errors.Wrap(err, 0)
+	}
+
+	hypertables := make([]*model.Hypertable, 0)
+	for _, hypertable := range sc.hypertables {
+		hypertables = append(hypertables, hypertable)
+	}
+
+	if err := sc.sideChannel.ReadHypertablesSchema(hypertables, sc.ApplySchemaUpdate); err != nil {
+		return nil, errors.Wrap(err, 0)
+	}
+
+	logger.Println("Selected hypertables for replication:")
+	atLeastOneHypertableSelected := false
+	for _, hypertable := range sc.hypertables {
+		if !hypertable.IsCompressedTable() && sc.IsHypertableSelectedForReplication(hypertable.Id()) {
+			logger.Printf("\t* %s\n", hypertable.CanonicalName())
+			atLeastOneHypertableSelected = true
+		}
+	}
+
+	if !atLeastOneHypertableSelected {
+		logger.Println("No hypertable was selected, exiting.")
+		os.Exit(11)
+	}
+
+	return sc, nil
 }

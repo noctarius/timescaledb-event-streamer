@@ -2,10 +2,8 @@ package replication
 
 import (
 	"github.com/go-errors/errors"
-	"github.com/jackc/pgx/v5"
 	"github.com/noctarius/event-stream-prototype/internal/configuring"
-	"github.com/noctarius/event-stream-prototype/internal/event/sink"
-	"github.com/noctarius/event-stream-prototype/internal/event/topic"
+	"github.com/noctarius/event-stream-prototype/internal/configuring/sysconfig"
 	"github.com/noctarius/event-stream-prototype/internal/eventhandler"
 	"github.com/noctarius/event-stream-prototype/internal/replication/channels"
 	"github.com/noctarius/event-stream-prototype/internal/replication/logicalreplicationresolver"
@@ -15,35 +13,29 @@ import (
 )
 
 type Replicator interface {
-	StartReplication(schemaRegistry *schema.Registry,
-		topicNameGenerator *topic.NameGenerator, eventEmitter *sink.EventEmitter) error
+	StartReplication() error
+
 	StopReplication() error
 }
 
 type replicatorImpl struct {
-	publicationName   string
-	snapshotBatchSize int
-	config            *configuring.Config
-	connConfig        *pgx.ConnConfig
-	shutdownTask      func()
+	config       *sysconfig.SystemConfig
+	shutdownTask func()
 }
 
-func NewReplicator(config *configuring.Config, connConfig *pgx.ConnConfig) Replicator {
-	publicationName := configuring.GetOrDefault(config, "postgresql.publication", "")
-	snapshotBatchSize := configuring.GetOrDefault(config, "postgresql.snapshot.batchsize", 1000)
+func NewReplicator(config *sysconfig.SystemConfig) Replicator {
 	return &replicatorImpl{
-		config:            config,
-		connConfig:        connConfig,
-		publicationName:   publicationName,
-		snapshotBatchSize: snapshotBatchSize,
+		config: config,
 	}
 }
 
-func (r *replicatorImpl) StartReplication(schemaRegistry *schema.Registry,
-	topicNameGenerator *topic.NameGenerator, eventEmitter *sink.EventEmitter) error {
+func (r *replicatorImpl) StartReplication() error {
+	publicationName := configuring.GetOrDefault(r.config.Config, "postgresql.publication", "")
+	snapshotBatchSize := configuring.GetOrDefault(r.config.Config, "postgresql.snapshot.batchsize", 1000)
 
-	sideChannel := channels.NewSideChannel(r.connConfig, r.publicationName, r.snapshotBatchSize)
-	replicationChannel := channels.NewReplicationChannel(r.connConfig, r.publicationName)
+	// Create the side and replication channels
+	sideChannel := channels.NewSideChannel(r.config.PgxConfig, publicationName, snapshotBatchSize)
+	replicationChannel := channels.NewReplicationChannel(r.config.PgxConfig, publicationName)
 
 	// Instantiate the event dispatcher
 	dispatcher := eventhandler.NewDispatcher(2000)
@@ -51,9 +43,25 @@ func (r *replicatorImpl) StartReplication(schemaRegistry *schema.Registry,
 	// Instantiate the snapshotter
 	snapshotter := snapshotting.NewSnapshotter(32, sideChannel, dispatcher)
 
+	// Instantiate the topic name generator
+	topicNameGenerator, err := r.config.NameGeneratorProvider()
+	if err != nil {
+		return errors.Wrap(err, 0)
+	}
+
+	// Instantiate the schema registry keeping track of hypertable schemata
+	schemaRegistry := schema.NewSchemaRegistry()
+
+	// Instantiate the change event emitter
+	eventEmitter, err := r.config.EventEmitterProvider(schemaRegistry, topicNameGenerator)
+	if err != nil {
+		return errors.Wrap(err, 0)
+	}
+
 	// Set up the system catalog (replicating the Timescale internal representation)
-	systemCatalog, err := systemcatalog.NewSystemCatalog(r.connConfig.Database, r.config, schemaRegistry,
-		topicNameGenerator, dispatcher, sideChannel, snapshotter)
+	systemCatalog, err := systemcatalog.NewSystemCatalog(
+		r.config, topicNameGenerator, dispatcher, sideChannel, schemaRegistry, snapshotter,
+	)
 	if err != nil {
 		return errors.Wrap(err, 0)
 	}
