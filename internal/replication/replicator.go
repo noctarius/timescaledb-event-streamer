@@ -7,6 +7,7 @@ import (
 	"github.com/noctarius/event-stream-prototype/internal/eventhandler"
 	"github.com/noctarius/event-stream-prototype/internal/replication/channels"
 	"github.com/noctarius/event-stream-prototype/internal/replication/logicalreplicationresolver"
+	"github.com/noctarius/event-stream-prototype/internal/replication/transactional"
 	"github.com/noctarius/event-stream-prototype/internal/schema"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/snapshotting"
@@ -49,11 +50,14 @@ func (r *replicatorImpl) StartReplication() error {
 		return errors.Wrap(err, 0)
 	}
 
-	// Instantiate the schema registry keeping track of hypertable schemata
+	// Instantiate the transaction monitor, keeping track of transaction boundaries
+	transactionMonitor := transactional.NewTransactionMonitor()
+
+	// Instantiate the schema registry, keeping track of hypertable schemata
 	schemaRegistry := schema.NewSchemaRegistry()
 
 	// Instantiate the change event emitter
-	eventEmitter, err := r.config.EventEmitterProvider(schemaRegistry, topicNameGenerator)
+	eventEmitter, err := r.config.EventEmitterProvider(schemaRegistry, topicNameGenerator, transactionMonitor)
 	if err != nil {
 		return errors.Wrap(err, 0)
 	}
@@ -70,6 +74,7 @@ func (r *replicatorImpl) StartReplication() error {
 	resolver := logicalreplicationresolver.NewLogicalReplicationResolver(r.config, dispatcher, systemCatalog)
 
 	// Register event handlers
+	dispatcher.RegisterReplicationEventHandler(transactionMonitor)
 	dispatcher.RegisterReplicationEventHandler(resolver)
 	dispatcher.RegisterReplicationEventHandler(systemCatalog.NewEventHandler())
 	dispatcher.RegisterReplicationEventHandler(eventEmitter.NewEventHandler())

@@ -67,7 +67,7 @@ func (k *kafkaSink) Emit(timestamp time.Time, topicName string, envelope schema.
 
 	msg := &sarama.ProducerMessage{
 		Topic:     topicName,
-		Key:       sarama.StringEncoder(topicName),
+		Key:       sarama.StringEncoder(topicName), // FIXME: find in the debezium source
 		Value:     sarama.ByteEncoder(data),
 		Timestamp: timestamp,
 	}

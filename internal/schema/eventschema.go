@@ -14,11 +14,11 @@ const SourceSchemaName = "io.debezium.connector.postgresql.Source"
 type Operation string
 
 const (
-	OP_READ   Operation = "r"
-	OP_CREATE Operation = "c"
-	OP_UPDATE  Operation = "u"
-	OP_DELETE   Operation = "d"
-	OP_TRUNCATE Operation = "t"
+	OP_READ      Operation = "r"
+	OP_CREATE    Operation = "c"
+	OP_UPDATE    Operation = "u"
+	OP_DELETE    Operation = "d"
+	OP_TRUNCATE  Operation = "t"
 	OP_MESSAGE   Operation = "m"
 	OP_TIMESCALE Operation = "$"
 )
@@ -145,7 +145,9 @@ func Envelope(schema, payload Struct) Struct {
 	}
 }
 
-func Source(lsn pglogrepl.LSN, timestamp time.Time, snapshot bool, hypertable *model.Hypertable) Struct {
+func Source(lsn pglogrepl.LSN, timestamp time.Time, snapshot bool,
+	hypertable *model.Hypertable, transactionId uint32) Struct {
+
 	return Struct{
 		fieldNameVersion:   "0.0.1", // FIXME, get a real version
 		fieldNameConnector: "event-stream-prototype",
@@ -155,6 +157,7 @@ func Source(lsn pglogrepl.LSN, timestamp time.Time, snapshot bool, hypertable *m
 		fieldNameDatabase:  hypertable.DatabaseName(),
 		fieldNameSchema:    hypertable.SchemaName(),
 		fieldNameTable:     hypertable.HypertableName(),
+		fieldNameTxId:      transactionId,
 		fieldNameLSN:       lsn.String(),
 	}
 }

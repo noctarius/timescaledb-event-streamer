@@ -9,6 +9,7 @@ import (
 	"github.com/noctarius/event-stream-prototype/internal/event/sink/nats"
 	"github.com/noctarius/event-stream-prototype/internal/event/sink/stdout"
 	"github.com/noctarius/event-stream-prototype/internal/event/topic"
+	"github.com/noctarius/event-stream-prototype/internal/replication/transactional"
 	"github.com/noctarius/event-stream-prototype/internal/schema"
 )
 
@@ -33,15 +34,15 @@ func NewSystemConfig(config *configuring.Config) *SystemConfig {
 	return sc
 }
 
-func (sc *SystemConfig) defaultEventEmitter(schemaRegistry *schema.Registry,
-	topicNameGenerator *topic.NameGenerator) (*sink.EventEmitter, error) {
+func (sc *SystemConfig) defaultEventEmitter(schemaRegistry *schema.Registry, topicNameGenerator *topic.NameGenerator,
+	transactionMonitor *transactional.TransactionMonitor) (*sink.EventEmitter, error) {
 
 	s, err := sc.SinkProvider()
 	if err != nil {
 		return nil, err
 	}
 
-	return sink.NewEventEmitter(schemaRegistry, topicNameGenerator, s), nil
+	return sink.NewEventEmitter(schemaRegistry, topicNameGenerator, transactionMonitor, s), nil
 }
 
 func (sc *SystemConfig) defaultSink() (sink.Sink, error) {

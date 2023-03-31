@@ -5,6 +5,7 @@ import (
 	"github.com/jackc/pglogrepl"
 	"github.com/noctarius/event-stream-prototype/internal/event/topic"
 	"github.com/noctarius/event-stream-prototype/internal/eventhandler"
+	"github.com/noctarius/event-stream-prototype/internal/replication/transactional"
 	"github.com/noctarius/event-stream-prototype/internal/schema"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/model"
 	"time"
@@ -13,15 +14,17 @@ import (
 type EventEmitter struct {
 	schemaRegistry     *schema.Registry
 	topicNameGenerator *topic.NameGenerator
+	transactionMonitor *transactional.TransactionMonitor
 	sink               Sink
 }
 
-func NewEventEmitter(schemaRegistry *schema.Registry,
-	topicNameGenerator *topic.NameGenerator, sink Sink) *EventEmitter {
+func NewEventEmitter(schemaRegistry *schema.Registry, topicNameGenerator *topic.NameGenerator,
+	transactionMonitor *transactional.TransactionMonitor, sink Sink) *EventEmitter {
 
 	return &EventEmitter{
 		schemaRegistry:     schemaRegistry,
 		topicNameGenerator: topicNameGenerator,
+		transactionMonitor: transactionMonitor,
 		sink:               sink,
 	}
 }
@@ -56,15 +59,15 @@ func (e *eventEmitterEventHandler) OnReadEvent(lsn pglogrepl.LSN, hypertable *mo
 	})
 }
 
-func (e *eventEmitterEventHandler) OnRelationEvent(xld pglogrepl.XLogData, msg *pglogrepl.RelationMessage) error {
+func (e *eventEmitterEventHandler) OnRelationEvent(_ pglogrepl.XLogData, _ *pglogrepl.RelationMessage) error {
 	return nil
 }
 
-func (e *eventEmitterEventHandler) OnBeginEvent(xld pglogrepl.XLogData, msg *pglogrepl.BeginMessage) error {
+func (e *eventEmitterEventHandler) OnBeginEvent(_ pglogrepl.XLogData, _ *pglogrepl.BeginMessage) error {
 	return nil
 }
 
-func (e *eventEmitterEventHandler) OnCommitEvent(xld pglogrepl.XLogData, msg *pglogrepl.CommitMessage) error {
+func (e *eventEmitterEventHandler) OnCommitEvent(_ pglogrepl.XLogData, _ *pglogrepl.CommitMessage) error {
 	return nil
 }
 
@@ -117,11 +120,11 @@ func (e *eventEmitterEventHandler) OnTruncateEvent(xld pglogrepl.XLogData, hyper
 	})
 }
 
-func (e *eventEmitterEventHandler) OnTypeEvent(xld pglogrepl.XLogData, msg *pglogrepl.TypeMessage) error {
+func (e *eventEmitterEventHandler) OnTypeEvent(_ pglogrepl.XLogData, _ *pglogrepl.TypeMessage) error {
 	return nil
 }
 
-func (e *eventEmitterEventHandler) OnOriginEvent(xld pglogrepl.XLogData, msg *pglogrepl.OriginMessage) error {
+func (e *eventEmitterEventHandler) OnOriginEvent(_ pglogrepl.XLogData, _ *pglogrepl.OriginMessage) error {
 	return nil
 }
 
@@ -135,7 +138,7 @@ func (e *eventEmitterEventHandler) emit0(lsn pglogrepl.LSN, timestamp time.Time,
 	hypertable *model.Hypertable, eventProvider func(source schema.Struct) schema.Struct) error {
 
 	envelopeSchema := e.eventEmitter.envelopeSchema(hypertable)
-	source := schema.Source(lsn, timestamp, snapshot, hypertable)
+	source := schema.Source(lsn, timestamp, snapshot, hypertable, e.eventEmitter.transactionMonitor.TransactionId())
 	payload := eventProvider(source)
 	return e.eventEmitter.emit(hypertable, timestamp, schema.Envelope(envelopeSchema, payload))
 }

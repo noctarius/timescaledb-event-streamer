@@ -6,6 +6,7 @@ type Source struct {
 	Connector string `json:"connector"`
 	DB        string `json:"db"`
 	LSN       string `json:"lsn"`
+	TxId      uint32 `json:"txId"`
 	Name      string `json:"name"`
 	Schema    string `json:"schema"`
 	Snapshot  bool   `json:"snapshot"`
