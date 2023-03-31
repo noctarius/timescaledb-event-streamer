@@ -191,7 +191,7 @@ func (tr *TestRunner) RunTest(testFn func(context Context) error, configurators 
 			Publication: supporting.RandomTextString(10),
 		},
 		TimescaleDB: configuring.TimescaleDBConfig{
-			Hypertables: configuring.TimescaleHypertablesConfig{
+			Hypertables: configuring.HypertablesConfig{
 				Includes: tc.hypertables,
 			},
 		},

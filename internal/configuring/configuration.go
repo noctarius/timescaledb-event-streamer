@@ -48,8 +48,8 @@ type TopicConfig struct {
 }
 
 type TimescaleDBConfig struct {
-	Hypertables TimescaleHypertablesConfig `toml:"hypertables"`
-	Events      TimescaleEventsConfig      `toml:"events"`
+	Hypertables HypertablesConfig     `toml:"hypertables"`
+	Events      TimescaleEventsConfig `toml:"events"`
 }
 
 type NatsUserInfoConfig struct {
@@ -99,7 +99,7 @@ type TopicNamingStrategyConfig struct {
 	Type NamingStrategyType `toml:"type"`
 }
 
-type TimescaleHypertablesConfig struct {
+type HypertablesConfig struct {
 	Excludes []string `toml:"excludes"`
 	Includes []string `toml:"includes"`
 }
