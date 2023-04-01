@@ -12,6 +12,24 @@ or similar.
 _**Attention:** This software is in prototyping / alpha stage and not meant for
 production usage. No guarantees on the functionality are given._
 
+_**Attention 2:** This is not an official Timescale project, but just developed
+by a person who works for Timescale. This may change at some point in the future
+but it is not a given._
+
+# Why not just Debezium?
+While [Debezium](https://debezium.io/documentation/reference/stable/connectors/postgresql.html)
+already supports PostgreSQL, the implementation doesn't really support the internals
+of TimescaleDB, most specifically the way data is chunked or partitioned. It is
+possible to use Debezium to capture change events of the actual chunks itself,
+but without the catalog handling. This means that every chunk would emit changes on
+its own, but with no reference to its parent hypertable. The `timescaledb-event-streamer`
+changes this, by handling the catalog updates and resolving the parent hypertable
+before emitting the events.
+
+Anyhow, the final goal is to provide an implementation for Debezium when the prototype
+(which may stay as its own standalone project) is fully working and every complication
+has been found and fixed.
+
 # Getting Started
 
 `timescaledb-event-streamer` requires the [Go runtime (version 1.20+)](https://go.dev/doc/install)
