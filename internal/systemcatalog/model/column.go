@@ -86,11 +86,11 @@ func (c Column) differences(new Column) map[string]string {
 		(c.defaultValue != nil && new.defaultValue == nil) {
 		o := "<nil>"
 		if c.defaultValue != nil {
-			o = fmt.Sprintf("%s", *c.defaultValue)
+			o = *c.defaultValue
 		}
 		n := "<nil>"
 		if new.defaultValue != nil {
-			n = fmt.Sprintf("%s", *new.defaultValue)
+			n = *new.defaultValue
 		}
 		differences["defaultValue"] = fmt.Sprintf("%s=>%s", o, n)
 	}

@@ -161,7 +161,7 @@ func SetupTimescaleContainer() (testcontainers.Container, *ConfigProvider, error
 		conn, err = pgx.ConnectConfig(context.Background(), config)
 		if err != nil {
 			if i == 9 {
-				container.Terminate(context.Background())
+				_ = container.Terminate(context.Background())
 				return nil, nil, err
 			} else {
 				time.Sleep(time.Second)
@@ -269,7 +269,7 @@ func CreateHypertable(pool *pgxpool.Pool, timeDimension string,
 		columnDefinitions[i] = toDefinition(column)
 	}
 
-	query := fmt.Sprintf("CREATE TABLE %s.%s (%s)", databaseSchema,
+	query := fmt.Sprintf("CREATE TABLE \"%s\".\"%s\" (%s)", databaseSchema,
 		tableName, strings.Join(columnDefinitions, ", "))
 
 	if _, err := tx.Exec(context.Background(), query); err != nil {

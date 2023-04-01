@@ -13,9 +13,10 @@ import (
 	"strings"
 )
 
-const dropPublication = "DROP PUBLICATION IF EXISTS %s"
-const checkExistingPublication = "SELECT true FROM pg_publication WHERE pubname = '%s'"
 const createPublication = "SELECT create_timescaledb_catalog_publication('%s', '%s');"
+const dropPublication = "DROP PUBLICATION IF EXISTS %s"
+
+// const checkExistingPublication = "SELECT true FROM pg_publication WHERE pubname = '%s'"
 
 const outputPlugin = "pgoutput"
 
@@ -61,8 +62,7 @@ func (rc *replicationChannel) StartReplicationChannel(
 	}
 
 	if len(initialChunkTables) > 0 {
-		attachingQuery := fmt.Sprintf(addTableToPublicationQuery, rc.publicationName, strings.Join(initialChunkTables, ","))
-		if err := rc.executeQuery(connection, attachingQuery); err != nil {
+		if err := rc.attachChunkTables(connection, initialChunkTables); err != nil {
 			return errors.Wrap(err, 0)
 		}
 	}
@@ -124,14 +124,14 @@ func (rc *replicationChannel) executeQuery(connection *pgconn.PgConn, query stri
 	return nil
 }
 
-func (rc *replicationChannel) publicationExists(connection *pgconn.PgConn) bool {
+/*func (rc *replicationChannel) publicationExists(connection *pgconn.PgConn) bool {
 	reader := connection.Exec(context.Background(), fmt.Sprintf(checkExistingPublication, rc.publicationName))
 	if v, err := reader.ReadAll(); err != nil {
 		return false
 	} else {
 		return len(v) > 0
 	}
-}
+}*/
 
 func (rc *replicationChannel) createPublication(connection *pgconn.PgConn) (bool, error) {
 	reader := connection.Exec(context.Background(),

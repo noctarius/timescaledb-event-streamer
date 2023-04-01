@@ -141,7 +141,7 @@ func (rd *RowDecoder) compatible(other []pgconn.FieldDescription) bool {
 		if f.DataTypeSize != o.DataTypeSize {
 			return false
 		}
-		if f.TypeModifier != f.TypeModifier {
+		if f.TypeModifier != o.TypeModifier {
 			return false
 		}
 		// Can we reuse the same decoder for all chunks? 🤔

@@ -409,10 +409,6 @@ func (l *LogicalReplicationResolver) isChunkEvent(relation *pglogrepl.RelationMe
 	return relation.Namespace == "_timescaledb_catalog" && relation.RelationName == "chunk"
 }
 
-func (l *LogicalReplicationResolver) isHypertableChunkEvent(relation *pglogrepl.RelationMessage) bool {
-	return relation.Namespace == "_timescaledb_internal"
-}
-
 func (l *LogicalReplicationResolver) enqueueOrExecute(chunk *model.Chunk,
 	xld pglogrepl.XLogData, fn func() error) error {
 

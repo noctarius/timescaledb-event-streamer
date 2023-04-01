@@ -356,8 +356,7 @@ func (sc *sideChannel) newSession(fn func(session session) error) error {
 }
 
 type sessionAdapter struct {
-	sideChannel *sideChannel
-	connection  *pgx.Conn
+	connection *pgx.Conn
 }
 
 func (s *sessionAdapter) exec(ctx context.Context, query string, args ...any) (pgconn.CommandTag, error) {

@@ -220,10 +220,8 @@ func (n *notificatorImpl) NotifySystemCatalogReplicationEventHandler(
 	fn func(handler SystemCatalogReplicationEventHandler) error) {
 
 	for _, handler := range n.dispatcher.catalogHandlers {
-		if h, ok := handler.(SystemCatalogReplicationEventHandler); ok {
-			if err := fn(h); err != nil {
-				n.handleError(err)
-			}
+		if err := fn(handler); err != nil {
+			n.handleError(err)
 		}
 	}
 }
@@ -232,10 +230,8 @@ func (n *notificatorImpl) NotifyCompressionReplicationEventHandler(fn func(
 	handler CompressionReplicationEventHandler) error) {
 
 	for _, handler := range n.dispatcher.compressionHandlers {
-		if h, ok := handler.(CompressionReplicationEventHandler); ok {
-			if err := fn(h); err != nil {
-				n.handleError(err)
-			}
+		if err := fn(handler); err != nil {
+			n.handleError(err)
 		}
 	}
 }
@@ -244,10 +240,8 @@ func (n *notificatorImpl) NotifyHypertableReplicationEventHandler(
 	fn func(handler HypertableReplicationEventHandler) error) {
 
 	for _, handler := range n.dispatcher.hypertableHandlers {
-		if h, ok := handler.(HypertableReplicationEventHandler); ok {
-			if err := fn(h); err != nil {
-				n.handleError(err)
-			}
+		if err := fn(handler); err != nil {
+			n.handleError(err)
 		}
 	}
 }
@@ -256,10 +250,8 @@ func (n *notificatorImpl) NotifyLogicalReplicationEventHandler(
 	fn func(handler LogicalReplicationEventHandler) error) {
 
 	for _, handler := range n.dispatcher.logicalHandlers {
-		if h, ok := handler.(LogicalReplicationEventHandler); ok {
-			if err := fn(h); err != nil {
-				n.handleError(err)
-			}
+		if err := fn(handler); err != nil {
+			n.handleError(err)
 		}
 	}
 }
@@ -268,10 +260,8 @@ func (n *notificatorImpl) NotifyChunkSnapshotEventHandler(
 	fn func(handler ChunkSnapshotEventHandler) error) {
 
 	for _, handler := range n.dispatcher.snapshotHandlers {
-		if h, ok := handler.(ChunkSnapshotEventHandler); ok {
-			if err := fn(h); err != nil {
-				n.handleError(err)
-			}
+		if err := fn(handler); err != nil {
+			n.handleError(err)
 		}
 	}
 }

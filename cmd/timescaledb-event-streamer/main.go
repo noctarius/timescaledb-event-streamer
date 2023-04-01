@@ -58,7 +58,7 @@ func main() {
 	systemConfig := sysconfig.NewSystemConfig(config)
 	streamer, err, exitCode := internal.NewStreamer(systemConfig)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, err.Error())
+		fmt.Fprintln(os.Stderr, err.Error())
 		os.Exit(exitCode)
 	}
 

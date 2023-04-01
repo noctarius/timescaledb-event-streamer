@@ -88,16 +88,6 @@ func (s *systemCatalogReplicationEventHandler) OnChunkAddedEvent(_ uint32, newVa
 		func(id, hypertableId int32, schemaName, tableName string, dropped bool,
 			status int32, compressedChunkId *int32) error {
 
-			hypertableName := "unknown"
-			if h := s.systemCatalog.FindHypertableById(hypertableId); h != nil {
-				hypertableName = fmt.Sprintf("%s.%s", h.SchemaName(), h.HypertableName())
-				if h.IsCompressedTable() {
-					h = s.systemCatalog.FindHypertableByCompressedHypertableId(h.Id())
-					hypertableName = fmt.Sprintf(
-						"%s.%s VIA %s", h.SchemaName(), h.HypertableName(), hypertableName)
-				}
-			}
-
 			c := model.NewChunk(id, hypertableId, schemaName, tableName, dropped, status, compressedChunkId)
 			if err := s.systemCatalog.RegisterChunk(c); err != nil {
 				return fmt.Errorf("registering chunk failed: %v", c)
