@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/noctarius/event-stream-prototype/internal/pg/decoding"
+	"github.com/noctarius/event-stream-prototype/internal/supporting"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/model"
 	"time"
 )
@@ -199,8 +200,10 @@ func (sc *sideChannel) SnapshotTable(canonicalName string, startingLSN *pglogrep
 			}
 		}
 
+		cursorName := supporting.RandomTextString(15)
 		if _, err := session.exec(context.Background(),
-			fmt.Sprintf("DECLARE clone SCROLL CURSOR FOR SELECT * FROM %s", canonicalName)); err != nil {
+			fmt.Sprintf("DECLARE %s SCROLL CURSOR FOR SELECT * FROM %s", cursorName, canonicalName),
+		); err != nil {
 			return errors.Wrap(err, 0)
 		}
 
@@ -222,7 +225,7 @@ func (sc *sideChannel) SnapshotTable(canonicalName string, startingLSN *pglogrep
 					count++
 					return cb(currentLSN, values)
 				})
-			}, fmt.Sprintf("FETCH FORWARD %d FROM clone", sc.snapshotBatchSize)); err != nil {
+			}, fmt.Sprintf("FETCH FORWARD %d FROM %s", sc.snapshotBatchSize, cursorName)); err != nil {
 				return errors.Wrap(err, 0)
 			}
 			if count == 0 || count < sc.snapshotBatchSize {
@@ -230,7 +233,7 @@ func (sc *sideChannel) SnapshotTable(canonicalName string, startingLSN *pglogrep
 			}
 		}
 
-		_, err := session.exec(context.Background(), "CLOSE clone")
+		_, err := session.exec(context.Background(), fmt.Sprintf("CLOSE %s", cursorName))
 		if err != nil {
 			return errors.Wrap(err, 0)
 		}
@@ -270,16 +273,16 @@ func (sc *sideChannel) InitialSnapshot(snapshotName string, next func() (schema,
 			break
 		}
 
-		regClass := fmt.Sprintf("%s.%s", schemaName, tableName)
-		if _, err := conn.Exec(
-			context.Background(),
-			fmt.Sprintf("DECLARE clone SCROLL CURSOR FOR SELECT * FROM %s", regClass),
+		regClass := model.MakeRelationKey(schemaName, tableName)
+		cursorName := supporting.RandomTextString(15)
+		if _, err := conn.Exec(context.Background(),
+			fmt.Sprintf("DECLARE %s SCROLL CURSOR FOR SELECT * FROM %s", cursorName, regClass),
 		); err != nil {
 			return errors.Wrap(err, 0)
 		}
 
 		for {
-			rows, err := conn.Query(context.Background(), "FETCH FORWARD 10 FROM clone")
+			rows, err := conn.Query(context.Background(), fmt.Sprintf("FETCH FORWARD 10 FROM %s", cursorName))
 			if err != nil {
 				return errors.Wrap(err, 0)
 			}
@@ -295,7 +298,7 @@ func (sc *sideChannel) InitialSnapshot(snapshotName string, next func() (schema,
 				break
 			}
 		}
-		_, err = conn.Exec(context.Background(), "CLOSE clone")
+		_, err = conn.Exec(context.Background(), fmt.Sprintf("CLOSE %s", cursorName))
 		if err != nil {
 			return errors.Wrap(err, 0)
 		}

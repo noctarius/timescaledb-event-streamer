@@ -15,5 +15,5 @@ func canonicalChunkName(chunk *Chunk) string {
 }
 
 func MakeRelationKey(schemaName, tableName string) string {
-	return fmt.Sprintf("%s.%s", schemaName, tableName)
+	return fmt.Sprintf("\"%s\".\"%s\"", schemaName, tableName)
 }
