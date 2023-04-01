@@ -48,6 +48,78 @@ found [here](https://raw.githubusercontent.com/noctarius/timescaledb-event-strea
 For a full reference of the existing configuration options, see the [Configuration](#configuration)
 section.
 
+## Supporting non-privileged users (without postgres user) 
+In addition to the program itself, a function has to be installed into the database which will
+be used to generate change events from. The function is used to create the initial logical
+replication publication, since the internal catalog tables from TimescaleDB are owned by
+the `postgres` user, as required for a trusted extension.
+
+The function needs to be created by the `postgres` user when added to the database and runs
+in `security definer` mode, inheriting the permissions and ownership of the defining user before
+giving up the increased permissions voluntarily.
+
+To install the function, please run the following code snippet as `postgres` user against your
+database. `timescaledb-event-streamer` will automatically use it when starting up. If the
+function is not available the startup will fail!
+
+```sql
+CREATE OR REPLACE FUNCTION create_timescaledb_catalog_publication(publication_name text, replication_user text)
+    RETURNS bool
+    LANGUAGE plpgsql
+    SECURITY DEFINER
+AS $$
+DECLARE
+    found bool;
+    owner oid;
+BEGIN
+    SELECT true, pubowner
+    FROM pg_catalog.pg_publication
+    WHERE pubname = publication_name
+    INTO found, owner;
+
+    IF found THEN
+        SELECT true
+        FROM pg_catalog.pg_publication_tables
+        WHERE pubname = publication_name
+          AND schemaname = '_timescaledb_catalog'
+          AND tablename = 'hypertable'
+        INTO found;
+
+        IF NOT found THEN
+            RAISE EXCEPTION 'Publication % already exists but is missing _timescaledb_catalog.hypertable', publication_name;
+        END IF;
+
+        SELECT true
+        FROM pg_catalog.pg_publication_tables
+        WHERE pubname = publication_name
+          AND schemaname = '_timescaledb_catalog'
+          AND tablename = 'chunk'
+        INTO found;
+
+        IF NOT found THEN
+            RAISE EXCEPTION 'Publication % already exists but is missing _timescaledb_catalog.chunk', publication_name;
+        END IF;
+
+        SELECT true FROM (
+            SELECT session_user as uid
+        ) s
+        WHERE s.uid = owner
+        INTO found;
+
+        IF NOT found THEN
+            RAISE EXCEPTION 'Publication % already exists but is not owned by the session user', publication_name;
+        END IF;
+
+        RETURN true;
+    END IF;
+
+    EXECUTE format('CREATE PUBLICATION %I FOR TABLE _timescaledb_catalog.chunk, _timescaledb_catalog.hypertable', publication_name);
+    EXECUTE format('ALTER PUBLICATION %I OWNER TO %s', publication_name, replication_user);
+    RETURN true;
+END;
+$$
+```
+
 ## Using timescaledb-event-streamer
 
 After creating a configuration file, `timescaledb-event-streamer` can be executed
