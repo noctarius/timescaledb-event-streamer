@@ -7,6 +7,6 @@ type OffsetStorage interface {
 	Stop() error
 	Save() error
 	Load() error
-	Get() (map[string]offset.Offset, error)
-	Set(key string, value offset.Offset) error
+	Get() (map[string]*offset.Offset, error)
+	Set(key string, value *offset.Offset) error
 }

@@ -12,7 +12,7 @@ import (
 
 type fileOffsetStorage struct {
 	path    string
-	offsets map[string]offset.Offset
+	offsets map[string]*offset.Offset
 }
 
 func NewFileOffsetStorage(path string) (OffsetStorage, error) {
@@ -47,7 +47,7 @@ func NewFileOffsetStorage(path string) (OffsetStorage, error) {
 
 	return &fileOffsetStorage{
 		path:    path,
-		offsets: make(map[string]offset.Offset, 0),
+		offsets: make(map[string]*offset.Offset, 0),
 	}, nil
 }
 
@@ -73,9 +73,9 @@ func (f *fileOffsetStorage) Save() error {
 	}
 
 	offsetBuffer := make([]byte, 65535)
-	writeOffsetWithLength := func(val offset.Offset) (int, error) {
+	writeOffsetWithLength := func(val *offset.Offset) (int, error) {
 		wb := bytes.NewBuffer(offsetBuffer)
-		if err := binary.Write(wb, binary.BigEndian, val); err != nil {
+		if _, err := val.WriteBinary(wb, binary.BigEndian); err != nil {
 			return 0, errors.Wrap(err, 0)
 		}
 
@@ -126,7 +126,7 @@ func (f *fileOffsetStorage) Load() error {
 			return errors.Wrap(err, 0)
 		} else {
 			// Reset internal map
-			f.offsets = make(map[string]offset.Offset, 0)
+			f.offsets = make(map[string]*offset.Offset, 0)
 			return nil
 		}
 	}
@@ -183,8 +183,8 @@ func (f *fileOffsetStorage) Load() error {
 			return errors.Wrap(err, 0)
 		}
 
-		value := offset.Offset{}
-		if err := binary.Read(bytes.NewReader(buffer[0:length]), binary.BigEndian, &value); err != nil {
+		value := &offset.Offset{}
+		if _, err := value.ReadBinary(bytes.NewReader(buffer[0:length]), binary.BigEndian); err != nil {
 			return errors.Wrap(err, 0)
 		}
 
@@ -193,11 +193,11 @@ func (f *fileOffsetStorage) Load() error {
 	return nil
 }
 
-func (f *fileOffsetStorage) Get() (map[string]offset.Offset, error) {
+func (f *fileOffsetStorage) Get() (map[string]*offset.Offset, error) {
 	return f.offsets, nil
 }
 
-func (f *fileOffsetStorage) Set(key string, value offset.Offset) error {
+func (f *fileOffsetStorage) Set(key string, value *offset.Offset) error {
 	f.offsets[key] = value
 	return nil
 }
