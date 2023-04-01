@@ -17,7 +17,7 @@ type Offset struct {
 func (o *Offset) WriteBinary(writer io.Writer, endianness binary.ByteOrder) (int, error) {
 	buf := make([]byte, 21)
 
-	endianness.PutUint64(buf[:7], uint64(o.Timestamp.UnixNano()))
+	endianness.PutUint64(buf[:8], uint64(o.Timestamp.UnixNano()))
 
 	buf[8] = 0
 	if o.Snapshot {
@@ -30,17 +30,25 @@ func (o *Offset) WriteBinary(writer io.Writer, endianness binary.ByteOrder) (int
 	return writer.Write(buf)
 }
 
-func (o *Offset) ReadBinary(reader io.Reader, endianness binary.ByteOrder) (int, error) {
-	buf := make([]byte, 21)
-	n, err := reader.Read(buf)
-	if err != nil {
-		return -1, err
+func (o *Offset) ReadBinary(buffer []byte, endianness binary.ByteOrder) {
+	o.Timestamp = time.Unix(0, int64(endianness.Uint64(buffer[:8]))).In(time.UTC)
+	o.Snapshot = buffer[8] == 1
+	o.SnapshotOffset = int(endianness.Uint32(buffer[9:]))
+	o.LSN = pglogrepl.LSN(endianness.Uint64(buffer[13:]))
+}
+
+func (o *Offset) Equal(other *Offset) bool {
+	if !o.Timestamp.Equal(other.Timestamp) {
+		return false
 	}
 
-	o.Timestamp = time.Unix(0, int64(endianness.Uint64(buf[:7])))
-	o.Snapshot = buf[8] == 1
-	o.SnapshotOffset = int(endianness.Uint32(buf[9:]))
-	o.LSN = pglogrepl.LSN(endianness.Uint64(buf[13:]))
+	if o.Snapshot != other.Snapshot {
+		return false
+	}
 
-	return n, nil
+	if o.SnapshotOffset != other.SnapshotOffset {
+		return false
+	}
+
+	return o.LSN == other.LSN
 }

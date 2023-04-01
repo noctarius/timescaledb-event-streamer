@@ -5,10 +5,13 @@ import (
 	"encoding/binary"
 	"github.com/docker/docker/pkg/ioutils"
 	"github.com/go-errors/errors"
+	"github.com/noctarius/event-stream-prototype/internal/logging"
 	"github.com/noctarius/event-stream-prototype/internal/offset"
 	"os"
 	"path/filepath"
 )
+
+var logger = logging.NewLogger("FileOffsetStorage")
 
 type fileOffsetStorage struct {
 	path    string
@@ -72,22 +75,21 @@ func (f *fileOffsetStorage) Save() error {
 		return writer.Write(buffer[0:4])
 	}
 
-	offsetBuffer := make([]byte, 65535)
 	writeOffsetWithLength := func(val *offset.Offset) (int, error) {
-		wb := bytes.NewBuffer(offsetBuffer)
-		if _, err := val.WriteBinary(wb, binary.BigEndian); err != nil {
+		wb := &bytes.Buffer{}
+		n, err := val.WriteBinary(wb, binary.BigEndian)
+		if err != nil {
 			return 0, errors.Wrap(err, 0)
 		}
 
-		length := uint32(wb.Len())
-		if _, err := writeUint32(length); err != nil {
+		if _, err := writeUint32(uint32(n)); err != nil {
 			return 0, errors.Wrap(err, 0)
 		}
 
-		if _, err := writer.Write(offsetBuffer[0:length]); err != nil {
+		if _, err := writer.Write(wb.Bytes()); err != nil {
 			return 0, errors.Wrap(err, 0)
 		}
-		return 4 + int(length), nil
+		return 4 + int(n), nil
 	}
 
 	writeStringWithLength := func(val string) (int, error) {
@@ -135,59 +137,51 @@ func (f *fileOffsetStorage) Load() error {
 		return errors.Errorf("path '%s' exists already but is not a file", f.path)
 	}
 
+	if fi.Size() == 0 {
+		// Reset internal map
+		f.offsets = make(map[string]*offset.Offset, 0)
+		return nil
+	}
+
 	file, err := os.Open(f.path)
 	if err != nil {
 		return errors.Wrap(err, 0)
 	}
 
-	buffer := make([]byte, 65535)
-
-	readOffset := int64(0)
-	readUint32 := func() (uint32, error) {
-		n, err := file.ReadAt(buffer[0:4], readOffset)
-		if err != nil {
-			return 0, errors.Wrap(err, 0)
-		}
-		readOffset += int64(n)
-		return binary.BigEndian.Uint32(buffer[0:4]), nil
-	}
-
-	readDataWithLength := func() (uint32, error) {
-		length, err := readUint32()
-		if err != nil {
-			return 0, errors.Wrap(err, 0)
-		}
-
-		n, err := file.ReadAt(buffer[0:length], readOffset)
-		if err != nil {
-			return 0, errors.Wrap(err, 0)
-		}
-		readOffset += int64(n)
-		return length, nil
-	}
-
-	numOfOffsets, err := readUint32()
-	if err != nil {
+	buffer := make([]byte, fi.Size())
+	if _, err := file.Read(buffer); err != nil {
 		return errors.Wrap(err, 0)
 	}
 
+	readerOffset := int64(0)
+	readUint32 := func() uint32 {
+		val := binary.BigEndian.Uint32(buffer[readerOffset : readerOffset+4])
+		readerOffset += 4
+		return val
+	}
+
+	readString := func() string {
+		length := readUint32()
+		val := string(buffer[readerOffset : readerOffset+int64(length)])
+		readerOffset += int64(length)
+		return val
+	}
+
+	readOffset := func() (*offset.Offset, error) {
+		length := readUint32()
+		o := &offset.Offset{}
+		o.ReadBinary(buffer[readerOffset:readerOffset+int64(length)], binary.BigEndian)
+		readerOffset += int64(length)
+		return o, nil
+	}
+
+	numOfOffsets := readUint32()
 	for i := uint32(0); i < numOfOffsets; i++ {
-		length, err := readDataWithLength()
+		key := readString()
+		value, err := readOffset()
 		if err != nil {
 			return errors.Wrap(err, 0)
 		}
-		key := string(buffer[0:length])
-
-		length, err = readDataWithLength()
-		if err != nil {
-			return errors.Wrap(err, 0)
-		}
-
-		value := &offset.Offset{}
-		if _, err := value.ReadBinary(bytes.NewReader(buffer[0:length]), binary.BigEndian); err != nil {
-			return errors.Wrap(err, 0)
-		}
-
 		f.offsets[key] = value
 	}
 	return nil
