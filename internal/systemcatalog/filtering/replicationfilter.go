@@ -190,6 +190,14 @@ func parseToken(token string) (string, bool, error) {
 					i++
 				}
 			}
+		} else if char == '"' && isQuoted {
+			if i < len(runedToken)-1 {
+				peekNextChar := runedToken[i+1]
+				builder.WriteString("\"\"")
+				if peekNextChar == '"' {
+					i++
+				}
+			}
 		} else if char == '*' {
 			builder.WriteString(".*?")
 			isRegex = true

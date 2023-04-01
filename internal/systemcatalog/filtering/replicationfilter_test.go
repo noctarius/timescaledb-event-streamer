@@ -521,6 +521,8 @@ func Test_Valid_Strings(t *testing.T) {
 	validStringParsing(t, "ADGROUP", "adgroup")
 	validStringParsing(t, "\"tableName~\"", "tableName~")
 	validStringParsing(t, "\"GROUP\"", "GROUP")
+	validStringParsing(t, "\"A\"\"A\"", "A\"\"A")
+	validStringParsing(t, "\"A\"A\"", "A\"\"A")
 }
 
 func Test_Invalid_Strings(t *testing.T) {
