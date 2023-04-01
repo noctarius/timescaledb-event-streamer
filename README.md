@@ -17,6 +17,7 @@ by a person who works for Timescale. This may change at some point in the future
 but it is not a given._
 
 # Why not just Debezium?
+
 While [Debezium](https://debezium.io/documentation/reference/stable/connectors/postgresql.html)
 already supports PostgreSQL, the implementation doesn't really support the internals
 of TimescaleDB, most specifically the way data is chunked or partitioned. It is
@@ -75,10 +76,12 @@ duplicated (`test.some_value` becomes `TEST_SOME__VALUE`).
 
 ## PostgreSQL Configuration
 
-| Property                |                                               Description | Data Type |                                 Default Value |
-|-------------------------|----------------------------------------------------------:|----------:|----------------------------------------------:|
-| `postgresql.connection` | The connection string in one of the libpq-supported forms |    string | host=localhost user=repl_user sslmode=disable |
-| `postgresql.password`   |                      The password to connect to the user. |    string |            Environment variable: `PGPASSWORD` |
+| Property                        |                                                                                                                            Description | Data Type |                                 Default Value |
+|---------------------------------|---------------------------------------------------------------------------------------------------------------------------------------:|----------:|----------------------------------------------:|
+| `postgresql.connection`         |                                                                              The connection string in one of the libpq-supported forms |    string | host=localhost user=repl_user sslmode=disable |
+| `postgresql.password`           |                                                                                                   The password to connect to the user. |    string |            Environment variable: `PGPASSWORD` |
+| `postgresql.snapshot.batchsize` |                                                       The size of rows requested in a single batch iteration when snapshotting tables. |       int |                                          1000 |
+| `postgresql.snapshot.initial`   | The value describes the startup behavior for snapshotting. Valid values are `always`, `never`, `initial_only`. **NOT YET IMPLEMENTED** |    string |                                `initial_only` |
 
 ## Topic Configuration
 
@@ -89,17 +92,17 @@ duplicated (`test.some_value` becomes `TEST_SOME__VALUE`).
 
 ## TimescaleDB Configuration
 
-| Property                           |                                                                                                                                                                                                                                      Description |        Data Type | Default Value |
-|------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|-----------------:|--------------:|
-| `timescaledb.hypertables.includes` |   The includes definition defines which hypertables to include in the event stream generation. The available patters are explained in [Includes and Excludes Patterns](#includes-and-excludes-patterns). Excludes have precedence over includes. | array of strings |   empty array |
-| `timescaledb.hypertables.excludes` |   The excludes definition defines which hypertables to exclude in the event stream generation. The available patters are explained in [Includes and Excludes Patterns](#includes-and-excludes-patterns). Excludes have precedence over includes. | array of strings |   empty array |
-| `timescaledb.events.read`          |                                                                                                                                                                                                The property defines if read events are generated |          boolean |          true |
-| `timescaledb.events.insert`        |                                                                                                                                                                                              The property defines if insert events are generated |          boolean |          true |
-| `timescaledb.events.update`        |                                                                                                                                                                                              The property defines if update events are generated |          boolean |          true |
-| `timescaledb.events.delete`        |                                                                                                                                                                                              The property defines if delete events are generated |          boolean |          true |
-| `timescaledb.events.truncate`      |                                                                                                                                                                                            The property defines if truncate events are generated |          boolean |          true |
-| `timescaledb.events.compression`   |                                                                                                                                                                                         The property defines if compression events are generated |          boolean |         false |
-| `timescaledb.events.decompression` |                                                                                                                                                                                       The property defines if decompression events are generated |          boolean |         false |
+| Property                           |                                                                                                                                                                                                                                    Description |        Data Type | Default Value |
+|------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|-----------------:|--------------:|
+| `timescaledb.hypertables.includes` | The includes definition defines which hypertables to include in the event stream generation. The available patters are explained in [Includes and Excludes Patterns](#includes-and-excludes-patterns). Excludes have precedence over includes. | array of strings |   empty array |
+| `timescaledb.hypertables.excludes` | The excludes definition defines which hypertables to exclude in the event stream generation. The available patters are explained in [Includes and Excludes Patterns](#includes-and-excludes-patterns). Excludes have precedence over includes. | array of strings |   empty array |
+| `timescaledb.events.read`          |                                                                                                                                                                                              The property defines if read events are generated |          boolean |          true |
+| `timescaledb.events.insert`        |                                                                                                                                                                                            The property defines if insert events are generated |          boolean |          true |
+| `timescaledb.events.update`        |                                                                                                                                                                                            The property defines if update events are generated |          boolean |          true |
+| `timescaledb.events.delete`        |                                                                                                                                                                                            The property defines if delete events are generated |          boolean |          true |
+| `timescaledb.events.truncate`      |                                                                                                                                                                                          The property defines if truncate events are generated |          boolean |          true |
+| `timescaledb.events.compression`   |                                                                                                                                                                                       The property defines if compression events are generated |          boolean |         false |
+| `timescaledb.events.decompression` |                                                                                                                                                                                     The property defines if decompression events are generated |          boolean |         false |
 
 ## Sink Configuration
 
