@@ -41,7 +41,7 @@ func (its *IntegrationTestSuite) TestInitialSnapshot_Single_Chunk() {
 		func(context testrunner.Context) error {
 			if _, err := context.Exec(stdctx.Background(),
 				fmt.Sprintf(
-					"INSERT INTO %s SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 23:59:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
+					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 23:59:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
 					testrunner.GetAttribute[string](context, "tableName"),
 				),
 			); err != nil {
@@ -97,7 +97,7 @@ func (its *IntegrationTestSuite) TestInitialSnapshot_Multi_Chunk() {
 		func(context testrunner.Context) error {
 			if _, err := context.Exec(stdctx.Background(),
 				fmt.Sprintf(
-					"INSERT INTO %s SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-26 23:59:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
+					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-26 23:59:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
 					testrunner.GetAttribute[string](context, "tableName"),
 				),
 			); err != nil {
@@ -153,7 +153,7 @@ func (its *IntegrationTestSuite) TestCreateEvents() {
 		func(context testrunner.Context) error {
 			if _, err := context.Exec(stdctx.Background(),
 				fmt.Sprintf(
-					"INSERT INTO %s SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:09:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
+					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:09:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
 					testrunner.GetAttribute[string](context, "tableName"),
 				),
 			); err != nil {
@@ -163,7 +163,7 @@ func (its *IntegrationTestSuite) TestCreateEvents() {
 			<-collected
 			if _, err := context.Exec(stdctx.Background(),
 				fmt.Sprintf(
-					"INSERT INTO %s SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:10:00'::TIMESTAMPTZ, '2023-03-25 00:19:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
+					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:10:00'::TIMESTAMPTZ, '2023-03-25 00:19:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
 					testrunner.GetAttribute[string](context, "tableName"),
 				),
 			); err != nil {
@@ -240,7 +240,7 @@ func (its *IntegrationTestSuite) TestUpdateEvents() {
 		func(context testrunner.Context) error {
 			if _, err := context.Exec(stdctx.Background(),
 				fmt.Sprintf(
-					"INSERT INTO %s SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:09:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
+					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:09:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
 					testrunner.GetAttribute[string](context, "tableName"),
 				),
 			); err != nil {
@@ -250,7 +250,7 @@ func (its *IntegrationTestSuite) TestUpdateEvents() {
 			<-collected
 			if _, err := context.Exec(stdctx.Background(),
 				fmt.Sprintf(
-					"UPDATE %s SET val = val + 10",
+					"UPDATE \"%s\" SET val = val + 10",
 					testrunner.GetAttribute[string](context, "tableName"),
 				),
 			); err != nil {
@@ -327,7 +327,7 @@ func (its *IntegrationTestSuite) TestDeleteEvents() {
 		func(context testrunner.Context) error {
 			if _, err := context.Exec(stdctx.Background(),
 				fmt.Sprintf(
-					"INSERT INTO %s SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:09:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
+					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:09:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
 					testrunner.GetAttribute[string](context, "tableName"),
 				),
 			); err != nil {
@@ -337,7 +337,7 @@ func (its *IntegrationTestSuite) TestDeleteEvents() {
 			<-collected
 			if _, err := context.Exec(stdctx.Background(),
 				fmt.Sprintf(
-					"DELETE FROM %s",
+					"DELETE FROM \"%s\"",
 					testrunner.GetAttribute[string](context, "tableName"),
 				),
 			); err != nil {
@@ -411,7 +411,7 @@ func (its *IntegrationTestSuite) TestTruncateEvents() {
 		func(context testrunner.Context) error {
 			if _, err := context.Exec(stdctx.Background(),
 				fmt.Sprintf(
-					"INSERT INTO %s SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:09:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
+					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:09:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
 					testrunner.GetAttribute[string](context, "tableName"),
 				),
 			); err != nil {
@@ -493,7 +493,7 @@ func (its *IntegrationTestSuite) TestCompressionEvents() {
 		func(context testrunner.Context) error {
 			if _, err := context.Exec(stdctx.Background(),
 				fmt.Sprintf(
-					"INSERT INTO %s SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:09:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
+					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:09:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
 					testrunner.GetAttribute[string](context, "tableName"),
 				),
 			); err != nil {
@@ -503,7 +503,7 @@ func (its *IntegrationTestSuite) TestCompressionEvents() {
 			<-collected
 			if _, err := context.Exec(stdctx.Background(),
 				fmt.Sprintf(
-					"ALTER TABLE %s SET (timescaledb.compress)",
+					"ALTER TABLE \"%s\" SET (timescaledb.compress)",
 					testrunner.GetAttribute[string](context, "tableName"),
 				),
 			); err != nil {

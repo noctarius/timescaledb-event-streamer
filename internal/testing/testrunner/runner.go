@@ -12,6 +12,7 @@ import (
 	"github.com/noctarius/event-stream-prototype/internal/supporting"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/model"
 	inttest "github.com/noctarius/event-stream-prototype/internal/testing"
+	"github.com/noctarius/event-stream-prototype/internal/testing/containers"
 	"github.com/stretchr/testify/suite"
 	"github.com/testcontainers/testcontainers-go"
 	"time"
@@ -136,7 +137,7 @@ func WithTearDown(fn func(context Context) error) testConfigurator {
 }
 
 func (tr *TestRunner) SetupSuite() {
-	container, configProvider, err := inttest.SetupTimescaleContainer()
+	container, configProvider, err := containers.SetupTimescaleContainer()
 	if err != nil {
 		logger.Fatalf("failed setting up container: %+v", err)
 	}
@@ -205,12 +206,12 @@ func (tr *TestRunner) RunTest(testFn func(context Context) error, configurators 
 
 	streamer, err, exitCode := internal.NewStreamer(systemConfig)
 	if err != nil {
-		logger.Errorf("failed to create streamer with exitCode: %d and error: %+v", exitCode, err)
+		tr.T().Fatalf("failed to create streamer with exitCode: %d and error: %+v", exitCode, err)
 		return
 	}
 
 	if err := streamer.Start(); err != nil {
-		logger.Errorf("failed to start streamer: %+v", err)
+		tr.T().Fatalf("failed to start streamer: %+v", err)
 		return
 	}
 
@@ -230,5 +231,18 @@ func (tr *TestRunner) RunTest(testFn func(context Context) error, configurators 
 	if err := testFn(tc); err != nil {
 		tr.T().Fatalf("failure in test: %+v", err)
 		return
+	}
+}
+
+type ContainerLogForwarder struct {
+	Logger *logging.Logger
+}
+
+func (c *ContainerLogForwarder) Accept(log testcontainers.Log) {
+	switch log.LogType {
+	case testcontainers.StdoutLog:
+		c.Logger.Printf(string(log.Content))
+	case testcontainers.StderrLog:
+		c.Logger.Errorf(string(log.Content))
 	}
 }
