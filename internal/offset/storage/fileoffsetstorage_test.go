@@ -52,6 +52,7 @@ func Test_Writing_Reading(t *testing.T) {
 	assert.NoError(t, err, "failed saving offsets")
 
 	offsets, err := offsetStorage.Get()
+	assert.NoError(t, err, "failed getting offsets")
 	assert.Equal(t, 3, len(offsets), "offsets has unexpected length")
 	assert.Equal(t, foo, offsets["foo"])
 	assert.Equal(t, bar, offsets["bar"])
@@ -67,6 +68,7 @@ func Test_Writing_Reading(t *testing.T) {
 	assert.NoError(t, err, "failed starting FileOffsetStorage")
 
 	offsets, err = secondOffsetStorage.Get()
+	assert.NoError(t, err, "failed getting offsets")
 	assert.Equal(t, 3, len(offsets), "offsets has unexpected length")
 	assert.Equal(t, foo, offsets["foo"])
 	assert.Equal(t, bar, offsets["bar"])

@@ -5,13 +5,10 @@ import (
 	"encoding/binary"
 	"github.com/docker/docker/pkg/ioutils"
 	"github.com/go-errors/errors"
-	"github.com/noctarius/event-stream-prototype/internal/logging"
 	"github.com/noctarius/event-stream-prototype/internal/offset"
 	"os"
 	"path/filepath"
 )
-
-var logger = logging.NewLogger("FileOffsetStorage")
 
 type fileOffsetStorage struct {
 	path    string
