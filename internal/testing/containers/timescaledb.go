@@ -22,7 +22,7 @@ const (
 	replPass       = "repl_user"
 )
 
-var logger = logging.NewLogger("testcontainers-timescaledb")
+var timescaledbLogger = logging.NewLogger("testcontainers-timescaledb")
 
 const initialPublicationFunction = `
 CREATE OR REPLACE FUNCTION create_timescaledb_catalog_publication(publication_name text, replication_user text)
@@ -174,37 +174,37 @@ func SetupTimescaleContainer() (testcontainers.Container, *ConfigProvider, error
 	}
 
 	// Disable timescale plugin
-	logger.Println("Drop timescaledb extension")
+	timescaledbLogger.Println("Drop timescaledb extension")
 	if err := exec("DROP EXTENSION IF EXISTS timescaledb"); err != nil {
 		return nil, nil, err
 	}
 
 	// Create default user role
-	logger.Println("Create default user login")
+	timescaledbLogger.Println("Create default user login")
 	if err := exec(
 		fmt.Sprintf("CREATE ROLE %s LOGIN ENCRYPTED PASSWORD '%s'", tsdbUser, tsdbPass),
 	); err != nil {
 		return nil, nil, err
 	}
-	logger.Println("Grant permissions to default user")
+	timescaledbLogger.Println("Grant permissions to default user")
 	if err := exec(
 		fmt.Sprintf("GRANT ALL PRIVILEGES ON DATABASE %s TO %s", databaseName, tsdbUser),
 	); err != nil {
 		return nil, nil, err
 	}
-	logger.Printf("Create %s schema", databaseSchema)
+	timescaledbLogger.Printf("Create %s schema", databaseSchema)
 	if err := exec(
 		fmt.Sprintf("CREATE SCHEMA %s", databaseSchema),
 	); err != nil {
 		return nil, nil, err
 	}
-	logger.Println("Grant schema permissions to default user")
+	timescaledbLogger.Println("Grant schema permissions to default user")
 	if err := exec(
 		fmt.Sprintf("ALTER SCHEMA %s OWNER TO %s", databaseSchema, tsdbUser),
 	); err != nil {
 		return nil, nil, err
 	}
-	logger.Println("Set default schema for default user")
+	timescaledbLogger.Println("Set default schema for default user")
 	if err := exec(
 		fmt.Sprintf("ALTER ROLE %s SET search_path TO %s, public", tsdbUser, databaseSchema),
 	); err != nil {
@@ -212,26 +212,26 @@ func SetupTimescaleContainer() (testcontainers.Container, *ConfigProvider, error
 	}
 
 	// Create replication user and adjust permissions
-	logger.Println("Create replication user login")
+	timescaledbLogger.Println("Create replication user login")
 	if err := exec(
 		fmt.Sprintf("CREATE ROLE %s LOGIN REPLICATION ENCRYPTED PASSWORD '%s'", replUser, replPass),
 	); err != nil {
 		return nil, nil, err
 	}
-	logger.Println("Grant user permissions for replication user")
+	timescaledbLogger.Println("Grant user permissions for replication user")
 	if err := exec(
 		fmt.Sprintf("GRANT %s TO %s", tsdbUser, replUser),
 	); err != nil {
 		return nil, nil, err
 	}
-	logger.Println("Create timescaledb extension")
+	timescaledbLogger.Println("Create timescaledb extension")
 	if err := exec("CREATE EXTENSION IF NOT EXISTS timescaledb"); err != nil {
 		return nil, nil, err
 	}
-	logger.Println("Drop existing publication")
+	timescaledbLogger.Println("Drop existing publication")
 
 	// Create initial publication function
-	logger.Println("Create publication initiator function")
+	timescaledbLogger.Println("Create publication initiator function")
 	if err := exec(initialPublicationFunction); err != nil {
 		return nil, nil, err
 	}
