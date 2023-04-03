@@ -24,34 +24,32 @@ func init() {
 	flag.StringVar(&configurationFile, "config", "", "The tool configuration file")
 	flag.BoolVar(&verbose, "verbose", false, "Show verbose output")
 	flag.Parse()
-
-	if configurationFile == "" {
-		fmt.Fprintln(os.Stderr, "No configuration file was provided. Please use -config parameter.")
-		os.Exit(2)
-	}
 }
 
 func main() {
-	f, err := os.Open(configurationFile)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Configuration file couldn't be opened: %v\n", err)
-		os.Exit(3)
-	}
-
-	b, err := io.ReadAll(f)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Configuration file couldn't be read: %v\n", err)
-		os.Exit(4)
-	}
-
 	config := &configuring.Config{}
-	if err := toml.Unmarshal(b, &config); err != nil {
-		fmt.Fprintf(os.Stderr, "Configuration file couldn't be decoded: %v\n", err)
-		os.Exit(5)
+
+	if configurationFile != "" {
+		f, err := os.Open(configurationFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Configuration file couldn't be opened: %v\n", err)
+			os.Exit(3)
+		}
+
+		b, err := io.ReadAll(f)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Configuration file couldn't be read: %v\n", err)
+			os.Exit(4)
+		}
+
+		if err := toml.Unmarshal(b, &config); err != nil {
+			fmt.Fprintf(os.Stderr, "Configuration file couldn't be decoded: %v\n", err)
+			os.Exit(5)
+		}
 	}
 
-	if config.PostgreSQL.Connection == "" {
-		fmt.Fprintf(os.Stderr, "PostgreSQL connection string required: %v\n", err)
+	if configuring.GetOrDefault(config, "postgresql.connection", "") == "" {
+		fmt.Fprintf(os.Stderr, "PostgreSQL connection string required")
 		os.Exit(6)
 	}
 
