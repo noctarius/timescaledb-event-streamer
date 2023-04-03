@@ -14,6 +14,7 @@ const (
 	Stdout SinkType = "stdout"
 	NATS   SinkType = "nats"
 	Kafka  SinkType = "kafka"
+	Redis  SinkType = "redis"
 )
 
 type NamingStrategyType string
@@ -40,6 +41,7 @@ type SinkConfig struct {
 	Type  SinkType    `toml:"type"`
 	Nats  NatsConfig  `toml:"nats"`
 	Kafka KafkaConfig `toml:"kafka"`
+	Redis RedisConfig `toml:"redis"`
 }
 
 type TopicConfig struct {
@@ -82,21 +84,50 @@ type KafkaSaslConfig struct {
 	Mechanism sarama.SASLMechanism `toml:"mechanism"`
 }
 
-type KafkaTLSConfig struct {
-	Enabled    bool               `toml:"enabled"`
-	SkipVerify bool               `toml:"skipverify"`
-	ClientAuth tls.ClientAuthType `toml:"clientauth"`
-}
-
 type KafkaConfig struct {
 	Brokers    []string        `toml:"brokers"`
 	Idempotent bool            `toml:"idempotent"`
 	Sasl       KafkaSaslConfig `toml:"sasl"`
-	TLS        KafkaTLSConfig  `toml:"tls"`
+	TLS        TLSConfig       `toml:"tls"`
+}
+
+type RedisConfig struct {
+	Network  string             `toml:"network"`
+	Address  string             `toml:"address"`
+	Password string             `toml:"password"`
+	Database int                `toml:"database"`
+	Retries  RedisRetryConfig   `toml:"retries"`
+	Timeouts RedisTimeoutConfig `toml:"timeouts"`
+	Poolsize int                `toml:"poolsize"`
+	TLS      TLSConfig          `toml:"tls"`
+}
+
+type RedisRetryConfig struct {
+	MaxAttempts int                     `toml:"maxattempts"`
+	Backoff     RedisRetryBackoffConfig `toml:"backoff"`
+}
+
+type RedisRetryBackoffConfig struct {
+	Min int `toml:"min"`
+	Max int `toml:"max"`
+}
+
+type RedisTimeoutConfig struct {
+	Dial  int `toml:"dial"`
+	Read  int `toml:"read"`
+	Write int `toml:"write"`
+	Pool  int `toml:"pool"`
+	Idle  int `toml:"idle"`
 }
 
 type TopicNamingStrategyConfig struct {
 	Type NamingStrategyType `toml:"type"`
+}
+
+type TLSConfig struct {
+	Enabled    bool               `toml:"enabled"`
+	SkipVerify bool               `toml:"skipverify"`
+	ClientAuth tls.ClientAuthType `toml:"clientauth"`
 }
 
 type HypertablesConfig struct {

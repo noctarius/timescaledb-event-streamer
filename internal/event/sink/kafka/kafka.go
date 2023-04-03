@@ -39,12 +39,14 @@ func NewKafkaSink(config *configuring.Config) (sink.Sink, error) {
 
 	if configuring.GetOrDefault(config, "sink.kafka.tls.enabled", false) {
 		c.Net.TLS.Enable = true
-		c.Net.TLS.Config.InsecureSkipVerify = configuring.GetOrDefault(
-			config, "sink.kafka.tls.skipverify", false,
-		)
-		c.Net.TLS.Config.ClientAuth = configuring.GetOrDefault(
-			config, "sink.kafka.tls.clientauth", tls.NoClientCert,
-		)
+		c.Net.TLS.Config = &tls.Config{
+			InsecureSkipVerify: configuring.GetOrDefault(
+				config, "sink.kafka.tls.skipverify", false,
+			),
+			ClientAuth: configuring.GetOrDefault(
+				config, "sink.kafka.tls.clientauth", tls.NoClientCert,
+			),
+		}
 	}
 
 	producer, err := sarama.NewSyncProducer(

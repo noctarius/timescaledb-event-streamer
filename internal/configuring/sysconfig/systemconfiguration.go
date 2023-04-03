@@ -7,6 +7,7 @@ import (
 	"github.com/noctarius/event-stream-prototype/internal/event/sink"
 	"github.com/noctarius/event-stream-prototype/internal/event/sink/kafka"
 	"github.com/noctarius/event-stream-prototype/internal/event/sink/nats"
+	"github.com/noctarius/event-stream-prototype/internal/event/sink/redis"
 	"github.com/noctarius/event-stream-prototype/internal/event/sink/stdout"
 	"github.com/noctarius/event-stream-prototype/internal/event/topic"
 	"github.com/noctarius/event-stream-prototype/internal/replication/transactional"
@@ -53,6 +54,8 @@ func (sc *SystemConfig) defaultSink() (sink.Sink, error) {
 		return nats.NewNatsSink(sc.Config)
 	case configuring.Kafka:
 		return kafka.NewKafkaSink(sc.Config)
+	case configuring.Redis:
+		return redis.NewRedisSink(sc.Config)
 	}
 	return nil, fmt.Errorf("SinkType '%s' doesn't exist", sc.Config.Sink.Type)
 }
