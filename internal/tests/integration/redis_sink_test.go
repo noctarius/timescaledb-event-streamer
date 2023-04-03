@@ -71,6 +71,7 @@ func (rits *RedisIntegrationTestSuite) Test_Redis_Sink() {
 					}).Result()
 					if err != nil {
 						redisLogger.Errorf("failed reading from redis: %+v", err)
+						collected <- true
 						return
 					}
 
