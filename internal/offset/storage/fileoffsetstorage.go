@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"bytes"
 	"encoding/binary"
 	"github.com/docker/docker/pkg/ioutils"
 	"github.com/go-errors/errors"
@@ -73,20 +72,19 @@ func (f *fileOffsetStorage) Save() error {
 	}
 
 	writeOffsetWithLength := func(val *offset.Offset) (int, error) {
-		wb := &bytes.Buffer{}
-		n, err := val.WriteBinary(wb, binary.BigEndian)
+		data, err := val.MarshalBinary()
 		if err != nil {
 			return 0, errors.Wrap(err, 0)
 		}
 
-		if _, err := writeUint32(uint32(n)); err != nil {
+		if _, err := writeUint32(uint32(len(data))); err != nil {
 			return 0, errors.Wrap(err, 0)
 		}
 
-		if _, err := writer.Write(wb.Bytes()); err != nil {
+		if _, err := writer.Write(data); err != nil {
 			return 0, errors.Wrap(err, 0)
 		}
-		return 4 + int(n), nil
+		return 4 + len(data), nil
 	}
 
 	writeStringWithLength := func(val string) (int, error) {
@@ -167,7 +165,9 @@ func (f *fileOffsetStorage) Load() error {
 	readOffset := func() (*offset.Offset, error) {
 		length := readUint32()
 		o := &offset.Offset{}
-		o.ReadBinary(buffer[readerOffset:readerOffset+int64(length)], binary.BigEndian)
+		if err := o.UnmarshalBinary(buffer[readerOffset : readerOffset+int64(length)]); err != nil {
+			return nil, err
+		}
 		readerOffset += int64(length)
 		return o, nil
 	}
