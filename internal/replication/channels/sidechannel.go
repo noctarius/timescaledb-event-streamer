@@ -7,6 +7,7 @@ import (
 	"github.com/jackc/pglogrepl"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/noctarius/event-stream-prototype/internal/pg"
 	"github.com/noctarius/event-stream-prototype/internal/pg/decoding"
 	"github.com/noctarius/event-stream-prototype/internal/supporting"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/model"
@@ -62,6 +63,13 @@ LEFT JOIN LATERAL (
 WHERE c.table_schema = '%s'
   AND c.table_name = '%s'
 ORDER BY c.ordinal_position`
+
+const replicaIdentityQuery = `
+SELECT c.relreplident
+FROM pg_catalog.pg_class c
+LEFT JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
+WHERE n.nspname='%s' and c.relname='%s'
+`
 
 type sideChannel struct {
 	connConfig        *pgx.ConnConfig
@@ -239,64 +247,21 @@ func (sc *sideChannel) SnapshotTable(canonicalName string, startingLSN *pglogrep
 	return currentLSN, nil
 }
 
-func (sc *sideChannel) InitialSnapshot(snapshotName string, next func() (schema, table string, ok bool)) error {
-	conn, err := pgx.ConnectConfig(context.Background(), sc.connConfig)
-	if err != nil {
-		return err
-	}
-	defer conn.Close(context.Background())
+func (sc *sideChannel) ReadReplicaIdentity(schemaName, tableName string) (pg.ReplicaIdentity, error) {
+	var replicaIdentity pg.ReplicaIdentity
+	if err := sc.newSession(func(session session) error {
+		row := session.queryRow(context.Background(), fmt.Sprintf(replicaIdentityQuery, schemaName, tableName))
 
-	if _, err = conn.Exec(context.Background(), "BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ"); err != nil {
-		return err
-	}
-
-	if _, err = conn.Exec(context.Background(),
-		fmt.Sprintf("SET TRANSACTION SNAPSHOT '%s'", snapshotName)); err != nil {
-		return err
-	}
-
-	for {
-		schemaName, tableName, ok := next()
-		if !ok {
-			break
+		var val string
+		if err := row.Scan(&val); err != nil {
+			return err
 		}
-
-		regClass := model.MakeRelationKey(schemaName, tableName)
-		cursorName := supporting.RandomTextString(15)
-		if _, err := conn.Exec(context.Background(),
-			fmt.Sprintf("DECLARE %s SCROLL CURSOR FOR SELECT * FROM %s", cursorName, regClass),
-		); err != nil {
-			return errors.Wrap(err, 0)
-		}
-
-		for {
-			rows, err := conn.Query(context.Background(), fmt.Sprintf("FETCH FORWARD 10 FROM %s", cursorName))
-			if err != nil {
-				return errors.Wrap(err, 0)
-			}
-			count := 0
-			if err := decoding.DecodeRowValues(rows, func(values []any) error {
-				logger.Printf("%+v", values)
-				count++
-				return nil
-			}); err != nil {
-				return errors.Wrap(err, 0)
-			}
-			if count == 0 {
-				break
-			}
-		}
-		_, err = conn.Exec(context.Background(), fmt.Sprintf("CLOSE %s", cursorName))
-		if err != nil {
-			return errors.Wrap(err, 0)
-		}
+		replicaIdentity = pg.AsReplicaIdentity(val)
+		return nil
+	}); err != nil {
+		return pg.UNKNOWN, err
 	}
-
-	_, err = conn.Exec(context.Background(), "ROLLBACK")
-	if err != nil {
-		return errors.Wrap(err, 0)
-	}
-	return nil
+	return replicaIdentity, nil
 }
 
 func (sc *sideChannel) readHypertableSchema(

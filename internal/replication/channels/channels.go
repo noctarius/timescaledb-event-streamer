@@ -3,6 +3,7 @@ package channels
 import (
 	"github.com/jackc/pglogrepl"
 	"github.com/noctarius/event-stream-prototype/internal/eventhandler"
+	"github.com/noctarius/event-stream-prototype/internal/pg"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/model"
 )
 
@@ -20,6 +21,8 @@ type SideChannel interface {
 
 	SnapshotTable(canonicalName string, startingLSN *pglogrepl.LSN,
 		cb func(lsn pglogrepl.LSN, values map[string]any) error) (pglogrepl.LSN, error)
+
+	ReadReplicaIdentity(schemaName, tableName string) (pg.ReplicaIdentity, error)
 }
 
 type ReplicationChannel interface {

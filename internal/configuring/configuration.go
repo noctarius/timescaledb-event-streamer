@@ -153,7 +153,7 @@ type Config struct {
 }
 
 func GetOrDefault[V any](config *Config, canonicalProperty string, defaultValue V) V {
-	if env, ok := findEnvProperty(canonicalProperty, defaultValue); ok {
+	if env, found := findEnvProperty(canonicalProperty, defaultValue); found {
 		return env
 	}
 
@@ -189,7 +189,7 @@ func findEnvProperty[V any](canonicalProperty string, defaultValue V) (V, bool) 
 			return cv.Interface().(V), true
 		}
 	}
-	return reflect.Zero(t).Interface().(V), false
+	return defaultValue, false
 }
 
 func findProperty(element reflect.Value, property string) (reflect.Value, bool) {
