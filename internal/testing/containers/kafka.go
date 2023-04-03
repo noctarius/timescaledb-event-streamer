@@ -33,7 +33,9 @@ func SetupKafkaContainer() (testcontainers.Container, []string, error) {
 			"KAFKA_CONTROLLER_QUORUM_VOTERS":                 "1@localhost:9094",
 			"KAFKA_CONTROLLER_LISTENER_NAMES":                "CONTROLLER",
 		},
-		Mounts:     testcontainers.Mounts(testcontainers.BindMount("/var/run/docker.sock", "/var/run/docker.sock")),
+		Mounts: testcontainers.Mounts(
+			testcontainers.BindMount("/var/run/docker.sock", "/var/run/docker.sock"),
+		),
 		Entrypoint: []string{"sh"},
 		Cmd:        []string{"-c", "while [ ! -f " + starterScript + " ]; do sleep 0.1; done; bash " + starterScript},
 	}
@@ -74,8 +76,7 @@ sed -i '/KAFKA_ZOOKEEPER_CONNECT/d' /etc/confluent/docker/configure
 echo 'kafka-storage format --ignore-formatted -t "$(kafka-storage random-uuid)" -c /etc/kafka/kafka.properties' >> /etc/confluent/docker/configure
 echo '' > /etc/confluent/docker/ensure
 /etc/confluent/docker/configure
-/etc/confluent/docker/launch
-`,
+/etc/confluent/docker/launch`,
 		host, port.Int(), host)
 
 	if err := container.CopyToContainer(context.Background(), []byte(script), starterScript, 700); err != nil {
