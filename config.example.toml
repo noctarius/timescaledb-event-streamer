@@ -21,6 +21,23 @@ sink.nats.userinfo.password = '...'
 #sink.kafka.tsl.skipverify = true
 #sink.kafka.tsl.clientauth = 0
 
+#sink.redis.network = 'tcp'
+#sink.redis.address = 'localhost:6379'
+#sink.redis.password = ''
+#sink.redis.database = 0
+#sink.redis.poolsize = 0
+#sink.redis.retries.maxattempts = 0
+#sink.redis.retries.backoff.min = 8
+#sink.redis.retries.backoff.max = 512
+#sink.redis.timeouts.dial = 0
+#sink.redis.timeouts.read = 0
+#sink.redis.timeouts.write = 0
+#sink.redis.timeouts.pool = 0
+#sink.redis.timeouts.idle = 0
+#sink.redis.tls.enabled = false
+#sink.redis.tls.skipverify = false
+#sink.redis.tls.clientauth = 0
+
 topic.namingstrategy.type = 'debezium'
 topic.prefix = 'timescaledb'
 

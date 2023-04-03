@@ -48,7 +48,8 @@ found [here](https://raw.githubusercontent.com/noctarius/timescaledb-event-strea
 For a full reference of the existing configuration options, see the [Configuration](#configuration)
 section.
 
-## Supporting non-privileged users (without postgres user) 
+## Supporting non-privileged users (without postgres user)
+
 In addition to the program itself, a function has to be installed into the database which will
 be used to generate change events from. The function is used to create the initial logical
 replication publication, since the internal catalog tables from TimescaleDB are owned by
@@ -67,7 +68,8 @@ CREATE OR REPLACE FUNCTION create_timescaledb_catalog_publication(publication_na
     RETURNS bool
     LANGUAGE plpgsql
     SECURITY DEFINER
-AS $$
+AS
+$$
 DECLARE
     found bool;
     owner oid;
@@ -100,9 +102,8 @@ BEGIN
             RAISE EXCEPTION 'Publication % already exists but is missing _timescaledb_catalog.chunk', publication_name;
         END IF;
 
-        SELECT true FROM (
-            SELECT session_user as uid
-        ) s
+        SELECT true
+        FROM (SELECT session_user as uid) s
         WHERE s.uid = owner
         INTO found;
 
@@ -113,7 +114,8 @@ BEGIN
         RETURN true;
     END IF;
 
-    EXECUTE format('CREATE PUBLICATION %I FOR TABLE _timescaledb_catalog.chunk, _timescaledb_catalog.hypertable', publication_name);
+    EXECUTE format('CREATE PUBLICATION %I FOR TABLE _timescaledb_catalog.chunk, _timescaledb_catalog.hypertable',
+                   publication_name);
     EXECUTE format('ALTER PUBLICATION %I OWNER TO %s', publication_name, replication_user);
     RETURN true;
 END;
@@ -178,9 +180,9 @@ duplicated (`test.some_value` becomes `TEST_SOME__VALUE`).
 
 ## Sink Configuration
 
-| Property    |                                                                                       Description | Data Type | Default Value |
-|-------------|--------------------------------------------------------------------------------------------------:|----------:|--------------:|
-| `sink.type` | The property defines which sink adapter is to be used. Valid values are `stdout`, `nats`, `kafka` |    string |      `stdout` |
+| Property    |                                                                                                Description | Data Type | Default Value |
+|-------------|-----------------------------------------------------------------------------------------------------------:|----------:|--------------:|
+| `sink.type` | The property defines which sink adapter is to be used. Valid values are `stdout`, `nats`, `kafka`, `redis` |    string |      `stdout` |
 
 NATS specific configuration, which is only used if `sink.type` is set to `nats`.
 
@@ -206,6 +208,27 @@ Kafka specific configuration, which is only used if `sink.type` is set to `kafka
 | `sink.kafka.tls.enabled`    |                                                                        The property defines if TLS is enabled |         boolean |         false | 
 | `sink.kafka.tls.skipverify` |                                           The property defines if verification of TLS certificates is skipped |         boolean |         false | 
 | `sink.kafka.tls.clientauth` | The property defines the client auth value (as defined in [Go](https://pkg.go.dev/crypto/tls#ClientAuthType)) |         boolean |         false | 
+
+Redis specific configuration, which is only used if `sink.type` is set to `redis`.
+
+| Property                         |                                                                                                   Description | Data Type |     Default Value |
+|----------------------------------|--------------------------------------------------------------------------------------------------------------:|----------:|------------------:|
+| `sink.redis.network`             |                                      The network type of the redis connection. Valid values are `tcp`, `unix` |    string |             `tcp` |
+| `sink.redis.address`             |                                                                           The connection address as host:port |    string |  `localhost:6379` |
+| `sink.redis.password`            |                                                              Optional password to connect to the redis server |    string |      empty string |
+| `sink.redis.database`            |                                                             Database to select after connecting to the server |       int |                 0 |
+| `sink.redis.poolsize`            |                                                                          Maximum number of socket connections |       int |        10 per cpu |
+| `sink.redis.retries.maxattempts` |                                                                    Maximum number of retries before giving up |       int |                 0 |
+| `sink.redis.retries.backoff.min` |                         Minimum backoff between each retry in milliseconds. A value of `-1` disables backoff. |       int |                 8 |
+| `sink.redis.retries.backoff.max` |                         Maximum backoff between each retry in milliseconds. A value of `-1` disables backoff. |       int |               512 |
+| `sink.redis.timeouts.dial`       |                                                     Dial timeout for establishing new connections in seconds. |       int |                 5 |
+| `sink.redis.timeouts.read`       |                                    Timeout for socket reads in seconds. A value of `-1` disables the timeout. |       int |                 3 |
+| `sink.redis.timeouts.write`      |                                   Timeout for socket writes in seconds. A value of `-1` disables the timeout. |       int |      read timeout |
+| `sink.redis.timeouts.pool`       |   Amount of time in seconds client waits for connection if all connections are busy before returning an error |       int | read timeout + 1s |
+| `sink.redis.timeouts.idle`       |                                          Amount of time in minutes after which client closes idle connections |       int |                 5 |
+| `sink.redis.tls.enabled`         |                                                                        The property defines if TLS is enabled |      bool |             false |
+| `sink.redis.tls.skipverify`      |                                           The property defines if verification of TLS certificates is skipped |      bool |             false |
+| `sink.redis.tls.clientauth`      | The property defines the client auth value (as defined in [Go](https://pkg.go.dev/crypto/tls#ClientAuthType)) |       int |                 0 |
 
 # Includes and Excludes Patterns
 

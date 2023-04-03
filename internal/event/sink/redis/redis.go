@@ -42,19 +42,19 @@ func NewRedisSink(config *configuring.Config) (sink.Sink, error) {
 		),
 		ReadTimeout: configuring.GetOrDefault(
 			config, "sink.redis.timeouts.read", time.Duration(0),
-		),
+		) * time.Second,
 		WriteTimeout: configuring.GetOrDefault(
 			config, "sink.redis.timeouts.write", time.Duration(0),
-		),
+		) * time.Second,
 		PoolSize: configuring.GetOrDefault(
 			config, "sink.redis.poolsize", 0,
 		),
 		PoolTimeout: configuring.GetOrDefault(
 			config, "sink.redis.timeouts.pool", time.Duration(0),
-		),
+		) * time.Second,
 		IdleTimeout: configuring.GetOrDefault(
 			config, "sink.redis.timeouts.idle", time.Duration(0),
-		),
+		) * time.Minute,
 	}
 
 	if config.Sink.Redis.TLS.Enabled {
