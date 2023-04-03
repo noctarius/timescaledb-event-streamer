@@ -18,11 +18,11 @@ func NewKafkaSink(config *configuring.Config) (sink.Sink, error) {
 	c := sarama.NewConfig()
 	c.ClientID = "event-stream-prototype"
 	c.Producer.Idempotent = configuring.GetOrDefault(
-		config, "sink.kafka.idempotent", true,
+		config, "sink.kafka.idempotent", false,
 	)
 	c.Producer.Return.Successes = true
 	c.Producer.RequiredAcks = sarama.WaitForLocal
-	c.Producer.Partitioner = sarama.NewHashPartitioner
+	c.Producer.Retry.Max = 10
 
 	if configuring.GetOrDefault(config, "sink.kafka.sasl.enabled", false) {
 		c.Net.SASL.Enable = true
