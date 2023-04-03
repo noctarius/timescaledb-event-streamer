@@ -62,4 +62,4 @@ BEGIN
     EXECUTE format('ALTER PUBLICATION %I OWNER TO %s', publication_name, replication_user);
     RETURN true;
 END;
-$$
+$$;
