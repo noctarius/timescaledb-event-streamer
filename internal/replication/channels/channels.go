@@ -11,11 +11,8 @@ type SideChannel interface {
 
 	ReadChunks(cb func(chunk *model.Chunk) error) error
 
-	ReadHypertableSchema(hypertable *model.Hypertable,
-		cb func(hypertable *model.Hypertable, columns []model.Column) bool) error
-
-	ReadHypertablesSchema(hypertables []*model.Hypertable,
-		cb func(hypertable *model.Hypertable, columns []model.Column) bool) error
+	ReadHypertableSchema(cb func(hypertable *model.Hypertable, columns []model.Column) bool,
+		hypertables ...*model.Hypertable) error
 
 	AttachChunkToPublication(chunk *model.Chunk) error
 

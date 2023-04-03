@@ -129,6 +129,10 @@ func (sc *SystemCatalog) FindChunkByName(schemaName, tableName string) *model.Ch
 	return nil
 }
 
+func (sc *SystemCatalog) ResolveOriginHypertable(chunk *model.Chunk) *model.Hypertable {
+	return sc.ResolveUncompressedHypertable(chunk.HypertableId())
+}
+
 func (sc *SystemCatalog) ResolveUncompressedHypertable(hypertableId int32) *model.Hypertable {
 	hypertable := sc.FindHypertableById(hypertableId)
 	if hypertable == nil {
@@ -266,7 +270,7 @@ func initializeSystemCatalog(sc *SystemCatalog) (*SystemCatalog, error) {
 		hypertables = append(hypertables, hypertable)
 	}
 
-	if err := sc.sideChannel.ReadHypertablesSchema(hypertables, sc.ApplySchemaUpdate); err != nil {
+	if err := sc.sideChannel.ReadHypertableSchema(sc.ApplySchemaUpdate, hypertables...); err != nil {
 		return nil, errors.Wrap(err, 0)
 	}
 

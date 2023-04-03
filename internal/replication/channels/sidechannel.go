@@ -119,8 +119,9 @@ func (sc *sideChannel) ReadChunks(cb func(chunk *model.Chunk) error) error {
 	})
 }
 
-func (sc *sideChannel) ReadHypertablesSchema(hypertables []*model.Hypertable,
-	cb func(hypertable *model.Hypertable, columns []model.Column) bool) error {
+func (sc *sideChannel) ReadHypertableSchema(
+	cb func(hypertable *model.Hypertable, columns []model.Column) bool,
+	hypertables ...*model.Hypertable) error {
 
 	return sc.newSession(func(session session) error {
 		for _, hypertable := range hypertables {
@@ -135,19 +136,6 @@ func (sc *sideChannel) ReadHypertablesSchema(hypertables []*model.Hypertable,
 		}
 		return nil
 	})
-}
-
-func (sc *sideChannel) ReadHypertableSchema(hypertable *model.Hypertable,
-	cb func(hypertable *model.Hypertable, columns []model.Column) bool) error {
-
-	if hypertable.SchemaName() != "_timescaledb_internal" &&
-		hypertable.SchemaName() != "_timescaledb_catalog" {
-
-		return sc.newSession(func(session session) error {
-			return sc.readHypertableSchema(session, hypertable, cb)
-		})
-	}
-	return nil
 }
 
 func (sc *sideChannel) AttachChunkToPublication(chunk *model.Chunk) error {

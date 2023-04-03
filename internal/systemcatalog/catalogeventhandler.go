@@ -48,7 +48,7 @@ func (s *systemCatalogReplicationEventHandler) OnHypertableAddedEvent(_ uint32, 
 				return fmt.Errorf("registering hypertable failed: %v", h)
 			}
 
-			return s.systemCatalog.sideChannel.ReadHypertableSchema(h, s.systemCatalog.ApplySchemaUpdate)
+			return s.systemCatalog.sideChannel.ReadHypertableSchema(s.systemCatalog.ApplySchemaUpdate, h)
 		},
 	)
 }
