@@ -18,7 +18,7 @@ func SetupKafkaContainer() (testcontainers.Container, []string, error) {
 		Image:        "confluentinc/cp-kafka:7.3.3",
 		ExposedPorts: []string{"9093/tcp"},
 		Env: map[string]string{
-			"KAFKA_LISTENERS":                                fmt.Sprintf("PLAINTEXT://0.0.0.0:9093,BROKER://0.0.0.0:9092,CONTROLLER://0.0.0.0:9094"),
+			"KAFKA_LISTENERS":                                "PLAINTEXT://0.0.0.0:9093,BROKER://0.0.0.0:9092,CONTROLLER://0.0.0.0:9094",
 			"KAFKA_LISTENER_SECURITY_PROTOCOL_MAP":           "BROKER:PLAINTEXT,PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT",
 			"KAFKA_INTER_BROKER_LISTENER_NAME":               "BROKER",
 			"KAFKA_BROKER_ID":                                "1",
