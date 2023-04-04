@@ -33,9 +33,6 @@ func SetupKafkaContainer() (testcontainers.Container, []string, error) {
 			"KAFKA_CONTROLLER_QUORUM_VOTERS":                 "1@localhost:9094",
 			"KAFKA_CONTROLLER_LISTENER_NAMES":                "CONTROLLER",
 		},
-		Mounts: testcontainers.Mounts(
-			testcontainers.BindMount("/var/run/docker.sock", "/var/run/docker.sock"),
-		),
 		Entrypoint: []string{"sh"},
 		Cmd:        []string{"-c", "while [ ! -f " + starterScript + " ]; do sleep 0.1; done; bash " + starterScript},
 	}
