@@ -16,12 +16,14 @@ type Hypertable struct {
 	compressionState       int16
 	distributed            bool
 	continuousAggregate    bool
+	viewSchema             *string
+	viewName               *string
 	columns                []Column
 }
 
 func NewHypertable(id int32,
 	databaseName, schemaName, hypertableName, associatedSchemaName, associatedTablePrefix string,
-	compressedHypertableId *int32, compressionState int16, distributed bool) *Hypertable {
+	compressedHypertableId *int32, compressionState int16, distributed bool, viewSchema, viewName *string) *Hypertable {
 
 	return &Hypertable{
 		id:                     id,
@@ -33,9 +35,15 @@ func NewHypertable(id int32,
 		compressedHypertableId: compressedHypertableId,
 		compressionState:       compressionState,
 		distributed:            distributed,
-		continuousAggregate:    strings.HasPrefix(hypertableName, "_materialized_"),
+		continuousAggregate:    isContinuousAggregate(hypertableName, viewSchema, viewName),
+		viewSchema:             viewSchema,
+		viewName:               viewName,
 		columns:                make([]Column, 0),
 	}
+}
+
+func isContinuousAggregate(hypertableName string, viewSchema, viewName *string) bool {
+	return strings.HasPrefix(hypertableName, "_materialized_") && viewSchema != nil && viewName != nil
 }
 
 func (h *Hypertable) Id() int32 {
@@ -52,6 +60,20 @@ func (h *Hypertable) SchemaName() string {
 
 func (h *Hypertable) HypertableName() string {
 	return h.hypertableName
+}
+
+func (h *Hypertable) ViewSchema() (string, bool) {
+	if h.viewSchema != nil {
+		return *h.viewSchema, true
+	}
+	return "", false
+}
+
+func (h *Hypertable) ViewName() (string, bool) {
+	if h.viewName != nil {
+		return *h.viewName, true
+	}
+	return "", false
 }
 
 func (h *Hypertable) AssociatedSchemaName() string {
@@ -79,6 +101,10 @@ func (h *Hypertable) IsCompressedTable() bool {
 
 func (h *Hypertable) IsDistributed() bool {
 	return h.distributed
+}
+
+func (h *Hypertable) IsContinuousAggregate() bool {
+	return h.continuousAggregate
 }
 
 func (h *Hypertable) Columns() []Column {

@@ -52,7 +52,7 @@ func (rf *ReplicationFilter) Enabled(hypertable *model.Hypertable) bool {
 
 	// excluded has priority
 	for _, exclude := range rf.excludes {
-		if exclude.matches(hypertable.SchemaName(), hypertable.HypertableName()) {
+		if exclude.matches(hypertable) {
 			rf.filterCache[canonicalName] = false
 			return false
 		}
@@ -60,7 +60,7 @@ func (rf *ReplicationFilter) Enabled(hypertable *model.Hypertable) bool {
 
 	// is explicitly included?
 	for _, include := range rf.includes {
-		if include.matches(hypertable.SchemaName(), hypertable.HypertableName()) {
+		if include.matches(hypertable) {
 			rf.filterCache[canonicalName] = true
 			return true
 		}
@@ -109,7 +109,22 @@ func parseFilter(filterTerm string) (*filter, error) {
 	return f, nil
 }
 
-func (f *filter) matches(namespace, table string) bool {
+func (f *filter) matches(hypertable *model.Hypertable) bool {
+	namespace := hypertable.SchemaName()
+	entity := hypertable.HypertableName()
+	if hypertable.IsContinuousAggregate() {
+		if n, found := hypertable.ViewSchema(); found {
+			namespace = n
+		} else {
+			return false
+		}
+		if e, found := hypertable.ViewName(); found {
+			entity = e
+		} else {
+			return false
+		}
+	}
+
 	if f.namespaceRegex != nil {
 		if !f.namespaceRegex.Match([]byte(namespace)) {
 			return false
@@ -121,11 +136,11 @@ func (f *filter) matches(namespace, table string) bool {
 	}
 
 	if f.tableRegex != nil {
-		if !f.tableRegex.Match([]byte(table)) {
+		if !f.tableRegex.Match([]byte(entity)) {
 			return false
 		}
 	} else {
-		if f.table != table {
+		if f.table != entity {
 			return false
 		}
 	}

@@ -19,12 +19,15 @@ const addTableToPublicationQuery = "ALTER PUBLICATION %s ADD TABLE %s"
 const dropTableFromPublicationQuery = "ALTER PUBLICATION %s DROP TABLE %s"
 
 const initialHypertableQuery = `
-SELECT h1.id, h1.schema_name, h1.table_name, h1.associated_schema_name, h1.associated_table_prefix, 
-	 h1.compression_state, h1.compressed_hypertable_id, coalesce(h2.is_distributed, false)
+SELECT h1.id, h1.schema_name, h1.table_name, h1.associated_schema_name, h1.associated_table_prefix,
+	 h1.compression_state, h1.compressed_hypertable_id, coalesce(h2.is_distributed, false),
+	 ca.user_view_schema, ca.user_view_name
 FROM _timescaledb_catalog.hypertable h1
-LEFT JOIN timescaledb_information.hypertables h2 
-	 ON h2.hypertable_schema = h1.schema_name 
-	AND h2.hypertable_name = h1.table_name`
+LEFT JOIN timescaledb_information.hypertables h2
+	 ON h2.hypertable_schema = h1.schema_name
+	AND h2.hypertable_name = h1.table_name
+LEFT JOIN _timescaledb_catalog.continuous_agg ca
+    ON h1.id = ca.mat_hypertable_id`
 
 const initialChunkQuery = `
 SELECT c1.id, c1.hypertable_id, c1.schema_name, c1.table_name, c1.compressed_chunk_id, c1.dropped, c1.status
@@ -94,14 +97,18 @@ func (sc *sideChannel) ReadHypertables(cb func(hypertable *model.Hypertable) err
 			var compressionState int16
 			var compressedHypertableId *int32
 			var distributed bool
+			var viewSchema, viewName *string
 
 			if err := row.Scan(&id, &schemaName, &hypertableName, &associatedSchemaName,
-				&associatedTablePrefix, &compressionState, &compressedHypertableId, &distributed); err != nil {
+				&associatedTablePrefix, &compressionState, &compressedHypertableId,
+				&distributed, &viewSchema, &viewName); err != nil {
+
 				return errors.Wrap(err, 0)
 			}
 
 			hypertable := model.NewHypertable(id, sc.connConfig.Database, schemaName, hypertableName,
-				associatedSchemaName, associatedTablePrefix, compressedHypertableId, compressionState, distributed)
+				associatedSchemaName, associatedTablePrefix, compressedHypertableId, compressionState,
+				distributed, viewSchema, viewName)
 
 			return cb(hypertable)
 		}, initialHypertableQuery)
