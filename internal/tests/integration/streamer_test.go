@@ -6,6 +6,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/noctarius/event-stream-prototype/internal/configuring/sysconfig"
 	"github.com/noctarius/event-stream-prototype/internal/schema"
+	"github.com/noctarius/event-stream-prototype/internal/supporting"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/model"
 	inttest "github.com/noctarius/event-stream-prototype/internal/testing"
 	"github.com/noctarius/event-stream-prototype/internal/testing/testrunner"
@@ -562,6 +563,93 @@ func (its *IntegrationTestSuite) TestCompressionEvents() {
 			context.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
 			context.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
 				config.TimescaleDB.Events.Compression = true
+			})
+			return nil
+		}),
+	)
+}
+
+func (its *IntegrationTestSuite) TestContinuousAggregateCreateEvents() {
+	collected := make(chan bool, 1)
+	testSink := inttest.NewEventCollectorSink(
+		inttest.WithFilter(
+			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
+				return envelope.Payload.Op == schema.OP_READ || envelope.Payload.Op == schema.OP_CREATE
+			},
+		),
+		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
+			if sink.NumOfEvents()%20 == 0 {
+				collected <- true
+			}
+		}),
+	)
+
+	its.RunTest(
+		func(context testrunner.Context) error {
+			if _, err := context.Exec(stdctx.Background(),
+				fmt.Sprintf(
+					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:19:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
+					testrunner.GetAttribute[string](context, "tableName"),
+				),
+			); err != nil {
+				return err
+			}
+
+			if _, err := context.Exec(stdctx.Background(),
+				fmt.Sprintf(
+					"CALL refresh_continuous_aggregate('%s', '2023-03-25','2023-03-26')",
+					testrunner.GetAttribute[string](context, "aggregateName"),
+				),
+			); err != nil {
+				return err
+			}
+
+			<-collected
+
+			for i := 0; i < 20; i++ {
+				expected := i + 1
+				event := testSink.Events()[i]
+				val := int(event.Envelope.Payload.After["val"].(float64))
+				if expected != val {
+					its.T().Errorf("event order inconsistent %d != %d", expected, val)
+					return nil
+				}
+				if event.Envelope.Payload.Op != schema.OP_READ {
+					its.T().Errorf("event should be of type 'r' but was %s", event.Envelope.Payload.Op)
+					return nil
+				}
+			}
+
+			return nil
+		},
+
+		testrunner.WithSetup(func(context testrunner.SetupContext) error {
+			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
+				model.NewColumn("ts", pgtype.TimestamptzOID, "timestamptz", false, false, nil),
+				model.NewColumn("val", pgtype.Int4OID, "integer", false, false, nil),
+			)
+			if err != nil {
+				return err
+			}
+			testrunner.Attribute(context, "tableName", tn)
+
+			aggregateName := supporting.RandomTextString(10)
+			testrunner.Attribute(context, "aggregateName", aggregateName)
+
+			if _, err := context.Exec(stdctx.Background(),
+				fmt.Sprintf(
+					"CREATE MATERIALIZED VIEW %s WITH (timescaledb.continuous) AS SELECT time_bucket('1 min', t.ts) bucket, max(val) val FROM %s t GROUP BY 1",
+					aggregateName, tn,
+				),
+			); err != nil {
+				return err
+			}
+
+			context.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
+			context.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
+				config.TimescaleDB.Hypertables.Includes = []string{
+					model.MakeRelationKey(inttest.DatabaseSchema, aggregateName),
+				}
 			})
 			return nil
 		}),

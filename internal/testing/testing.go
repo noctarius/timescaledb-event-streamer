@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	databaseSchema = "tsdb"
+	DatabaseSchema = "tsdb"
 )
 
 func CreateHypertable(pool *pgxpool.Pool, timeDimension string,
@@ -29,7 +29,7 @@ func CreateHypertable(pool *pgxpool.Pool, timeDimension string,
 		columnDefinitions[i] = toDefinition(column)
 	}
 
-	query := fmt.Sprintf("CREATE TABLE \"%s\".\"%s\" (%s)", databaseSchema,
+	query := fmt.Sprintf("CREATE TABLE \"%s\".\"%s\" (%s)", DatabaseSchema,
 		tableName, strings.Join(columnDefinitions, ", "))
 
 	if _, err := tx.Exec(context.Background(), query); err != nil {
@@ -39,7 +39,7 @@ func CreateHypertable(pool *pgxpool.Pool, timeDimension string,
 
 	query = fmt.Sprintf(
 		"SELECT create_hypertable('%s.%s', '%s', chunk_time_interval := interval '%d seconds')",
-		databaseSchema, tableName, timeDimension, int64(chunkSize.Seconds()),
+		DatabaseSchema, tableName, timeDimension, int64(chunkSize.Seconds()),
 	)
 	if _, err := tx.Exec(context.Background(), query); err != nil {
 		tx.Rollback(context.Background())
@@ -47,7 +47,7 @@ func CreateHypertable(pool *pgxpool.Pool, timeDimension string,
 	}
 
 	tx.Commit(context.Background())
-	return databaseSchema, tableName, nil
+	return DatabaseSchema, tableName, nil
 }
 
 func randomTableName() string {

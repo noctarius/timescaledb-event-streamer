@@ -278,7 +278,13 @@ func initializeSystemCatalog(sc *SystemCatalog) (*SystemCatalog, error) {
 	atLeastOneHypertableSelected := false
 	for _, hypertable := range sc.hypertables {
 		if !hypertable.IsCompressedTable() && sc.IsHypertableSelectedForReplication(hypertable.Id()) {
-			logger.Printf("\t* %s\n", hypertable.CanonicalName())
+			if hypertable.IsContinuousAggregate() {
+				logger.Printf("\t* %s (type: Continuous Aggregate => %s)\n",
+					hypertable.CanonicalContinuousAggregateName(), hypertable.CanonicalName(),
+				)
+			} else {
+				logger.Printf("\t* %s (type: Hypertable)\n", hypertable.CanonicalName())
+			}
 			atLeastOneHypertableSelected = true
 		}
 	}

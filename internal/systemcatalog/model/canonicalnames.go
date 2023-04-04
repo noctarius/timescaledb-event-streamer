@@ -10,6 +10,10 @@ func canonicalHypertableName(hypertable *Hypertable) string {
 	return MakeRelationKey(hypertable.SchemaName(), hypertable.HypertableName())
 }
 
+func canonicalContinuousAggregateName(hypertable *Hypertable) string {
+	return MakeRelationKey(*hypertable.viewSchema, *hypertable.viewName)
+}
+
 func canonicalChunkName(chunk *Chunk) string {
 	return MakeRelationKey(chunk.SchemaName(), chunk.TableName())
 }

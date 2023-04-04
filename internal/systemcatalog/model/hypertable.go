@@ -42,10 +42,6 @@ func NewHypertable(id int32,
 	}
 }
 
-func isContinuousAggregate(hypertableName string, viewSchema, viewName *string) bool {
-	return strings.HasPrefix(hypertableName, "_materialized_") && viewSchema != nil && viewName != nil
-}
-
 func (h *Hypertable) Id() int32 {
 	return h.id
 }
@@ -113,6 +109,10 @@ func (h *Hypertable) Columns() []Column {
 
 func (h *Hypertable) CanonicalName() string {
 	return canonicalHypertableName(h)
+}
+
+func (h *Hypertable) CanonicalContinuousAggregateName() string {
+	return canonicalContinuousAggregateName(h)
 }
 
 func (h *Hypertable) CanonicalChunkTablePrefix() string {
@@ -234,9 +234,17 @@ func (h *Hypertable) differences(new *Hypertable) map[string]string {
 	return differences
 }
 
+func IsContinuousAggregateHypertable(hypertableName string) bool {
+	return strings.HasPrefix(hypertableName, "_materialized_")
+}
+
 func min(i, o int) int {
 	if i < o {
 		return i
 	}
 	return o
+}
+
+func isContinuousAggregate(hypertableName string, viewSchema, viewName *string) bool {
+	return IsContinuousAggregateHypertable(hypertableName) && viewSchema != nil && viewName != nil
 }

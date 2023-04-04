@@ -74,6 +74,11 @@ LEFT JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
 WHERE n.nspname='%s' and c.relname='%s'
 `
 
+const hypertableContinuousAggregateQuery = `
+SELECT ca.user_view_schema, ca.user_view_name
+FROM _timescaledb_catalog.continuous_agg ca 
+WHERE ca.mat_hypertable_id = $1`
+
 type sideChannel struct {
 	connConfig        *pgx.ConnConfig
 	publicationName   string
@@ -269,6 +274,26 @@ func (sc *sideChannel) ReadReplicaIdentity(schemaName, tableName string) (pg.Rep
 		return pg.UNKNOWN, err
 	}
 	return replicaIdentity, nil
+}
+
+func (sc *sideChannel) ReadContinuousAggregate(materializedHypertableId int32) (string, string, bool, error) {
+	var viewSchema, viewName string
+
+	found := false
+	if err := sc.newSession(func(session session) error {
+		row := session.queryRow(context.Background(), hypertableContinuousAggregateQuery, materializedHypertableId)
+		if err := row.Scan(&viewSchema, &viewName); err != nil {
+			if err != pgx.ErrNoRows {
+				return err
+			}
+		} else {
+			found = true
+		}
+		return nil
+	}); err != nil {
+		return "", "", false, err
+	}
+	return viewSchema, viewName, found, nil
 }
 
 func (sc *sideChannel) readHypertableSchema(

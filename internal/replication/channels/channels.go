@@ -23,6 +23,8 @@ type SideChannel interface {
 		cb func(lsn pglogrepl.LSN, values map[string]any) error) (pglogrepl.LSN, error)
 
 	ReadReplicaIdentity(schemaName, tableName string) (pg.ReplicaIdentity, error)
+
+	ReadContinuousAggregate(materializedHypertableId int32) (viewSchema, viewName string, found bool, err error)
 }
 
 type ReplicationChannel interface {

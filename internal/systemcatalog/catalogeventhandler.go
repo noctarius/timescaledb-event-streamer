@@ -2,6 +2,7 @@ package systemcatalog
 
 import (
 	"fmt"
+	"github.com/go-errors/errors"
 	"github.com/jackc/pglogrepl"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/model"
 )
@@ -41,8 +42,19 @@ func (s *systemCatalogReplicationEventHandler) OnHypertableAddedEvent(_ uint32, 
 		func(id int32, schemaName, hypertableName, associatedSchemaName, associatedTablePrefix string,
 			compressedHypertableId *int32, compressionState int16, distributed bool) error {
 
+			var viewSchema, viewName *string
+			if model.IsContinuousAggregateHypertable(hypertableName) {
+				if vS, vN, found, err := s.systemCatalog.sideChannel.ReadContinuousAggregate(id); err != nil {
+					return errors.Errorf("failed reading continuous aggregate information: %+v", err)
+				} else if found {
+					viewSchema = &vS
+					viewName = &vN
+				}
+			}
+
 			h := model.NewHypertable(id, s.systemCatalog.databaseName, schemaName, hypertableName,
-				associatedSchemaName, associatedTablePrefix, compressedHypertableId, compressionState, distributed)
+				associatedSchemaName, associatedTablePrefix, compressedHypertableId, compressionState,
+				distributed, viewSchema, viewName)
 
 			if err := s.systemCatalog.RegisterHypertable(h); err != nil {
 				return fmt.Errorf("registering hypertable failed: %v", h)
