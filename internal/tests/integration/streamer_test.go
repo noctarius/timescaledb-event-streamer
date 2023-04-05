@@ -569,19 +569,21 @@ func (its *IntegrationTestSuite) TestCompressionEvents() {
 	)
 }
 
-func (its *IntegrationTestSuite) Ignore_TestCompressionPartialInsertEvents() {
+func (its *IntegrationTestSuite) TestCompressionPartialInsertEvents() {
 	collected := make(chan bool, 1)
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
-				return envelope.Payload.Op == schema.OP_READ || envelope.Payload.Op == schema.OP_TIMESCALE
+				return envelope.Payload.Op == schema.OP_READ ||
+					envelope.Payload.Op == schema.OP_CREATE ||
+					envelope.Payload.Op == schema.OP_TIMESCALE
 			},
 		),
 		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
 			if sink.NumOfEvents()%10 == 0 {
 				collected <- true
 			}
-			if sink.NumOfEvents() == 11 {
+			if sink.NumOfEvents() == 13 {
 				collected <- true
 			}
 		}),
@@ -610,6 +612,22 @@ func (its *IntegrationTestSuite) Ignore_TestCompressionPartialInsertEvents() {
 			if _, err := context.Exec(stdctx.Background(),
 				fmt.Sprintf(
 					"SELECT compress_chunk((t.chunk_schema || '.' || t.chunk_name)::regclass, true) FROM (SELECT * FROM timescaledb_information.chunks WHERE hypertable_name = '%s') t",
+					testrunner.GetAttribute[string](context, "tableName"),
+				),
+			); err != nil {
+				return err
+			}
+			if _, err := context.Exec(stdctx.Background(),
+				fmt.Sprintf(
+					"INSERT INTO \"%s\" VALUES ('2023-03-25 00:10:59', 5555)",
+					testrunner.GetAttribute[string](context, "tableName"),
+				),
+			); err != nil {
+				return err
+			}
+			if _, err := context.Exec(stdctx.Background(),
+				fmt.Sprintf(
+					"SELECT decompress_chunk((t.chunk_schema || '.' || t.chunk_name)::regclass, true) FROM (SELECT * FROM timescaledb_information.chunks WHERE hypertable_name = '%s' AND is_compressed) t",
 					testrunner.GetAttribute[string](context, "tableName"),
 				),
 			); err != nil {
@@ -660,6 +678,7 @@ func (its *IntegrationTestSuite) Ignore_TestCompressionPartialInsertEvents() {
 			context.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
 			context.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
 				config.TimescaleDB.Events.Compression = true
+				config.TimescaleDB.Events.Decompression = true
 			})
 			return nil
 		}),
