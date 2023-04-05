@@ -59,13 +59,13 @@ func toDefinition(column model.Column) string {
 	builder.WriteString(column.Name())
 	builder.WriteString(" ")
 	builder.WriteString(column.TypeName())
-	if column.Nullable() {
+	if column.IsNullable() {
 		builder.WriteString(" NULL")
 	}
 	if column.DefaultValue() != nil {
 		builder.WriteString(fmt.Sprintf(" DEFAULT '%s'", *column.DefaultValue()))
 	}
-	if column.PrimaryKey() {
+	if column.IsPrimaryKey() {
 		builder.WriteString(" PRIMARY KEY")
 	}
 	return builder.String()

@@ -6,5 +6,5 @@ import (
 )
 
 type Sink interface {
-	Emit(timestamp time.Time, topicName string, envelope schema.Struct) error
+	Emit(timestamp time.Time, topicName string, key, envelope schema.Struct) error
 }

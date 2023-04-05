@@ -16,7 +16,7 @@ func NewStdoutSink() sink.Sink {
 	return &stdoutSink{}
 }
 
-func (s *stdoutSink) Emit(timestamp time.Time, topicName string, envelope schema.Struct) error {
+func (s *stdoutSink) Emit(_ time.Time, topicName string, _, envelope schema.Struct) error {
 	data, err := json.Marshal(envelope)
 	if err != nil {
 		return err

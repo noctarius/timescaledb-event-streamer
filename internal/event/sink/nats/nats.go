@@ -72,12 +72,26 @@ func connectJetStreamContext(address string, options ...nats.Option) (sink.Sink,
 	}, nil
 }
 
-func (n *natsSink) Emit(_ time.Time, topicName string, envelope schema.Struct) error {
-	data, err := json.Marshal(envelope)
+func (n *natsSink) Emit(_ time.Time, topicName string, key, envelope schema.Struct) error {
+	keyData, err := json.Marshal(key)
+	if err != nil {
+		return err
+	}
+	envelopeData, err := json.Marshal(envelope)
 	if err != nil {
 		return err
 	}
 
-	_, err = n.jetStreamContext.Publish(topicName, data, nats.Context(context.Background()))
+	header := nats.Header{}
+	header.Add("key", string(keyData))
+
+	_, err = n.jetStreamContext.PublishMsg(
+		&nats.Msg{
+			Subject: topicName,
+			Header:  header,
+			Data:    envelopeData,
+		},
+		nats.Context(context.Background()),
+	)
 	return err
 }

@@ -29,6 +29,7 @@ type CollectedEvent struct {
 }
 
 type EventCollectorSink struct {
+	keys   []schema.Struct
 	events []CollectedEvent
 	filter func(timestamp time.Time, topicName string, envelope Envelope) bool
 
@@ -58,6 +59,7 @@ func WithPostHook(fn func(sink *EventCollectorSink)) EventCollectorSinkOption {
 
 func NewEventCollectorSink(options ...EventCollectorSinkOption) *EventCollectorSink {
 	eventCollectorSink := &EventCollectorSink{
+		keys:   make([]schema.Struct, 0),
 		events: make([]CollectedEvent, 0),
 	}
 	for _, option := range options {
@@ -80,7 +82,7 @@ func (t *EventCollectorSink) NumOfEvents() int {
 	return len(t.events)
 }
 
-func (t *EventCollectorSink) Emit(timestamp time.Time, topicName string, envelope schema.Struct) error {
+func (t *EventCollectorSink) Emit(timestamp time.Time, topicName string, key, envelope schema.Struct) error {
 	if t.preHook != nil {
 		t.preHook(t)
 	}
@@ -97,6 +99,7 @@ func (t *EventCollectorSink) Emit(timestamp time.Time, topicName string, envelop
 			return nil
 		}
 	}
+	t.keys = append(t.keys, key)
 	t.events = append(t.events, CollectedEvent{
 		Timestamp: timestamp,
 		TopicName: topicName,

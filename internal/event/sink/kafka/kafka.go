@@ -61,16 +61,20 @@ func NewKafkaSink(config *configuring.Config) (sink.Sink, error) {
 	}, nil
 }
 
-func (k *kafkaSink) Emit(timestamp time.Time, topicName string, envelope schema.Struct) error {
-	data, err := json.Marshal(envelope)
+func (k *kafkaSink) Emit(timestamp time.Time, topicName string, key, envelope schema.Struct) error {
+	keyData, err := json.Marshal(key)
+	if err != nil {
+		return err
+	}
+	envelopeData, err := json.Marshal(envelope)
 	if err != nil {
 		return err
 	}
 
 	msg := &sarama.ProducerMessage{
 		Topic:     topicName,
-		Key:       sarama.StringEncoder(topicName), // FIXME: find in the debezium source
-		Value:     sarama.ByteEncoder(data),
+		Key:       sarama.ByteEncoder(keyData),
+		Value:     sarama.ByteEncoder(envelopeData),
 		Timestamp: timestamp,
 	}
 

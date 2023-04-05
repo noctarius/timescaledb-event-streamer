@@ -34,11 +34,11 @@ func (c Column) TypeName() string {
 	return c.typeName
 }
 
-func (c Column) Nullable() bool {
+func (c Column) IsNullable() bool {
 	return c.nullable
 }
 
-func (c Column) PrimaryKey() bool {
+func (c Column) IsPrimaryKey() bool {
 	return c.primaryKey
 }
 

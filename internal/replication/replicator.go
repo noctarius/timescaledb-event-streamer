@@ -54,7 +54,7 @@ func (r *replicatorImpl) StartReplication() error {
 	transactionMonitor := transactional.NewTransactionMonitor()
 
 	// Instantiate the schema registry, keeping track of hypertable schemata
-	schemaRegistry := schema.NewSchemaRegistry()
+	schemaRegistry := schema.NewSchemaRegistry(topicNameGenerator)
 
 	// Instantiate the change event emitter
 	eventEmitter, err := r.config.EventEmitterProvider(schemaRegistry, topicNameGenerator, transactionMonitor)

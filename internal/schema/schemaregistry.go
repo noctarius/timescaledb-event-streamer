@@ -1,16 +1,23 @@
 package schema
 
-import "github.com/reugn/async"
+import (
+	"fmt"
+	"github.com/noctarius/event-stream-prototype/internal/event/topic"
+	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/model"
+	"github.com/reugn/async"
+)
 
 type Registry struct {
-	schemaRegistry map[string]Struct
-	mutex          *async.ReentrantLock
+	topicNameGenerator *topic.NameGenerator
+	schemaRegistry     map[string]Struct
+	mutex              *async.ReentrantLock
 }
 
-func NewSchemaRegistry() *Registry {
+func NewSchemaRegistry(topicNameGenerator *topic.NameGenerator) *Registry {
 	r := &Registry{
-		schemaRegistry: make(map[string]Struct, 0),
-		mutex:          async.NewReentrantLock(),
+		topicNameGenerator: topicNameGenerator,
+		schemaRegistry:     make(map[string]Struct, 0),
+		mutex:              async.NewReentrantLock(),
 	}
 	initializeSourceSchemas(r)
 	return r
@@ -37,6 +44,18 @@ func (r *Registry) GetSchemaOrCreate(schemaName string, creator func() Struct) S
 	schema := creator()
 	r.schemaRegistry[schemaName] = schema
 	return schema
+}
+
+func (r *Registry) HypertableEnvelopeSchemaName(hypertable *model.Hypertable) string {
+	return fmt.Sprintf("%s.Envelope", r.topicNameGenerator.SchemaTopicName(hypertable))
+}
+
+func (r *Registry) HypertableKeySchemaName(hypertable *model.Hypertable) string {
+	return fmt.Sprintf("%s.Key", r.topicNameGenerator.SchemaTopicName(hypertable))
+}
+
+func (r *Registry) MessageEnvelopeSchemaName() string {
+	return fmt.Sprintf("%s.Envelope", r.topicNameGenerator.MessageTopicName())
 }
 
 func initializeSourceSchemas(registry *Registry) {

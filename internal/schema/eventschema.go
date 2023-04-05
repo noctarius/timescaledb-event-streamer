@@ -13,6 +13,7 @@ const SourceSchemaName = "io.debezium.connector.postgresql.Source"
 const MessageBlockSchemaName = "io.debezium.connector.postgresql.Message"
 const MessageKeySchemaName = "io.debezium.connector.postgresql.MessageKey"
 const MessageValueSchemaName = "io.debezium.connector.postgresql.MessageValue"
+const TimescaleEventSchemaName = "com.timescale.Event"
 
 type Operation string
 
@@ -63,6 +64,7 @@ const (
 	fieldNamePrefix      schemaField = "prefix"
 	fieldNameContent     schemaField = "content"
 	fieldNameMessage     schemaField = "message"
+	fieldNameIndex       schemaField = "index"
 )
 
 type Struct = map[schemaField]any
@@ -95,7 +97,9 @@ func UpdateEvent(before, after, source Struct) Struct {
 	if before != nil {
 		event[fieldNameBefore] = before
 	}
-	event[fieldNameAfter] = after
+	if after != nil {
+		event[fieldNameAfter] = after
+	}
 	if source != nil {
 		event[fieldNameSource] = source
 	}
@@ -106,7 +110,9 @@ func UpdateEvent(before, after, source Struct) Struct {
 func DeleteEvent(before, source Struct) Struct {
 	event := make(Struct, 0)
 	event[fieldNameOperation] = OP_DELETE
-	event[fieldNameBefore] = before
+	if before != nil {
+		event[fieldNameBefore] = before
+	}
 	if source != nil {
 		event[fieldNameSource] = source
 	}
@@ -160,6 +166,19 @@ func DecompressionEvent(source Struct) Struct {
 	return event
 }
 
+func MessageKey(prefix string) Struct {
+	return Struct{
+		fieldNamePrefix: prefix,
+	}
+}
+
+func TimescaleKey(schemaName, tableName string) Struct {
+	return Struct{
+		fieldNameSchema: schemaName,
+		fieldNameTable:  tableName,
+	}
+}
+
 func Envelope(schema, payload Struct) Struct {
 	return Struct{
 		fieldNameSchema:  schema,
@@ -195,6 +214,41 @@ func HypertableSchema(hypertableSchemaName string, columns []model.Column) Struc
 			return fields
 		}(),
 		fieldNameName: hypertableSchemaName,
+	}
+}
+
+func KeySchema(hypertable *model.Hypertable, topicSchemaGenerator *topic.NameGenerator) Struct {
+	schemaTopicName := topicSchemaGenerator.SchemaTopicName(hypertable)
+	hypertableKeySchemaName := fmt.Sprintf("%s.Key", schemaTopicName)
+
+	return Struct{
+		fieldNameType:     string(model.STRUCT),
+		fieldNameName:     hypertableKeySchemaName,
+		fieldNameOptional: false,
+		fieldNameFields: func() []Struct {
+			keys := make([]Struct, 0)
+			fieldIndex := 0
+			for _, column := range hypertable.Columns() {
+				if !column.IsPrimaryKey() {
+					continue
+				}
+				keys = append(keys, keySchemaElement(column.Name(), fieldIndex, column.TypeName(), false))
+				fieldIndex++
+			}
+			return keys
+		}(),
+	}
+}
+
+func TimescaleEventKeySchema() Struct {
+	return Struct{
+		fieldNameType:     string(model.STRUCT),
+		fieldNameName:     TimescaleEventSchemaName,
+		fieldNameOptional: false,
+		fieldNameFields: []Struct{
+			simpleSchemaElement(fieldNameSchema, model.STRING, false),
+			simpleSchemaElement(fieldNameTable, model.STRING, false),
+		},
 	}
 }
 
@@ -310,6 +364,17 @@ func simpleSchemaElement(fieldName schemaField, typeName model.DataType, optiona
 	}
 }
 
+func keySchemaElement(fieldName schemaField, index int, typeName string, optional bool) Struct {
+	return Struct{
+		fieldNameName:  fieldName,
+		fieldNameIndex: index,
+		fieldNameSchema: Struct{
+			fieldNameType:     typeName,
+			fieldNameOptional: optional,
+		},
+	}
+}
+
 func simpleSchemaElementWithDefault(fieldName schemaField,
 	typeName model.DataType, optional bool, defaultValue any) Struct {
 
@@ -334,7 +399,7 @@ func extendHypertableSchema(hypertableSchema Struct, fieldName schemaField, opti
 func column2field(colum model.Column) Struct {
 	field := Struct{
 		fieldNameType:     colum.TypeName(),
-		fieldNameOptional: colum.Nullable(),
+		fieldNameOptional: colum.IsNullable(),
 		fieldNameField:    colum.Name(),
 	}
 	if colum.DefaultValue() != nil {

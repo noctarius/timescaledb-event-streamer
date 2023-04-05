@@ -73,8 +73,12 @@ func NewRedisSink(config *configuring.Config) (sink.Sink, error) {
 	}, nil
 }
 
-func (r *redisSink) Emit(_ time.Time, topicName string, envelope schema.Struct) error {
-	data, err := json.Marshal(envelope)
+func (r *redisSink) Emit(_ time.Time, topicName string, key, envelope schema.Struct) error {
+	keyData, err := json.Marshal(key)
+	if err != nil {
+		return err
+	}
+	envelopeData, err := json.Marshal(envelope)
 	if err != nil {
 		return err
 	}
@@ -82,7 +86,8 @@ func (r *redisSink) Emit(_ time.Time, topicName string, envelope schema.Struct) 
 	return r.client.XAdd(&redis.XAddArgs{
 		Stream: topicName,
 		Values: map[string]any{
-			"envelope": string(data),
+			"key":      string(keyData),
+			"envelope": string(envelopeData),
 		},
 	}).Err()
 }
