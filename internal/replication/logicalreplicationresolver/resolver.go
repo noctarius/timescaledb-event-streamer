@@ -21,6 +21,7 @@ type LogicalReplicationResolver struct {
 	relations     map[uint32]*pglogrepl.RelationMessage
 	eventQueues   map[string]*replicationQueue
 
+	genDeleteTombstone    bool
 	genReadEvent          bool
 	genInsertEvent        bool
 	genUpdateEvent        bool
@@ -40,6 +41,7 @@ func NewLogicalReplicationResolver(config *sysconfig.SystemConfig, dispatcher *e
 		relations:     make(map[uint32]*pglogrepl.RelationMessage, 0),
 		eventQueues:   make(map[string]*replicationQueue, 0),
 
+		genDeleteTombstone:    configuring.GetOrDefault(config.Config, "sink.tombstone", false),
 		genReadEvent:          configuring.GetOrDefault(config.Config, "timescaledb.events.read", true),
 		genInsertEvent:        configuring.GetOrDefault(config.Config, "timescaledb.events.insert", true),
 		genUpdateEvent:        configuring.GetOrDefault(config.Config, "timescaledb.events.update", true),
@@ -211,15 +213,29 @@ func (l *LogicalReplicationResolver) OnDeleteEvent(
 
 	chunk, hypertable := l.resolveChunkAndHypertable(rel.Namespace, rel.RelationName)
 	if hypertable != nil {
-		return l.enqueueOrExecute(chunk, xld, func() error {
+		if err := l.enqueueOrExecute(chunk, xld, func() error {
 			return l.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
 				notificator.NotifyHypertableReplicationEventHandler(
 					func(handler eventhandler.HypertableReplicationEventHandler) error {
-						return handler.OnDeleteEvent(xld, hypertable, chunk, oldValues)
+						return handler.OnDeleteEvent(xld, hypertable, chunk, oldValues, false)
 					},
 				)
 			})
-		})
+		}); err != nil {
+			return err
+		}
+
+		if l.genDeleteTombstone {
+			return l.enqueueOrExecute(chunk, xld, func() error {
+				return l.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
+					notificator.NotifyHypertableReplicationEventHandler(
+						func(handler eventhandler.HypertableReplicationEventHandler) error {
+							return handler.OnDeleteEvent(xld, hypertable, chunk, oldValues, true)
+						},
+					)
+				})
+			})
+		}
 	}
 
 	return nil

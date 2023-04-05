@@ -132,9 +132,10 @@ duplicated (`test.some_value` becomes `TEST_SOME__VALUE`).
 
 ## Sink Configuration
 
-| Property    |                                                                                                Description | Data Type | Default Value |
-|-------------|-----------------------------------------------------------------------------------------------------------:|----------:|--------------:|
-| `sink.type` | The property defines which sink adapter is to be used. Valid values are `stdout`, `nats`, `kafka`, `redis` |    string |      `stdout` |
+| Property         |                                                                                                Description | Data Type | Default Value |
+|------------------|-----------------------------------------------------------------------------------------------------------:|----------:|--------------:|
+| `sink.type`      | The property defines which sink adapter is to be used. Valid values are `stdout`, `nats`, `kafka`, `redis` |    string |      `stdout` |
+| `sink.tombstone` |                           The property defines if delete events will be followed up with a tombstone event |   boolean |         false |
 
 NATS specific configuration, which is only used if `sink.type` is set to `nats`.
 

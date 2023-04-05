@@ -107,11 +107,14 @@ func UpdateEvent(before, after, source Struct) Struct {
 	return event
 }
 
-func DeleteEvent(before, source Struct) Struct {
+func DeleteEvent(before, source Struct, tombstone bool) Struct {
 	event := make(Struct, 0)
 	event[fieldNameOperation] = OP_DELETE
 	if before != nil {
 		event[fieldNameBefore] = before
+	}
+	if tombstone {
+		event[fieldNameAfter] = nil
 	}
 	if source != nil {
 		event[fieldNameSource] = source

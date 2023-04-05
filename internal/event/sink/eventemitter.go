@@ -119,7 +119,7 @@ func (e *eventEmitterEventHandler) OnUpdateEvent(xld pglogrepl.XLogData, hyperta
 }
 
 func (e *eventEmitterEventHandler) OnDeleteEvent(xld pglogrepl.XLogData, hypertable *model.Hypertable,
-	_ *model.Chunk, oldValues map[string]any) error {
+	_ *model.Chunk, oldValues map[string]any, tombstone bool) error {
 
 	coValues, err := e.convertValues(hypertable, oldValues)
 	if err != nil {
@@ -128,7 +128,7 @@ func (e *eventEmitterEventHandler) OnDeleteEvent(xld pglogrepl.XLogData, hyperta
 
 	return e.emit(xld, hypertable,
 		func(source schema.Struct) schema.Struct {
-			return schema.DeleteEvent(coValues, source)
+			return schema.DeleteEvent(coValues, source, tombstone)
 		},
 		func() (schema.Struct, error) {
 			return e.hypertableEventKey(hypertable, oldValues)

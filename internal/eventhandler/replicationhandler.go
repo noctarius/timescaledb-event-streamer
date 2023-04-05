@@ -33,7 +33,7 @@ type HypertableReplicationEventHandler interface {
 	OnUpdateEvent(xld pglogrepl.XLogData, hypertable *model.Hypertable, chunk *model.Chunk,
 		oldValues, newValues map[string]any) error
 	OnDeleteEvent(xld pglogrepl.XLogData, hypertable *model.Hypertable, chunk *model.Chunk,
-		oldValues map[string]any) error
+		oldValues map[string]any, tombstone bool) error
 	OnTruncateEvent(xld pglogrepl.XLogData, hypertable *model.Hypertable) error
 	OnTypeEvent(xld pglogrepl.XLogData, msg *pglogrepl.TypeMessage) error
 	OnOriginEvent(xld pglogrepl.XLogData, msg *pglogrepl.OriginMessage) error

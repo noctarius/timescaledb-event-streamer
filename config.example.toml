@@ -5,6 +5,7 @@ postgresql.password = '...'
 #postgresql.snapshot.initial = 'always'
 
 sink.type = 'nats'
+sink.tombstone = true
 sink.nats.address = 'nats://localhost:4222'
 sink.nats.authorization = "userinfo"
 sink.nats.userinfo.username = 'publisher'

@@ -38,10 +38,11 @@ type PostgreSQLConfig struct {
 }
 
 type SinkConfig struct {
-	Type  SinkType    `toml:"type"`
-	Nats  NatsConfig  `toml:"nats"`
-	Kafka KafkaConfig `toml:"kafka"`
-	Redis RedisConfig `toml:"redis"`
+	Type      SinkType    `toml:"type"`
+	Tombstone bool        `toml:"tombstone"`
+	Nats      NatsConfig  `toml:"nats"`
+	Kafka     KafkaConfig `toml:"kafka"`
+	Redis     RedisConfig `toml:"redis"`
 }
 
 type TopicConfig struct {
