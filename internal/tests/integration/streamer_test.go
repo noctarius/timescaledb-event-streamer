@@ -569,12 +569,12 @@ func (its *IntegrationTestSuite) TestCompressionEvents() {
 	)
 }
 
-func (its *IntegrationTestSuite) TestDecompressionEvents() {
+func (its *IntegrationTestSuite) Ignore_TestCompressionPartialInsertEvents() {
 	collected := make(chan bool, 1)
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
-				return envelope.Payload.Op == schema.OP_TIMESCALE
+				return envelope.Payload.Op == schema.OP_READ || envelope.Payload.Op == schema.OP_TIMESCALE
 			},
 		),
 		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
@@ -582,6 +582,103 @@ func (its *IntegrationTestSuite) TestDecompressionEvents() {
 				collected <- true
 			}
 			if sink.NumOfEvents() == 11 {
+				collected <- true
+			}
+		}),
+	)
+
+	its.RunTest(
+		func(context testrunner.Context) error {
+			if _, err := context.Exec(stdctx.Background(),
+				fmt.Sprintf(
+					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:09:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
+					testrunner.GetAttribute[string](context, "tableName"),
+				),
+			); err != nil {
+				return err
+			}
+
+			<-collected
+			if _, err := context.Exec(stdctx.Background(),
+				fmt.Sprintf(
+					"ALTER TABLE \"%s\" SET (timescaledb.compress)",
+					testrunner.GetAttribute[string](context, "tableName"),
+				),
+			); err != nil {
+				return err
+			}
+			if _, err := context.Exec(stdctx.Background(),
+				fmt.Sprintf(
+					"SELECT compress_chunk((t.chunk_schema || '.' || t.chunk_name)::regclass, true) FROM (SELECT * FROM timescaledb_information.chunks WHERE hypertable_name = '%s') t",
+					testrunner.GetAttribute[string](context, "tableName"),
+				),
+			); err != nil {
+				return err
+			}
+
+			<-collected
+
+			// Initial 10 events have to be of type read (same transaction as the chunk creation)
+			for i := 0; i < 10; i++ {
+				expected := i + 1
+				event := testSink.Events()[i]
+				val := int(event.Envelope.Payload.After["val"].(float64))
+				if expected != val {
+					its.T().Errorf("event order inconsistent %d != %d", expected, val)
+					return nil
+				}
+				if event.Envelope.Payload.Op != schema.OP_READ {
+					its.T().Errorf("event should be of type 'r' but was %s", event.Envelope.Payload.Op)
+					return nil
+				}
+			}
+
+			// Final event must be a truncate event
+			event := testSink.Events()[10]
+			if event.Envelope.Payload.Op != schema.OP_TIMESCALE {
+				its.T().Errorf("event should be of type '$' but was %s", event.Envelope.Payload.Op)
+				return nil
+			}
+			if event.Envelope.Payload.TsdbOp != schema.OP_COMPRESSION {
+				its.T().Errorf("event should be of timescaledb type 'c' but was %s", event.Envelope.Payload.TsdbOp)
+				return nil
+			}
+
+			return nil
+		},
+
+		testrunner.WithSetup(func(context testrunner.SetupContext) error {
+			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
+				model.NewColumn("ts", pgtype.TimestamptzOID, "timestamptz", false, false, nil),
+				model.NewColumn("val", pgtype.Int4OID, "integer", false, false, nil),
+			)
+			if err != nil {
+				return err
+			}
+			testrunner.Attribute(context, "tableName", tn)
+
+			context.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
+			context.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
+				config.TimescaleDB.Events.Compression = true
+			})
+			return nil
+		}),
+	)
+}
+
+func (its *IntegrationTestSuite) TestDecompressionEvents() {
+	collected := make(chan bool, 1)
+	testSink := inttest.NewEventCollectorSink(
+		inttest.WithFilter(
+			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
+				return envelope.Payload.Op == schema.OP_READ || envelope.Payload.Op == schema.OP_TIMESCALE
+			},
+		),
+		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
+			if sink.NumOfEvents()%10 == 0 {
+				collected <- true
+			}
+			if sink.NumOfEvents() == 12 {
 				collected <- true
 			}
 		}),
@@ -668,6 +765,7 @@ func (its *IntegrationTestSuite) TestDecompressionEvents() {
 			context.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
 			context.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
 				config.TimescaleDB.Events.Compression = true
+				config.TimescaleDB.Events.Decompression = true
 			})
 			return nil
 		}),

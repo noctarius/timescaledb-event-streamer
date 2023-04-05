@@ -164,7 +164,9 @@ func (l *logicalReplicationResolver) OnUpdateEvent(
 		if chunk := l.systemCatalog.FindChunkById(chunkId); chunk != nil {
 			hypertable := l.systemCatalog.FindHypertableById(chunk.HypertableId())
 			if chunk.Status() == 0 && (newValues["status"].(int32)) == 1 {
-				return l.onChunkCompressionEvent(xld, hypertable, rel, chunk)
+				if err := l.onChunkCompressionEvent(xld, hypertable, rel, chunk); err != nil {
+					return err
+				}
 			}
 		}
 
@@ -367,10 +369,11 @@ func (l *logicalReplicationResolver) onChunkDeleteEvent(xld pglogrepl.XLogData,
 	msg *pglogrepl.DeleteMessage, oldValues map[string]any) error {
 
 	if id, ok := oldValues["id"].(int32); ok {
-		chunk := l.systemCatalog.FindChunkById(id)
-		if chunk.IsCompressed() {
-			if err := l.onChunkDecompressionEvent(xld, chunk); err != nil {
-				return err
+		if chunk := l.systemCatalog.FindChunkById(id); chunk != nil {
+			if chunk.IsCompressed() {
+				if err := l.onChunkDecompressionEvent(xld, chunk); err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -407,7 +410,7 @@ func (l *logicalReplicationResolver) onChunkCompressionEvent(xld pglogrepl.XLogD
 
 func (l *logicalReplicationResolver) onChunkDecompressionEvent(xld pglogrepl.XLogData, chunk *model.Chunk) error {
 	hypertableId := chunk.HypertableId()
-	uncompressedHypertable := l.systemCatalog.FindHypertableByCompressedHypertableId(hypertableId)
+	uncompressedHypertable := l.systemCatalog.ResolveUncompressedHypertable(hypertableId)
 	logger.Printf(
 		"DECOMPRESSION EVENT %s.%s FOR CHUNK %s.%s", uncompressedHypertable.SchemaName(),
 		uncompressedHypertable.HypertableName(), chunk.SchemaName(), chunk.TableName(),

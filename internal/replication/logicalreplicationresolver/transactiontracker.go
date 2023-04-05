@@ -60,9 +60,15 @@ func (t *TransactionTracker) OnCommitEvent(xld pglogrepl.XLogData, msg *pglogrep
 	currentTransaction.queue.lock()
 
 	if currentTransaction.containsDecompression != nil {
-		chunkId := currentTransaction.containsDecompression.newValues["id"].(int32)
+		message := currentTransaction.containsDecompression
+		chunkId := message.newValues["id"].(int32)
 		if chunk := t.systemCatalog.FindChunkById(chunkId); chunk != nil {
-			return t.resolver.onChunkDecompressionEvent(xld, chunk)
+			if err := t.resolver.onChunkDecompressionEvent(xld, chunk); err != nil {
+				return err
+			}
+			return t.resolver.onChunkUpdateEvent(
+				message.msg.(*pglogrepl.UpdateMessage), message.oldValues, message.newValues,
+			)
 		}
 	}
 
@@ -123,6 +129,7 @@ func (t *TransactionTracker) OnUpdateEvent(xld pglogrepl.XLogData, msg *pglogrep
 		if model.IsChunkEvent(relation) {
 			chunkId := newValues["id"].(int32)
 			if chunk := t.systemCatalog.FindChunkById(chunkId); chunk != nil {
+				logger.Printf("Chunk status=%d, new value=%d", chunk.Status(), newValues["status"].(int32))
 				if chunk.Status() != 0 && (newValues["status"].(int32)) == 0 {
 					t.currentTransaction.containsDecompression = updateEntry
 				}
