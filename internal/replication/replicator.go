@@ -70,12 +70,12 @@ func (r *replicatorImpl) StartReplication() error {
 		return errors.Wrap(err, 0)
 	}
 
-	// Set the mapping of logical replication events to the internal catalog
-	resolver := logicalreplicationresolver.NewLogicalReplicationResolver(r.config, dispatcher, systemCatalog)
+	// Set up the internal transaction tracking and logical replication resolving
+	transactionTracker := logicalreplicationresolver.NewTransactionTracker(r.config, dispatcher, systemCatalog)
 
 	// Register event handlers
 	dispatcher.RegisterReplicationEventHandler(transactionMonitor)
-	dispatcher.RegisterReplicationEventHandler(resolver)
+	dispatcher.RegisterReplicationEventHandler(transactionTracker)
 	dispatcher.RegisterReplicationEventHandler(systemCatalog.NewEventHandler())
 	dispatcher.RegisterReplicationEventHandler(eventEmitter.NewEventHandler())
 

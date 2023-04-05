@@ -116,6 +116,10 @@ func (rh *replicationHandler) handleXLogData(xld pglogrepl.XLogData) error {
 	}
 
 	rh.clientXLogPos = xld.WALStart + pglogrepl.LSN(len(xld.WALData))
+
+	// Free memory early (due to potential queuing of records)
+	xld.WALData = nil
+
 	return nil
 }
 

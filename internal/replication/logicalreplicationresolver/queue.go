@@ -2,24 +2,23 @@ package logicalreplicationresolver
 
 import (
 	"container/list"
-	"github.com/jackc/pglogrepl"
 	"sync"
 )
 
-type replicationQueue struct {
+type replicationQueue[E any] struct {
 	queue  *list.List
 	mutex  sync.Mutex
 	locked bool
 }
 
-func newReplicationQueue() *replicationQueue {
-	return &replicationQueue{
+func newReplicationQueue[E any]() *replicationQueue[E] {
+	return &replicationQueue[E]{
 		queue: list.New(),
 		mutex: sync.Mutex{},
 	}
 }
 
-func (rq *replicationQueue) push(fn func(snapshot pglogrepl.LSN) error) bool {
+func (rq *replicationQueue[E]) push(fn E) bool {
 	rq.mutex.Lock()
 	defer rq.mutex.Unlock()
 
@@ -31,19 +30,19 @@ func (rq *replicationQueue) push(fn func(snapshot pglogrepl.LSN) error) bool {
 	return true
 }
 
-func (rq *replicationQueue) pop() func(snapshot pglogrepl.LSN) error {
+func (rq *replicationQueue[E]) pop() E {
 	rq.mutex.Lock()
 	defer rq.mutex.Unlock()
 
 	e := rq.queue.Front()
 	if e == nil {
-		return nil
+		return *new(E)
 	}
 	rq.queue.Remove(e)
-	return e.Value.(func(pglogrepl.LSN) error)
+	return e.Value.(E)
 }
 
-func (rq *replicationQueue) lock() {
+func (rq *replicationQueue[E]) lock() {
 	rq.mutex.Lock()
 	defer rq.mutex.Unlock()
 

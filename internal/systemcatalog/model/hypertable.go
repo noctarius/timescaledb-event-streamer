@@ -2,7 +2,6 @@ package model
 
 import (
 	"fmt"
-	"strings"
 )
 
 type Hypertable struct {
@@ -232,19 +231,4 @@ func (h *Hypertable) differences(new *Hypertable) map[string]string {
 		differences["compressionState"] = fmt.Sprintf("%d=>%d", h.compressionState, new.compressionState)
 	}
 	return differences
-}
-
-func IsContinuousAggregateHypertable(hypertableName string) bool {
-	return strings.HasPrefix(hypertableName, "_materialized_")
-}
-
-func min(i, o int) int {
-	if i < o {
-		return i
-	}
-	return o
-}
-
-func isContinuousAggregate(hypertableName string, viewSchema, viewName *string) bool {
-	return IsContinuousAggregateHypertable(hypertableName) && viewSchema != nil && viewName != nil
 }

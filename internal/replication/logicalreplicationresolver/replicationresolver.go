@@ -13,13 +13,13 @@ import (
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/model"
 )
 
-var logger = logging.NewLogger("LogicalReplicationResolver")
+var logger = logging.NewLogger("logicalReplicationResolver")
 
-type LogicalReplicationResolver struct {
+type logicalReplicationResolver struct {
 	dispatcher    *eventhandler.Dispatcher
 	systemCatalog *systemcatalog.SystemCatalog
 	relations     map[uint32]*pglogrepl.RelationMessage
-	eventQueues   map[string]*replicationQueue
+	eventQueues   map[string]*replicationQueue[func(snapshot pglogrepl.LSN) error]
 
 	genDeleteTombstone    bool
 	genReadEvent          bool
@@ -32,14 +32,14 @@ type LogicalReplicationResolver struct {
 	genDecompressionEvent bool
 }
 
-func NewLogicalReplicationResolver(config *sysconfig.SystemConfig, dispatcher *eventhandler.Dispatcher,
-	systemCatalog *systemcatalog.SystemCatalog) *LogicalReplicationResolver {
+func newLogicalReplicationResolver(config *sysconfig.SystemConfig, dispatcher *eventhandler.Dispatcher,
+	systemCatalog *systemcatalog.SystemCatalog) *logicalReplicationResolver {
 
-	return &LogicalReplicationResolver{
+	return &logicalReplicationResolver{
 		dispatcher:    dispatcher,
 		systemCatalog: systemCatalog,
 		relations:     make(map[uint32]*pglogrepl.RelationMessage, 0),
-		eventQueues:   make(map[string]*replicationQueue, 0),
+		eventQueues:   make(map[string]*replicationQueue[func(snapshot pglogrepl.LSN) error], 0),
 
 		genDeleteTombstone:    configuring.GetOrDefault(config.Config, "sink.tombstone", false),
 		genReadEvent:          configuring.GetOrDefault(config.Config, "timescaledb.events.read", true),
@@ -53,13 +53,13 @@ func NewLogicalReplicationResolver(config *sysconfig.SystemConfig, dispatcher *e
 	}
 }
 
-func (l *LogicalReplicationResolver) OnChunkSnapshotStartedEvent(_ *model.Hypertable, chunk *model.Chunk) error {
-	l.eventQueues[chunk.CanonicalName()] = newReplicationQueue()
+func (l *logicalReplicationResolver) OnChunkSnapshotStartedEvent(_ *model.Hypertable, chunk *model.Chunk) error {
+	l.eventQueues[chunk.CanonicalName()] = newReplicationQueue[func(snapshot pglogrepl.LSN) error]()
 	logger.Printf("Snapshot of %s started", chunk.CanonicalName())
 	return nil
 }
 
-func (l *LogicalReplicationResolver) OnChunkSnapshotFinishedEvent(
+func (l *logicalReplicationResolver) OnChunkSnapshotFinishedEvent(
 	_ *model.Hypertable, chunk *model.Chunk, snapshot pglogrepl.LSN) error {
 
 	queue := l.eventQueues[chunk.CanonicalName()]
@@ -93,25 +93,25 @@ func (l *LogicalReplicationResolver) OnChunkSnapshotFinishedEvent(
 	return nil
 }
 
-func (l *LogicalReplicationResolver) OnRelationEvent(xld pglogrepl.XLogData, msg *pglogrepl.RelationMessage) error {
+func (l *logicalReplicationResolver) OnRelationEvent(xld pglogrepl.XLogData, msg *pglogrepl.RelationMessage) error {
 	logger.Printf("RELATION MSG: %+v", msg)
 	l.relations[msg.RelationID] = msg
 	return nil
 }
 
-func (l *LogicalReplicationResolver) OnBeginEvent(xld pglogrepl.XLogData, msg *pglogrepl.BeginMessage) error {
+func (l *logicalReplicationResolver) OnBeginEvent(xld pglogrepl.XLogData, msg *pglogrepl.BeginMessage) error {
 	logger.Printf("BEGIN MSG: %+v", msg)
 	//TODO implement me
 	return nil
 }
 
-func (l *LogicalReplicationResolver) OnCommitEvent(xld pglogrepl.XLogData, msg *pglogrepl.CommitMessage) error {
+func (l *logicalReplicationResolver) OnCommitEvent(xld pglogrepl.XLogData, msg *pglogrepl.CommitMessage) error {
 	logger.Printf("COMMIT MSG: %+v", msg)
 	//TODO implement me
 	return nil
 }
 
-func (l *LogicalReplicationResolver) OnInsertEvent(
+func (l *logicalReplicationResolver) OnInsertEvent(
 	xld pglogrepl.XLogData, msg *pglogrepl.InsertMessage, newValues map[string]any) error {
 
 	rel, ok := l.relations[msg.RelationID]
@@ -119,11 +119,11 @@ func (l *LogicalReplicationResolver) OnInsertEvent(
 		logger.Fatalf("unknown relation ID %d", msg.RelationID)
 	}
 
-	if l.isHypertableEvent(rel) {
+	if model.IsHypertableEvent(rel) {
 		return l.onHypertableInsertEvent(msg, newValues)
 	}
 
-	if l.isChunkEvent(rel) {
+	if model.IsChunkEvent(rel) {
 		return l.onChunkInsertEvent(msg, newValues)
 	}
 
@@ -148,18 +148,18 @@ func (l *LogicalReplicationResolver) OnInsertEvent(
 	return nil
 }
 
-func (l *LogicalReplicationResolver) OnUpdateEvent(
+func (l *logicalReplicationResolver) OnUpdateEvent(
 	xld pglogrepl.XLogData, msg *pglogrepl.UpdateMessage, oldValues, newValues map[string]any) error {
 
 	rel, ok := l.relations[msg.RelationID]
 	if !ok {
 		logger.Fatalf("unknown relation ID %d", msg.RelationID)
 	}
-	if l.isHypertableEvent(rel) {
+	if model.IsHypertableEvent(rel) {
 		return l.onHypertableUpdateEvent(msg, oldValues, newValues)
 	}
 
-	if l.isChunkEvent(rel) {
+	if model.IsChunkEvent(rel) {
 		chunkId := newValues["id"].(int32)
 		if chunk := l.systemCatalog.FindChunkById(chunkId); chunk != nil {
 			hypertable := l.systemCatalog.FindHypertableById(chunk.HypertableId())
@@ -191,7 +191,7 @@ func (l *LogicalReplicationResolver) OnUpdateEvent(
 	return nil
 }
 
-func (l *LogicalReplicationResolver) OnDeleteEvent(
+func (l *logicalReplicationResolver) OnDeleteEvent(
 	xld pglogrepl.XLogData, msg *pglogrepl.DeleteMessage, oldValues map[string]any) error {
 
 	rel, ok := l.relations[msg.RelationID]
@@ -199,11 +199,11 @@ func (l *LogicalReplicationResolver) OnDeleteEvent(
 		logger.Fatalf("unknown relation ID %d", msg.RelationID)
 	}
 
-	if l.isHypertableEvent(rel) {
+	if model.IsHypertableEvent(rel) {
 		return l.onHypertableDeleteEvent(msg, oldValues)
 	}
 
-	if l.isChunkEvent(rel) {
+	if model.IsChunkEvent(rel) {
 		return l.onChunkDeleteEvent(xld, msg, oldValues)
 	}
 
@@ -241,7 +241,7 @@ func (l *LogicalReplicationResolver) OnDeleteEvent(
 	return nil
 }
 
-func (l *LogicalReplicationResolver) OnTruncateEvent(xld pglogrepl.XLogData, msg *pglogrepl.TruncateMessage) error {
+func (l *logicalReplicationResolver) OnTruncateEvent(xld pglogrepl.XLogData, msg *pglogrepl.TruncateMessage) error {
 	if !l.genTruncateEvent {
 		return nil
 	}
@@ -253,7 +253,7 @@ func (l *LogicalReplicationResolver) OnTruncateEvent(xld pglogrepl.XLogData, msg
 			logger.Fatalf("unknown relation ID %d", msg.RelationIDs[i])
 		}
 
-		if l.isHypertableEvent(rel) || l.isChunkEvent(rel) {
+		if model.IsHypertableEvent(rel) || model.IsChunkEvent(rel) {
 			// Catalog tables shouldn't be truncated; EVER!
 			continue
 		}
@@ -280,7 +280,7 @@ func (l *LogicalReplicationResolver) OnTruncateEvent(xld pglogrepl.XLogData, msg
 	return nil
 }
 
-func (l *LogicalReplicationResolver) OnMessageEvent(xld pglogrepl.XLogData, msg *decoding.LogicalReplicationMessage) error {
+func (l *logicalReplicationResolver) OnMessageEvent(xld pglogrepl.XLogData, msg *decoding.LogicalReplicationMessage) error {
 	return l.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
 		notificator.NotifyHypertableReplicationEventHandler(
 			func(handler eventhandler.HypertableReplicationEventHandler) error {
@@ -290,20 +290,20 @@ func (l *LogicalReplicationResolver) OnMessageEvent(xld pglogrepl.XLogData, msg 
 	})
 }
 
-func (l *LogicalReplicationResolver) OnTypeEvent(xld pglogrepl.XLogData, msg *pglogrepl.TypeMessage) error {
+func (l *logicalReplicationResolver) OnTypeEvent(xld pglogrepl.XLogData, msg *pglogrepl.TypeMessage) error {
 	logger.Printf("TYPE MSG: %+v", msg)
 	//TODO implement me
 	return nil
 }
 
-func (l *LogicalReplicationResolver) OnOriginEvent(xld pglogrepl.XLogData, msg *pglogrepl.OriginMessage) error {
+func (l *logicalReplicationResolver) OnOriginEvent(xld pglogrepl.XLogData, msg *pglogrepl.OriginMessage) error {
 	logger.Printf("ORIGIN MSG: %+v", msg)
 	//TODO implement me
 	logger.Printf("Origin: %+v", msg)
 	return nil
 }
 
-func (l *LogicalReplicationResolver) onHypertableInsertEvent(
+func (l *logicalReplicationResolver) onHypertableInsertEvent(
 	msg *pglogrepl.InsertMessage, newValues map[string]any) error {
 
 	return l.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
@@ -315,7 +315,7 @@ func (l *LogicalReplicationResolver) onHypertableInsertEvent(
 	})
 }
 
-func (l *LogicalReplicationResolver) onChunkInsertEvent(
+func (l *logicalReplicationResolver) onChunkInsertEvent(
 	msg *pglogrepl.InsertMessage, newValues map[string]any) error {
 
 	return l.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
@@ -327,7 +327,7 @@ func (l *LogicalReplicationResolver) onChunkInsertEvent(
 	})
 }
 
-func (l *LogicalReplicationResolver) onHypertableUpdateEvent(msg *pglogrepl.UpdateMessage,
+func (l *logicalReplicationResolver) onHypertableUpdateEvent(msg *pglogrepl.UpdateMessage,
 	oldValues map[string]any, newValues map[string]any) error {
 
 	return l.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
@@ -339,7 +339,7 @@ func (l *LogicalReplicationResolver) onHypertableUpdateEvent(msg *pglogrepl.Upda
 	})
 }
 
-func (l *LogicalReplicationResolver) onChunkUpdateEvent(msg *pglogrepl.UpdateMessage,
+func (l *logicalReplicationResolver) onChunkUpdateEvent(msg *pglogrepl.UpdateMessage,
 	oldValues map[string]any, newValues map[string]any) error {
 
 	return l.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
@@ -351,7 +351,7 @@ func (l *LogicalReplicationResolver) onChunkUpdateEvent(msg *pglogrepl.UpdateMes
 	})
 }
 
-func (l *LogicalReplicationResolver) onHypertableDeleteEvent(
+func (l *logicalReplicationResolver) onHypertableDeleteEvent(
 	msg *pglogrepl.DeleteMessage, oldValues map[string]any) error {
 
 	return l.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
@@ -363,7 +363,7 @@ func (l *LogicalReplicationResolver) onHypertableDeleteEvent(
 	})
 }
 
-func (l *LogicalReplicationResolver) onChunkDeleteEvent(xld pglogrepl.XLogData,
+func (l *logicalReplicationResolver) onChunkDeleteEvent(xld pglogrepl.XLogData,
 	msg *pglogrepl.DeleteMessage, oldValues map[string]any) error {
 
 	if id, ok := oldValues["id"].(int32); ok {
@@ -384,14 +384,13 @@ func (l *LogicalReplicationResolver) onChunkDeleteEvent(xld pglogrepl.XLogData,
 	})
 }
 
-func (l *LogicalReplicationResolver) onChunkCompressionEvent(xld pglogrepl.XLogData,
+func (l *logicalReplicationResolver) onChunkCompressionEvent(xld pglogrepl.XLogData,
 	hypertable *model.Hypertable, rel *pglogrepl.RelationMessage, chunk *model.Chunk) error {
 
 	if !l.genCompressionEvent {
 		return nil
 	}
 
-	//uncompressedHypertable := l.systemCatalog.FindHypertableByCompressedHypertableId(hypertable.Id())
 	logger.Printf(
 		"COMPRESSION EVENT %s.%s FOR CHUNK %s.%s", hypertable.SchemaName(),
 		hypertable.HypertableName(), rel.Namespace, rel.RelationName,
@@ -406,7 +405,7 @@ func (l *LogicalReplicationResolver) onChunkCompressionEvent(xld pglogrepl.XLogD
 	})
 }
 
-func (l *LogicalReplicationResolver) onChunkDecompressionEvent(xld pglogrepl.XLogData, chunk *model.Chunk) error {
+func (l *logicalReplicationResolver) onChunkDecompressionEvent(xld pglogrepl.XLogData, chunk *model.Chunk) error {
 	hypertableId := chunk.HypertableId()
 	uncompressedHypertable := l.systemCatalog.FindHypertableByCompressedHypertableId(hypertableId)
 	logger.Printf(
@@ -430,16 +429,8 @@ func (l *LogicalReplicationResolver) onChunkDecompressionEvent(xld pglogrepl.XLo
 	return nil
 }
 
-func (l *LogicalReplicationResolver) isHypertableEvent(relation *pglogrepl.RelationMessage) bool {
-	return relation.Namespace == "_timescaledb_catalog" && relation.RelationName == "hypertable"
-}
-
-func (l *LogicalReplicationResolver) isChunkEvent(relation *pglogrepl.RelationMessage) bool {
-	return relation.Namespace == "_timescaledb_catalog" && relation.RelationName == "chunk"
-}
-
-func (l *LogicalReplicationResolver) enqueueOrExecute(chunk *model.Chunk,
-	xld pglogrepl.XLogData, fn func() error) error {
+func (l *logicalReplicationResolver) enqueueOrExecute(
+	chunk *model.Chunk, xld pglogrepl.XLogData, fn func() error) error {
 
 	if l.isSnapshotting(chunk) {
 		queue := l.eventQueues[chunk.CanonicalName()]
@@ -456,12 +447,12 @@ func (l *LogicalReplicationResolver) enqueueOrExecute(chunk *model.Chunk,
 	return fn()
 }
 
-func (l *LogicalReplicationResolver) isSnapshotting(chunk *model.Chunk) bool {
+func (l *logicalReplicationResolver) isSnapshotting(chunk *model.Chunk) bool {
 	_, present := l.eventQueues[chunk.CanonicalName()]
 	return present
 }
 
-func (l *LogicalReplicationResolver) resolveChunkAndHypertable(
+func (l *logicalReplicationResolver) resolveChunkAndHypertable(
 	schemaName, tableName string) (*model.Chunk, *model.Hypertable) {
 
 	chunk := l.systemCatalog.FindChunkByName(schemaName, tableName)
