@@ -8,7 +8,7 @@ import (
 
 func TestDebeziumNamingStrategy_EventTopicName(t *testing.T) {
 	topicPrefix := "foobar"
-	hypertable := model.NewHypertable(1, "test", "schema", "hypertable", "", "", nil, 0, false)
+	hypertable := model.NewHypertable(1, "test", "schema", "hypertable", "", "", nil, 0, false, nil, nil)
 
 	strategy := DebeziumNamingStrategy{}
 	topicName := strategy.EventTopicName(topicPrefix, hypertable)
@@ -17,7 +17,7 @@ func TestDebeziumNamingStrategy_EventTopicName(t *testing.T) {
 
 func TestDebeziumNamingStrategy_SchemaTopicName(t *testing.T) {
 	topicPrefix := "foobar"
-	hypertable := model.NewHypertable(1, "test", "schema", "hypertable", "", "", nil, 0, false)
+	hypertable := model.NewHypertable(1, "test", "schema", "hypertable", "", "", nil, 0, false, nil, nil)
 
 	strategy := DebeziumNamingStrategy{}
 	topicName := strategy.SchemaTopicName(topicPrefix, hypertable)

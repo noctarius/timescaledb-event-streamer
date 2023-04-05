@@ -21,3 +21,7 @@ func (ng *NameGenerator) EventTopicName(hypertable *model.Hypertable) string {
 func (ng *NameGenerator) SchemaTopicName(hypertable *model.Hypertable) string {
 	return ng.topicNamingStrategy.SchemaTopicName(ng.topicPrefix, hypertable)
 }
+
+func (ng *NameGenerator) MessageTopicName() string {
+	return ng.topicNamingStrategy.MessageTopicName(ng.topicPrefix)
+}

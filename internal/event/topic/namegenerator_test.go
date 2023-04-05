@@ -8,7 +8,7 @@ import (
 
 func TestNameGenerator_EventTopicName(t *testing.T) {
 	topicPrefix := "foobar"
-	hypertable := model.NewHypertable(1, "test", "schema", "hypertable", "", "", nil, 0, false)
+	hypertable := model.NewHypertable(1, "test", "schema", "hypertable", "", "", nil, 0, false, nil, nil)
 
 	nameGenerator := NewNameGenerator(topicPrefix, &DebeziumNamingStrategy{})
 	topicName := nameGenerator.EventTopicName(hypertable)
@@ -17,7 +17,7 @@ func TestNameGenerator_EventTopicName(t *testing.T) {
 }
 func TestNameGenerator_SchemaTopicName(t *testing.T) {
 	topicPrefix := "foobar"
-	hypertable := model.NewHypertable(1, "test", "schema", "hypertable", "", "", nil, 0, false)
+	hypertable := model.NewHypertable(1, "test", "schema", "hypertable", "", "", nil, 0, false, nil, nil)
 
 	nameGenerator := NewNameGenerator(topicPrefix, &DebeziumNamingStrategy{})
 	topicName := nameGenerator.SchemaTopicName(hypertable)

@@ -63,10 +63,11 @@ To install the function, please run the following code snippet as `postgres` use
 database. `timescaledb-event-streamer` will automatically use it when starting up. If the
 function is not available the startup will fail!
 
-The function can be found in the 
+The function can be found in the
 [github repository](https://raw.githubusercontent.com/noctarius/timescaledb-event-streamer/main/create_timescaledb_catalog_publication.sql).
 
 To install the function you can use as following:
+
 ```bash
 $ wget https://raw.githubusercontent.com/noctarius/timescaledb-event-streamer/main/create_timescaledb_catalog_publication.sql
 $ psql "<connstring>" < create_timescaledb_catalog_publication.sql
@@ -125,6 +126,7 @@ duplicated (`test.some_value` becomes `TEST_SOME__VALUE`).
 | `timescaledb.events.update`        |                                                                                                                                                                                            The property defines if update events are generated |          boolean |          true |
 | `timescaledb.events.delete`        |                                                                                                                                                                                            The property defines if delete events are generated |          boolean |          true |
 | `timescaledb.events.truncate`      |                                                                                                                                                                                          The property defines if truncate events are generated |          boolean |          true |
+| `timescaledb.events.message`       |                                                                                                                                                                       The property defines if logical replication message events are generated |          boolean |         false |
 | `timescaledb.events.compression`   |                                                                                                                                                                                       The property defines if compression events are generated |          boolean |         false |
 | `timescaledb.events.decompression` |                                                                                                                                                                                     The property defines if decompression events are generated |          boolean |         false |
 

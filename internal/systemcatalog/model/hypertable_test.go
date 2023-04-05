@@ -15,7 +15,7 @@ func TestSchemaDifferences_Added_Column(t *testing.T) {
 		NewColumn("test3", 10, "foo", false, false, nil),
 		NewColumn("test4", 10, "foo", false, false, nil),
 	}
-	hypertable := NewHypertable(1, "", "", "", "", "", nil, 0, false)
+	hypertable := NewHypertable(1, "", "", "", "", "", nil, 0, false, nil, nil)
 	hypertable.ApplyTableSchema(oldColumns)
 	differences := hypertable.ApplyTableSchema(newColumns)
 
@@ -44,7 +44,7 @@ func TestSchemaDifferences_Renamed_Column(t *testing.T) {
 		NewColumn("test4", 10, "foo", false, false, nil),
 		NewColumn("test3", 10, "foo", false, false, nil),
 	}
-	hypertable := NewHypertable(1, "", "", "", "", "", nil, 0, false)
+	hypertable := NewHypertable(1, "", "", "", "", "", nil, 0, false, nil, nil)
 	hypertable.ApplyTableSchema(oldColumns)
 	differences := hypertable.ApplyTableSchema(newColumns)
 
@@ -73,7 +73,7 @@ func TestSchemaDifferences_Renamed_Last_Column(t *testing.T) {
 		NewColumn("test2", 10, "foo", false, false, nil),
 		NewColumn("test4", 10, "foo", false, false, nil),
 	}
-	hypertable := NewHypertable(1, "", "", "", "", "", nil, 0, false)
+	hypertable := NewHypertable(1, "", "", "", "", "", nil, 0, false, nil, nil)
 	hypertable.ApplyTableSchema(oldColumns)
 	differences := hypertable.ApplyTableSchema(newColumns)
 
@@ -101,7 +101,7 @@ func TestSchemaDifferences_Dropped_Column(t *testing.T) {
 		NewColumn("test1", 10, "foo", false, false, nil),
 		NewColumn("test3", 12, "foo", false, false, nil),
 	}
-	hypertable := NewHypertable(1, "", "", "", "", "", nil, 0, false)
+	hypertable := NewHypertable(1, "", "", "", "", "", nil, 0, false, nil, nil)
 	hypertable.ApplyTableSchema(oldColumns)
 	differences := hypertable.ApplyTableSchema(newColumns)
 
@@ -129,7 +129,7 @@ func TestSchemaDifferences_Dropped_Last_Column(t *testing.T) {
 		NewColumn("test1", 10, "foo", false, false, nil),
 		NewColumn("test2", 10, "foo", false, false, nil),
 	}
-	hypertable := NewHypertable(1, "", "", "", "", "", nil, 0, false)
+	hypertable := NewHypertable(1, "", "", "", "", "", nil, 0, false, nil, nil)
 	hypertable.ApplyTableSchema(oldColumns)
 	differences := hypertable.ApplyTableSchema(newColumns)
 

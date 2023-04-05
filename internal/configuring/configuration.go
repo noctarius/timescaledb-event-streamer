@@ -141,6 +141,7 @@ type TimescaleEventsConfig struct {
 	Update        bool `toml:"update"`
 	Delete        bool `toml:"delete"`
 	Truncate      bool `toml:"truncate"`
+	Message       bool `toml:"message"`
 	Compression   bool `toml:"compression"`
 	Decompression bool `toml:"decompression"`
 }

@@ -8,6 +8,7 @@ import (
 type NamingStrategy interface {
 	EventTopicName(topicPrefix string, hypertable *model.Hypertable) string
 	SchemaTopicName(topicPrefix string, hypertable *model.Hypertable) string
+	MessageTopicName(topicPrefix string) string
 }
 
 func SanitizeTopicName(topicName string) (topic string, changed bool) {

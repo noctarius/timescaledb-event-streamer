@@ -2,6 +2,7 @@ package eventhandler
 
 import (
 	"github.com/jackc/pglogrepl"
+	"github.com/noctarius/event-stream-prototype/internal/pg/decoding"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/model"
 )
 
@@ -19,6 +20,7 @@ type LogicalReplicationEventHandler interface {
 	OnTruncateEvent(xld pglogrepl.XLogData, msg *pglogrepl.TruncateMessage) error
 	OnTypeEvent(xld pglogrepl.XLogData, msg *pglogrepl.TypeMessage) error
 	OnOriginEvent(xld pglogrepl.XLogData, msg *pglogrepl.OriginMessage) error
+	OnMessageEvent(xld pglogrepl.XLogData, msg *decoding.LogicalReplicationMessage) error
 }
 
 type HypertableReplicationEventHandler interface {
@@ -35,6 +37,7 @@ type HypertableReplicationEventHandler interface {
 	OnTruncateEvent(xld pglogrepl.XLogData, hypertable *model.Hypertable) error
 	OnTypeEvent(xld pglogrepl.XLogData, msg *pglogrepl.TypeMessage) error
 	OnOriginEvent(xld pglogrepl.XLogData, msg *pglogrepl.OriginMessage) error
+	OnMessageEvent(xld pglogrepl.XLogData, msg *decoding.LogicalReplicationMessage) error
 }
 
 type ChunkSnapshotEventHandler interface {

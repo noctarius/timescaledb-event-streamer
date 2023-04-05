@@ -74,8 +74,15 @@ func (rc *replicationChannel) StartReplicationChannel(
 	logger.Println("SystemID:", identification.SystemID, "Timeline:", identification.Timeline, "XLogPos:",
 		identification.XLogPos, "DBName:", identification.DBName)
 
-	pluginArguments := []string{"proto_version '1'", fmt.Sprintf("publication_names '%s'", rc.publicationName)}
-	/*slot*/ _, err = pglogrepl.CreateReplicationSlot(context.Background(), connection, rc.publicationName, outputPlugin,
+	pluginArguments := []string{
+		"proto_version '2'", // FIXME: Add server version check! <=PG13==1, PG14+==2
+		fmt.Sprintf("publication_names '%s'", rc.publicationName),
+		"messages 'true'", // FIXME: Add server version check! PG14+
+		"binary 'true'",   // FIXME: Add server version check! PG14+
+	}
+
+	/*slot*/
+	_, err = pglogrepl.CreateReplicationSlot(context.Background(), connection, rc.publicationName, outputPlugin,
 		pglogrepl.CreateReplicationSlotOptions{Temporary: true, SnapshotAction: "EXPORT_SNAPSHOT"})
 
 	if err != nil {

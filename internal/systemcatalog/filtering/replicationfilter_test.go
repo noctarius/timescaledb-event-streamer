@@ -561,5 +561,7 @@ func makeHypertable(id int32, schemaName, tableName string) *model.Hypertable {
 		nil,
 		0,
 		false,
+		nil,
+		nil,
 	)
 }

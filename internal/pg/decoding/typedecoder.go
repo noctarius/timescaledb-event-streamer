@@ -158,6 +158,13 @@ func DecodeTextColumn(src []byte, dataTypeOid uint32) (any, error) {
 	return string(src), nil
 }
 
+func DecodeBinaryColumn(src []byte, dataTypeOid uint32) (any, error) {
+	if dt, ok := typeMap.TypeForOID(dataTypeOid); ok {
+		return dt.Codec.DecodeValue(typeMap, dataTypeOid, pgtype.BinaryFormatCode, src)
+	}
+	return string(src), nil
+}
+
 func DecodeValue(field pgconn.FieldDescription, src []byte) (any, error) {
 	if t, ok := typeMap.TypeForOID(field.DataTypeOID); ok {
 		return t.Codec.DecodeValue(typeMap, field.DataTypeOID, field.Format, src)

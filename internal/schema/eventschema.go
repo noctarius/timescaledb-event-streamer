@@ -10,6 +10,9 @@ import (
 )
 
 const SourceSchemaName = "io.debezium.connector.postgresql.Source"
+const MessageBlockSchemaName = "io.debezium.connector.postgresql.Message"
+const MessageKeySchemaName = "io.debezium.connector.postgresql.MessageKey"
+const MessageValueSchemaName = "io.debezium.connector.postgresql.MessageValue"
 
 type Operation string
 
@@ -30,34 +33,39 @@ const (
 	OP_DECOMPRESSION TimescaleOperation = "d"
 )
 
+type schemaField = string
+
 const (
-	fieldNameBefore      = "before"
-	fieldNameAfter       = "after"
-	fieldNameOperation   = "op"
-	fieldNameSource      = "source"
-	fieldNameTransaction = "transaction"
-	fieldNameTimestamp   = "ts_ms"
-	fieldNameTimescaleOp = "tsdb_op"
-	fieldNameVersion     = "version"
-	fieldNameSchema      = "schema"
-	fieldNamePayload     = "payload"
-	fieldNameConnector   = "connector"
-	fieldNameName        = "name"
-	fieldNameSnapshot    = "snapshot"
-	fieldNameDatabase    = "db"
-	fieldNameSequence    = "sequence"
-	fieldNameTable       = "table"
-	fieldNameTxId        = "txId"
-	fieldNameLSN         = "lsn"
-	fieldNameXmin        = "xmin"
-	fieldNameType        = "type"
-	fieldNameOptional    = "optional"
-	fieldNameField       = "field"
-	fieldNameFields      = "fields"
-	fieldNameDefault     = "default"
+	fieldNameBefore      schemaField = "before"
+	fieldNameAfter       schemaField = "after"
+	fieldNameOperation   schemaField = "op"
+	fieldNameSource      schemaField = "source"
+	fieldNameTransaction schemaField = "transaction"
+	fieldNameTimestamp   schemaField = "ts_ms"
+	fieldNameTimescaleOp schemaField = "tsdb_op"
+	fieldNameVersion     schemaField = "version"
+	fieldNameSchema      schemaField = "schema"
+	fieldNamePayload     schemaField = "payload"
+	fieldNameConnector   schemaField = "connector"
+	fieldNameName        schemaField = "name"
+	fieldNameSnapshot    schemaField = "snapshot"
+	fieldNameDatabase    schemaField = "db"
+	fieldNameSequence    schemaField = "sequence"
+	fieldNameTable       schemaField = "table"
+	fieldNameTxId        schemaField = "txId"
+	fieldNameLSN         schemaField = "lsn"
+	fieldNameXmin        schemaField = "xmin"
+	fieldNameType        schemaField = "type"
+	fieldNameOptional    schemaField = "optional"
+	fieldNameField       schemaField = "field"
+	fieldNameFields      schemaField = "fields"
+	fieldNameDefault     schemaField = "default"
+	fieldNamePrefix      schemaField = "prefix"
+	fieldNameContent     schemaField = "content"
+	fieldNameMessage     schemaField = "message"
 )
 
-type Struct = map[string]any
+type Struct = map[schemaField]any
 
 func ReadEvent(record Struct, source Struct) Struct {
 	event := make(Struct, 0)
@@ -116,6 +124,20 @@ func TruncateEvent(source Struct) Struct {
 	return event
 }
 
+func MessageEvent(prefix, content string, source Struct) Struct {
+	event := make(Struct, 0)
+	event[fieldNameOperation] = OP_MESSAGE
+	event[fieldNameMessage] = Struct{
+		fieldNamePrefix:  prefix,
+		fieldNameContent: content,
+	}
+	if source != nil {
+		event[fieldNameSource] = source
+	}
+	event[fieldNameTimestamp] = time.Now().UnixMilli()
+	return event
+}
+
 func CompressionEvent(source Struct) Struct {
 	event := make(Struct, 0)
 	event[fieldNameOperation] = OP_TIMESCALE
@@ -146,17 +168,17 @@ func Envelope(schema, payload Struct) Struct {
 }
 
 func Source(lsn pglogrepl.LSN, timestamp time.Time, snapshot bool,
-	hypertable *model.Hypertable, transactionId uint32) Struct {
+	databaseName, schemaName, hypertableName string, transactionId *uint32) Struct {
 
 	return Struct{
 		fieldNameVersion:   "0.0.1", // FIXME, get a real version
 		fieldNameConnector: "event-stream-prototype",
-		fieldNameName:      hypertable.DatabaseName(),
+		fieldNameName:      databaseName,
 		fieldNameTimestamp: timestamp.UnixMilli(),
 		fieldNameSnapshot:  snapshot,
-		fieldNameDatabase:  hypertable.DatabaseName(),
-		fieldNameSchema:    hypertable.SchemaName(),
-		fieldNameTable:     hypertable.HypertableName(),
+		fieldNameDatabase:  databaseName,
+		fieldNameSchema:    schemaName,
+		fieldNameTable:     hypertableName,
 		fieldNameTxId:      transactionId,
 		fieldNameLSN:       lsn.String(),
 	}
@@ -201,6 +223,26 @@ func EnvelopeSchema(schemaRegistry *Registry, hypertable *model.Hypertable,
 	}
 }
 
+func EnvelopeMessageSchema(schemaRegistry *Registry,
+	topicSchemaGenerator *topic.NameGenerator) Struct {
+
+	schemaTopicName := topicSchemaGenerator.MessageTopicName()
+	envelopeSchemaName := fmt.Sprintf("%s.Envelope", schemaTopicName)
+
+	return Struct{
+		fieldNameType: string(model.STRUCT),
+		fieldNameFields: []Struct{
+			schemaRegistry.GetSchema(MessageValueSchemaName),
+			schemaRegistry.GetSchema(SourceSchemaName),
+			simpleSchemaElement(fieldNameOperation, model.STRING, false),
+			simpleSchemaElement(fieldNameTimescaleOp, model.STRING, true),
+			simpleSchemaElement(fieldNameTimestamp, model.INT64, true),
+		},
+		fieldNameOptional: false,
+		fieldNameName:     envelopeSchemaName,
+	}
+}
+
 func sourceSchema() Struct {
 	return Struct{
 		fieldNameType: string(model.STRUCT),
@@ -222,7 +264,45 @@ func sourceSchema() Struct {
 	}
 }
 
-func simpleSchemaElement(fieldName, typeName model.DataType, optional bool) Struct {
+func messageValueSchema(schemaRegistry *Registry) Struct {
+	return Struct{
+		fieldNameVersion: 1,
+		fieldNameName:    MessageValueSchemaName,
+		fieldNameFields: []Struct{
+			simpleSchemaElement(fieldNameOperation, model.STRING, false),
+			simpleSchemaElement(fieldNameTimestamp, model.INT64, true),
+			schemaRegistry.GetSchema(SourceSchemaName),
+			{
+				fieldNameField:    fieldNameMessage,
+				fieldNameOptional: false,
+				fieldNameMessage:  messageBlockSchema(),
+			},
+		},
+	}
+}
+
+func messageKeySchema() Struct {
+	return Struct{
+		fieldNameVersion: 1,
+		fieldNameName:    MessageKeySchemaName,
+		fieldNameFields: []Struct{
+			simpleSchemaElement(fieldNamePrefix, model.STRING, true),
+		},
+	}
+}
+
+func messageBlockSchema() Struct {
+	return Struct{
+		fieldNameVersion: 1,
+		fieldNameName:    MessageBlockSchemaName,
+		fieldNameFields: []Struct{
+			simpleSchemaElement(fieldNamePrefix, model.STRING, true),
+			simpleSchemaElement(fieldNameContent, model.STRING, true),
+		},
+	}
+}
+
+func simpleSchemaElement(fieldName schemaField, typeName model.DataType, optional bool) Struct {
 	return Struct{
 		fieldNameType:     string(typeName),
 		fieldNameOptional: optional,
@@ -230,7 +310,9 @@ func simpleSchemaElement(fieldName, typeName model.DataType, optional bool) Stru
 	}
 }
 
-func simpleSchemaElementWithDefault(fieldName, typeName model.DataType, optional bool, defaultValue any) Struct {
+func simpleSchemaElementWithDefault(fieldName schemaField,
+	typeName model.DataType, optional bool, defaultValue any) Struct {
+
 	return Struct{
 		fieldNameType:     string(typeName),
 		fieldNameOptional: optional,
@@ -239,7 +321,7 @@ func simpleSchemaElementWithDefault(fieldName, typeName model.DataType, optional
 	}
 }
 
-func extendHypertableSchema(hypertableSchema Struct, fieldName string, optional bool) Struct {
+func extendHypertableSchema(hypertableSchema Struct, fieldName schemaField, optional bool) Struct {
 	return Struct{
 		fieldNameType:     string(model.STRUCT),
 		fieldNameFields:   hypertableSchema[fieldNameFields],

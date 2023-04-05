@@ -7,6 +7,7 @@ import (
 	"github.com/noctarius/event-stream-prototype/internal/configuring/sysconfig"
 	"github.com/noctarius/event-stream-prototype/internal/eventhandler"
 	"github.com/noctarius/event-stream-prototype/internal/logging"
+	"github.com/noctarius/event-stream-prototype/internal/pg/decoding"
 	"github.com/noctarius/event-stream-prototype/internal/supporting"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/model"
@@ -25,6 +26,7 @@ type LogicalReplicationResolver struct {
 	genUpdateEvent        bool
 	genDeleteEvent        bool
 	genTruncateEvent      bool
+	genMessageEvent       bool
 	genCompressionEvent   bool
 	genDecompressionEvent bool
 }
@@ -43,6 +45,7 @@ func NewLogicalReplicationResolver(config *sysconfig.SystemConfig, dispatcher *e
 		genUpdateEvent:        configuring.GetOrDefault(config.Config, "timescaledb.events.update", true),
 		genDeleteEvent:        configuring.GetOrDefault(config.Config, "timescaledb.events.delete", true),
 		genTruncateEvent:      configuring.GetOrDefault(config.Config, "timescaledb.events.truncate", true),
+		genMessageEvent:       configuring.GetOrDefault(config.Config, "timescaledb.events.message", true),
 		genCompressionEvent:   configuring.GetOrDefault(config.Config, "timescaledb.events.compression", false),
 		genDecompressionEvent: configuring.GetOrDefault(config.Config, "timescaledb.events.decompression", false),
 	}
@@ -259,6 +262,16 @@ func (l *LogicalReplicationResolver) OnTruncateEvent(xld pglogrepl.XLogData, msg
 		}
 	}
 	return nil
+}
+
+func (l *LogicalReplicationResolver) OnMessageEvent(xld pglogrepl.XLogData, msg *decoding.LogicalReplicationMessage) error {
+	return l.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
+		notificator.NotifyHypertableReplicationEventHandler(
+			func(handler eventhandler.HypertableReplicationEventHandler) error {
+				return handler.OnMessageEvent(xld, msg)
+			},
+		)
+	})
 }
 
 func (l *LogicalReplicationResolver) OnTypeEvent(xld pglogrepl.XLogData, msg *pglogrepl.TypeMessage) error {

@@ -1,10 +1,12 @@
 package sink
 
 import (
+	"encoding/base64"
 	"fmt"
 	"github.com/jackc/pglogrepl"
 	"github.com/noctarius/event-stream-prototype/internal/event/topic"
 	"github.com/noctarius/event-stream-prototype/internal/eventhandler"
+	"github.com/noctarius/event-stream-prototype/internal/pg/decoding"
 	"github.com/noctarius/event-stream-prototype/internal/replication/transactional"
 	"github.com/noctarius/event-stream-prototype/internal/schema"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/model"
@@ -42,8 +44,14 @@ func (ee *EventEmitter) envelopeSchema(hypertable *model.Hypertable) schema.Stru
 	})
 }
 
-func (ee *EventEmitter) emit(hypertable *model.Hypertable, timestamp time.Time, envelope schema.Struct) error {
-	eventTopicName := ee.topicNameGenerator.EventTopicName(hypertable)
+func (ee *EventEmitter) envelopeMessageSchema() schema.Struct {
+	schemaTopicName := fmt.Sprintf("%s.Envelope", ee.topicNameGenerator.MessageTopicName())
+	return ee.schemaRegistry.GetSchemaOrCreate(schemaTopicName, func() schema.Struct {
+		return schema.EnvelopeMessageSchema(ee.schemaRegistry, ee.topicNameGenerator)
+	})
+}
+
+func (ee *EventEmitter) emit(eventTopicName string, timestamp time.Time, envelope schema.Struct) error {
 	return ee.sink.Emit(timestamp, eventTopicName, envelope)
 }
 
@@ -120,6 +128,15 @@ func (e *eventEmitterEventHandler) OnTruncateEvent(xld pglogrepl.XLogData, hyper
 	})
 }
 
+func (e *eventEmitterEventHandler) OnMessageEvent(
+	xld pglogrepl.XLogData, msg *decoding.LogicalReplicationMessage) error {
+
+	return e.emitMessageEvent(xld, msg, func(source schema.Struct) schema.Struct {
+		content := base64.StdEncoding.EncodeToString(msg.Content)
+		return schema.MessageEvent(msg.Prefix, content, source)
+	})
+}
+
 func (e *eventEmitterEventHandler) OnTypeEvent(_ pglogrepl.XLogData, _ *pglogrepl.TypeMessage) error {
 	return nil
 }
@@ -137,10 +154,34 @@ func (e *eventEmitterEventHandler) emit(xld pglogrepl.XLogData, hypertable *mode
 func (e *eventEmitterEventHandler) emit0(lsn pglogrepl.LSN, timestamp time.Time, snapshot bool,
 	hypertable *model.Hypertable, eventProvider func(source schema.Struct) schema.Struct) error {
 
+	transactionId := e.eventEmitter.transactionMonitor.TransactionId()
 	envelopeSchema := e.eventEmitter.envelopeSchema(hypertable)
-	source := schema.Source(lsn, timestamp, snapshot, hypertable, e.eventEmitter.transactionMonitor.TransactionId())
+	source := schema.Source(lsn, timestamp, snapshot, hypertable.DatabaseName(), hypertable.SchemaName(),
+		hypertable.HypertableName(), &transactionId)
 	payload := eventProvider(source)
-	return e.eventEmitter.emit(hypertable, timestamp, schema.Envelope(envelopeSchema, payload))
+	eventTopicName := e.eventEmitter.topicNameGenerator.EventTopicName(hypertable)
+	return e.eventEmitter.emit(eventTopicName, timestamp, schema.Envelope(envelopeSchema, payload))
+}
+
+func (e *eventEmitterEventHandler) emitMessageEvent(xld pglogrepl.XLogData,
+	msg *decoding.LogicalReplicationMessage, eventProvider func(source schema.Struct) schema.Struct) error {
+
+	timestamp := time.Now()
+	if msg.IsTransactional() {
+		timestamp = xld.ServerTime
+	}
+
+	var transactionId *uint32
+	if msg.IsTransactional() {
+		tid := e.eventEmitter.transactionMonitor.TransactionId()
+		transactionId = &tid
+	}
+
+	envelopeSchema := e.eventEmitter.envelopeMessageSchema()
+	source := schema.Source(xld.ServerWALEnd, timestamp, false, "", "", "", transactionId)
+	payload := eventProvider(source)
+	eventTopicName := e.eventEmitter.topicNameGenerator.MessageTopicName()
+	return e.eventEmitter.emit(eventTopicName, timestamp, schema.Envelope(envelopeSchema, payload))
 }
 
 func (e *eventEmitterEventHandler) convertValues(hypertable *model.Hypertable,

@@ -655,3 +655,85 @@ func (its *IntegrationTestSuite) TestContinuousAggregateCreateEvents() {
 		}),
 	)
 }
+
+func (its *IntegrationTestSuite) Ignore_TestRollbackEvents() {
+	collected := make(chan bool, 1)
+	testSink := inttest.NewEventCollectorSink(
+		inttest.WithFilter(
+			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
+				return envelope.Payload.Op == schema.OP_READ || envelope.Payload.Op == schema.OP_CREATE
+			},
+		),
+		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
+			if sink.NumOfEvents()%1000 == 0 {
+				collected <- true
+			}
+		}),
+	)
+
+	its.RunTest(
+		func(context testrunner.Context) error {
+			tx, err := context.Begin(stdctx.Background())
+			if err != nil {
+				return err
+			}
+			if _, err := tx.Exec(stdctx.Background(),
+				"SELECT pg_logical_emit_message(true, 'test-prefix', 'this is a replication message')",
+			); err != nil {
+				return err
+			}
+			if err := tx.Commit(stdctx.Background()); err != nil {
+				return err
+			}
+
+			<-collected
+
+			for i := 0; i < 20; i++ {
+				expected := i + 1
+				event := testSink.Events()[i]
+				val := int(event.Envelope.Payload.After["val"].(float64))
+				if expected != val {
+					its.T().Errorf("event order inconsistent %d != %d", expected, val)
+					return nil
+				}
+				if event.Envelope.Payload.Op != schema.OP_READ {
+					its.T().Errorf("event should be of type 'r' but was %s", event.Envelope.Payload.Op)
+					return nil
+				}
+			}
+
+			return nil
+		},
+
+		testrunner.WithSetup(func(context testrunner.SetupContext) error {
+			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
+				model.NewColumn("ts", pgtype.TimestamptzOID, "timestamptz", false, false, nil),
+				model.NewColumn("val", pgtype.Int4OID, "integer", false, false, nil),
+			)
+			if err != nil {
+				return err
+			}
+			testrunner.Attribute(context, "tableName", tn)
+
+			aggregateName := supporting.RandomTextString(10)
+			testrunner.Attribute(context, "aggregateName", aggregateName)
+
+			if _, err := context.Exec(stdctx.Background(),
+				fmt.Sprintf(
+					"CREATE MATERIALIZED VIEW %s WITH (timescaledb.continuous) AS SELECT time_bucket('1 min', t.ts) bucket, max(val) val FROM %s t GROUP BY 1",
+					aggregateName, tn,
+				),
+			); err != nil {
+				return err
+			}
+
+			context.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
+			context.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
+				config.TimescaleDB.Hypertables.Includes = []string{
+					model.MakeRelationKey(inttest.DatabaseSchema, aggregateName),
+				}
+			})
+			return nil
+		}),
+	)
+}

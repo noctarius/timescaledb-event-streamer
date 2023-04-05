@@ -18,10 +18,11 @@ import (
 var logger = logging.NewLogger("ReplicationHandler")
 
 type replicationHandler struct {
-	dispatcher      *eventhandler.Dispatcher
-	clientXLogPos   pglogrepl.LSN
-	relations       map[uint32]*pglogrepl.RelationMessage
-	shutdownAwaiter *supporting.ShutdownAwaiter
+	dispatcher        *eventhandler.Dispatcher
+	clientXLogPos     pglogrepl.LSN
+	relations         map[uint32]*pglogrepl.RelationMessage
+	shutdownAwaiter   *supporting.ShutdownAwaiter
+	lastTransactionId *uint32
 }
 
 func newReplicationHandler(dispatcher *eventhandler.Dispatcher) *replicationHandler {
@@ -105,7 +106,7 @@ func (rh *replicationHandler) startReplicationHandler(connection *pgconn.PgConn,
 }
 
 func (rh *replicationHandler) handleXLogData(xld pglogrepl.XLogData) error {
-	msg, err := pglogrepl.Parse(xld.WALData)
+	msg, err := decoding.ParseXlogData(xld.WALData, rh.lastTransactionId)
 	if err != nil {
 		return fmt.Errorf("parsing logical replication message: %s", err)
 	}
@@ -130,6 +131,7 @@ func (rh *replicationHandler) handleReplicationEvents(xld pglogrepl.XLogData, ms
 			)
 		})
 	case *pglogrepl.BeginMessage:
+		rh.lastTransactionId = &logicalMsg.Xid
 		// Indicates the beginning of a group of changes in a transaction. This is only
 		// sent for committed transactions. You won't get any events from rolled back
 		// transactions.
@@ -141,6 +143,7 @@ func (rh *replicationHandler) handleReplicationEvents(xld pglogrepl.XLogData, ms
 			)
 		})
 	case *pglogrepl.CommitMessage:
+		rh.lastTransactionId = nil
 		return rh.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
 			notificator.NotifyLogicalReplicationEventHandler(
 				func(handler eventhandler.LogicalReplicationEventHandler) error {
@@ -175,6 +178,14 @@ func (rh *replicationHandler) handleReplicationEvents(xld pglogrepl.XLogData, ms
 			notificator.NotifyLogicalReplicationEventHandler(
 				func(handler eventhandler.LogicalReplicationEventHandler) error {
 					return handler.OnOriginEvent(xld, logicalMsg)
+				},
+			)
+		})
+	case *decoding.LogicalReplicationMessage:
+		return rh.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
+			notificator.NotifyLogicalReplicationEventHandler(
+				func(handler eventhandler.LogicalReplicationEventHandler) error {
+					return handler.OnMessageEvent(xld, logicalMsg)
 				},
 			)
 		})
@@ -263,6 +274,12 @@ func (rh *replicationHandler) decodeValues(relation *pglogrepl.RelationMessage,
 			// logical replication doesn't want to spend a disk read to fetch its value for you.
 		case 't': // text (basically anything other than the two above)
 			val, err := decoding.DecodeTextColumn(col.Data, relation.Columns[idx].DataType)
+			if err != nil {
+				logger.Fatalln("error decoding column data:", err)
+			}
+			values[colName] = val
+		case 'b': // binary data
+			val, err := decoding.DecodeBinaryColumn(col.Data, relation.Columns[idx].DataType)
 			if err != nil {
 				logger.Fatalln("error decoding column data:", err)
 			}

@@ -12,7 +12,7 @@ func NewSchemaRegistry() *Registry {
 		schemaRegistry: make(map[string]Struct, 0),
 		mutex:          async.NewReentrantLock(),
 	}
-	initializeSourceSchema(r)
+	initializeSourceSchemas(r)
 	return r
 }
 
@@ -39,7 +39,8 @@ func (r *Registry) GetSchemaOrCreate(schemaName string, creator func() Struct) S
 	return schema
 }
 
-func initializeSourceSchema(registry *Registry) {
-	sourceSchema := sourceSchema()
-	registry.RegisterSchema(SourceSchemaName, sourceSchema)
+func initializeSourceSchemas(registry *Registry) {
+	registry.RegisterSchema(SourceSchemaName, sourceSchema())
+	registry.RegisterSchema(MessageValueSchemaName, messageValueSchema(registry))
+	registry.RegisterSchema(MessageKeySchemaName, messageKeySchema())
 }
