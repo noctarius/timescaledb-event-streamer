@@ -45,25 +45,31 @@ func NewSnapshotter(partitionCount uint8, sideChannel channels.SideChannel,
 }
 
 func (s *Snapshotter) EnqueueSnapshot(task SnapshotTask) error {
+	enqueueSnapshotTask := func() {
+		// Partition calculation
+		hasher := fnv.New64a()
+		hasher.Write([]byte(task.Hypertable.CanonicalName()))
+		partition := int(hasher.Sum64() % s.partitionCount)
+
+		// Enqueue the actual task
+		s.snapshotQueues[partition] <- task
+	}
+
 	// Notify of snapshotting to save incoming events
 	if task.Chunk != nil {
-		err := s.dispatcher.EnqueueTaskAndWait(func(notificator eventhandler.Notificator) {
+		err := s.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
 			notificator.NotifyChunkSnapshotEventHandler(func(handler eventhandler.ChunkSnapshotEventHandler) error {
 				return handler.OnChunkSnapshotStartedEvent(task.Hypertable, task.Chunk)
 			})
+			enqueueSnapshotTask()
 		})
 		if err != nil {
 			return err
 		}
+	} else {
+		enqueueSnapshotTask()
 	}
 
-	// Partition calculation
-	hasher := fnv.New64a()
-	hasher.Write([]byte(task.Hypertable.CanonicalName()))
-	partition := int(hasher.Sum64() % s.partitionCount)
-
-	// Enqueue the actual task
-	s.snapshotQueues[partition] <- task
 	return nil
 }
 
