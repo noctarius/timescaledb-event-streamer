@@ -24,7 +24,7 @@ func TestIntegrationTestSuite(t *testing.T) {
 }
 
 func (its *IntegrationTestSuite) TestInitialSnapshot_Single_Chunk() {
-	collected := make(chan bool, 1)
+	waiter := supporting.NewWaiterWithTimeout(time.Second * 20)
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
@@ -33,7 +33,7 @@ func (its *IntegrationTestSuite) TestInitialSnapshot_Single_Chunk() {
 		),
 		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
 			if sink.NumOfEvents() == 1440 {
-				collected <- true
+				waiter.Signal()
 			}
 		}),
 	)
@@ -49,7 +49,7 @@ func (its *IntegrationTestSuite) TestInitialSnapshot_Single_Chunk() {
 				return err
 			}
 
-			<-collected
+			waiter.Await()
 
 			for i, event := range testSink.Events() {
 				expected := i + 1
@@ -80,7 +80,7 @@ func (its *IntegrationTestSuite) TestInitialSnapshot_Single_Chunk() {
 }
 
 func (its *IntegrationTestSuite) TestInitialSnapshot_Multi_Chunk() {
-	collected := make(chan bool, 1)
+	waiter := supporting.NewWaiterWithTimeout(time.Second * 20)
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
@@ -89,7 +89,7 @@ func (its *IntegrationTestSuite) TestInitialSnapshot_Multi_Chunk() {
 		),
 		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
 			if sink.NumOfEvents() == 2880 {
-				collected <- true
+				waiter.Signal()
 			}
 		}),
 	)
@@ -105,7 +105,9 @@ func (its *IntegrationTestSuite) TestInitialSnapshot_Multi_Chunk() {
 				return err
 			}
 
-			<-collected
+			if err := waiter.Await(); err != nil {
+				return err
+			}
 
 			for i, event := range testSink.Events() {
 				expected := i + 1
@@ -136,7 +138,7 @@ func (its *IntegrationTestSuite) TestInitialSnapshot_Multi_Chunk() {
 }
 
 func (its *IntegrationTestSuite) TestCreateEvents() {
-	collected := make(chan bool, 1)
+	waiter := supporting.NewWaiterWithTimeout(time.Second * 20)
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
@@ -145,7 +147,7 @@ func (its *IntegrationTestSuite) TestCreateEvents() {
 		),
 		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
 			if sink.NumOfEvents()%10 == 0 {
-				collected <- true
+				waiter.Signal()
 			}
 		}),
 	)
@@ -161,7 +163,11 @@ func (its *IntegrationTestSuite) TestCreateEvents() {
 				return err
 			}
 
-			<-collected
+			if err := waiter.Await(); err != nil {
+				return err
+			}
+			waiter.Reset()
+
 			if _, err := context.Exec(stdctx.Background(),
 				fmt.Sprintf(
 					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:10:00'::TIMESTAMPTZ, '2023-03-25 00:19:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
@@ -171,7 +177,9 @@ func (its *IntegrationTestSuite) TestCreateEvents() {
 				return err
 			}
 
-			<-collected
+			if err := waiter.Await(); err != nil {
+				return err
+			}
 
 			// Initial 10 events have to be of type read (same transaction as the chunk creation)
 			for i := 0; i < 10; i++ {
@@ -223,7 +231,7 @@ func (its *IntegrationTestSuite) TestCreateEvents() {
 }
 
 func (its *IntegrationTestSuite) TestUpdateEvents() {
-	collected := make(chan bool, 1)
+	waiter := supporting.NewWaiterWithTimeout(time.Second * 20)
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
@@ -232,7 +240,7 @@ func (its *IntegrationTestSuite) TestUpdateEvents() {
 		),
 		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
 			if sink.NumOfEvents()%10 == 0 {
-				collected <- true
+				waiter.Signal()
 			}
 		}),
 	)
@@ -248,7 +256,11 @@ func (its *IntegrationTestSuite) TestUpdateEvents() {
 				return err
 			}
 
-			<-collected
+			if err := waiter.Await(); err != nil {
+				return err
+			}
+			waiter.Reset()
+
 			if _, err := context.Exec(stdctx.Background(),
 				fmt.Sprintf(
 					"UPDATE \"%s\" SET val = val + 10",
@@ -258,7 +270,9 @@ func (its *IntegrationTestSuite) TestUpdateEvents() {
 				return err
 			}
 
-			<-collected
+			if err := waiter.Await(); err != nil {
+				return err
+			}
 
 			// Initial 10 events have to be of type read (same transaction as the chunk creation)
 			for i := 0; i < 10; i++ {
@@ -310,7 +324,7 @@ func (its *IntegrationTestSuite) TestUpdateEvents() {
 }
 
 func (its *IntegrationTestSuite) TestDeleteEvents() {
-	collected := make(chan bool, 1)
+	waiter := supporting.NewWaiterWithTimeout(time.Second * 20)
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
@@ -319,7 +333,7 @@ func (its *IntegrationTestSuite) TestDeleteEvents() {
 		),
 		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
 			if sink.NumOfEvents()%10 == 0 {
-				collected <- true
+				waiter.Signal()
 			}
 		}),
 	)
@@ -335,7 +349,11 @@ func (its *IntegrationTestSuite) TestDeleteEvents() {
 				return err
 			}
 
-			<-collected
+			if err := waiter.Await(); err != nil {
+				return err
+			}
+			waiter.Reset()
+
 			if _, err := context.Exec(stdctx.Background(),
 				fmt.Sprintf(
 					"DELETE FROM \"%s\"",
@@ -345,7 +363,9 @@ func (its *IntegrationTestSuite) TestDeleteEvents() {
 				return err
 			}
 
-			<-collected
+			if err := waiter.Await(); err != nil {
+				return err
+			}
 
 			// Initial 10 events have to be of type read (same transaction as the chunk creation)
 			for i := 0; i < 10; i++ {
@@ -391,7 +411,7 @@ func (its *IntegrationTestSuite) TestDeleteEvents() {
 }
 
 func (its *IntegrationTestSuite) TestTruncateEvents() {
-	collected := make(chan bool, 1)
+	waiter := supporting.NewWaiterWithTimeout(time.Second * 20)
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
@@ -400,10 +420,10 @@ func (its *IntegrationTestSuite) TestTruncateEvents() {
 		),
 		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
 			if sink.NumOfEvents()%10 == 0 {
-				collected <- true
+				waiter.Signal()
 			}
 			if sink.NumOfEvents() == 11 {
-				collected <- true
+				waiter.Signal()
 			}
 		}),
 	)
@@ -419,7 +439,11 @@ func (its *IntegrationTestSuite) TestTruncateEvents() {
 				return err
 			}
 
-			<-collected
+			if err := waiter.Await(); err != nil {
+				return err
+			}
+			waiter.Reset()
+
 			if _, err := context.Exec(stdctx.Background(),
 				fmt.Sprintf(
 					"TRUNCATE %s",
@@ -429,7 +453,9 @@ func (its *IntegrationTestSuite) TestTruncateEvents() {
 				return err
 			}
 
-			<-collected
+			if err := waiter.Await(); err != nil {
+				return err
+			}
 
 			// Initial 10 events have to be of type read (same transaction as the chunk creation)
 			for i := 0; i < 10; i++ {
@@ -473,7 +499,7 @@ func (its *IntegrationTestSuite) TestTruncateEvents() {
 }
 
 func (its *IntegrationTestSuite) TestCompressionEvents() {
-	collected := make(chan bool, 1)
+	waiter := supporting.NewWaiterWithTimeout(time.Second * 20)
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
@@ -482,10 +508,10 @@ func (its *IntegrationTestSuite) TestCompressionEvents() {
 		),
 		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
 			if sink.NumOfEvents()%10 == 0 {
-				collected <- true
+				waiter.Signal()
 			}
 			if sink.NumOfEvents() == 11 {
-				collected <- true
+				waiter.Signal()
 			}
 		}),
 	)
@@ -501,7 +527,11 @@ func (its *IntegrationTestSuite) TestCompressionEvents() {
 				return err
 			}
 
-			<-collected
+			if err := waiter.Await(); err != nil {
+				return err
+			}
+			waiter.Reset()
+
 			if _, err := context.Exec(stdctx.Background(),
 				fmt.Sprintf(
 					"ALTER TABLE \"%s\" SET (timescaledb.compress)",
@@ -519,7 +549,9 @@ func (its *IntegrationTestSuite) TestCompressionEvents() {
 				return err
 			}
 
-			<-collected
+			if err := waiter.Await(); err != nil {
+				return err
+			}
 
 			// Initial 10 events have to be of type read (same transaction as the chunk creation)
 			for i := 0; i < 10; i++ {
@@ -570,7 +602,7 @@ func (its *IntegrationTestSuite) TestCompressionEvents() {
 }
 
 func (its *IntegrationTestSuite) TestCompressionPartialInsertEvents() {
-	collected := make(chan bool, 1)
+	waiter := supporting.NewWaiterWithTimeout(time.Second * 20)
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
@@ -581,10 +613,10 @@ func (its *IntegrationTestSuite) TestCompressionPartialInsertEvents() {
 		),
 		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
 			if sink.NumOfEvents()%10 == 0 {
-				collected <- true
+				waiter.Signal()
 			}
 			if sink.NumOfEvents() == 13 {
-				collected <- true
+				waiter.Signal()
 			}
 		}),
 	)
@@ -600,7 +632,11 @@ func (its *IntegrationTestSuite) TestCompressionPartialInsertEvents() {
 				return err
 			}
 
-			<-collected
+			if err := waiter.Await(); err != nil {
+				return err
+			}
+			waiter.Reset()
+
 			if _, err := context.Exec(stdctx.Background(),
 				fmt.Sprintf(
 					"ALTER TABLE \"%s\" SET (timescaledb.compress)",
@@ -634,7 +670,9 @@ func (its *IntegrationTestSuite) TestCompressionPartialInsertEvents() {
 				return err
 			}
 
-			<-collected
+			if err := waiter.Await(); err != nil {
+				return err
+			}
 
 			// Initial 10 events have to be of type read (same transaction as the chunk creation)
 			for i := 0; i < 10; i++ {
@@ -686,7 +724,7 @@ func (its *IntegrationTestSuite) TestCompressionPartialInsertEvents() {
 }
 
 func (its *IntegrationTestSuite) TestDecompressionEvents() {
-	collected := make(chan bool, 1)
+	waiter := supporting.NewWaiterWithTimeout(time.Second * 20)
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
@@ -695,10 +733,10 @@ func (its *IntegrationTestSuite) TestDecompressionEvents() {
 		),
 		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
 			if sink.NumOfEvents()%10 == 0 {
-				collected <- true
+				waiter.Signal()
 			}
 			if sink.NumOfEvents() == 12 {
-				collected <- true
+				waiter.Signal()
 			}
 		}),
 	)
@@ -714,7 +752,11 @@ func (its *IntegrationTestSuite) TestDecompressionEvents() {
 				return err
 			}
 
-			<-collected
+			if err := waiter.Await(); err != nil {
+				return err
+			}
+			waiter.Reset()
+
 			if _, err := context.Exec(stdctx.Background(),
 				fmt.Sprintf(
 					"ALTER TABLE \"%s\" SET (timescaledb.compress)",
@@ -740,7 +782,9 @@ func (its *IntegrationTestSuite) TestDecompressionEvents() {
 				return err
 			}
 
-			<-collected
+			if err := waiter.Await(); err != nil {
+				return err
+			}
 
 			// Initial 10 events have to be of type read (same transaction as the chunk creation)
 			for i := 0; i < 10; i++ {
@@ -792,7 +836,7 @@ func (its *IntegrationTestSuite) TestDecompressionEvents() {
 }
 
 func (its *IntegrationTestSuite) TestContinuousAggregateCreateEvents() {
-	collected := make(chan bool, 1)
+	waiter := supporting.NewWaiterWithTimeout(time.Second * 20)
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
@@ -801,7 +845,7 @@ func (its *IntegrationTestSuite) TestContinuousAggregateCreateEvents() {
 		),
 		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
 			if sink.NumOfEvents()%20 == 0 {
-				collected <- true
+				waiter.Signal()
 			}
 		}),
 	)
@@ -826,7 +870,9 @@ func (its *IntegrationTestSuite) TestContinuousAggregateCreateEvents() {
 				return err
 			}
 
-			<-collected
+			if err := waiter.Await(); err != nil {
+				return err
+			}
 
 			for i := 0; i < 20; i++ {
 				expected := i + 1
@@ -879,7 +925,7 @@ func (its *IntegrationTestSuite) TestContinuousAggregateCreateEvents() {
 }
 
 func (its *IntegrationTestSuite) Ignore_TestRollbackEvents() {
-	collected := make(chan bool, 1)
+	waiter := supporting.NewWaiterWithTimeout(time.Second * 20)
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
@@ -888,7 +934,7 @@ func (its *IntegrationTestSuite) Ignore_TestRollbackEvents() {
 		),
 		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
 			if sink.NumOfEvents()%1000 == 0 {
-				collected <- true
+				waiter.Signal()
 			}
 		}),
 	)
@@ -908,7 +954,9 @@ func (its *IntegrationTestSuite) Ignore_TestRollbackEvents() {
 				return err
 			}
 
-			<-collected
+			if err := waiter.Await(); err != nil {
+				return err
+			}
 
 			for i := 0; i < 20; i++ {
 				expected := i + 1
