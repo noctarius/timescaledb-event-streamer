@@ -130,7 +130,7 @@ func (rh *replicationHandler) handleReplicationEvents(xld pglogrepl.XLogData, ms
 		return rh.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
 			notificator.NotifyBaseReplicationEventHandler(
 				func(handler eventhandler.BaseReplicationEventHandler) error {
-					return handler.OnRelationEvent(xld, logicalMsg)
+					return handler.OnRelationEvent(xld, (*decoding.RelationMessage)(logicalMsg))
 				},
 			)
 		})
@@ -142,7 +142,7 @@ func (rh *replicationHandler) handleReplicationEvents(xld pglogrepl.XLogData, ms
 		return rh.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
 			notificator.NotifyLogicalReplicationEventHandler(
 				func(handler eventhandler.LogicalReplicationEventHandler) error {
-					return handler.OnBeginEvent(xld, logicalMsg)
+					return handler.OnBeginEvent(xld, (*decoding.BeginMessage)(logicalMsg))
 				},
 			)
 		})
@@ -151,7 +151,7 @@ func (rh *replicationHandler) handleReplicationEvents(xld pglogrepl.XLogData, ms
 		return rh.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
 			notificator.NotifyLogicalReplicationEventHandler(
 				func(handler eventhandler.LogicalReplicationEventHandler) error {
-					return handler.OnCommitEvent(xld, logicalMsg)
+					return handler.OnCommitEvent(xld, (*decoding.CommitMessage)(logicalMsg))
 				},
 			)
 		})
@@ -165,7 +165,7 @@ func (rh *replicationHandler) handleReplicationEvents(xld pglogrepl.XLogData, ms
 		return rh.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
 			notificator.NotifyLogicalReplicationEventHandler(
 				func(handler eventhandler.LogicalReplicationEventHandler) error {
-					return handler.OnTruncateEvent(xld, logicalMsg)
+					return handler.OnTruncateEvent(xld, (*decoding.TruncateMessage)(logicalMsg))
 				},
 			)
 		})
@@ -173,7 +173,7 @@ func (rh *replicationHandler) handleReplicationEvents(xld pglogrepl.XLogData, ms
 		return rh.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
 			notificator.NotifyLogicalReplicationEventHandler(
 				func(handler eventhandler.LogicalReplicationEventHandler) error {
-					return handler.OnTypeEvent(xld, logicalMsg)
+					return handler.OnTypeEvent(xld, (*decoding.TypeMessage)(logicalMsg))
 				},
 			)
 		})
@@ -181,7 +181,7 @@ func (rh *replicationHandler) handleReplicationEvents(xld pglogrepl.XLogData, ms
 		return rh.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
 			notificator.NotifyLogicalReplicationEventHandler(
 				func(handler eventhandler.LogicalReplicationEventHandler) error {
-					return handler.OnOriginEvent(xld, logicalMsg)
+					return handler.OnOriginEvent(xld, (*decoding.OriginMessage)(logicalMsg))
 				},
 			)
 		})
@@ -203,11 +203,21 @@ func (rh *replicationHandler) handleDeleteMessage(xld pglogrepl.XLogData, msg *p
 	if !ok {
 		logger.Fatalf("unknown relation ID %d", msg.RelationID)
 	}
+
+	// Decode values and remove source
 	oldValues := rh.decodeValues(rel, msg.OldTuple)
+	msg.OldTuple = nil
+
+	// Adapt the message object
+	internalMsg := &decoding.DeleteMessage{
+		DeleteMessage: msg,
+		OldValues:     oldValues,
+	}
+
 	return rh.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
 		notificator.NotifyLogicalReplicationEventHandler(
 			func(handler eventhandler.LogicalReplicationEventHandler) error {
-				return handler.OnDeleteEvent(xld, msg, oldValues)
+				return handler.OnDeleteEvent(xld, internalMsg)
 			},
 		)
 	})
@@ -218,12 +228,24 @@ func (rh *replicationHandler) handleUpdateMessage(xld pglogrepl.XLogData, msg *p
 	if !ok {
 		logger.Fatalf("unknown relation ID %d", msg.RelationID)
 	}
+
+	// Decode values and remove source
 	oldValues := rh.decodeValues(rel, msg.OldTuple)
 	newValues := rh.decodeValues(rel, msg.NewTuple)
+	msg.OldTuple = nil
+	msg.NewTuple = nil
+
+	// Adapt the message object
+	internalMsg := &decoding.UpdateMessage{
+		UpdateMessage: msg,
+		OldValues:     oldValues,
+		NewValues:     newValues,
+	}
+
 	return rh.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
 		notificator.NotifyLogicalReplicationEventHandler(
 			func(handler eventhandler.LogicalReplicationEventHandler) error {
-				return handler.OnUpdateEvent(xld, msg, oldValues, newValues)
+				return handler.OnUpdateEvent(xld, internalMsg)
 			},
 		)
 	})
@@ -234,11 +256,21 @@ func (rh *replicationHandler) handleInsertMessage(xld pglogrepl.XLogData, msg *p
 	if !ok {
 		logger.Fatalf("unknown relation ID %d", msg.RelationID)
 	}
+
+	// Decode values and remove source
 	newValues := rh.decodeValues(rel, msg.Tuple)
+	msg.Tuple = nil
+
+	// Adapt the message object
+	internalMsg := &decoding.InsertMessage{
+		InsertMessage: msg,
+		NewValues:     newValues,
+	}
+
 	return rh.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
 		notificator.NotifyLogicalReplicationEventHandler(
 			func(handler eventhandler.LogicalReplicationEventHandler) error {
-				return handler.OnInsertEvent(xld, msg, newValues)
+				return handler.OnInsertEvent(xld, internalMsg)
 			},
 		)
 	})

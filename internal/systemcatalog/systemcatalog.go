@@ -12,7 +12,6 @@ import (
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/filtering"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/model"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/snapshotting"
-	"os"
 	"regexp"
 )
 
@@ -275,7 +274,7 @@ func initializeSystemCatalog(sc *SystemCatalog) (*SystemCatalog, error) {
 	}
 
 	logger.Println("Selected hypertables for replication:")
-	atLeastOneHypertableSelected := false
+	//atLeastOneHypertableSelected := false
 	for _, hypertable := range sc.hypertables {
 		if !hypertable.IsCompressedTable() && sc.IsHypertableSelectedForReplication(hypertable.Id()) {
 			if hypertable.IsContinuousAggregate() {
@@ -285,14 +284,14 @@ func initializeSystemCatalog(sc *SystemCatalog) (*SystemCatalog, error) {
 			} else {
 				logger.Printf("\t* %s (type: Hypertable)\n", hypertable.CanonicalName())
 			}
-			atLeastOneHypertableSelected = true
+			//atLeastOneHypertableSelected = true
 		}
 	}
 
-	if !atLeastOneHypertableSelected {
+	/*if !atLeastOneHypertableSelected {
 		logger.Println("No hypertable was selected, exiting.")
 		os.Exit(11)
-	}
+	}*/
 
 	return sc, nil
 }

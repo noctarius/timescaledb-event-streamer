@@ -7,27 +7,27 @@ import (
 )
 
 type BaseReplicationEventHandler interface {
-	OnRelationEvent(xld pglogrepl.XLogData, msg *pglogrepl.RelationMessage) error
+	OnRelationEvent(xld pglogrepl.XLogData, msg *decoding.RelationMessage) error
 }
 
 type LogicalReplicationEventHandler interface {
 	BaseReplicationEventHandler
-	OnBeginEvent(xld pglogrepl.XLogData, msg *pglogrepl.BeginMessage) error
-	OnCommitEvent(xld pglogrepl.XLogData, msg *pglogrepl.CommitMessage) error
-	OnInsertEvent(xld pglogrepl.XLogData, msg *pglogrepl.InsertMessage, newValues map[string]any) error
-	OnUpdateEvent(xld pglogrepl.XLogData, msg *pglogrepl.UpdateMessage, oldValues, newValues map[string]any) error
-	OnDeleteEvent(xld pglogrepl.XLogData, msg *pglogrepl.DeleteMessage, oldValues map[string]any) error
-	OnTruncateEvent(xld pglogrepl.XLogData, msg *pglogrepl.TruncateMessage) error
-	OnTypeEvent(xld pglogrepl.XLogData, msg *pglogrepl.TypeMessage) error
-	OnOriginEvent(xld pglogrepl.XLogData, msg *pglogrepl.OriginMessage) error
+	OnBeginEvent(xld pglogrepl.XLogData, msg *decoding.BeginMessage) error
+	OnCommitEvent(xld pglogrepl.XLogData, msg *decoding.CommitMessage) error
+	OnInsertEvent(xld pglogrepl.XLogData, msg *decoding.InsertMessage) error
+	OnUpdateEvent(xld pglogrepl.XLogData, msg *decoding.UpdateMessage) error
+	OnDeleteEvent(xld pglogrepl.XLogData, msg *decoding.DeleteMessage) error
+	OnTruncateEvent(xld pglogrepl.XLogData, msg *decoding.TruncateMessage) error
+	OnTypeEvent(xld pglogrepl.XLogData, msg *decoding.TypeMessage) error
+	OnOriginEvent(xld pglogrepl.XLogData, msg *decoding.OriginMessage) error
 	OnMessageEvent(xld pglogrepl.XLogData, msg *decoding.LogicalReplicationMessage) error
 }
 
 type HypertableReplicationEventHandler interface {
 	BaseReplicationEventHandler
 	OnReadEvent(lsn pglogrepl.LSN, hypertable *model.Hypertable, chunk *model.Chunk, newValues map[string]any) error
-	OnBeginEvent(xld pglogrepl.XLogData, msg *pglogrepl.BeginMessage) error
-	OnCommitEvent(xld pglogrepl.XLogData, msg *pglogrepl.CommitMessage) error
+	OnBeginEvent(xld pglogrepl.XLogData, msg *decoding.BeginMessage) error
+	OnCommitEvent(xld pglogrepl.XLogData, msg *decoding.CommitMessage) error
 	OnInsertEvent(xld pglogrepl.XLogData, hypertable *model.Hypertable, chunk *model.Chunk,
 		newValues map[string]any) error
 	OnUpdateEvent(xld pglogrepl.XLogData, hypertable *model.Hypertable, chunk *model.Chunk,
@@ -35,8 +35,8 @@ type HypertableReplicationEventHandler interface {
 	OnDeleteEvent(xld pglogrepl.XLogData, hypertable *model.Hypertable, chunk *model.Chunk,
 		oldValues map[string]any, tombstone bool) error
 	OnTruncateEvent(xld pglogrepl.XLogData, hypertable *model.Hypertable) error
-	OnTypeEvent(xld pglogrepl.XLogData, msg *pglogrepl.TypeMessage) error
-	OnOriginEvent(xld pglogrepl.XLogData, msg *pglogrepl.OriginMessage) error
+	OnTypeEvent(xld pglogrepl.XLogData, msg *decoding.TypeMessage) error
+	OnOriginEvent(xld pglogrepl.XLogData, msg *decoding.OriginMessage) error
 	OnMessageEvent(xld pglogrepl.XLogData, msg *decoding.LogicalReplicationMessage) error
 }
 

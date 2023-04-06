@@ -1,15 +1,15 @@
 package model
 
 import (
-	"github.com/jackc/pglogrepl"
+	"github.com/noctarius/event-stream-prototype/internal/pg/decoding"
 	"strings"
 )
 
-func IsHypertableEvent(relation *pglogrepl.RelationMessage) bool {
+func IsHypertableEvent(relation *decoding.RelationMessage) bool {
 	return relation.Namespace == "_timescaledb_catalog" && relation.RelationName == "hypertable"
 }
 
-func IsChunkEvent(relation *pglogrepl.RelationMessage) bool {
+func IsChunkEvent(relation *decoding.RelationMessage) bool {
 	return relation.Namespace == "_timescaledb_catalog" && relation.RelationName == "chunk"
 }
 

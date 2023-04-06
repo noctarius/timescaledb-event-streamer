@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/go-errors/errors"
 	"github.com/jackc/pglogrepl"
+	"github.com/noctarius/event-stream-prototype/internal/pg/decoding"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/model"
 )
 
@@ -19,7 +20,7 @@ type systemCatalogReplicationEventHandler struct {
 }
 
 func (s *systemCatalogReplicationEventHandler) OnRelationEvent(
-	_ pglogrepl.XLogData, msg *pglogrepl.RelationMessage) error {
+	_ pglogrepl.XLogData, msg *decoding.RelationMessage) error {
 
 	if msg.Namespace != "_timescaledb_internal" && msg.Namespace != "_timescaledb_catalog" {
 		hypertable := s.systemCatalog.FindHypertableByName(msg.Namespace, msg.RelationName)

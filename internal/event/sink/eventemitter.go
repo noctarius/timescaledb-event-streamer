@@ -68,9 +68,14 @@ type eventEmitterEventHandler struct {
 func (e *eventEmitterEventHandler) OnReadEvent(lsn pglogrepl.LSN, hypertable *model.Hypertable,
 	_ *model.Chunk, newValues map[string]any) error {
 
+	cnValues, err := e.convertValues(hypertable, newValues)
+	if err != nil {
+		return err
+	}
+
 	return e.emit0(lsn, time.Now(), true, hypertable,
 		func(source schema.Struct) schema.Struct {
-			return schema.ReadEvent(newValues, source)
+			return schema.ReadEvent(cnValues, source)
 		},
 		func() (schema.Struct, error) {
 			return e.hypertableEventKey(hypertable, newValues)
@@ -182,23 +187,23 @@ func (e *eventEmitterEventHandler) OnChunkDecompressedEvent(
 	)
 }
 
-func (e *eventEmitterEventHandler) OnRelationEvent(_ pglogrepl.XLogData, _ *pglogrepl.RelationMessage) error {
+func (e *eventEmitterEventHandler) OnRelationEvent(_ pglogrepl.XLogData, _ *decoding.RelationMessage) error {
 	return nil
 }
 
-func (e *eventEmitterEventHandler) OnBeginEvent(_ pglogrepl.XLogData, _ *pglogrepl.BeginMessage) error {
+func (e *eventEmitterEventHandler) OnBeginEvent(_ pglogrepl.XLogData, _ *decoding.BeginMessage) error {
 	return nil
 }
 
-func (e *eventEmitterEventHandler) OnCommitEvent(_ pglogrepl.XLogData, _ *pglogrepl.CommitMessage) error {
+func (e *eventEmitterEventHandler) OnCommitEvent(_ pglogrepl.XLogData, _ *decoding.CommitMessage) error {
 	return nil
 }
 
-func (e *eventEmitterEventHandler) OnTypeEvent(_ pglogrepl.XLogData, _ *pglogrepl.TypeMessage) error {
+func (e *eventEmitterEventHandler) OnTypeEvent(_ pglogrepl.XLogData, _ *decoding.TypeMessage) error {
 	return nil
 }
 
-func (e *eventEmitterEventHandler) OnOriginEvent(_ pglogrepl.XLogData, _ *pglogrepl.OriginMessage) error {
+func (e *eventEmitterEventHandler) OnOriginEvent(_ pglogrepl.XLogData, _ *decoding.OriginMessage) error {
 	return nil
 }
 

@@ -1,6 +1,9 @@
 package transactional
 
-import "github.com/jackc/pglogrepl"
+import (
+	"github.com/jackc/pglogrepl"
+	"github.com/noctarius/event-stream-prototype/internal/pg/decoding"
+)
 
 type TransactionMonitor struct {
 	currentLSN    pglogrepl.LSN
@@ -15,41 +18,41 @@ func (t *TransactionMonitor) TransactionId() uint32 {
 	return t.transactionId
 }
 
-func (t *TransactionMonitor) OnRelationEvent(_ pglogrepl.XLogData, _ *pglogrepl.RelationMessage) error {
+func (t *TransactionMonitor) OnRelationEvent(_ pglogrepl.XLogData, _ *decoding.RelationMessage) error {
 	return nil
 }
 
-func (t *TransactionMonitor) OnBeginEvent(_ pglogrepl.XLogData, msg *pglogrepl.BeginMessage) error {
+func (t *TransactionMonitor) OnBeginEvent(_ pglogrepl.XLogData, msg *decoding.BeginMessage) error {
 	t.currentLSN = msg.FinalLSN
 	t.transactionId = msg.Xid
 	return nil
 }
 
-func (t *TransactionMonitor) OnCommitEvent(_ pglogrepl.XLogData, msg *pglogrepl.CommitMessage) error {
+func (t *TransactionMonitor) OnCommitEvent(_ pglogrepl.XLogData, msg *decoding.CommitMessage) error {
 	t.currentLSN = msg.CommitLSN
 	return nil
 }
 
-func (t *TransactionMonitor) OnInsertEvent(_ pglogrepl.XLogData, _ *pglogrepl.InsertMessage, _ map[string]any) error {
+func (t *TransactionMonitor) OnInsertEvent(_ pglogrepl.XLogData, _ *decoding.InsertMessage) error {
 	return nil
 }
 
-func (t *TransactionMonitor) OnUpdateEvent(_ pglogrepl.XLogData, _ *pglogrepl.UpdateMessage, _, _ map[string]any) error {
+func (t *TransactionMonitor) OnUpdateEvent(_ pglogrepl.XLogData, _ *decoding.UpdateMessage) error {
 	return nil
 }
 
-func (t *TransactionMonitor) OnDeleteEvent(_ pglogrepl.XLogData, _ *pglogrepl.DeleteMessage, _ map[string]any) error {
+func (t *TransactionMonitor) OnDeleteEvent(_ pglogrepl.XLogData, _ *decoding.DeleteMessage) error {
 	return nil
 }
 
-func (t *TransactionMonitor) OnTruncateEvent(_ pglogrepl.XLogData, _ *pglogrepl.TruncateMessage) error {
+func (t *TransactionMonitor) OnTruncateEvent(_ pglogrepl.XLogData, _ *decoding.TruncateMessage) error {
 	return nil
 }
 
-func (t *TransactionMonitor) OnTypeEvent(_ pglogrepl.XLogData, _ *pglogrepl.TypeMessage) error {
+func (t *TransactionMonitor) OnTypeEvent(_ pglogrepl.XLogData, _ *decoding.TypeMessage) error {
 	return nil
 }
 
-func (t *TransactionMonitor) OnOriginEvent(_ pglogrepl.XLogData, _ *pglogrepl.OriginMessage) error {
+func (t *TransactionMonitor) OnOriginEvent(_ pglogrepl.XLogData, _ *decoding.OriginMessage) error {
 	return nil
 }

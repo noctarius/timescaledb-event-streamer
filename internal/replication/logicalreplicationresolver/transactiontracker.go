@@ -14,20 +14,20 @@ import (
 type transactionTracker struct {
 	timeout            time.Duration
 	maxSize            uint
-	relations          map[uint32]*pglogrepl.RelationMessage
+	relations          map[uint32]*decoding.RelationMessage
 	resolver           *logicalReplicationResolver
 	systemCatalog      *systemcatalog.SystemCatalog
 	currentTransaction *transaction
 }
 
 func newTransactionTracker(timeout time.Duration, maxSize uint, config *sysconfig.SystemConfig,
-	dispatcher *eventhandler.Dispatcher, systemCatalog *systemcatalog.SystemCatalog) *transactionTracker {
+	dispatcher *eventhandler.Dispatcher, systemCatalog *systemcatalog.SystemCatalog) eventhandler.LogicalReplicationEventHandler {
 
 	return &transactionTracker{
 		timeout:       timeout,
 		maxSize:       maxSize,
 		systemCatalog: systemCatalog,
-		relations:     make(map[uint32]*pglogrepl.RelationMessage),
+		relations:     make(map[uint32]*decoding.RelationMessage),
 		resolver:      newLogicalReplicationResolver(config, dispatcher, systemCatalog),
 	}
 }
@@ -42,17 +42,17 @@ func (tt *transactionTracker) OnChunkSnapshotFinishedEvent(
 	return tt.resolver.OnChunkSnapshotFinishedEvent(hypertable, chunk, snapshot)
 }
 
-func (tt *transactionTracker) OnRelationEvent(xld pglogrepl.XLogData, msg *pglogrepl.RelationMessage) error {
+func (tt *transactionTracker) OnRelationEvent(xld pglogrepl.XLogData, msg *decoding.RelationMessage) error {
 	tt.relations[msg.RelationID] = msg
 	return tt.resolver.OnRelationEvent(xld, msg)
 }
 
-func (tt *transactionTracker) OnBeginEvent(xld pglogrepl.XLogData, msg *pglogrepl.BeginMessage) error {
+func (tt *transactionTracker) OnBeginEvent(xld pglogrepl.XLogData, msg *decoding.BeginMessage) error {
 	tt.currentTransaction = tt.newTransaction(msg.Xid, msg.CommitTime, msg.FinalLSN)
 	return nil
 }
 
-func (tt *transactionTracker) OnCommitEvent(xld pglogrepl.XLogData, msg *pglogrepl.CommitMessage) error {
+func (tt *transactionTracker) OnCommitEvent(xld pglogrepl.XLogData, msg *decoding.CommitMessage) error {
 	currentTransaction := tt.currentTransaction
 	tt.currentTransaction = nil
 
@@ -60,14 +60,12 @@ func (tt *transactionTracker) OnCommitEvent(xld pglogrepl.XLogData, msg *pglogre
 
 	if currentTransaction.decompressionUpdate != nil {
 		message := currentTransaction.decompressionUpdate
-		chunkId := message.newValues["id"].(int32)
+		chunkId := message.msg.(*decoding.UpdateMessage).NewValues["id"].(int32)
 		if chunk := tt.systemCatalog.FindChunkById(chunkId); chunk != nil {
 			if err := tt.resolver.onChunkDecompressionEvent(xld, chunk); err != nil {
 				return err
 			}
-			return tt.resolver.onChunkUpdateEvent(
-				message.msg.(*pglogrepl.UpdateMessage), message.oldValues, message.newValues,
-			)
+			return tt.resolver.onChunkUpdateEvent(message.msg.(*decoding.UpdateMessage))
 		}
 	}
 
@@ -77,7 +75,7 @@ func (tt *transactionTracker) OnCommitEvent(xld pglogrepl.XLogData, msg *pglogre
 	return tt.resolver.OnCommitEvent(xld, msg)
 }
 
-func (tt *transactionTracker) OnInsertEvent(xld pglogrepl.XLogData, msg *pglogrepl.InsertMessage, newValues map[string]any) error {
+func (tt *transactionTracker) OnInsertEvent(xld pglogrepl.XLogData, msg *decoding.InsertMessage) error {
 	if relation, ok := tt.relations[msg.RelationID]; ok {
 		// If no insert events are going to be generated, and we don't need to update the catalog,
 		// we can already ignore the event here and prevent it from hogging memory while we wait
@@ -99,9 +97,8 @@ func (tt *transactionTracker) OnInsertEvent(xld pglogrepl.XLogData, msg *pglogre
 		}
 
 		handled, err := tt.currentTransaction.pushTransactionEntry(&transactionEntry{
-			xld:       xld,
-			msg:       msg,
-			newValues: newValues,
+			xld: xld,
+			msg: msg,
 		})
 		if err != nil {
 			return err
@@ -110,23 +107,21 @@ func (tt *transactionTracker) OnInsertEvent(xld pglogrepl.XLogData, msg *pglogre
 		}
 	}
 
-	return tt.resolver.OnInsertEvent(xld, msg, newValues)
+	return tt.resolver.OnInsertEvent(xld, msg)
 }
 
-func (tt *transactionTracker) OnUpdateEvent(xld pglogrepl.XLogData, msg *pglogrepl.UpdateMessage, oldValues, newValues map[string]any) error {
+func (tt *transactionTracker) OnUpdateEvent(xld pglogrepl.XLogData, msg *decoding.UpdateMessage) error {
 	updateEntry := &transactionEntry{
-		xld:       xld,
-		msg:       msg,
-		oldValues: oldValues,
-		newValues: newValues,
+		xld: xld,
+		msg: msg,
 	}
 
 	if relation, ok := tt.relations[msg.RelationID]; ok {
 		if model.IsChunkEvent(relation) {
-			chunkId := newValues["id"].(int32)
+			chunkId := msg.NewValues["id"].(int32)
 			if chunk := tt.systemCatalog.FindChunkById(chunkId); chunk != nil {
-				logger.Printf("Chunk status=%d, new value=%d", chunk.Status(), newValues["status"].(int32))
-				if chunk.Status() != 0 && (newValues["status"].(int32)) == 0 {
+				logger.Printf("Chunk status=%d, new value=%d", chunk.Status(), msg.NewValues["status"].(int32))
+				if chunk.Status() != 0 && (msg.NewValues["status"].(int32)) == 0 {
 					tt.currentTransaction.decompressionUpdate = updateEntry
 				}
 			}
@@ -144,10 +139,8 @@ func (tt *transactionTracker) OnUpdateEvent(xld pglogrepl.XLogData, msg *pglogre
 
 	if tt.currentTransaction != nil {
 		handled, err := tt.currentTransaction.pushTransactionEntry(&transactionEntry{
-			xld:       xld,
-			msg:       msg,
-			oldValues: oldValues,
-			newValues: newValues,
+			xld: xld,
+			msg: msg,
 		})
 		if err != nil {
 			return err
@@ -156,12 +149,10 @@ func (tt *transactionTracker) OnUpdateEvent(xld pglogrepl.XLogData, msg *pglogre
 		}
 	}
 
-	return tt.resolver.OnUpdateEvent(xld, msg, oldValues, newValues)
+	return tt.resolver.OnUpdateEvent(xld, msg)
 }
 
-func (tt *transactionTracker) OnDeleteEvent(xld pglogrepl.XLogData,
-	msg *pglogrepl.DeleteMessage, oldValues map[string]any) error {
-
+func (tt *transactionTracker) OnDeleteEvent(xld pglogrepl.XLogData, msg *decoding.DeleteMessage) error {
 	if relation, ok := tt.relations[msg.RelationID]; ok {
 		// If no delete events are going to be generated, and we don't need to update the catalog,
 		// we can already ignore the event here and prevent it from hogging memory while we wait
@@ -176,9 +167,8 @@ func (tt *transactionTracker) OnDeleteEvent(xld pglogrepl.XLogData,
 
 	if tt.currentTransaction != nil {
 		handled, err := tt.currentTransaction.pushTransactionEntry(&transactionEntry{
-			xld:       xld,
-			msg:       msg,
-			oldValues: oldValues,
+			xld: xld,
+			msg: msg,
 		})
 		if err != nil {
 			return err
@@ -187,10 +177,10 @@ func (tt *transactionTracker) OnDeleteEvent(xld pglogrepl.XLogData,
 		}
 	}
 
-	return tt.resolver.OnDeleteEvent(xld, msg, oldValues)
+	return tt.resolver.OnDeleteEvent(xld, msg)
 }
 
-func (tt *transactionTracker) OnTruncateEvent(xld pglogrepl.XLogData, msg *pglogrepl.TruncateMessage) error {
+func (tt *transactionTracker) OnTruncateEvent(xld pglogrepl.XLogData, msg *decoding.TruncateMessage) error {
 	// Since internal catalog tables shouldn't EVER be truncated, we ignore this case
 	// and only collect the truncate event if we expect the event to be generated in
 	// the later step. If no event is going to be created we discard it right here
@@ -214,11 +204,11 @@ func (tt *transactionTracker) OnTruncateEvent(xld pglogrepl.XLogData, msg *pglog
 	return tt.resolver.OnTruncateEvent(xld, msg)
 }
 
-func (tt *transactionTracker) OnTypeEvent(xld pglogrepl.XLogData, msg *pglogrepl.TypeMessage) error {
+func (tt *transactionTracker) OnTypeEvent(xld pglogrepl.XLogData, msg *decoding.TypeMessage) error {
 	return tt.resolver.OnTypeEvent(xld, msg)
 }
 
-func (tt *transactionTracker) OnOriginEvent(xld pglogrepl.XLogData, msg *pglogrepl.OriginMessage) error {
+func (tt *transactionTracker) OnOriginEvent(xld pglogrepl.XLogData, msg *decoding.OriginMessage) error {
 	return tt.resolver.OnOriginEvent(xld, msg)
 }
 
@@ -305,23 +295,23 @@ func (t *transaction) drain() error {
 		}
 
 		switch msg := entry.msg.(type) {
-		case *pglogrepl.BeginMessage:
+		case *decoding.BeginMessage:
 			if err := t.transactionTracker.resolver.OnBeginEvent(entry.xld, msg); err != nil {
 				return err
 			}
-		case *pglogrepl.InsertMessage:
-			if err := t.transactionTracker.resolver.OnInsertEvent(entry.xld, msg, entry.newValues); err != nil {
+		case *decoding.InsertMessage:
+			if err := t.transactionTracker.resolver.OnInsertEvent(entry.xld, msg); err != nil {
 				return err
 			}
-		case *pglogrepl.UpdateMessage:
-			if err := t.transactionTracker.resolver.OnUpdateEvent(entry.xld, msg, entry.oldValues, entry.newValues); err != nil {
+		case *decoding.UpdateMessage:
+			if err := t.transactionTracker.resolver.OnUpdateEvent(entry.xld, msg); err != nil {
 				return err
 			}
-		case *pglogrepl.DeleteMessage:
-			if err := t.transactionTracker.resolver.OnDeleteEvent(entry.xld, msg, entry.oldValues); err != nil {
+		case *decoding.DeleteMessage:
+			if err := t.transactionTracker.resolver.OnDeleteEvent(entry.xld, msg); err != nil {
 				return err
 			}
-		case *pglogrepl.TruncateMessage:
+		case *decoding.TruncateMessage:
 			if err := t.transactionTracker.resolver.OnTruncateEvent(entry.xld, msg); err != nil {
 				return err
 			}
@@ -335,8 +325,6 @@ func (t *transaction) drain() error {
 }
 
 type transactionEntry struct {
-	xld       pglogrepl.XLogData
-	msg       pglogrepl.Message
-	oldValues map[string]any
-	newValues map[string]any
+	xld pglogrepl.XLogData
+	msg pglogrepl.Message
 }
