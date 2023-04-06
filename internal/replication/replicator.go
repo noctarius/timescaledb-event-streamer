@@ -71,11 +71,11 @@ func (r *replicatorImpl) StartReplication() error {
 	}
 
 	// Set up the internal transaction tracking and logical replication resolving
-	transactionTracker := logicalreplicationresolver.NewTransactionTracker(r.config, dispatcher, systemCatalog)
+	transactionResolver := logicalreplicationresolver.NewTransactionResolver(r.config, dispatcher, systemCatalog)
 
 	// Register event handlers
 	dispatcher.RegisterReplicationEventHandler(transactionMonitor)
-	dispatcher.RegisterReplicationEventHandler(transactionTracker)
+	dispatcher.RegisterReplicationEventHandler(transactionResolver)
 	dispatcher.RegisterReplicationEventHandler(systemCatalog.NewEventHandler())
 	dispatcher.RegisterReplicationEventHandler(eventEmitter.NewEventHandler())
 

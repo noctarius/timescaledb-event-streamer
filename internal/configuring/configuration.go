@@ -6,6 +6,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"time"
 )
 
 type SinkType string
@@ -32,9 +33,20 @@ const (
 )
 
 type PostgreSQLConfig struct {
-	Connection  string `toml:"connection"`
-	Password    string `toml:"password"`
-	Publication string `toml:"publication"`
+	Connection  string            `toml:"connection"`
+	Password    string            `toml:"password"`
+	Publication string            `toml:"publication"`
+	Transaction TransactionConfig `toml:"transaction"`
+}
+
+type TransactionConfig struct {
+	Window TransactionWindowConfig `toml:"window"`
+}
+
+type TransactionWindowConfig struct {
+	Enabled *bool         `toml:"enabled"`
+	Timeout time.Duration `toml:"timeout"`
+	MaxSize uint          `toml:"maxsize"`
 }
 
 type SinkConfig struct {
@@ -99,7 +111,7 @@ type RedisConfig struct {
 	Database int                `toml:"database"`
 	Retries  RedisRetryConfig   `toml:"retries"`
 	Timeouts RedisTimeoutConfig `toml:"timeouts"`
-	Poolsize int                `toml:"poolsize"`
+	PoolSize int                `toml:"poolsize"`
 	TLS      TLSConfig          `toml:"tls"`
 }
 
