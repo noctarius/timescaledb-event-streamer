@@ -63,21 +63,26 @@ LEFT JOIN LATERAL (
       AND a.attnum = any(i.indkey)
       AND i.indisprimary
 ) p ON TRUE
-WHERE c.table_schema = '%s'
-  AND c.table_name = '%s'
+WHERE c.table_schema = $1
+  AND c.table_name = $2
 ORDER BY c.ordinal_position`
 
 const replicaIdentityQuery = `
 SELECT c.relreplident
 FROM pg_catalog.pg_class c
 LEFT JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
-WHERE n.nspname='%s' and c.relname='%s'
+WHERE n.nspname=$1 and c.relname=$2
 `
 
 const hypertableContinuousAggregateQuery = `
 SELECT ca.user_view_schema, ca.user_view_name
 FROM _timescaledb_catalog.continuous_agg ca 
 WHERE ca.mat_hypertable_id = $1`
+
+const existingPublicationPublishedTablesQuery = `
+SELECT pt.schemaname, pt.tablename
+FROM pg_catalog.pg_publication_tables pt
+WHERE pt.pubname = $1`
 
 type sideChannel struct {
 	connConfig        *pgx.ConnConfig
@@ -262,7 +267,7 @@ func (sc *sideChannel) SnapshotTable(canonicalName string, startingLSN *pglogrep
 func (sc *sideChannel) ReadReplicaIdentity(schemaName, tableName string) (pg.ReplicaIdentity, error) {
 	var replicaIdentity pg.ReplicaIdentity
 	if err := sc.newSession(func(session session) error {
-		row := session.queryRow(context.Background(), fmt.Sprintf(replicaIdentityQuery, schemaName, tableName))
+		row := session.queryRow(context.Background(), replicaIdentityQuery, schemaName, tableName)
 
 		var val string
 		if err := row.Scan(&val); err != nil {
@@ -296,6 +301,23 @@ func (sc *sideChannel) ReadContinuousAggregate(materializedHypertableId int32) (
 	return viewSchema, viewName, found, nil
 }
 
+func (sc *sideChannel) ReadPublishedTables(publicationName string) ([]string, error) {
+	tableNames := make([]string, 0)
+	if err := sc.newSession(func(session session) error {
+		return session.queryFunc(context.Background(), func(row pgx.Row) error {
+			var schemaName, tableName string
+			if err := row.Scan(&schemaName, &tableName); err != nil {
+				return err
+			}
+			tableNames = append(tableNames, model.MakeRelationKey(schemaName, tableName))
+			return nil
+		}, existingPublicationPublishedTablesQuery, publicationName)
+	}); err != nil {
+		return nil, err
+	}
+	return tableNames, nil
+}
+
 func (sc *sideChannel) readHypertableSchema(
 	session session, hypertable *model.Hypertable,
 	cb func(hypertable *model.Hypertable, columns []model.Column) bool) error {
@@ -319,7 +341,7 @@ func (sc *sideChannel) readHypertableSchema(
 		column := model.NewColumn(name, oid, string(dataType), nullable, primaryKey, defaultValue)
 		columns = append(columns, column)
 		return nil
-	}, fmt.Sprintf(initialTableSchemaQuery, hypertable.SchemaName(), hypertable.HypertableName())); err != nil {
+	}, initialTableSchemaQuery, hypertable.SchemaName(), hypertable.HypertableName()); err != nil {
 		return errors.Wrap(err, 0)
 	}
 

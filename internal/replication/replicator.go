@@ -9,6 +9,7 @@ import (
 	"github.com/noctarius/event-stream-prototype/internal/replication/logicalreplicationresolver"
 	"github.com/noctarius/event-stream-prototype/internal/replication/transactional"
 	"github.com/noctarius/event-stream-prototype/internal/schema"
+	"github.com/noctarius/event-stream-prototype/internal/supporting"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/snapshotting"
 )
@@ -87,6 +88,15 @@ func (r *replicatorImpl) StartReplication() error {
 
 	// Get initial list of chunks to add to publication
 	initialChunkTables := systemCatalog.GetAllChunks()
+
+	// Filter chunks by already published tables
+	alreadyPublished, err := sideChannel.ReadPublishedTables(publicationName)
+	if err != nil {
+		return errors.Wrap(err, 0)
+	}
+	initialChunkTables = supporting.Filter(initialChunkTables, func(item string) bool {
+		return !supporting.Contains(alreadyPublished, item)
+	})
 
 	if err := replicationChannel.StartReplicationChannel(dispatcher, initialChunkTables); err != nil {
 		return errors.Wrap(err, 0)
