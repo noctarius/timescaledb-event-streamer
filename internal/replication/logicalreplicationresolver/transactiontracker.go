@@ -5,6 +5,7 @@ import (
 	"github.com/noctarius/event-stream-prototype/internal/configuring/sysconfig"
 	"github.com/noctarius/event-stream-prototype/internal/eventhandler"
 	"github.com/noctarius/event-stream-prototype/internal/pg/decoding"
+	"github.com/noctarius/event-stream-prototype/internal/supporting"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/model"
 	"time"
@@ -46,7 +47,7 @@ func (tt *transactionTracker) OnRelationEvent(xld pglogrepl.XLogData, msg *pglog
 	return tt.resolver.OnRelationEvent(xld, msg)
 }
 
-func (tt *transactionTracker) OnBeginEvent(_ pglogrepl.XLogData, msg *pglogrepl.BeginMessage) error {
+func (tt *transactionTracker) OnBeginEvent(xld pglogrepl.XLogData, msg *pglogrepl.BeginMessage) error {
 	tt.currentTransaction = tt.newTransaction(msg.Xid, msg.CommitTime, msg.FinalLSN)
 	return nil
 }
@@ -55,10 +56,10 @@ func (tt *transactionTracker) OnCommitEvent(xld pglogrepl.XLogData, msg *pglogre
 	currentTransaction := tt.currentTransaction
 	tt.currentTransaction = nil
 
-	currentTransaction.queue.lock()
+	currentTransaction.queue.Lock()
 
-	if currentTransaction.containsDecompression != nil {
-		message := currentTransaction.containsDecompression
+	if currentTransaction.decompressionUpdate != nil {
+		message := currentTransaction.decompressionUpdate
 		chunkId := message.newValues["id"].(int32)
 		if chunk := tt.systemCatalog.FindChunkById(chunkId); chunk != nil {
 			if err := tt.resolver.onChunkDecompressionEvent(xld, chunk); err != nil {
@@ -89,15 +90,24 @@ func (tt *transactionTracker) OnInsertEvent(xld pglogrepl.XLogData, msg *pglogre
 		}
 	}
 
-	handled, err := tt.currentTransaction.pushTransactionEntry(&transactionEntry{
-		xld:       xld,
-		msg:       msg,
-		newValues: newValues,
-	})
-	if err != nil {
-		return err
-	} else if handled {
-		return nil
+	if tt.currentTransaction != nil {
+		// If we already know that the transaction represents a decompression in TimescaleDB
+		// we can start to discard all newly incoming INSERTs immediately, since those are the
+		// re-inserted, uncompressed rows that were already replicated into events in the past.
+		if tt.currentTransaction.decompressionUpdate != nil {
+			return nil
+		}
+
+		handled, err := tt.currentTransaction.pushTransactionEntry(&transactionEntry{
+			xld:       xld,
+			msg:       msg,
+			newValues: newValues,
+		})
+		if err != nil {
+			return err
+		} else if handled {
+			return nil
+		}
 	}
 
 	return tt.resolver.OnInsertEvent(xld, msg, newValues)
@@ -117,7 +127,7 @@ func (tt *transactionTracker) OnUpdateEvent(xld pglogrepl.XLogData, msg *pglogre
 			if chunk := tt.systemCatalog.FindChunkById(chunkId); chunk != nil {
 				logger.Printf("Chunk status=%d, new value=%d", chunk.Status(), newValues["status"].(int32))
 				if chunk.Status() != 0 && (newValues["status"].(int32)) == 0 {
-					tt.currentTransaction.containsDecompression = updateEntry
+					tt.currentTransaction.decompressionUpdate = updateEntry
 				}
 			}
 		}
@@ -132,16 +142,18 @@ func (tt *transactionTracker) OnUpdateEvent(xld pglogrepl.XLogData, msg *pglogre
 		}
 	}
 
-	handled, err := tt.currentTransaction.pushTransactionEntry(&transactionEntry{
-		xld:       xld,
-		msg:       msg,
-		oldValues: oldValues,
-		newValues: newValues,
-	})
-	if err != nil {
-		return err
-	} else if handled {
-		return nil
+	if tt.currentTransaction != nil {
+		handled, err := tt.currentTransaction.pushTransactionEntry(&transactionEntry{
+			xld:       xld,
+			msg:       msg,
+			oldValues: oldValues,
+			newValues: newValues,
+		})
+		if err != nil {
+			return err
+		} else if handled {
+			return nil
+		}
 	}
 
 	return tt.resolver.OnUpdateEvent(xld, msg, oldValues, newValues)
@@ -162,15 +174,17 @@ func (tt *transactionTracker) OnDeleteEvent(xld pglogrepl.XLogData,
 		}
 	}
 
-	handled, err := tt.currentTransaction.pushTransactionEntry(&transactionEntry{
-		xld:       xld,
-		msg:       msg,
-		oldValues: oldValues,
-	})
-	if err != nil {
-		return err
-	} else if handled {
-		return nil
+	if tt.currentTransaction != nil {
+		handled, err := tt.currentTransaction.pushTransactionEntry(&transactionEntry{
+			xld:       xld,
+			msg:       msg,
+			oldValues: oldValues,
+		})
+		if err != nil {
+			return err
+		} else if handled {
+			return nil
+		}
 	}
 
 	return tt.resolver.OnDeleteEvent(xld, msg, oldValues)
@@ -185,14 +199,16 @@ func (tt *transactionTracker) OnTruncateEvent(xld pglogrepl.XLogData, msg *pglog
 		return nil
 	}
 
-	handled, err := tt.currentTransaction.pushTransactionEntry(&transactionEntry{
-		xld: xld,
-		msg: msg,
-	})
-	if err != nil {
-		return err
-	} else if handled {
-		return nil
+	if tt.currentTransaction != nil {
+		handled, err := tt.currentTransaction.pushTransactionEntry(&transactionEntry{
+			xld: xld,
+			msg: msg,
+		})
+		if err != nil {
+			return err
+		} else if handled {
+			return nil
+		}
 	}
 
 	return tt.resolver.OnTruncateEvent(xld, msg)
@@ -216,14 +232,16 @@ func (tt *transactionTracker) OnMessageEvent(xld pglogrepl.XLogData, msg *decodi
 			return nil
 		}
 
-		handled, err := tt.currentTransaction.pushTransactionEntry(&transactionEntry{
-			xld: xld,
-			msg: msg,
-		})
-		if err != nil {
-			return err
-		} else if handled {
-			return nil
+		if tt.currentTransaction != nil {
+			handled, err := tt.currentTransaction.pushTransactionEntry(&transactionEntry{
+				xld: xld,
+				msg: msg,
+			})
+			if err != nil {
+				return err
+			} else if handled {
+				return nil
+			}
 		}
 	}
 
@@ -236,24 +254,24 @@ func (tt *transactionTracker) newTransaction(xid uint32, commitTime time.Time, f
 		xid:                xid,
 		commitTime:         commitTime,
 		finalLSN:           finalLSN,
-		queue:              newReplicationQueue[*transactionEntry](),
+		queue:              supporting.NewQueue[*transactionEntry](),
 		maxSize:            tt.maxSize,
 		deadline:           time.Now().Add(tt.timeout),
 	}
 }
 
 type transaction struct {
-	transactionTracker    *transactionTracker
-	maxSize               uint
-	deadline              time.Time
-	xid                   uint32
-	commitTime            time.Time
-	finalLSN              pglogrepl.LSN
-	queue                 *replicationQueue[*transactionEntry]
-	queueLength           uint
-	containsDecompression *transactionEntry
-	overflowed            bool
-	timedOut              bool
+	transactionTracker  *transactionTracker
+	maxSize             uint
+	deadline            time.Time
+	xid                 uint32
+	commitTime          time.Time
+	finalLSN            pglogrepl.LSN
+	queue               *supporting.Queue[*transactionEntry]
+	queueLength         uint
+	decompressionUpdate *transactionEntry
+	overflowed          bool
+	timedOut            bool
 }
 
 func (t *transaction) pushTransactionEntry(entry *transactionEntry) (bool, error) {
@@ -261,7 +279,7 @@ func (t *transaction) pushTransactionEntry(entry *transactionEntry) (bool, error
 		return false, nil
 	}
 
-	t.queue.push(entry)
+	t.queue.Push(entry)
 	t.queueLength++
 
 	if t.deadline.Before(time.Now()) {
@@ -281,7 +299,7 @@ func (t *transaction) pushTransactionEntry(entry *transactionEntry) (bool, error
 
 func (t *transaction) drain() error {
 	for {
-		entry := t.queue.pop()
+		entry := t.queue.Pop()
 		if entry == nil {
 			break
 		}

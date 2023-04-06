@@ -19,7 +19,7 @@ type logicalReplicationResolver struct {
 	dispatcher    *eventhandler.Dispatcher
 	systemCatalog *systemcatalog.SystemCatalog
 	relations     map[uint32]*pglogrepl.RelationMessage
-	eventQueues   map[string]*replicationQueue[func(snapshot pglogrepl.LSN) error]
+	eventQueues   map[string]*supporting.Queue[func(snapshot pglogrepl.LSN) error]
 
 	genDeleteTombstone    bool
 	genReadEvent          bool
@@ -39,7 +39,7 @@ func newLogicalReplicationResolver(config *sysconfig.SystemConfig, dispatcher *e
 		dispatcher:    dispatcher,
 		systemCatalog: systemCatalog,
 		relations:     make(map[uint32]*pglogrepl.RelationMessage, 0),
-		eventQueues:   make(map[string]*replicationQueue[func(snapshot pglogrepl.LSN) error], 0),
+		eventQueues:   make(map[string]*supporting.Queue[func(snapshot pglogrepl.LSN) error], 0),
 
 		genDeleteTombstone:    configuring.GetOrDefault(config.Config, "sink.tombstone", false),
 		genReadEvent:          configuring.GetOrDefault(config.Config, "timescaledb.events.read", true),
@@ -54,7 +54,7 @@ func newLogicalReplicationResolver(config *sysconfig.SystemConfig, dispatcher *e
 }
 
 func (l *logicalReplicationResolver) OnChunkSnapshotStartedEvent(_ *model.Hypertable, chunk *model.Chunk) error {
-	l.eventQueues[chunk.CanonicalName()] = newReplicationQueue[func(snapshot pglogrepl.LSN) error]()
+	l.eventQueues[chunk.CanonicalName()] = supporting.NewQueue[func(snapshot pglogrepl.LSN) error]()
 	logger.Printf("Snapshot of %s started", chunk.CanonicalName())
 	return nil
 }
@@ -64,11 +64,11 @@ func (l *logicalReplicationResolver) OnChunkSnapshotFinishedEvent(
 
 	queue := l.eventQueues[chunk.CanonicalName()]
 	for {
-		fn := queue.pop()
+		fn := queue.Pop()
 		// Initial queue empty, remove it now, to prevent additional messages being enqueued.
 		if fn == nil {
 			delete(l.eventQueues, chunk.CanonicalName())
-			queue.lock()
+			queue.Lock()
 			break
 		}
 
@@ -79,7 +79,7 @@ func (l *logicalReplicationResolver) OnChunkSnapshotFinishedEvent(
 
 	// Second round to make sure there wasn't any concurrent writes
 	for {
-		fn := queue.pop()
+		fn := queue.Pop()
 		if fn == nil {
 			break
 		}
@@ -437,7 +437,7 @@ func (l *logicalReplicationResolver) enqueueOrExecute(
 
 	if l.isSnapshotting(chunk) {
 		queue := l.eventQueues[chunk.CanonicalName()]
-		if ok := queue.push(func(snapshot pglogrepl.LSN) error {
+		if ok := queue.Push(func(snapshot pglogrepl.LSN) error {
 			if xld.ServerWALEnd < snapshot {
 				return nil
 			}

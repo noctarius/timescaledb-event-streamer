@@ -1,24 +1,24 @@
-package logicalreplicationresolver
+package supporting
 
 import (
 	"container/list"
 	"sync"
 )
 
-type replicationQueue[E any] struct {
+type Queue[E any] struct {
 	queue  *list.List
 	mutex  sync.Mutex
 	locked bool
 }
 
-func newReplicationQueue[E any]() *replicationQueue[E] {
-	return &replicationQueue[E]{
+func NewQueue[E any]() *Queue[E] {
+	return &Queue[E]{
 		queue: list.New(),
 		mutex: sync.Mutex{},
 	}
 }
 
-func (rq *replicationQueue[E]) push(fn E) bool {
+func (rq *Queue[E]) Push(fn E) bool {
 	rq.mutex.Lock()
 	defer rq.mutex.Unlock()
 
@@ -30,7 +30,7 @@ func (rq *replicationQueue[E]) push(fn E) bool {
 	return true
 }
 
-func (rq *replicationQueue[E]) pop() E {
+func (rq *Queue[E]) Pop() E {
 	rq.mutex.Lock()
 	defer rq.mutex.Unlock()
 
@@ -42,7 +42,7 @@ func (rq *replicationQueue[E]) pop() E {
 	return e.Value.(E)
 }
 
-func (rq *replicationQueue[E]) lock() {
+func (rq *Queue[E]) Lock() {
 	rq.mutex.Lock()
 	defer rq.mutex.Unlock()
 

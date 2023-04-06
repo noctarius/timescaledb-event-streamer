@@ -13,6 +13,25 @@ var validCharacters = []string{
 	"n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z",
 }
 
+func Contains[I comparable](collection []I, item I) bool {
+	for _, candidate := range collection {
+		if candidate == item {
+			return true
+		}
+	}
+	return false
+}
+
+func Filter[I comparable](collection []I, filter func(item I) bool) []I {
+	result := make([]I, 0)
+	for _, candidate := range collection {
+		if filter(candidate) {
+			result = append(result, candidate)
+		}
+	}
+	return result
+}
+
 func RandomTextString(length int) string {
 	builder := strings.Builder{}
 	for i := 0; i < length; i++ {
