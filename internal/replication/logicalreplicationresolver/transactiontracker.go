@@ -11,6 +11,11 @@ import (
 	"time"
 )
 
+const (
+	decompressionMarkerStartId = "::timescaledb-decompression-start"
+	decompressionMarkerEndId   = "::timescaledb-decompression-end"
+)
+
 type transactionTracker struct {
 	timeout            time.Duration
 	maxSize            uint
@@ -92,7 +97,9 @@ func (tt *transactionTracker) OnInsertEvent(xld pglogrepl.XLogData, msg *decodin
 		// If we already know that the transaction represents a decompression in TimescaleDB
 		// we can start to discard all newly incoming INSERTs immediately, since those are the
 		// re-inserted, uncompressed rows that were already replicated into events in the past.
-		if tt.currentTransaction.decompressionUpdate != nil {
+		if tt.currentTransaction.decompressionUpdate != nil ||
+			tt.currentTransaction.ongoingDecompression {
+
 			return nil
 		}
 
@@ -216,6 +223,15 @@ func (tt *transactionTracker) OnMessageEvent(xld pglogrepl.XLogData, msg *decodi
 	// If the message is transactional we need to store it into the currently collected
 	// transaction, otherwise we can run it straight away.
 	if msg.IsTransactional() {
+		if msg.Prefix == decompressionMarkerStartId {
+			tt.currentTransaction.ongoingDecompression = true
+			return nil
+		} else if msg.Prefix == decompressionMarkerEndId &&
+			(tt.currentTransaction != nil && tt.currentTransaction.ongoingDecompression) {
+			tt.currentTransaction.ongoingDecompression = false
+			return nil
+		}
+
 		// If we don't want to generate the message events later one, we'll discard it
 		// right here and now instead of collecting it for later.
 		if !tt.resolver.genMessageEvent {
@@ -251,17 +267,18 @@ func (tt *transactionTracker) newTransaction(xid uint32, commitTime time.Time, f
 }
 
 type transaction struct {
-	transactionTracker  *transactionTracker
-	maxSize             uint
-	deadline            time.Time
-	xid                 uint32
-	commitTime          time.Time
-	finalLSN            pglogrepl.LSN
-	queue               *supporting.Queue[*transactionEntry]
-	queueLength         uint
-	decompressionUpdate *transactionEntry
-	overflowed          bool
-	timedOut            bool
+	transactionTracker   *transactionTracker
+	maxSize              uint
+	deadline             time.Time
+	xid                  uint32
+	commitTime           time.Time
+	finalLSN             pglogrepl.LSN
+	queue                *supporting.Queue[*transactionEntry]
+	queueLength          uint
+	decompressionUpdate  *transactionEntry
+	overflowed           bool
+	timedOut             bool
+	ongoingDecompression bool
 }
 
 func (t *transaction) pushTransactionEntry(entry *transactionEntry) (bool, error) {
