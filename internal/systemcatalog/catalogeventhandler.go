@@ -22,8 +22,16 @@ type systemCatalogReplicationEventHandler struct {
 func (s *systemCatalogReplicationEventHandler) OnRelationEvent(
 	_ pglogrepl.XLogData, msg *decoding.RelationMessage) error {
 
-	if msg.Namespace != "_timescaledb_internal" && msg.Namespace != "_timescaledb_catalog" {
+	if msg.Namespace != "_timescaledb_catalog" {
 		hypertable := s.systemCatalog.FindHypertableByName(msg.Namespace, msg.RelationName)
+		if hypertable == nil {
+			return nil
+		}
+
+		if !hypertable.IsContinuousAggregate() && msg.Namespace != "_timescaledb_internal" {
+			return nil
+		}
+
 		columns := make([]model.Column, len(msg.Columns))
 		for i, c := range msg.Columns {
 			dataType, err := model.DataTypeByOID(c.DataType)

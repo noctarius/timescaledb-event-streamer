@@ -150,7 +150,7 @@ func (sc *sideChannel) ReadHypertableSchema(
 
 	return sc.newSession(func(session session) error {
 		for _, hypertable := range hypertables {
-			if hypertable.SchemaName() == "_timescaledb_internal" ||
+			if (!hypertable.IsContinuousAggregate() && hypertable.SchemaName() == "_timescaledb_internal") ||
 				hypertable.SchemaName() == "_timescaledb_catalog" {
 
 				continue
