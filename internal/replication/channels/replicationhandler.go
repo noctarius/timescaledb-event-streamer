@@ -124,6 +124,7 @@ func (rh *replicationHandler) handleXLogData(xld pglogrepl.XLogData) error {
 }
 
 func (rh *replicationHandler) handleReplicationEvents(xld pglogrepl.XLogData, msg pglogrepl.Message) error {
+	fmt.Printf("EVENT: %+v", msg)
 	switch logicalMsg := msg.(type) {
 	case *pglogrepl.RelationMessage:
 		rh.relations[logicalMsg.RelationID] = logicalMsg

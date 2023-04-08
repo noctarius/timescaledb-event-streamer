@@ -32,8 +32,10 @@ func NewReplicator(config *sysconfig.SystemConfig) Replicator {
 }
 
 func (r *replicatorImpl) StartReplication() error {
-	publicationName := configuring.GetOrDefault(r.config.Config, "postgresql.publication.name", "")
-	snapshotBatchSize := configuring.GetOrDefault(r.config.Config, "postgresql.snapshot.batchsize", 1000)
+	config := r.config.Config
+
+	publicationName := configuring.GetOrDefault(config, "postgresql.publication.name", "")
+	snapshotBatchSize := configuring.GetOrDefault(config, "postgresql.snapshot.batchsize", 1000)
 
 	// Create the side and replication channels
 	sideChannel := channels.NewSideChannel(r.config.PgxConfig, publicationName, snapshotBatchSize)

@@ -8,9 +8,12 @@ postgresql.password = '...'
 #postgresql.transaction.window.timeout = 60
 #postgresql.transaction.window.maxsize = 100000
 
+sink.type = 'nats'
 sink.tombstone = false
 
-sink.type = 'nats'
+#sink.filters.filterName.condition = '''value.op == "u" && value.before.id == 2'''
+#sink.filters.filterName.default = true
+
 sink.nats.address = 'nats://localhost:4222'
 sink.nats.authorization = "userinfo"
 sink.nats.userinfo.username = 'publisher'

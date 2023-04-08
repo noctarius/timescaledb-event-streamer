@@ -34,7 +34,7 @@ type SystemCatalog struct {
 	topicNameGenerator    *topic.NameGenerator
 	dispatcher            *eventhandler.Dispatcher
 	sideChannel           channels.SideChannel
-	replicationFilter     *filtering.ReplicationFilter
+	replicationFilter     *filtering.TableFilter
 	snapshotter           *snapshotting.Snapshotter
 }
 
@@ -43,7 +43,8 @@ func NewSystemCatalog(config *sysconfig.SystemConfig, topicNameGenerator *topic.
 	snapshotter *snapshotting.Snapshotter) (*SystemCatalog, error) {
 
 	// Create the Replication Filter, selecting enabled and blocking disabled hypertables for replication
-	replicationFilter, err := filtering.NewReplicationFilter(config)
+	filterDefinition := config.Config.TimescaleDB.Hypertables
+	replicationFilter, err := filtering.NewTableFilter(filterDefinition.Excludes, filterDefinition.Includes, false)
 	if err != nil {
 		return nil, err
 	}

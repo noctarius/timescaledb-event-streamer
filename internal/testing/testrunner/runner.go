@@ -189,7 +189,9 @@ func (tr *TestRunner) RunTest(testFn func(context Context) error, configurators 
 
 	replConfig := &configuring.Config{
 		PostgreSQL: configuring.PostgreSQLConfig{
-			Publication: supporting.RandomTextString(10),
+			Publication: configuring.PublicationConfig{
+				Name: supporting.RandomTextString(10),
+			},
 		},
 		TimescaleDB: configuring.TimescaleDBConfig{
 			Hypertables: configuring.HypertablesConfig{

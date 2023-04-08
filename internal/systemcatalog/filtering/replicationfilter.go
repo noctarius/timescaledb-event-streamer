@@ -3,46 +3,47 @@ package filtering
 import (
 	"fmt"
 	"github.com/go-errors/errors"
-	"github.com/noctarius/event-stream-prototype/internal/configuring/sysconfig"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/model"
 	"regexp"
 	"strings"
 	"unicode"
 )
 
-type ReplicationFilter struct {
-	includes    []*filter
-	excludes    []*filter
-	filterCache map[string]bool
+type TableFilter struct {
+	includes          []*filter
+	excludes          []*filter
+	filterCache       map[string]bool
+	acceptedByDefault bool
 }
 
-func NewReplicationFilter(config *sysconfig.SystemConfig) (*ReplicationFilter, error) {
-	excludes := make([]*filter, 0)
-	for _, exclude := range config.TimescaleDB.Hypertables.Excludes {
+func NewTableFilter(excludes, includes []string, acceptedByDefault bool) (*TableFilter, error) {
+	excludeFilters := make([]*filter, 0)
+	for _, exclude := range excludes {
 		f, err := parseFilter(exclude)
 		if err != nil {
 			return nil, err
 		}
-		excludes = append(excludes, f)
+		excludeFilters = append(excludeFilters, f)
 	}
 
-	includes := make([]*filter, 0)
-	for _, include := range config.TimescaleDB.Hypertables.Includes {
+	includeFilters := make([]*filter, 0)
+	for _, include := range includes {
 		f, err := parseFilter(include)
 		if err != nil {
 			return nil, err
 		}
-		includes = append(includes, f)
+		includeFilters = append(includeFilters, f)
 	}
 
-	return &ReplicationFilter{
-		includes:    includes,
-		excludes:    excludes,
-		filterCache: make(map[string]bool, 0),
+	return &TableFilter{
+		includes:          includeFilters,
+		excludes:          excludeFilters,
+		filterCache:       make(map[string]bool, 0),
+		acceptedByDefault: acceptedByDefault,
 	}, nil
 }
 
-func (rf *ReplicationFilter) Enabled(hypertable *model.Hypertable) bool {
+func (rf *TableFilter) Enabled(hypertable *model.Hypertable) bool {
 	// already tested?
 	canonicalName := hypertable.CanonicalName()
 	// _timescaledb_internal._compressed_hypertable_246
@@ -66,9 +67,9 @@ func (rf *ReplicationFilter) Enabled(hypertable *model.Hypertable) bool {
 		}
 	}
 
-	// otherwise false
-	rf.filterCache[canonicalName] = false
-	return false
+	// otherwise use acceptedByDefault
+	rf.filterCache[canonicalName] = rf.acceptedByDefault
+	return rf.acceptedByDefault
 }
 
 type filter struct {

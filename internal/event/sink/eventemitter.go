@@ -3,6 +3,7 @@ package sink
 import (
 	"encoding/base64"
 	"github.com/jackc/pglogrepl"
+	"github.com/noctarius/event-stream-prototype/internal/event/filtering"
 	"github.com/noctarius/event-stream-prototype/internal/event/topic"
 	"github.com/noctarius/event-stream-prototype/internal/eventhandler"
 	"github.com/noctarius/event-stream-prototype/internal/pg/decoding"
@@ -16,16 +17,18 @@ type EventEmitter struct {
 	schemaRegistry     *schema.Registry
 	topicNameGenerator *topic.NameGenerator
 	transactionMonitor *transactional.TransactionMonitor
+	filter             filtering.Filter
 	sink               Sink
 }
 
 func NewEventEmitter(schemaRegistry *schema.Registry, topicNameGenerator *topic.NameGenerator,
-	transactionMonitor *transactional.TransactionMonitor, sink Sink) *EventEmitter {
+	transactionMonitor *transactional.TransactionMonitor, sink Sink, filter filtering.Filter) *EventEmitter {
 
 	return &EventEmitter{
 		schemaRegistry:     schemaRegistry,
 		topicNameGenerator: topicNameGenerator,
 		transactionMonitor: transactionMonitor,
+		filter:             filter,
 		sink:               sink,
 	}
 }
@@ -230,7 +233,19 @@ func (e *eventEmitterEventHandler) emit0(lsn pglogrepl.LSN, timestamp time.Time,
 	event := eventProvider(schema.Source(lsn, timestamp, snapshot, hypertable.DatabaseName(),
 		hypertable.SchemaName(), hypertable.HypertableName(), &transactionId))
 
-	return e.eventEmitter.emit(eventTopicName, timestamp, key, schema.Envelope(envelopeSchema, event))
+	value := schema.Envelope(envelopeSchema, event)
+
+	success, err := e.eventEmitter.filter.Evaluate(hypertable, key, value)
+	if err != nil {
+		return err
+	}
+
+	// If unsuccessful we'll discard the event and not send it to the sink
+	if !success {
+		return nil
+	}
+
+	return e.eventEmitter.emit(eventTopicName, timestamp, key, value)
 }
 
 func (e *eventEmitterEventHandler) emitMessageEvent(xld pglogrepl.XLogData,

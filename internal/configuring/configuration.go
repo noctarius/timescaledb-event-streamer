@@ -55,11 +55,18 @@ type TransactionWindowConfig struct {
 }
 
 type SinkConfig struct {
-	Type      SinkType    `toml:"type"`
-	Tombstone bool        `toml:"tombstone"`
-	Nats      NatsConfig  `toml:"nats"`
-	Kafka     KafkaConfig `toml:"kafka"`
-	Redis     RedisConfig `toml:"redis"`
+	Type      SinkType                     `toml:"type"`
+	Tombstone bool                         `toml:"tombstone"`
+	Filters   map[string]EventFilterConfig `toml:"filters"`
+	Nats      NatsConfig                   `toml:"nats"`
+	Kafka     KafkaConfig                  `toml:"kafka"`
+	Redis     RedisConfig                  `toml:"redis"`
+}
+
+type EventFilterConfig struct {
+	Hypertables  *HypertablesConfig `toml:"hypertables"`
+	DefaultValue *bool              `toml:"default"`
+	Condition    string             `toml:"condition"`
 }
 
 type TopicConfig struct {

@@ -17,7 +17,7 @@ func Test_Default_Excluded(t *testing.T) {
 		},
 	}
 
-	replicationFilter, err := NewReplicationFilter(config)
+	replicationFilter, err := NewTableFilter(config)
 	if err != nil {
 		t.Fatalf("error parsing: %+v", err)
 	}
@@ -37,7 +37,7 @@ func Test_Parse_Error_Too_Many_Tokens(t *testing.T) {
 		},
 	}
 
-	_, err := NewReplicationFilter(config)
+	_, err := NewTableFilter(config)
 	if err == nil {
 		t.FailNow()
 	}
@@ -55,7 +55,7 @@ func Test_Parse_Error_Includes_Compile_Schema(t *testing.T) {
 		},
 	}
 
-	_, err := NewReplicationFilter(config)
+	_, err := NewTableFilter(config)
 	if err == nil {
 		t.FailNow()
 	}
@@ -73,7 +73,7 @@ func Test_Parse_Error_Includes_Compile_Table(t *testing.T) {
 		},
 	}
 
-	_, err := NewReplicationFilter(config)
+	_, err := NewTableFilter(config)
 	if err == nil {
 		t.FailNow()
 	}
@@ -91,7 +91,7 @@ func Test_Parse_Error_Excludes_Compile_Schema(t *testing.T) {
 		},
 	}
 
-	_, err := NewReplicationFilter(config)
+	_, err := NewTableFilter(config)
 	if err == nil {
 		t.FailNow()
 	}
@@ -109,7 +109,7 @@ func Test_Parse_Error_Excludes_Compile_Table(t *testing.T) {
 		},
 	}
 
-	_, err := NewReplicationFilter(config)
+	_, err := NewTableFilter(config)
 	if err == nil {
 		t.FailNow()
 	}
@@ -127,7 +127,7 @@ func Test_Parse_Error_Pattern_Too_Long(t *testing.T) {
 		},
 	}
 
-	_, err := NewReplicationFilter(config)
+	_, err := NewTableFilter(config)
 	if err == nil {
 		t.FailNow()
 	}
@@ -145,7 +145,7 @@ func Test_Parse_Error_Illegal_First_Character(t *testing.T) {
 		},
 	}
 
-	_, err := NewReplicationFilter(config)
+	_, err := NewTableFilter(config)
 	if err == nil {
 		t.FailNow()
 	}
@@ -163,7 +163,7 @@ func Test_Parse_Error_Escape_Char(t *testing.T) {
 		},
 	}
 
-	_, err := NewReplicationFilter(config)
+	_, err := NewTableFilter(config)
 	if err == nil {
 		t.FailNow()
 	}
@@ -181,7 +181,7 @@ func Test_Parse_Error_Reserved_Keyword(t *testing.T) {
 		},
 	}
 
-	_, err := NewReplicationFilter(config)
+	_, err := NewTableFilter(config)
 	if err == nil {
 		t.FailNow()
 	}
@@ -199,7 +199,7 @@ func Test_Quoted_Valid_Escape_Sequence_Asterisk(t *testing.T) {
 		},
 	}
 
-	replicationFilter, err := NewReplicationFilter(config)
+	replicationFilter, err := NewTableFilter(config)
 	if err != nil {
 		t.Fatalf("error parsing: %+v", err)
 	}
@@ -219,7 +219,7 @@ func Test_Quoted_Valid_Escape_Sequence_QuestionMark(t *testing.T) {
 		},
 	}
 
-	replicationFilter, err := NewReplicationFilter(config)
+	replicationFilter, err := NewTableFilter(config)
 	if err != nil {
 		t.Fatalf("error parsing: %+v", err)
 	}
@@ -239,7 +239,7 @@ func Test_Quoted_Valid_Escape_Sequence_Plus(t *testing.T) {
 		},
 	}
 
-	replicationFilter, err := NewReplicationFilter(config)
+	replicationFilter, err := NewTableFilter(config)
 	if err != nil {
 		t.Fatalf("error parsing: %+v", err)
 	}
@@ -259,7 +259,7 @@ func Test_Simple_Include(t *testing.T) {
 		},
 	}
 
-	replicationFilter, err := NewReplicationFilter(config)
+	replicationFilter, err := NewTableFilter(config)
 	if err != nil {
 		t.Fatalf("error parsing: %+v", err)
 	}
@@ -283,7 +283,7 @@ func Test_Exclude_Has_Precedence(t *testing.T) {
 		},
 	}
 
-	replicationFilter, err := NewReplicationFilter(config)
+	replicationFilter, err := NewTableFilter(config)
 	if err != nil {
 		t.Fatalf("error parsing: %+v", err)
 	}
@@ -304,7 +304,7 @@ func Test_Exclude_Has_Precedence_With_Wildcard(t *testing.T) {
 		},
 	}
 
-	replicationFilter, err := NewReplicationFilter(config)
+	replicationFilter, err := NewTableFilter(config)
 	if err != nil {
 		t.Fatalf("error parsing: %+v", err)
 	}
@@ -324,7 +324,7 @@ func Test_Include_Table_With_Wildcard_Asterisk(t *testing.T) {
 		},
 	}
 
-	replicationFilter, err := NewReplicationFilter(config)
+	replicationFilter, err := NewTableFilter(config)
 	if err != nil {
 		t.Fatalf("error parsing: %+v", err)
 	}
@@ -350,7 +350,7 @@ func Test_Include_Schema_With_Wildcard_Asterisk(t *testing.T) {
 		},
 	}
 
-	replicationFilter, err := NewReplicationFilter(config)
+	replicationFilter, err := NewTableFilter(config)
 	if err != nil {
 		t.Fatalf("error parsing: %+v", err)
 	}
@@ -376,7 +376,7 @@ func Test_Include_Table_With_Wildcard_QuestionMark(t *testing.T) {
 		},
 	}
 
-	replicationFilter, err := NewReplicationFilter(config)
+	replicationFilter, err := NewTableFilter(config)
 	if err != nil {
 		t.Fatalf("error parsing: %+v", err)
 	}
@@ -405,7 +405,7 @@ func Test_Include_Schema_With_Wildcard_QuestionMark(t *testing.T) {
 		},
 	}
 
-	replicationFilter, err := NewReplicationFilter(config)
+	replicationFilter, err := NewTableFilter(config)
 	if err != nil {
 		t.Fatalf("error parsing: %+v", err)
 	}
@@ -434,7 +434,7 @@ func Test_Include_Table_With_Wildcard_Plus(t *testing.T) {
 		},
 	}
 
-	replicationFilter, err := NewReplicationFilter(config)
+	replicationFilter, err := NewTableFilter(config)
 	if err != nil {
 		t.Fatalf("error parsing: %+v", err)
 	}
@@ -463,7 +463,7 @@ func Test_Include_Schema_With_Wildcard_Plus(t *testing.T) {
 		},
 	}
 
-	replicationFilter, err := NewReplicationFilter(config)
+	replicationFilter, err := NewTableFilter(config)
 	if err != nil {
 		t.Fatalf("error parsing: %+v", err)
 	}
@@ -492,7 +492,7 @@ func Test_Include_Both_With_Wildcard(t *testing.T) {
 		},
 	}
 
-	replicationFilter, err := NewReplicationFilter(config)
+	replicationFilter, err := NewTableFilter(config)
 	if err != nil {
 		t.Fatalf("error parsing: %+v", err)
 	}

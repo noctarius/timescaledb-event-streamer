@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/jackc/pgx/v5"
 	"github.com/noctarius/event-stream-prototype/internal/configuring"
+	"github.com/noctarius/event-stream-prototype/internal/event/filtering"
 	"github.com/noctarius/event-stream-prototype/internal/event/sink"
 	"github.com/noctarius/event-stream-prototype/internal/event/sink/kafka"
 	"github.com/noctarius/event-stream-prototype/internal/event/sink/nats"
@@ -43,7 +44,12 @@ func (sc *SystemConfig) defaultEventEmitter(schemaRegistry *schema.Registry, top
 		return nil, err
 	}
 
-	return sink.NewEventEmitter(schemaRegistry, topicNameGenerator, transactionMonitor, s), nil
+	filters, err := filtering.NewSinkEventFilter(sc.Config)
+	if err != nil {
+		return nil, err
+	}
+
+	return sink.NewEventEmitter(schemaRegistry, topicNameGenerator, transactionMonitor, s, filters), nil
 }
 
 func (sc *SystemConfig) defaultSink() (sink.Sink, error) {
