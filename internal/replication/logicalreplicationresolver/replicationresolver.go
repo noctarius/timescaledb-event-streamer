@@ -393,6 +393,11 @@ func (l *logicalReplicationResolver) onChunkCompressionEvent(xld pglogrepl.XLogD
 func (l *logicalReplicationResolver) onChunkDecompressionEvent(xld pglogrepl.XLogData, chunk *model.Chunk) error {
 	hypertableId := chunk.HypertableId()
 	uncompressedHypertable := l.systemCatalog.ResolveUncompressedHypertable(hypertableId)
+	if uncompressedHypertable == nil {
+		// Hypertable unknown, ignore
+		return nil
+	}
+
 	logger.Printf(
 		"DECOMPRESSION EVENT %s.%s FOR CHUNK %s.%s", uncompressedHypertable.SchemaName(),
 		uncompressedHypertable.HypertableName(), chunk.SchemaName(), chunk.TableName(),
