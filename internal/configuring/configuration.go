@@ -35,8 +35,13 @@ const (
 type PostgreSQLConfig struct {
 	Connection  string            `toml:"connection"`
 	Password    string            `toml:"password"`
-	Publication string            `toml:"publication"`
+	Publication PublicationConfig `toml:"publication"`
 	Transaction TransactionConfig `toml:"transaction"`
+}
+
+type PublicationConfig struct {
+	Name   string `toml:"name"`
+	Create *bool  `toml:"create"`
 }
 
 type TransactionConfig struct {
