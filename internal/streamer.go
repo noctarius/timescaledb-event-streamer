@@ -31,9 +31,9 @@ func NewStreamer(config *sysconfig.SystemConfig) (*Streamer, error, int) {
 		config.PgxConfig = connConfig
 	}
 
-	pgPublication := configuring.GetOrDefault(config.Config, "postgresql.publication", "")
+	pgPublication := configuring.GetOrDefault(config.Config, "postgresql.publication.name", "")
 	if pgPublication == "" {
-		config.PostgreSQL.Publication = publicationName
+		config.PostgreSQL.Publication.Name = publicationName
 	}
 
 	if config.Topic.Prefix == "" {

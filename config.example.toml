@@ -1,6 +1,7 @@
 postgresql.connection = 'postgres://repl_user@localhost:5432/postgres'
 postgresql.password = '...'
-#postgresql.publication = 'replication_name'
+#postgresql.publication.name = 'replication_name'
+#postgresql.publication.create = false
 #postgresql.snapshot.batchsize = 1000
 #postgresql.snapshot.initial = 'always'
 #postgresql.transaction.window.enabled = true
