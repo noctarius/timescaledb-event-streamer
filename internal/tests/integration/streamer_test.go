@@ -735,8 +735,14 @@ func (its *IntegrationTestSuite) TestDecompressionEvents() {
 			if sink.NumOfEvents()%10 == 0 {
 				waiter.Signal()
 			}
-			if sink.NumOfEvents() == 12 {
-				waiter.Signal()
+
+			for _, event := range sink.Events() {
+				if event.Envelope.Payload.Op == schema.OP_TIMESCALE &&
+					(event.Envelope.Payload.TsdbOp == schema.OP_DECOMPRESSION ||
+						event.Envelope.Payload.TsdbOp == schema.OP_COMPRESSION) {
+
+					waiter.Signal()
+				}
 			}
 		}),
 	)
@@ -773,6 +779,12 @@ func (its *IntegrationTestSuite) TestDecompressionEvents() {
 			); err != nil {
 				return err
 			}
+
+			if err := waiter.Await(); err != nil {
+				return err
+			}
+			waiter.Reset()
+
 			if _, err := context.Exec(stdctx.Background(),
 				fmt.Sprintf(
 					"SELECT decompress_chunk((t.chunk_schema || '.' || t.chunk_name)::regclass, true) FROM (SELECT * FROM timescaledb_information.chunks WHERE hypertable_name = '%s' AND is_compressed) t",

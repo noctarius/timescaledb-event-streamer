@@ -127,7 +127,7 @@ func (tt *transactionTracker) OnUpdateEvent(xld pglogrepl.XLogData, msg *decodin
 		if model.IsChunkEvent(relation) {
 			chunkId := msg.NewValues["id"].(int32)
 			if chunk, present := tt.systemCatalog.FindChunkById(chunkId); present {
-				logger.Printf("Chunk status=%d, new value=%d", chunk.Status(), msg.NewValues["status"].(int32))
+				logger.Printf("Chunk %d: status=%d, new value=%d", chunkId, chunk.Status(), msg.NewValues["status"].(int32))
 				if chunk.Status() != 0 && (msg.NewValues["status"].(int32)) == 0 {
 					tt.currentTransaction.decompressionUpdate = updateEntry
 				}
