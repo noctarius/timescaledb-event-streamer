@@ -19,7 +19,7 @@ lint:
 
 .PHONY: test
 test:
-	go test -v -race $(shell go list ./... |grep -v '_test.go') -timeout 40m
+	go test -v -race $(shell go list ./... | grep -v '_test.go') -timeout 40m
 
 .PHONY: all
 all: build test fmt lint
