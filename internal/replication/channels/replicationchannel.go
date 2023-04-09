@@ -41,9 +41,9 @@ func NewReplicationChannel(connConfig *pgx.ConnConfig, publicationName string) R
 	}
 }
 
-func (rc *replicationChannel) StopReplicationChannel() {
+func (rc *replicationChannel) StopReplicationChannel() error {
 	rc.shutdownAwaiter.SignalShutdown()
-	rc.shutdownAwaiter.AwaitDone()
+	return rc.shutdownAwaiter.AwaitDone()
 }
 
 func (rc *replicationChannel) StartReplicationChannel(
@@ -105,8 +105,12 @@ func (rc *replicationChannel) StartReplicationChannel(
 	}()
 
 	go func() {
-		rc.shutdownAwaiter.AwaitShutdown()
-		replicationHandler.stopReplicationHandler()
+		if err := rc.shutdownAwaiter.AwaitShutdown(); err != nil {
+			logger.Errorf("shutdown failed: %+v", err)
+		}
+		if err := replicationHandler.stopReplicationHandler(); err != nil {
+			logger.Errorf("shutdown failed: %+v", err)
+		}
 		if _, err := pglogrepl.SendStandbyCopyDone(context.Background(), connection); err != nil {
 			logger.Errorf("shutdown failed: %+v", err)
 		}

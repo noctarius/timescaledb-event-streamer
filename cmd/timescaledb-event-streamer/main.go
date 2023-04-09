@@ -78,5 +78,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	done.Await()
+	if err := done.Await(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(10)
+	}
 }

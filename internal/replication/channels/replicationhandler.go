@@ -33,10 +33,10 @@ func newReplicationHandler(dispatcher *eventhandler.Dispatcher) *replicationHand
 	}
 }
 
-func (rh *replicationHandler) stopReplicationHandler() {
+func (rh *replicationHandler) stopReplicationHandler() error {
 	logger.Println("Starting to shutdown")
 	rh.shutdownAwaiter.SignalShutdown()
-	rh.shutdownAwaiter.AwaitDone()
+	return rh.shutdownAwaiter.AwaitDone()
 }
 
 func (rh *replicationHandler) startReplicationHandler(connection *pgconn.PgConn,

@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/jackc/pglogrepl"
-	"time"
 )
 
 const (
@@ -28,7 +27,9 @@ func ParseXlogData(data []byte, lastTransactionId *uint32) (pglogrepl.Message, e
 		// See if we have a transactional logical replication message, if so set the transaction id
 		if msgType == MessageTypeLogicalDecodingMessage {
 			if logRepMsg := decoder.(*LogicalReplicationMessage); logRepMsg.IsTransactional() {
-				logRepMsg.Xid = &(*lastTransactionId)
+				logRepMsg.Xid = func(xid uint32) *uint32 {
+					return &xid
+				}(*lastTransactionId)
 			}
 		}
 
@@ -94,20 +95,8 @@ func (m *baseMessage) Decode(_ []byte) error {
 	return fmt.Errorf("message decode not implemented")
 }
 
-func (m *baseMessage) lengthError(name string, expectedLen, actualLen int) error {
-	return fmt.Errorf("%s must have %d bytes, got %d bytes", name, expectedLen, actualLen)
-}
-
 func (m *baseMessage) decodeStringError(name, field string) error {
 	return fmt.Errorf("%s.%s decode string error", name, field)
-}
-
-func (m *baseMessage) decodeTupleDataError(name, field string, e error) error {
-	return fmt.Errorf("%s.%s decode tuple error: %s", name, field, e.Error())
-}
-
-func (m *baseMessage) invalidTupleTypeError(name, field string, e string, a byte) error {
-	return fmt.Errorf("%s.%s invalid tuple type value, expect %s, actual %c", name, field, e, a)
 }
 
 func (m *baseMessage) decodeString(src []byte) (string, int) {
@@ -122,28 +111,4 @@ func (m *baseMessage) decodeString(src []byte) (string, int) {
 
 func (m *baseMessage) decodeLSN(src []byte) (pglogrepl.LSN, int) {
 	return pglogrepl.LSN(binary.BigEndian.Uint64(src)), 8
-}
-
-func (m *baseMessage) decodeTime(src []byte) (time.Time, int) {
-	return pgTimeToTime(int64(binary.BigEndian.Uint64(src))), 8
-}
-
-func (m *baseMessage) decodeUint16(src []byte) (uint16, int) {
-	return binary.BigEndian.Uint16(src), 2
-}
-
-func (m *baseMessage) decodeUint32(src []byte) (uint32, int) {
-	return binary.BigEndian.Uint32(src), 4
-}
-
-func (m *baseMessage) decodeInt32(src []byte) (int32, int) {
-	asUint32, size := m.decodeUint32(src)
-	return int32(asUint32), size
-}
-
-const microsecFromUnixEpochToY2K = 946684800 * 1000000
-
-func pgTimeToTime(microsecSinceY2K int64) time.Time {
-	microsecSinceUnixEpoch := microsecFromUnixEpochToY2K + microsecSinceY2K
-	return time.Unix(0, microsecSinceUnixEpoch*1000)
 }

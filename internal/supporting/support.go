@@ -128,8 +128,8 @@ func (sa *ShutdownAwaiter) SignalShutdown() {
 	sa.start.Signal()
 }
 
-func (sa *ShutdownAwaiter) AwaitShutdown() {
-	sa.start.Await()
+func (sa *ShutdownAwaiter) AwaitShutdown() error {
+	return sa.start.Await()
 }
 
 func (sa *ShutdownAwaiter) AwaitShutdownChan() <-chan bool {
@@ -140,8 +140,8 @@ func (sa *ShutdownAwaiter) SignalDone() {
 	sa.done.Signal()
 }
 
-func (sa *ShutdownAwaiter) AwaitDone() {
-	sa.done.Await()
+func (sa *ShutdownAwaiter) AwaitDone() error {
+	return sa.done.Await()
 }
 
 type MultiShutdownAwaiter struct {
@@ -170,8 +170,8 @@ func (msa *MultiShutdownAwaiter) SignalShutdown() {
 	}
 }
 
-func (msa *MultiShutdownAwaiter) AwaitShutdown(slot uint) {
-	msa.starters[slot].Await()
+func (msa *MultiShutdownAwaiter) AwaitShutdown(slot uint) error {
+	return msa.starters[slot].Await()
 }
 
 func (msa *MultiShutdownAwaiter) AwaitShutdownChan(slot uint) <-chan bool {

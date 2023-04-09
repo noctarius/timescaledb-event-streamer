@@ -1,6 +1,7 @@
 package replication
 
 import (
+	stderrors "errors"
 	"github.com/go-errors/errors"
 	"github.com/noctarius/event-stream-prototype/internal/configuring"
 	"github.com/noctarius/event-stream-prototype/internal/configuring/sysconfig"
@@ -22,7 +23,7 @@ type Replicator interface {
 
 type replicatorImpl struct {
 	config       *sysconfig.SystemConfig
-	shutdownTask func()
+	shutdownTask func() error
 }
 
 func NewReplicator(config *sysconfig.SystemConfig) Replicator {
@@ -104,10 +105,11 @@ func (r *replicatorImpl) StartReplication() error {
 		return errors.Wrap(err, 0)
 	}
 
-	r.shutdownTask = func() {
+	r.shutdownTask = func() error {
 		snapshotter.StopSnapshotter()
-		replicationChannel.StopReplicationChannel()
-		dispatcher.StopDispatcher()
+		err1 := replicationChannel.StopReplicationChannel()
+		err2 := dispatcher.StopDispatcher()
+		return stderrors.Join(err1, err2)
 	}
 
 	return nil
@@ -115,7 +117,7 @@ func (r *replicatorImpl) StartReplication() error {
 
 func (r *replicatorImpl) StopReplication() error {
 	if r.shutdownTask != nil {
-		r.shutdownTask()
+		return r.shutdownTask()
 	}
 	return nil
 }

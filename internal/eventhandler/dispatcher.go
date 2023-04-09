@@ -181,10 +181,10 @@ func (d *Dispatcher) StartDispatcher() {
 	}()
 }
 
-func (d *Dispatcher) StopDispatcher() {
+func (d *Dispatcher) StopDispatcher() error {
 	d.shutdownActive = true
 	d.shutdownAwaiter.SignalShutdown()
-	d.shutdownAwaiter.AwaitDone()
+	return d.shutdownAwaiter.AwaitDone()
 }
 
 func (d *Dispatcher) EnqueueTask(task Task) error {
@@ -204,8 +204,7 @@ func (d *Dispatcher) EnqueueTaskAndWait(task Task) error {
 		task(notificator)
 		done.Signal()
 	})
-	done.Await()
-	return nil
+	return done.Await()
 }
 
 type notificatorImpl struct {

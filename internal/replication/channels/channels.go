@@ -32,5 +32,5 @@ type SideChannel interface {
 type ReplicationChannel interface {
 	StartReplicationChannel(dispatcher *eventhandler.Dispatcher, initialChunkTables []string) error
 
-	StopReplicationChannel()
+	StopReplicationChannel() error
 }
