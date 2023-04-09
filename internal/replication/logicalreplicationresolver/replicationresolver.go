@@ -125,13 +125,11 @@ func (l *logicalReplicationResolver) OnInsertEvent(xld pglogrepl.XLogData, msg *
 		return l.onChunkInsertEvent(msg)
 	}
 
-	chunk, hypertable := l.resolveChunkAndHypertable(rel.Namespace, rel.RelationName)
-	if hypertable != nil {
+	if !l.genInsertEvent {
+		return nil
+	}
 
-		if !l.genInsertEvent {
-			return nil
-		}
-
+	if chunk, hypertable, present := l.resolveChunkAndHypertable(rel.Namespace, rel.RelationName); present {
 		return l.enqueueOrExecute(chunk, xld, func() error {
 			return l.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
 				notificator.NotifyHypertableReplicationEventHandler(
@@ -157,11 +155,12 @@ func (l *logicalReplicationResolver) OnUpdateEvent(xld pglogrepl.XLogData, msg *
 
 	if model.IsChunkEvent(rel) {
 		chunkId := msg.NewValues["id"].(int32)
-		if chunk := l.systemCatalog.FindChunkById(chunkId); chunk != nil {
-			hypertable := l.systemCatalog.FindHypertableById(chunk.HypertableId())
-			if chunk.Status() == 0 && (msg.NewValues["status"].(int32)) == 1 {
-				if err := l.onChunkCompressionEvent(xld, hypertable, rel, chunk); err != nil {
-					return err
+		if chunk, present := l.systemCatalog.FindChunkById(chunkId); present {
+			if hypertable, present := l.systemCatalog.FindHypertableById(chunk.HypertableId()); present {
+				if chunk.Status() == 0 && (msg.NewValues["status"].(int32)) == 1 {
+					if err := l.onChunkCompressionEvent(xld, hypertable, rel, chunk); err != nil {
+						return err
+					}
 				}
 			}
 		}
@@ -169,12 +168,11 @@ func (l *logicalReplicationResolver) OnUpdateEvent(xld pglogrepl.XLogData, msg *
 		return l.onChunkUpdateEvent(msg)
 	}
 
-	chunk, hypertable := l.resolveChunkAndHypertable(rel.Namespace, rel.RelationName)
 	if !l.genUpdateEvent {
 		return nil
 	}
 
-	if hypertable != nil {
+	if chunk, hypertable, present := l.resolveChunkAndHypertable(rel.Namespace, rel.RelationName); present {
 		return l.enqueueOrExecute(chunk, xld, func() error {
 			return l.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
 				notificator.NotifyHypertableReplicationEventHandler(
@@ -207,8 +205,7 @@ func (l *logicalReplicationResolver) OnDeleteEvent(xld pglogrepl.XLogData, msg *
 		return nil
 	}
 
-	chunk, hypertable := l.resolveChunkAndHypertable(rel.Namespace, rel.RelationName)
-	if hypertable != nil {
+	if chunk, hypertable, present := l.resolveChunkAndHypertable(rel.Namespace, rel.RelationName); present {
 		if err := l.enqueueOrExecute(chunk, xld, func() error {
 			return l.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
 				notificator.NotifyHypertableReplicationEventHandler(
@@ -254,8 +251,9 @@ func (l *logicalReplicationResolver) OnTruncateEvent(xld pglogrepl.XLogData, msg
 			continue
 		}
 
-		_, hypertable := l.resolveChunkAndHypertable(rel.Namespace, rel.RelationName)
-		truncatedHypertables = append(truncatedHypertables, hypertable)
+		if _, hypertable, present := l.resolveChunkAndHypertable(rel.Namespace, rel.RelationName); present {
+			truncatedHypertables = append(truncatedHypertables, hypertable)
+		}
 	}
 
 	truncatedHypertables = supporting.DistinctItems(truncatedHypertables, func(item *model.Hypertable) string {
@@ -351,7 +349,7 @@ func (l *logicalReplicationResolver) onHypertableDeleteEvent(msg *decoding.Delet
 
 func (l *logicalReplicationResolver) onChunkDeleteEvent(xld pglogrepl.XLogData, msg *decoding.DeleteMessage) error {
 	if id, ok := msg.OldValues["id"].(int32); ok {
-		if chunk := l.systemCatalog.FindChunkById(id); chunk != nil {
+		if chunk, present := l.systemCatalog.FindChunkById(id); present {
 			if chunk.IsCompressed() {
 				if err := l.onChunkDecompressionEvent(xld, chunk); err != nil {
 					return err
@@ -392,29 +390,25 @@ func (l *logicalReplicationResolver) onChunkCompressionEvent(xld pglogrepl.XLogD
 
 func (l *logicalReplicationResolver) onChunkDecompressionEvent(xld pglogrepl.XLogData, chunk *model.Chunk) error {
 	hypertableId := chunk.HypertableId()
-	uncompressedHypertable := l.systemCatalog.ResolveUncompressedHypertable(hypertableId)
-	if uncompressedHypertable == nil {
-		// Hypertable unknown, ignore
-		return nil
-	}
-
-	logger.Printf(
-		"DECOMPRESSION EVENT %s.%s FOR CHUNK %s.%s", uncompressedHypertable.SchemaName(),
-		uncompressedHypertable.HypertableName(), chunk.SchemaName(), chunk.TableName(),
-	)
-
-	if !l.genDecompressionEvent {
-		return nil
-	}
-
-	if err := l.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
-		notificator.NotifyCompressionReplicationEventHandler(
-			func(handler eventhandler.CompressionReplicationEventHandler) error {
-				return handler.OnChunkDecompressedEvent(xld, uncompressedHypertable, chunk)
-			},
+	if uncompressedHypertable, _, present := l.systemCatalog.ResolveUncompressedHypertable(hypertableId); present {
+		logger.Printf(
+			"DECOMPRESSION EVENT %s.%s FOR CHUNK %s.%s", uncompressedHypertable.SchemaName(),
+			uncompressedHypertable.HypertableName(), chunk.SchemaName(), chunk.TableName(),
 		)
-	}); err != nil {
-		return err
+
+		if !l.genDecompressionEvent {
+			return nil
+		}
+
+		if err := l.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
+			notificator.NotifyCompressionReplicationEventHandler(
+				func(handler eventhandler.CompressionReplicationEventHandler) error {
+					return handler.OnChunkDecompressedEvent(xld, uncompressedHypertable, chunk)
+				},
+			)
+		}); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -443,13 +437,12 @@ func (l *logicalReplicationResolver) isSnapshotting(chunk *model.Chunk) bool {
 }
 
 func (l *logicalReplicationResolver) resolveChunkAndHypertable(
-	schemaName, tableName string) (*model.Chunk, *model.Hypertable) {
+	schemaName, tableName string) (chunk *model.Chunk, hypertable *model.Hypertable, present bool) {
 
-	chunk := l.systemCatalog.FindChunkByName(schemaName, tableName)
-	if chunk == nil {
-		return nil, nil
+	if chunk, present := l.systemCatalog.FindChunkByName(schemaName, tableName); present {
+		if hypertable, present := l.systemCatalog.FindHypertableById(chunk.HypertableId()); present {
+			return chunk, hypertable, true
+		}
 	}
-
-	hypertable := l.systemCatalog.FindHypertableById(chunk.HypertableId())
-	return chunk, hypertable
+	return nil, nil, false
 }

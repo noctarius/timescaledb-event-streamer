@@ -23,25 +23,22 @@ func (s *systemCatalogReplicationEventHandler) OnRelationEvent(
 	_ pglogrepl.XLogData, msg *decoding.RelationMessage) error {
 
 	if msg.Namespace != "_timescaledb_catalog" {
-		hypertable := s.systemCatalog.FindHypertableByName(msg.Namespace, msg.RelationName)
-		if hypertable == nil {
-			return nil
-		}
-
-		if !hypertable.IsContinuousAggregate() && msg.Namespace != "_timescaledb_internal" {
-			return nil
-		}
-
-		columns := make([]model.Column, len(msg.Columns))
-		for i, c := range msg.Columns {
-			dataType, err := model.DataTypeByOID(c.DataType)
-			if err != nil {
-				return err
+		if hypertable, present := s.systemCatalog.FindHypertableByName(msg.Namespace, msg.RelationName); present {
+			if !hypertable.IsContinuousAggregate() && msg.Namespace != "_timescaledb_internal" {
+				return nil
 			}
 
-			columns[i] = model.NewColumn(c.Name, c.DataType, string(dataType), false, false, nil)
+			columns := make([]model.Column, len(msg.Columns))
+			for i, c := range msg.Columns {
+				dataType, err := model.DataTypeByOID(c.DataType)
+				if err != nil {
+					return err
+				}
+
+				columns[i] = model.NewColumn(c.Name, c.DataType, string(dataType), false, false, nil)
+			}
+			s.systemCatalog.ApplySchemaUpdate(hypertable, columns)
 		}
-		s.systemCatalog.ApplySchemaUpdate(hypertable, columns)
 	}
 	return nil
 }
@@ -79,8 +76,7 @@ func (s *systemCatalogReplicationEventHandler) OnHypertableUpdatedEvent(_ uint32
 		func(id int32, schemaName, hypertableName, associatedSchemaName, associatedTablePrefix string,
 			compressedHypertableId *int32, compressionState int16, distributed bool) error {
 
-			hypertable := s.systemCatalog.FindHypertableById(id)
-			if hypertable != nil {
+			if hypertable, present := s.systemCatalog.FindHypertableById(id); present {
 				h, differences := hypertable.ApplyChanges(schemaName, hypertableName, associatedSchemaName,
 					associatedTablePrefix, compressedHypertableId, compressionState)
 
@@ -96,7 +92,7 @@ func (s *systemCatalogReplicationEventHandler) OnHypertableUpdatedEvent(_ uint32
 
 func (s *systemCatalogReplicationEventHandler) OnHypertableDeletedEvent(_ uint32, oldValues map[string]any) error {
 	hypertableId := oldValues["id"].(int32)
-	if hypertable := s.systemCatalog.FindHypertableById(hypertableId); hypertable != nil {
+	if hypertable, present := s.systemCatalog.FindHypertableById(hypertableId); present {
 		if err := s.systemCatalog.UnregisterHypertable(hypertable); err != nil {
 			logger.Fatalf("unregistering hypertable failed: %v", hypertable)
 		}
@@ -132,29 +128,29 @@ func (s *systemCatalogReplicationEventHandler) OnChunkUpdatedEvent(_ uint32, _, 
 		func(id, hypertableId int32, schemaName, tableName string, dropped bool,
 			status int32, compressedChunkId *int32) error {
 
-			chunk := s.systemCatalog.FindChunkById(id)
-			c, differences := chunk.ApplyChanges(schemaName, tableName, dropped, status, compressedChunkId)
+			if chunk, present := s.systemCatalog.FindChunkById(id); present {
+				c, differences := chunk.ApplyChanges(schemaName, tableName, dropped, status, compressedChunkId)
 
-			hypertableName := "unknown"
-			if h := s.systemCatalog.FindHypertableById(hypertableId); h != nil {
-				hypertableName = fmt.Sprintf("%s.%s", h.SchemaName(), h.HypertableName())
-				if h.IsCompressedTable() {
-					h = s.systemCatalog.FindHypertableByCompressedHypertableId(h.Id())
-					hypertableName = fmt.Sprintf(
-						"%s.%s VIA %s", h.SchemaName(), h.HypertableName(), hypertableName)
+				hypertableName := "unknown"
+				if uH, cH, present := s.systemCatalog.ResolveUncompressedHypertable(hypertableId); present {
+					hypertableName = fmt.Sprintf("%s.%s", uH.SchemaName(), uH.HypertableName())
+					if cH != nil {
+						hypertableName = fmt.Sprintf(
+							"%s VIA %s.%s", cH.SchemaName(), cH.HypertableName(), hypertableName)
+					}
 				}
-			}
 
-			if err := s.systemCatalog.RegisterChunk(c); err != nil {
-				return fmt.Errorf("registering chunk failed: %v", c)
-			}
-			if c.Dropped() && !chunk.Dropped() {
-				logger.Printf("UPDATED CATALOG ENTRY: CHUNK %d DROPPED FOR HYPERTABLE %s => %v",
-					id, hypertableName, differences)
-			} else {
-				logger.Printf(
-					"UPDATED CATALOG ENTRY: CHUNK %d FOR HYPERTABLE %s => %v",
-					id, hypertableName, differences)
+				if err := s.systemCatalog.RegisterChunk(c); err != nil {
+					return fmt.Errorf("registering chunk failed: %v", c)
+				}
+				if c.Dropped() && !chunk.Dropped() {
+					logger.Printf("UPDATED CATALOG ENTRY: CHUNK %d DROPPED FOR HYPERTABLE %s => %v",
+						id, hypertableName, differences)
+				} else {
+					logger.Printf(
+						"UPDATED CATALOG ENTRY: CHUNK %d FOR HYPERTABLE %s => %v",
+						id, hypertableName, differences)
+				}
 			}
 			return nil
 		},
@@ -163,26 +159,22 @@ func (s *systemCatalogReplicationEventHandler) OnChunkUpdatedEvent(_ uint32, _, 
 
 func (s *systemCatalogReplicationEventHandler) OnChunkDeletedEvent(_ uint32, oldValues map[string]any) error {
 	chunkId := oldValues["id"].(int32)
-	chunk := s.systemCatalog.FindChunkById(chunkId)
-	if chunk == nil {
-		return nil
-	}
-
-	hypertableName := "unknown"
-	if h := s.systemCatalog.FindHypertableById(chunk.HypertableId()); h != nil {
-		hypertableName = fmt.Sprintf("%s.%s", h.SchemaName(), h.HypertableName())
-		if h.IsCompressedTable() {
-			h = s.systemCatalog.FindHypertableByCompressedHypertableId(h.Id())
-			hypertableName = fmt.Sprintf(
-				"%s.%s VIA %s", h.SchemaName(), h.HypertableName(), hypertableName)
+	if chunk, present := s.systemCatalog.FindChunkById(chunkId); present {
+		hypertableName := "unknown"
+		if uH, cH, present := s.systemCatalog.ResolveUncompressedHypertable(chunk.HypertableId()); present {
+			hypertableName = fmt.Sprintf("%s.%s", uH.SchemaName(), uH.HypertableName())
+			if cH != nil {
+				hypertableName = fmt.Sprintf(
+					"%s VIA %s.%s", cH.SchemaName(), cH.HypertableName(), hypertableName)
+			}
 		}
-	}
 
-	err := s.systemCatalog.UnregisterChunk(chunk)
-	if err != nil {
-		logger.Fatalf("detaching chunk failed: %d => %v", chunkId, err)
+		err := s.systemCatalog.UnregisterChunk(chunk)
+		if err != nil {
+			logger.Fatalf("detaching chunk failed: %d => %v", chunkId, err)
+		}
+		logger.Printf("REMOVED CATALOG ENTRY: CHUNK %d FOR HYPERTABLE %s", chunkId, hypertableName)
 	}
-	logger.Printf("REMOVED CATALOG ENTRY: CHUNK %d FOR HYPERTABLE %s", chunkId, hypertableName)
 	return nil
 }
 

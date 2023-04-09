@@ -70,89 +70,104 @@ func NewSystemCatalog(config *sysconfig.SystemConfig, topicNameGenerator *topic.
 	})
 }
 
-func (sc *SystemCatalog) FindHypertableById(hypertableId int32) *model.Hypertable {
-	return sc.hypertables[hypertableId]
+func (sc *SystemCatalog) FindHypertableById(hypertableId int32) (hypertable *model.Hypertable, present bool) {
+	hypertable, present = sc.hypertables[hypertableId]
+	return
 }
 
-func (sc *SystemCatalog) FindHypertableByAssociatedPrefix(schemaName, prefix string) *model.Hypertable {
-	if id, ok := sc.chunkTablePrefixIndex[model.MakeRelationKey(schemaName, prefix)]; ok {
-		return sc.hypertables[id]
+func (sc *SystemCatalog) FindHypertableByAssociatedPrefix(
+	schemaName, prefix string) (hypertable *model.Hypertable, present bool) {
+
+	if hypertableId, ok := sc.chunkTablePrefixIndex[model.MakeRelationKey(schemaName, prefix)]; ok {
+		return sc.FindHypertableById(hypertableId)
 	}
-	return nil
+	return
 }
 
-func (sc *SystemCatalog) FindHypertableByChunkName(schemaName, tableName string) *model.Hypertable {
+func (sc *SystemCatalog) FindHypertableByChunkName(
+	schemaName, tableName string) (hypertable *model.Hypertable, present bool) {
+
 	token := prefixExtractor.FindStringSubmatch(tableName)
 	prefix := token[3]
-	if id, ok := sc.chunkTablePrefixIndex[model.MakeRelationKey(schemaName, prefix)]; ok {
-		return sc.hypertables[id]
+	if hypertableId, ok := sc.chunkTablePrefixIndex[model.MakeRelationKey(schemaName, prefix)]; ok {
+		return sc.FindHypertableById(hypertableId)
 	}
-	return nil
+	return
 }
 
-func (sc *SystemCatalog) FindHypertableByName(schema, name string) *model.Hypertable {
-	if id, ok := sc.hypertableNameIndex[model.MakeRelationKey(schema, name)]; ok {
-		return sc.hypertables[id]
+func (sc *SystemCatalog) FindHypertableByName(
+	schema, name string) (hypertable *model.Hypertable, present bool) {
+
+	if hypertableId, ok := sc.hypertableNameIndex[model.MakeRelationKey(schema, name)]; ok {
+		return sc.FindHypertableById(hypertableId)
 	}
-	return nil
+	return
 }
 
-func (sc *SystemCatalog) FindHypertableByChunkId(chunkId int32) *model.Hypertable {
+func (sc *SystemCatalog) FindHypertableByChunkId(chunkId int32) (hypertable *model.Hypertable, present bool) {
 	if hypertableId, ok := sc.chunk2Hypertable[chunkId]; ok {
 		return sc.FindHypertableById(hypertableId)
 	}
-	return nil
+	return
 }
 
-func (sc *SystemCatalog) FindHypertableByCompressedHypertableId(compressedHypertableId int32) *model.Hypertable {
+func (sc *SystemCatalog) FindHypertableByCompressedHypertableId(
+	compressedHypertableId int32) (hypertable *model.Hypertable, present bool) {
+
 	if hypertableId, ok := sc.compressed2hypertable[compressedHypertableId]; ok {
 		return sc.FindHypertableById(hypertableId)
 	}
-	return nil
+	return
 }
 
-func (sc *SystemCatalog) FindCompressedHypertableByHypertableId(hypertableId int32) *model.Hypertable {
+func (sc *SystemCatalog) FindCompressedHypertableByHypertableId(
+	hypertableId int32) (hypertable *model.Hypertable, present bool) {
+
 	if compressedHypertableId, ok := sc.hypertable2compressed[hypertableId]; ok {
 		return sc.FindHypertableById(compressedHypertableId)
 	}
-	return nil
+	return
 }
 
-func (sc *SystemCatalog) FindChunkById(id int32) *model.Chunk {
-	return sc.chunks[id]
+func (sc *SystemCatalog) FindChunkById(id int32) (chunk *model.Chunk, present bool) {
+	chunk, present = sc.chunks[id]
+	return
 }
 
-func (sc *SystemCatalog) FindChunkByName(schemaName, tableName string) *model.Chunk {
-	if id, ok := sc.chunkNameIndex[model.MakeRelationKey(schemaName, tableName)]; ok {
-		return sc.chunks[id]
+func (sc *SystemCatalog) FindChunkByName(schemaName, tableName string) (chunk *model.Chunk, present bool) {
+	if chunkId, ok := sc.chunkNameIndex[model.MakeRelationKey(schemaName, tableName)]; ok {
+		return sc.FindChunkById(chunkId)
 	}
-	return nil
+	return
 }
 
-func (sc *SystemCatalog) ResolveOriginHypertable(chunk *model.Chunk) *model.Hypertable {
-	return sc.ResolveUncompressedHypertable(chunk.HypertableId())
+func (sc *SystemCatalog) ResolveOriginHypertable(chunk *model.Chunk) (hypertable *model.Hypertable, present bool) {
+	hypertable, _, present = sc.ResolveUncompressedHypertable(chunk.HypertableId())
+	return
 }
 
-func (sc *SystemCatalog) ResolveUncompressedHypertable(hypertableId int32) *model.Hypertable {
-	hypertable := sc.FindHypertableById(hypertableId)
-	if hypertable == nil {
-		return nil
-	}
+func (sc *SystemCatalog) ResolveUncompressedHypertable(
+	hypertableId int32) (uncompressedHypertable, compressedHypertable *model.Hypertable, present bool) {
 
-	if !hypertable.IsCompressedTable() {
-		return hypertable
-	}
+	if uncompressedHypertable, present = sc.FindHypertableById(hypertableId); present {
+		if !uncompressedHypertable.IsCompressedTable() {
+			return
+		}
 
-	return sc.FindHypertableByCompressedHypertableId(hypertableId)
+		compressedHypertable = uncompressedHypertable
+		if uncompressedHypertable, present = sc.FindHypertableByCompressedHypertableId(hypertableId); present {
+			return uncompressedHypertable, compressedHypertable, true
+		}
+		return nil, compressedHypertable, false
+	}
+	return
 }
 
 func (sc *SystemCatalog) IsHypertableSelectedForReplication(hypertableId int32) bool {
-	hypertable := sc.ResolveUncompressedHypertable(hypertableId)
-	if hypertable == nil {
-		return false
+	if uncompressedHypertable, _, present := sc.ResolveUncompressedHypertable(hypertableId); present {
+		return sc.replicationFilter.Enabled(uncompressedHypertable)
 	}
-
-	return sc.replicationFilter.Enabled(hypertable)
+	return false
 }
 
 func (sc *SystemCatalog) RegisterHypertable(hypertable *model.Hypertable) error {
@@ -181,7 +196,7 @@ func (sc *SystemCatalog) UnregisterHypertable(hypertable *model.Hypertable) erro
 
 func (sc *SystemCatalog) RegisterChunk(chunk *model.Chunk) error {
 	sc.chunks[chunk.Id()] = chunk
-	if hypertable := sc.FindHypertableById(chunk.HypertableId()); hypertable != nil {
+	if hypertable, present := sc.FindHypertableById(chunk.HypertableId()); present {
 		sc.chunkNameIndex[chunk.CanonicalName()] = chunk.Id()
 		sc.chunk2Hypertable[chunk.Id()] = chunk.HypertableId()
 		sc.hypertable2chunks[hypertable.Id()] = append(sc.hypertable2chunks[hypertable.Id()], chunk.Id())
@@ -192,7 +207,7 @@ func (sc *SystemCatalog) RegisterChunk(chunk *model.Chunk) error {
 }
 
 func (sc *SystemCatalog) UnregisterChunk(chunk *model.Chunk) error {
-	if hypertable := sc.FindHypertableByChunkId(chunk.Id()); hypertable != nil {
+	if hypertable, present := sc.FindHypertableByChunkId(chunk.Id()); present {
 		index := indexOf(sc.hypertable2chunks[hypertable.Id()], chunk.Id())
 		// Erase element (zero value) to prevent memory leak
 		if index >= 0 {
@@ -235,11 +250,13 @@ func (sc *SystemCatalog) GetAllChunks() []string {
 }
 
 func (sc *SystemCatalog) snapshotChunk(chunk *model.Chunk) error {
-	hypertable := sc.FindHypertableById(chunk.HypertableId())
-	return sc.snapshotter.EnqueueSnapshot(snapshotting.SnapshotTask{
-		Hypertable: hypertable,
-		Chunk:      chunk,
-	})
+	if hypertable, present := sc.FindHypertableById(chunk.HypertableId()); present {
+		return sc.snapshotter.EnqueueSnapshot(snapshotting.SnapshotTask{
+			Hypertable: hypertable,
+			Chunk:      chunk,
+		})
+	}
+	return nil
 }
 
 func indexOf[T comparable](slice []T, item T) int {
