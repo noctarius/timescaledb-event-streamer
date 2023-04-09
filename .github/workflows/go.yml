@@ -10,7 +10,7 @@ on:
     branches: [ "**" ]
 
 env:
-  golang-version: 1.20
+  golang-version: 1.20.2
   golangci-lint-version: v1.51.2
 
 defaults:
