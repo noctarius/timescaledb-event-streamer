@@ -93,11 +93,11 @@ WHERE extname = 'timescaledb'`
 
 const postgresqlVersionQuery = `SHOW SERVER_VERSION`
 
-const walLevelQuery = `SHOW wal_level`
+//const walLevelQuery = `SHOW wal_level`
 
 var (
-	timescaledbVersionRegex = regexp.MustCompile("([0-9]+)\\.([0-9]+)(\\.([0-9]+))?")
-	postgresqlVersionRegex  = regexp.MustCompile("^((1[0-9])\\.([0-9]+))?")
+	timescaledbVersionRegex = regexp.MustCompile(`([0-9]+)\.([0-9]+)(\.([0-9]+))?`)
+	postgresqlVersionRegex  = regexp.MustCompile(`^((1[0-9])\.([0-9]+))?`)
 )
 
 type sideChannel struct {
