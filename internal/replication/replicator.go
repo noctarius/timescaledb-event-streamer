@@ -13,6 +13,8 @@ import (
 	"github.com/noctarius/event-stream-prototype/internal/supporting"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/snapshotting"
+	"github.com/noctarius/event-stream-prototype/internal/version"
+	"log"
 )
 
 type Replicator interface {
@@ -41,6 +43,25 @@ func (r *replicatorImpl) StartReplication() error {
 	// Create the side and replication channels
 	sideChannel := channels.NewSideChannel(r.config.PgxConfig, publicationName, snapshotBatchSize)
 	replicationChannel := channels.NewReplicationChannel(r.config.PgxConfig, publicationName)
+
+	// Read version information
+	pgVersion, err := sideChannel.GetPostgresVersion()
+	if err != nil {
+		return err
+	}
+
+	if pgVersion < version.PG_MIN_VERSION {
+		log.Fatalf("timescaledb-event-streamer requires PostgreSQL 14 or later")
+	}
+
+	tsdbVersion, err := sideChannel.GetTimescaleDBVersion()
+	if err != nil {
+		return err
+	}
+
+	if tsdbVersion < version.TSDB_MIN_VERSION {
+		log.Fatalf("timescaledb-event-streamer requires TimescaleDB 2.10 or later")
+	}
 
 	// Instantiate the event dispatcher
 	dispatcher := eventhandler.NewDispatcher(2000)

@@ -11,6 +11,8 @@ import (
 	"github.com/noctarius/event-stream-prototype/internal/pg/decoding"
 	"github.com/noctarius/event-stream-prototype/internal/supporting"
 	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/model"
+	"regexp"
+	"strconv"
 	"time"
 )
 
@@ -84,6 +86,20 @@ SELECT pt.schemaname, pt.tablename
 FROM pg_catalog.pg_publication_tables pt
 WHERE pt.pubname = $1`
 
+const timescaledbVersionQuery = `
+SELECT extversion
+FROM pg_catalog.pg_extension
+WHERE extname = 'timescaledb'`
+
+const postgresqlVersionQuery = `SHOW SERVER_VERSION`
+
+const walLevelQuery = `SHOW wal_level`
+
+var (
+	timescaledbVersionRegex = regexp.MustCompile("([0-9]+)\\.([0-9]+)(\\.([0-9]+))?")
+	postgresqlVersionRegex  = regexp.MustCompile("^((1[0-9])\\.([0-9]+))?")
+)
+
 type sideChannel struct {
 	connConfig        *pgx.ConnConfig
 	publicationName   string
@@ -97,6 +113,80 @@ func NewSideChannel(connConfig *pgx.ConnConfig, publicationName string, snapshot
 		snapshotBatchSize: snapshotBatchSize,
 	}
 	return sc
+}
+
+func (sc *sideChannel) GetPostgresVersion() (version uint, err error) {
+	var major, minor uint
+	if err = sc.newSession(func(session session) error {
+		var version string
+		if err := session.queryRow(context.Background(), postgresqlVersionQuery).Scan(&version); err != nil {
+			return err
+		}
+
+		matches := postgresqlVersionRegex.FindStringSubmatch(version)
+		if len(matches) < 3 {
+			return errors.Errorf("failed to extract postgresql version")
+		}
+
+		v, err := strconv.ParseInt(matches[2], 10, 32)
+		if err != nil {
+			return err
+		}
+		major = uint(v)
+
+		v, err = strconv.ParseInt(matches[3], 10, 32)
+		if err != nil {
+			return err
+		}
+		minor = uint(v)
+
+		return nil
+	}); err != nil {
+		return
+	}
+
+	return (major * 10000) + minor, nil
+}
+
+func (sc *sideChannel) GetTimescaleDBVersion() (version uint, err error) {
+	var major, minor, release uint
+	if err = sc.newSession(func(session session) error {
+		var version string
+		if err := session.queryRow(context.Background(), timescaledbVersionQuery).Scan(&version); err != nil {
+			return err
+		}
+
+		matches := timescaledbVersionRegex.FindStringSubmatch(version)
+		if len(matches) < 3 {
+			return errors.Errorf("failed to extract timescale version")
+		}
+
+		v, err := strconv.ParseInt(matches[1], 10, 32)
+		if err != nil {
+			return err
+		}
+		major = uint(v)
+
+		v, err = strconv.ParseInt(matches[2], 10, 32)
+		if err != nil {
+			return err
+		}
+		minor = uint(v)
+
+		if len(matches) == 5 {
+			v, err = strconv.ParseInt(matches[4], 10, 32)
+			if err != nil {
+				return err
+			}
+			release = uint(v)
+		}
+
+		return nil
+	}); err != nil {
+		return
+	}
+
+	return (major * 10000) + (minor * 100) + release, nil
 }
 
 func (sc *sideChannel) ReadHypertables(cb func(hypertable *model.Hypertable) error) error {

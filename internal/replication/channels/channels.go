@@ -27,6 +27,10 @@ type SideChannel interface {
 	ReadContinuousAggregate(materializedHypertableId int32) (viewSchema, viewName string, found bool, err error)
 
 	ReadPublishedTables(publicationName string) ([]string, error)
+
+	GetPostgresVersion() (version uint, err error)
+
+	GetTimescaleDBVersion() (version uint, err error)
 }
 
 type ReplicationChannel interface {
