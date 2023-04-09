@@ -63,6 +63,24 @@ func (tt *transactionTracker) OnCommitEvent(xld pglogrepl.XLogData, msg *decodin
 
 	currentTransaction.queue.Lock()
 
+	if currentTransaction.compressionUpdate != nil {
+		message := currentTransaction.compressionUpdate
+		chunkId := message.msg.(*decoding.UpdateMessage).NewValues["id"].(int32)
+		if chunk, present := tt.systemCatalog.FindChunkById(chunkId); present {
+			if err := tt.resolver.onChunkCompressionEvent(xld, chunk); err != nil {
+				return err
+			}
+			if err := tt.resolver.onChunkUpdateEvent(message.msg.(*decoding.UpdateMessage)); err != nil {
+				return err
+			}
+		}
+
+		// If there isn't a decompression event in the same transaction where done here
+		if currentTransaction.decompressionUpdate == nil {
+			return nil
+		}
+	}
+
 	if currentTransaction.decompressionUpdate != nil {
 		message := currentTransaction.decompressionUpdate
 		chunkId := message.msg.(*decoding.UpdateMessage).NewValues["id"].(int32)
@@ -81,7 +99,8 @@ func (tt *transactionTracker) OnCommitEvent(xld pglogrepl.XLogData, msg *decodin
 }
 
 func (tt *transactionTracker) OnInsertEvent(xld pglogrepl.XLogData, msg *decoding.InsertMessage) error {
-	if relation, ok := tt.relations[msg.RelationID]; ok {
+	relation, ok := tt.relations[msg.RelationID]
+	if ok {
 		// If no insert events are going to be generated, and we don't need to update the catalog,
 		// we can already ignore the event here and prevent it from hogging memory while we wait
 		// for the transaction to be completely transmitted
@@ -97,8 +116,10 @@ func (tt *transactionTracker) OnInsertEvent(xld pglogrepl.XLogData, msg *decodin
 		// If we already know that the transaction represents a decompression in TimescaleDB
 		// we can start to discard all newly incoming INSERTs immediately, since those are the
 		// re-inserted, uncompressed rows that were already replicated into events in the past.
-		if tt.currentTransaction.decompressionUpdate != nil ||
-			tt.currentTransaction.ongoingDecompression {
+		if (tt.currentTransaction.decompressionUpdate != nil ||
+			tt.currentTransaction.ongoingDecompression) &&
+			!model.IsHypertableEvent(relation) &&
+			!model.IsChunkEvent(relation) {
 
 			return nil
 		}
@@ -127,8 +148,23 @@ func (tt *transactionTracker) OnUpdateEvent(xld pglogrepl.XLogData, msg *decodin
 		if model.IsChunkEvent(relation) {
 			chunkId := msg.NewValues["id"].(int32)
 			if chunk, present := tt.systemCatalog.FindChunkById(chunkId); present {
-				logger.Printf("Chunk %d: status=%d, new value=%d", chunkId, chunk.Status(), msg.NewValues["status"].(int32))
-				if chunk.Status() != 0 && (msg.NewValues["status"].(int32)) == 0 {
+				oldChunkStatus := chunk.Status()
+				newChunkStatus := msg.NewValues["status"].(int32)
+
+				// If true, we found a compression event
+				if oldChunkStatus == 0 && newChunkStatus != 0 {
+					tt.currentTransaction.compressionUpdate = updateEntry
+				} else if tt.currentTransaction.compressionUpdate != nil {
+					compressionMsg := tt.currentTransaction.compressionUpdate.msg.(*decoding.UpdateMessage)
+					if compressionMsg.RelationID == msg.RelationID {
+						oldChunkStatus = compressionMsg.NewValues["status"].(int32)
+					}
+				}
+
+				previouslyCompressed := oldChunkStatus != 0 && newChunkStatus == 0
+				logger.Printf("Chunk %d: status=%d, new value=%d", chunkId, oldChunkStatus, newChunkStatus)
+
+				if previouslyCompressed {
 					tt.currentTransaction.decompressionUpdate = updateEntry
 				}
 			}
@@ -275,6 +311,7 @@ type transaction struct {
 	finalLSN             pglogrepl.LSN
 	queue                *supporting.Queue[*transactionEntry]
 	queueLength          uint
+	compressionUpdate    *transactionEntry
 	decompressionUpdate  *transactionEntry
 	overflowed           bool
 	timedOut             bool

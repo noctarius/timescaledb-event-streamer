@@ -156,11 +156,9 @@ func (l *logicalReplicationResolver) OnUpdateEvent(xld pglogrepl.XLogData, msg *
 	if model.IsChunkEvent(rel) {
 		chunkId := msg.NewValues["id"].(int32)
 		if chunk, present := l.systemCatalog.FindChunkById(chunkId); present {
-			if hypertable, present := l.systemCatalog.FindHypertableById(chunk.HypertableId()); present {
-				if chunk.Status() == 0 && (msg.NewValues["status"].(int32)) == 1 {
-					if err := l.onChunkCompressionEvent(xld, hypertable, rel, chunk); err != nil {
-						return err
-					}
+			if chunk.Status() == 0 && (msg.NewValues["status"].(int32)) == 1 {
+				if err := l.onChunkCompressionEvent(xld, chunk); err != nil {
+					return err
 				}
 			}
 		}
@@ -367,25 +365,27 @@ func (l *logicalReplicationResolver) onChunkDeleteEvent(xld pglogrepl.XLogData, 
 	})
 }
 
-func (l *logicalReplicationResolver) onChunkCompressionEvent(xld pglogrepl.XLogData,
-	hypertable *model.Hypertable, rel *decoding.RelationMessage, chunk *model.Chunk) error {
-
-	if !l.genCompressionEvent {
-		return nil
-	}
-
-	logger.Printf(
-		"COMPRESSION EVENT %s.%s FOR CHUNK %s.%s", hypertable.SchemaName(),
-		hypertable.HypertableName(), rel.Namespace, rel.RelationName,
-	)
-
-	return l.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
-		notificator.NotifyCompressionReplicationEventHandler(
-			func(handler eventhandler.CompressionReplicationEventHandler) error {
-				return handler.OnChunkCompressedEvent(xld, hypertable, chunk)
-			},
+func (l *logicalReplicationResolver) onChunkCompressionEvent(xld pglogrepl.XLogData, chunk *model.Chunk) error {
+	hypertableId := chunk.HypertableId()
+	if uncompressedHypertable, _, present := l.systemCatalog.ResolveUncompressedHypertable(hypertableId); present {
+		logger.Printf(
+			"COMPRESSION EVENT %s.%s FOR CHUNK %s.%s", uncompressedHypertable.SchemaName(),
+			uncompressedHypertable.HypertableName(), chunk.SchemaName(), chunk.TableName(),
 		)
-	})
+
+		if !l.genCompressionEvent {
+			return nil
+		}
+
+		return l.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
+			notificator.NotifyCompressionReplicationEventHandler(
+				func(handler eventhandler.CompressionReplicationEventHandler) error {
+					return handler.OnChunkCompressedEvent(xld, uncompressedHypertable, chunk)
+				},
+			)
+		})
+	}
+	return nil
 }
 
 func (l *logicalReplicationResolver) onChunkDecompressionEvent(xld pglogrepl.XLogData, chunk *model.Chunk) error {
