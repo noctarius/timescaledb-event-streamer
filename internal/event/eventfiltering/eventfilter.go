@@ -1,4 +1,4 @@
-package filtering
+package eventfiltering
 
 import (
 	"github.com/antonmedv/expr"

@@ -3,7 +3,7 @@ package sink
 import (
 	"encoding/base64"
 	"github.com/jackc/pglogrepl"
-	"github.com/noctarius/event-stream-prototype/internal/event/filtering"
+	"github.com/noctarius/event-stream-prototype/internal/event/eventfiltering"
 	"github.com/noctarius/event-stream-prototype/internal/event/topic"
 	"github.com/noctarius/event-stream-prototype/internal/eventhandler"
 	"github.com/noctarius/event-stream-prototype/internal/pg/decoding"
@@ -17,12 +17,12 @@ type EventEmitter struct {
 	schemaRegistry     *schema.Registry
 	topicNameGenerator *topic.NameGenerator
 	transactionMonitor *transactional.TransactionMonitor
-	filter             filtering.Filter
+	filter             eventfiltering.Filter
 	sink               Sink
 }
 
 func NewEventEmitter(schemaRegistry *schema.Registry, topicNameGenerator *topic.NameGenerator,
-	transactionMonitor *transactional.TransactionMonitor, sink Sink, filter filtering.Filter) *EventEmitter {
+	transactionMonitor *transactional.TransactionMonitor, sink Sink, filter eventfiltering.Filter) *EventEmitter {
 
 	return &EventEmitter{
 		schemaRegistry:     schemaRegistry,
