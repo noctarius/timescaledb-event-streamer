@@ -5,6 +5,7 @@ import (
 	"github.com/noctarius/event-stream-prototype/internal/configuring/sysconfig"
 	"github.com/noctarius/event-stream-prototype/internal/event/sink"
 	"github.com/noctarius/event-stream-prototype/internal/schema"
+	"sync"
 	"time"
 )
 
@@ -29,6 +30,8 @@ type CollectedEvent struct {
 }
 
 type EventCollectorSink struct {
+	mutex sync.Mutex
+
 	keys   []schema.Struct
 	events []CollectedEvent
 	filter func(timestamp time.Time, topicName string, envelope Envelope) bool
@@ -61,6 +64,7 @@ func NewEventCollectorSink(options ...EventCollectorSinkOption) *EventCollectorS
 	eventCollectorSink := &EventCollectorSink{
 		keys:   make([]schema.Struct, 0),
 		events: make([]CollectedEvent, 0),
+		mutex:  sync.Mutex{},
 	}
 	for _, option := range options {
 		option(eventCollectorSink)
@@ -75,10 +79,14 @@ func (t *EventCollectorSink) SystemConfigConfigurator(config *sysconfig.SystemCo
 }
 
 func (t *EventCollectorSink) Events() []CollectedEvent {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
 	return t.events
 }
 
 func (t *EventCollectorSink) NumOfEvents() int {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
 	return len(t.events)
 }
 
@@ -99,12 +107,14 @@ func (t *EventCollectorSink) Emit(timestamp time.Time, topicName string, key, en
 			return nil
 		}
 	}
+	t.mutex.Lock()
 	t.keys = append(t.keys, key)
 	t.events = append(t.events, CollectedEvent{
 		Timestamp: timestamp,
 		TopicName: topicName,
 		Envelope:  eventEnvelope,
 	})
+	t.mutex.Unlock()
 	if t.postHook != nil {
 		t.postHook(t)
 	}
