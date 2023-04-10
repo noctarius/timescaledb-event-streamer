@@ -18,8 +18,15 @@ lint:
 	golangci-lint run
 
 .PHONY: test
-test:
-	go test -v -race $(shell go list ./... | grep -v '_test.go') -timeout 40m
+test: unit-test integration-test
+
+.PHONY: unit-test
+unit-test:
+	go test -v -race $(shell go list ./... | grep -v 'testing' | grep -v 'tests/integration') -timeout 10m
+
+.PHONY: integration-test
+integration-test:
+	go test -v -race $(shell go list ./... | grep 'tests/integration') -timeout 40m
 
 .PHONY: all
 all: build test fmt lint
