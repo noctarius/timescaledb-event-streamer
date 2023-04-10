@@ -63,7 +63,7 @@ func (r *replicatorImpl) StartReplication() *cli.ExitError {
 	}
 
 	// Instantiate the event dispatcher
-	dispatcher := eventhandler.NewDispatcher(2000)
+	dispatcher := eventhandler.NewDispatcher()
 
 	// Instantiate the snapshotter
 	snapshotter := snapshotting.NewSnapshotter(32, sideChannel, dispatcher)

@@ -30,7 +30,7 @@ type Dispatcher struct {
 	shutdownActive      bool
 }
 
-func NewDispatcher(queueLength int) *Dispatcher {
+func NewDispatcher() *Dispatcher {
 	d := &Dispatcher{
 		taskQueue:           supporting.NewQueue[Task](),
 		baseHandlers:        make([]BaseReplicationEventHandler, 0),
