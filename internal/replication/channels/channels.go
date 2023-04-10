@@ -31,6 +31,8 @@ type SideChannel interface {
 	GetPostgresVersion() (version uint, err error)
 
 	GetTimescaleDBVersion() (version uint, err error)
+
+	GetWalLevel() (walLevel string, err error)
 }
 
 type ReplicationChannel interface {

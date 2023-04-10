@@ -93,7 +93,7 @@ WHERE extname = 'timescaledb'`
 
 const postgresqlVersionQuery = `SHOW SERVER_VERSION`
 
-//const walLevelQuery = `SHOW wal_level`
+const walLevelQuery = `SHOW WAL_LEVEL`
 
 var (
 	timescaledbVersionRegex = regexp.MustCompile(`([0-9]+)\.([0-9]+)(\.([0-9]+))?`)
@@ -113,6 +113,14 @@ func NewSideChannel(connConfig *pgx.ConnConfig, publicationName string, snapshot
 		snapshotBatchSize: snapshotBatchSize,
 	}
 	return sc
+}
+
+func (sc *sideChannel) GetWalLevel() (walLevel string, err error) {
+	walLevel = "unknown"
+	err = sc.newSession(func(session session) error {
+		return session.queryRow(context.Background(), walLevelQuery).Scan(&walLevel)
+	})
+	return
 }
 
 func (sc *sideChannel) GetPostgresVersion() (version uint, err error) {

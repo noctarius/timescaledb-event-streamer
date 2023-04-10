@@ -62,6 +62,14 @@ func (r *replicatorImpl) StartReplication() *cli.ExitError {
 		return cli.NewExitError("timescaledb-event-streamer requires TimescaleDB 2.10 or later", 12)
 	}
 
+	walLevel, err := sideChannel.GetWalLevel()
+	if err != nil {
+		return supporting.AdaptError(err, 16)
+	}
+	if walLevel != "logical" {
+		return cli.NewExitError("timescaledb-event-streamer requires wal_level set to 'logical'", 16)
+	}
+
 	// Instantiate the event dispatcher
 	dispatcher := eventhandler.NewDispatcher()
 
