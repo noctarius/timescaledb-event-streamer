@@ -1,12 +1,13 @@
 package internal
 
 import (
+	"fmt"
 	"github.com/jackc/pgx/v5"
 	"github.com/noctarius/timescaledb-event-streamer/internal/configuring"
 	"github.com/noctarius/timescaledb-event-streamer/internal/configuring/sysconfig"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
-	"github.com/pkg/errors"
+	"github.com/urfave/cli"
 )
 
 const publicationName = "pg_ts_streamer"
@@ -15,12 +16,13 @@ type Streamer struct {
 	replicator replication.Replicator
 }
 
-func NewStreamer(config *sysconfig.SystemConfig) (*Streamer, error, int) {
+func NewStreamer(config *sysconfig.SystemConfig) (*Streamer, *cli.ExitError) {
 	if config.PgxConfig == nil {
 		connection := configuring.GetOrDefault(config.Config, "postgresql.connection", "host=localhost user=repl_user")
 		connConfig, err := pgx.ParseConfig(connection)
 		if err != nil {
-			return nil, errors.Wrap(err, "PostgreSQL connection string failed to parse"), 6
+			return nil, cli.NewExitError(
+				fmt.Sprintf("PostgreSQL connection string failed to parse: %s", err.Error()), 6)
 		}
 
 		pgPassword := configuring.GetOrDefault(config.Config, "postgresql.password", "")
@@ -42,19 +44,13 @@ func NewStreamer(config *sysconfig.SystemConfig) (*Streamer, error, int) {
 
 	return &Streamer{
 		replicator: replication.NewReplicator(config),
-	}, nil, 0
+	}, nil
 }
 
-func (s *Streamer) Start() error {
-	if err := s.replicator.StartReplication(); err != nil {
-		return err
-	}
-	return nil
+func (s *Streamer) Start() *cli.ExitError {
+	return s.replicator.StartReplication()
 }
 
-func (s *Streamer) Stop() error {
-	if err := s.replicator.StopReplication(); err != nil {
-		return err
-	}
-	return nil
+func (s *Streamer) Stop() *cli.ExitError {
+	return s.replicator.StopReplication()
 }

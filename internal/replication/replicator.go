@@ -2,7 +2,6 @@ package replication
 
 import (
 	stderrors "errors"
-	"github.com/go-errors/errors"
 	"github.com/noctarius/timescaledb-event-streamer/internal/configuring"
 	"github.com/noctarius/timescaledb-event-streamer/internal/configuring/sysconfig"
 	"github.com/noctarius/timescaledb-event-streamer/internal/eventhandler"
@@ -14,13 +13,13 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/snapshotting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/version"
-	"log"
+	"github.com/urfave/cli"
 )
 
 type Replicator interface {
-	StartReplication() error
+	StartReplication() *cli.ExitError
 
-	StopReplication() error
+	StopReplication() *cli.ExitError
 }
 
 type replicatorImpl struct {
@@ -34,7 +33,7 @@ func NewReplicator(config *sysconfig.SystemConfig) Replicator {
 	}
 }
 
-func (r *replicatorImpl) StartReplication() error {
+func (r *replicatorImpl) StartReplication() *cli.ExitError {
 	config := r.config.Config
 
 	publicationName := configuring.GetOrDefault(config, "postgresql.publication.name", "")
@@ -47,20 +46,20 @@ func (r *replicatorImpl) StartReplication() error {
 	// Read version information
 	pgVersion, err := sideChannel.GetPostgresVersion()
 	if err != nil {
-		return err
+		return supporting.AdaptError(err, 11)
 	}
 
 	if pgVersion < version.PG_MIN_VERSION {
-		log.Fatalf("timescaledb-event-streamer requires PostgreSQL 14 or later")
+		return cli.NewExitError("timescaledb-event-streamer requires PostgreSQL 14 or later", 11)
 	}
 
 	tsdbVersion, err := sideChannel.GetTimescaleDBVersion()
 	if err != nil {
-		return err
+		return supporting.AdaptError(err, 12)
 	}
 
 	if tsdbVersion < version.TSDB_MIN_VERSION {
-		log.Fatalf("timescaledb-event-streamer requires TimescaleDB 2.10 or later")
+		return cli.NewExitError("timescaledb-event-streamer requires TimescaleDB 2.10 or later", 12)
 	}
 
 	// Instantiate the event dispatcher
@@ -72,7 +71,7 @@ func (r *replicatorImpl) StartReplication() error {
 	// Instantiate the topic name generator
 	topicNameGenerator, err := r.config.NameGeneratorProvider()
 	if err != nil {
-		return errors.Wrap(err, 0)
+		return supporting.AdaptError(err, 13)
 	}
 
 	// Instantiate the transaction monitor, keeping track of transaction boundaries
@@ -84,7 +83,7 @@ func (r *replicatorImpl) StartReplication() error {
 	// Instantiate the change event emitter
 	eventEmitter, err := r.config.EventEmitterProvider(schemaRegistry, topicNameGenerator, transactionMonitor)
 	if err != nil {
-		return errors.Wrap(err, 0)
+		return supporting.AdaptError(err, 14)
 	}
 
 	// Set up the system catalog (replicating the Timescale internal representation)
@@ -92,7 +91,7 @@ func (r *replicatorImpl) StartReplication() error {
 		r.config, topicNameGenerator, dispatcher, sideChannel, schemaRegistry, snapshotter,
 	)
 	if err != nil {
-		return errors.Wrap(err, 0)
+		return supporting.AdaptError(err, 15)
 	}
 
 	// Set up the internal transaction tracking and logical replication resolving
@@ -116,14 +115,14 @@ func (r *replicatorImpl) StartReplication() error {
 	// Filter chunks by already published tables
 	alreadyPublished, err := sideChannel.ReadPublishedTables(publicationName)
 	if err != nil {
-		return errors.Wrap(err, 0)
+		return supporting.AdaptError(err, 250)
 	}
 	initialChunkTables = supporting.Filter(initialChunkTables, func(item string) bool {
 		return !supporting.Contains(alreadyPublished, item)
 	})
 
 	if err := replicationChannel.StartReplicationChannel(dispatcher, initialChunkTables); err != nil {
-		return errors.Wrap(err, 0)
+		return supporting.AdaptError(err, 16)
 	}
 
 	r.shutdownTask = func() error {
@@ -136,9 +135,9 @@ func (r *replicatorImpl) StartReplication() error {
 	return nil
 }
 
-func (r *replicatorImpl) StopReplication() error {
+func (r *replicatorImpl) StopReplication() *cli.ExitError {
 	if r.shutdownTask != nil {
-		return r.shutdownTask()
+		return supporting.AdaptError(r.shutdownTask(), 250)
 	}
 	return nil
 }

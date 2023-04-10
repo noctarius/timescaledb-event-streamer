@@ -1,16 +1,16 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"github.com/BurntSushi/toml"
-	"github.com/go-errors/errors"
 	"github.com/noctarius/timescaledb-event-streamer/internal"
 	"github.com/noctarius/timescaledb-event-streamer/internal/configuring"
 	"github.com/noctarius/timescaledb-event-streamer/internal/configuring/sysconfig"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/version"
+	"github.com/urfave/cli"
 	"io"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -21,13 +21,32 @@ var (
 	verbose           bool
 )
 
-func init() {
-	flag.StringVar(&configurationFile, "config", "", "The tool configuration file")
-	flag.BoolVar(&verbose, "verbose", false, "Show verbose output")
-	flag.Parse()
+func main() {
+	app := &cli.App{
+		Name:  "timescaledb-event-streamer",
+		Usage: "CDC (Chance Data Capture) for TimescaleDB Hypertable",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:        "config,c",
+				Value:       "",
+				Usage:       "Load configuration from `FILE`",
+				Destination: &configurationFile,
+			},
+			&cli.BoolFlag{
+				Name:        "verbose,v",
+				Usage:       "Show verbose output",
+				Destination: &verbose,
+			},
+		},
+		Action: start,
+	}
+
+	if err := app.Run(os.Args); err != nil {
+		log.Fatal(err)
+	}
 }
 
-func main() {
+func start(*cli.Context) error {
 	fmt.Printf("%s version %s (git revision %s; branch %s)\n",
 		version.BinName, version.Version, version.CommitHash, version.Branch,
 	)
@@ -37,32 +56,27 @@ func main() {
 	if configurationFile != "" {
 		f, err := os.Open(configurationFile)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Configuration file couldn't be opened: %v\n", err)
-			os.Exit(3)
+			return cli.NewExitError(fmt.Sprintf("Configuration file couldn't be opened: %v\n", err), 3)
 		}
 
 		b, err := io.ReadAll(f)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Configuration file couldn't be read: %v\n", err)
-			os.Exit(4)
+			return cli.NewExitError(fmt.Sprintf("Configuration file couldn't be read: %v\n", err), 4)
 		}
 
 		if err := toml.Unmarshal(b, &config); err != nil {
-			fmt.Fprintf(os.Stderr, "Configuration file couldn't be decoded: %v\n", err)
-			os.Exit(5)
+			return cli.NewExitError(fmt.Sprintf("Configuration file couldn't be decoded: %v\n", err), 5)
 		}
 	}
 
 	if configuring.GetOrDefault(config, "postgresql.connection", "") == "" {
-		fmt.Fprintf(os.Stderr, "PostgreSQL connection string required")
-		os.Exit(6)
+		return cli.NewExitError("PostgreSQL connection string required", 6)
 	}
 
 	systemConfig := sysconfig.NewSystemConfig(config)
-	streamer, err, exitCode := internal.NewStreamer(systemConfig)
+	streamer, err := internal.NewStreamer(systemConfig)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err.Error())
-		os.Exit(exitCode)
+		return err
 	}
 
 	signals := make(chan os.Signal, 1)
@@ -79,12 +93,12 @@ func main() {
 	}()
 
 	if err := streamer.Start(); err != nil {
-		fmt.Fprintln(os.Stderr, err.(*errors.Error).ErrorStack())
-		os.Exit(1)
+		return err
 	}
 
 	if err := done.Await(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(10)
+		return supporting.AdaptError(err, 10)
 	}
+
+	return nil
 }
