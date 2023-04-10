@@ -206,9 +206,9 @@ func (tr *TestRunner) RunTest(testFn func(context Context) error, configurators 
 		configurator(systemConfig)
 	}
 
-	streamer, err, exitCode := internal.NewStreamer(systemConfig)
-	if err != nil {
-		tr.T().Fatalf("failed to create streamer with exitCode: %d and error: %+v", exitCode, err)
+	streamer, e := internal.NewStreamer(systemConfig)
+	if e != nil {
+		tr.T().Fatalf("failed to create streamer with exitCode: %d and error: %+v", e.ExitCode(), e.Error())
 		return
 	}
 
