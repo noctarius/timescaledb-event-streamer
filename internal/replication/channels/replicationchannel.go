@@ -7,9 +7,9 @@ import (
 	"github.com/jackc/pglogrepl"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/noctarius/event-stream-prototype/internal/eventhandler"
-	"github.com/noctarius/event-stream-prototype/internal/pg/decoding"
-	"github.com/noctarius/event-stream-prototype/internal/supporting"
+	"github.com/noctarius/timescaledb-event-streamer/internal/eventhandler"
+	"github.com/noctarius/timescaledb-event-streamer/internal/pg/decoding"
+	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"strings"
 )
 

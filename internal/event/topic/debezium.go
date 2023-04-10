@@ -2,7 +2,7 @@ package topic
 
 import (
 	"fmt"
-	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/model"
+	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/model"
 )
 
 type DebeziumNamingStrategy struct {

@@ -2,12 +2,12 @@ package logicalreplicationresolver
 
 import (
 	"github.com/jackc/pglogrepl"
-	"github.com/noctarius/event-stream-prototype/internal/configuring/sysconfig"
-	"github.com/noctarius/event-stream-prototype/internal/eventhandler"
-	"github.com/noctarius/event-stream-prototype/internal/pg/decoding"
-	"github.com/noctarius/event-stream-prototype/internal/supporting"
-	"github.com/noctarius/event-stream-prototype/internal/systemcatalog"
-	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/model"
+	"github.com/noctarius/timescaledb-event-streamer/internal/configuring/sysconfig"
+	"github.com/noctarius/timescaledb-event-streamer/internal/eventhandler"
+	"github.com/noctarius/timescaledb-event-streamer/internal/pg/decoding"
+	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
+	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog"
+	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/model"
 	"time"
 )
 

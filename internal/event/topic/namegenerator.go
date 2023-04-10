@@ -1,6 +1,6 @@
 package topic
 
-import "github.com/noctarius/event-stream-prototype/internal/systemcatalog/model"
+import "github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/model"
 
 type NameGenerator struct {
 	topicPrefix         string

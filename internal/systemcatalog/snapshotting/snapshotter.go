@@ -3,11 +3,11 @@ package snapshotting
 import (
 	"github.com/go-errors/errors"
 	"github.com/jackc/pglogrepl"
-	"github.com/noctarius/event-stream-prototype/internal/eventhandler"
-	"github.com/noctarius/event-stream-prototype/internal/logging"
-	"github.com/noctarius/event-stream-prototype/internal/replication/channels"
-	"github.com/noctarius/event-stream-prototype/internal/supporting"
-	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/model"
+	"github.com/noctarius/timescaledb-event-streamer/internal/eventhandler"
+	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
+	"github.com/noctarius/timescaledb-event-streamer/internal/replication/channels"
+	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
+	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/model"
 	"hash/fnv"
 	"time"
 )

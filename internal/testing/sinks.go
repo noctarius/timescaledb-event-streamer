@@ -2,9 +2,9 @@ package testing
 
 import (
 	"encoding/json"
-	"github.com/noctarius/event-stream-prototype/internal/configuring/sysconfig"
-	"github.com/noctarius/event-stream-prototype/internal/event/sink"
-	"github.com/noctarius/event-stream-prototype/internal/schema"
+	"github.com/noctarius/timescaledb-event-streamer/internal/configuring/sysconfig"
+	"github.com/noctarius/timescaledb-event-streamer/internal/event/sink"
+	"github.com/noctarius/timescaledb-event-streamer/internal/schema"
 	"sync"
 	"time"
 )

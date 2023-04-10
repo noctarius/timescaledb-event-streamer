@@ -2,10 +2,10 @@ package internal
 
 import (
 	"github.com/jackc/pgx/v5"
-	"github.com/noctarius/event-stream-prototype/internal/configuring"
-	"github.com/noctarius/event-stream-prototype/internal/configuring/sysconfig"
-	"github.com/noctarius/event-stream-prototype/internal/replication"
-	"github.com/noctarius/event-stream-prototype/internal/supporting"
+	"github.com/noctarius/timescaledb-event-streamer/internal/configuring"
+	"github.com/noctarius/timescaledb-event-streamer/internal/configuring/sysconfig"
+	"github.com/noctarius/timescaledb-event-streamer/internal/replication"
+	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/pkg/errors"
 )
 

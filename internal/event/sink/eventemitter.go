@@ -3,13 +3,13 @@ package sink
 import (
 	"encoding/base64"
 	"github.com/jackc/pglogrepl"
-	"github.com/noctarius/event-stream-prototype/internal/event/eventfiltering"
-	"github.com/noctarius/event-stream-prototype/internal/event/topic"
-	"github.com/noctarius/event-stream-prototype/internal/eventhandler"
-	"github.com/noctarius/event-stream-prototype/internal/pg/decoding"
-	"github.com/noctarius/event-stream-prototype/internal/replication/transactional"
-	"github.com/noctarius/event-stream-prototype/internal/schema"
-	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/model"
+	"github.com/noctarius/timescaledb-event-streamer/internal/event/eventfiltering"
+	"github.com/noctarius/timescaledb-event-streamer/internal/event/topic"
+	"github.com/noctarius/timescaledb-event-streamer/internal/eventhandler"
+	"github.com/noctarius/timescaledb-event-streamer/internal/pg/decoding"
+	"github.com/noctarius/timescaledb-event-streamer/internal/replication/transactional"
+	"github.com/noctarius/timescaledb-event-streamer/internal/schema"
+	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/model"
 	"time"
 )
 

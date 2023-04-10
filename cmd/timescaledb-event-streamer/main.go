@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"github.com/BurntSushi/toml"
 	"github.com/go-errors/errors"
-	"github.com/noctarius/event-stream-prototype/internal"
-	"github.com/noctarius/event-stream-prototype/internal/configuring"
-	"github.com/noctarius/event-stream-prototype/internal/configuring/sysconfig"
-	"github.com/noctarius/event-stream-prototype/internal/supporting"
+	"github.com/noctarius/timescaledb-event-streamer/internal"
+	"github.com/noctarius/timescaledb-event-streamer/internal/configuring"
+	"github.com/noctarius/timescaledb-event-streamer/internal/configuring/sysconfig"
+	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
+	"github.com/noctarius/timescaledb-event-streamer/internal/version"
 	"io"
 	"os"
 	"os/signal"
@@ -27,6 +28,10 @@ func init() {
 }
 
 func main() {
+	fmt.Printf("%s version %s (git revision %s; branch %s)\n",
+		version.BinName, version.Version, version.CommitHash, version.Branch,
+	)
+
 	config := &configuring.Config{}
 
 	if configurationFile != "" {

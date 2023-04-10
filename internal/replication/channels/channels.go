@@ -2,9 +2,9 @@ package channels
 
 import (
 	"github.com/jackc/pglogrepl"
-	"github.com/noctarius/event-stream-prototype/internal/eventhandler"
-	"github.com/noctarius/event-stream-prototype/internal/pg"
-	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/model"
+	"github.com/noctarius/timescaledb-event-streamer/internal/eventhandler"
+	"github.com/noctarius/timescaledb-event-streamer/internal/pg"
+	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/model"
 )
 
 type SideChannel interface {

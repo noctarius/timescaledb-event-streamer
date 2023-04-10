@@ -2,7 +2,7 @@ package eventhandler
 
 import (
 	"fmt"
-	"github.com/noctarius/event-stream-prototype/internal/supporting"
+	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"os"
 	"time"
 )

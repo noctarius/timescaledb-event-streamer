@@ -1,10 +1,10 @@
 package sysconfig
 
 import (
-	"github.com/noctarius/event-stream-prototype/internal/event/sink"
-	"github.com/noctarius/event-stream-prototype/internal/event/topic"
-	"github.com/noctarius/event-stream-prototype/internal/replication/transactional"
-	"github.com/noctarius/event-stream-prototype/internal/schema"
+	"github.com/noctarius/timescaledb-event-streamer/internal/event/sink"
+	"github.com/noctarius/timescaledb-event-streamer/internal/event/topic"
+	"github.com/noctarius/timescaledb-event-streamer/internal/replication/transactional"
+	"github.com/noctarius/timescaledb-event-streamer/internal/schema"
 )
 
 type EventEmitterProvider = func(schemaRegistry *schema.Registry, topicNameGenerator *topic.NameGenerator,

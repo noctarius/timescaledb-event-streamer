@@ -2,7 +2,7 @@ package storage
 
 import (
 	"github.com/jackc/pglogrepl"
-	"github.com/noctarius/event-stream-prototype/internal/offset"
+	"github.com/noctarius/timescaledb-event-streamer/internal/offset"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"

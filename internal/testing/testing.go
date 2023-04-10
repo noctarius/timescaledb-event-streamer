@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/noctarius/event-stream-prototype/internal/supporting"
-	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/model"
+	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
+	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/model"
 	"strings"
 	"time"
 )

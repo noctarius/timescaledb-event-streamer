@@ -1,7 +1,7 @@
 package model
 
 import (
-	"github.com/noctarius/event-stream-prototype/internal/pg/decoding"
+	"github.com/noctarius/timescaledb-event-streamer/internal/pg/decoding"
 	"strings"
 )
 

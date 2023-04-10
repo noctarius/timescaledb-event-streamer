@@ -2,9 +2,9 @@ package stdout
 
 import (
 	"encoding/json"
-	"github.com/noctarius/event-stream-prototype/internal/event/sink"
-	"github.com/noctarius/event-stream-prototype/internal/logging"
-	"github.com/noctarius/event-stream-prototype/internal/schema"
+	"github.com/noctarius/timescaledb-event-streamer/internal/event/sink"
+	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
+	"github.com/noctarius/timescaledb-event-streamer/internal/schema"
 	"time"
 )
 

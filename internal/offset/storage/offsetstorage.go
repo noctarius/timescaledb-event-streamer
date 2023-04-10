@@ -1,6 +1,6 @@
 package storage
 
-import "github.com/noctarius/event-stream-prototype/internal/offset"
+import "github.com/noctarius/timescaledb-event-streamer/internal/offset"
 
 type OffsetStorage interface {
 	Start() error

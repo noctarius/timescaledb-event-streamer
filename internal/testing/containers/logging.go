@@ -1,7 +1,7 @@
 package containers
 
 import (
-	"github.com/noctarius/event-stream-prototype/internal/logging"
+	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/testcontainers/testcontainers-go"
 )
 

@@ -2,8 +2,8 @@ package eventhandler
 
 import (
 	"github.com/jackc/pglogrepl"
-	"github.com/noctarius/event-stream-prototype/internal/pg/decoding"
-	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/model"
+	"github.com/noctarius/timescaledb-event-streamer/internal/pg/decoding"
+	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/model"
 )
 
 type BaseReplicationEventHandler interface {

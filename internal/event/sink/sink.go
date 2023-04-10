@@ -1,7 +1,7 @@
 package sink
 
 import (
-	"github.com/noctarius/event-stream-prototype/internal/schema"
+	"github.com/noctarius/timescaledb-event-streamer/internal/schema"
 	"time"
 )
 

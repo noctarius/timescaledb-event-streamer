@@ -1,6 +1,6 @@
 package testing
 
-import "github.com/noctarius/event-stream-prototype/internal/schema"
+import "github.com/noctarius/timescaledb-event-streamer/internal/schema"
 
 type Source struct {
 	Connector string `json:"connector"`

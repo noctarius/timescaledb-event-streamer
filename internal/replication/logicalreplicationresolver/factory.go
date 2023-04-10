@@ -1,10 +1,10 @@
 package logicalreplicationresolver
 
 import (
-	"github.com/noctarius/event-stream-prototype/internal/configuring"
-	"github.com/noctarius/event-stream-prototype/internal/configuring/sysconfig"
-	"github.com/noctarius/event-stream-prototype/internal/eventhandler"
-	"github.com/noctarius/event-stream-prototype/internal/systemcatalog"
+	"github.com/noctarius/timescaledb-event-streamer/internal/configuring"
+	"github.com/noctarius/timescaledb-event-streamer/internal/configuring/sysconfig"
+	"github.com/noctarius/timescaledb-event-streamer/internal/eventhandler"
+	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog"
 	"time"
 )
 

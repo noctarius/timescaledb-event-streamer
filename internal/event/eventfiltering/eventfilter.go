@@ -4,10 +4,10 @@ import (
 	"github.com/antonmedv/expr"
 	"github.com/antonmedv/expr/vm"
 	"github.com/go-errors/errors"
-	"github.com/noctarius/event-stream-prototype/internal/configuring"
-	"github.com/noctarius/event-stream-prototype/internal/schema"
-	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/filtering"
-	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/model"
+	"github.com/noctarius/timescaledb-event-streamer/internal/configuring"
+	"github.com/noctarius/timescaledb-event-streamer/internal/schema"
+	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/filtering"
+	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/model"
 )
 
 type Filter interface {

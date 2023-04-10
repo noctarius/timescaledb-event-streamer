@@ -1,10 +1,11 @@
-module github.com/noctarius/event-stream-prototype
+module github.com/noctarius/timescaledb-event-streamer
 
 go 1.20
 
 require (
 	github.com/BurntSushi/toml v1.2.1
 	github.com/Shopify/sarama v1.38.1
+	github.com/antonmedv/expr v1.12.5
 	github.com/docker/docker v23.0.2+incompatible
 	github.com/go-errors/errors v1.3.0
 	github.com/go-redis/redis v6.15.9+incompatible
@@ -22,7 +23,6 @@ require (
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 // indirect
 	github.com/Microsoft/go-winio v0.6.0 // indirect
-	github.com/antonmedv/expr v1.12.5 // indirect
 	github.com/cenkalti/backoff/v4 v4.2.0 // indirect
 	github.com/containerd/containerd v1.7.0 // indirect
 	github.com/cpuguy83/dockercfg v0.3.1 // indirect

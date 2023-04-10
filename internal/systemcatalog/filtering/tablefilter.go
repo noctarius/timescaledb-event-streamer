@@ -3,7 +3,7 @@ package filtering
 import (
 	"fmt"
 	"github.com/go-errors/errors"
-	"github.com/noctarius/event-stream-prototype/internal/systemcatalog/model"
+	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/model"
 	"regexp"
 	"strings"
 	"unicode"

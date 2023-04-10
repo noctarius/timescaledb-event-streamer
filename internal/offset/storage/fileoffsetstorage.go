@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"github.com/docker/docker/pkg/ioutils"
 	"github.com/go-errors/errors"
-	"github.com/noctarius/event-stream-prototype/internal/offset"
+	"github.com/noctarius/timescaledb-event-streamer/internal/offset"
 	"os"
 	"path/filepath"
 )

@@ -4,9 +4,9 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"github.com/go-redis/redis"
-	"github.com/noctarius/event-stream-prototype/internal/configuring"
-	"github.com/noctarius/event-stream-prototype/internal/event/sink"
-	"github.com/noctarius/event-stream-prototype/internal/schema"
+	"github.com/noctarius/timescaledb-event-streamer/internal/configuring"
+	"github.com/noctarius/timescaledb-event-streamer/internal/event/sink"
+	"github.com/noctarius/timescaledb-event-streamer/internal/schema"
 	"time"
 )
 

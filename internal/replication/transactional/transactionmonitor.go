@@ -2,7 +2,7 @@ package transactional
 
 import (
 	"github.com/jackc/pglogrepl"
-	"github.com/noctarius/event-stream-prototype/internal/pg/decoding"
+	"github.com/noctarius/timescaledb-event-streamer/internal/pg/decoding"
 )
 
 type TransactionMonitor struct {

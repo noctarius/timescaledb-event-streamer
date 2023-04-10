@@ -3,16 +3,16 @@ package sysconfig
 import (
 	"fmt"
 	"github.com/jackc/pgx/v5"
-	"github.com/noctarius/event-stream-prototype/internal/configuring"
-	"github.com/noctarius/event-stream-prototype/internal/event/eventfiltering"
-	"github.com/noctarius/event-stream-prototype/internal/event/sink"
-	"github.com/noctarius/event-stream-prototype/internal/event/sink/kafka"
-	"github.com/noctarius/event-stream-prototype/internal/event/sink/nats"
-	"github.com/noctarius/event-stream-prototype/internal/event/sink/redis"
-	"github.com/noctarius/event-stream-prototype/internal/event/sink/stdout"
-	"github.com/noctarius/event-stream-prototype/internal/event/topic"
-	"github.com/noctarius/event-stream-prototype/internal/replication/transactional"
-	"github.com/noctarius/event-stream-prototype/internal/schema"
+	"github.com/noctarius/timescaledb-event-streamer/internal/configuring"
+	"github.com/noctarius/timescaledb-event-streamer/internal/event/eventfiltering"
+	"github.com/noctarius/timescaledb-event-streamer/internal/event/sink"
+	"github.com/noctarius/timescaledb-event-streamer/internal/event/sink/kafka"
+	"github.com/noctarius/timescaledb-event-streamer/internal/event/sink/nats"
+	"github.com/noctarius/timescaledb-event-streamer/internal/event/sink/redis"
+	"github.com/noctarius/timescaledb-event-streamer/internal/event/sink/stdout"
+	"github.com/noctarius/timescaledb-event-streamer/internal/event/topic"
+	"github.com/noctarius/timescaledb-event-streamer/internal/replication/transactional"
+	"github.com/noctarius/timescaledb-event-streamer/internal/schema"
 )
 
 type SystemConfig struct {
