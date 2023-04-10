@@ -112,6 +112,9 @@ type TestRunner struct {
 	container     testcontainers.Container
 	userConfig    *pgxpool.Config
 	replPgxConfig *pgx.ConnConfig
+
+	withDebug  bool
+	withCaller bool
 }
 
 func (t *testContext) attribute(key string, value any) {
@@ -137,6 +140,11 @@ func WithTearDown(fn func(context Context) error) testConfigurator {
 }
 
 func (tr *TestRunner) SetupSuite() {
+	tr.withDebug = logging.WithDebug
+	tr.withCaller = logging.WithCaller
+	logging.WithDebug = true
+	//logging.WithCaller = true
+
 	container, configProvider, err := containers.SetupTimescaleContainer()
 	if err != nil {
 		logger.Fatalf("failed setting up container: %+v", err)
@@ -160,6 +168,8 @@ func (tr *TestRunner) TearDownSuite() {
 	if tr.container != nil {
 		tr.container.Terminate(context.Background())
 	}
+	logging.WithDebug = tr.withDebug
+	logging.WithCaller = tr.withCaller
 }
 
 func (tr *TestRunner) RunTest(testFn func(context Context) error, configurators ...testConfigurator) {
@@ -243,7 +253,7 @@ type ContainerLogForwarder struct {
 func (c *ContainerLogForwarder) Accept(log testcontainers.Log) {
 	switch log.LogType {
 	case testcontainers.StdoutLog:
-		c.Logger.Printf(string(log.Content))
+		c.Logger.Infof(string(log.Content))
 	case testcontainers.StderrLog:
 		c.Logger.Errorf(string(log.Content))
 	}

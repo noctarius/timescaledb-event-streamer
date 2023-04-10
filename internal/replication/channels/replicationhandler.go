@@ -76,7 +76,7 @@ func (rh *replicationHandler) startReplicationHandler(connection *pgconn.PgConn,
 
 		msg, ok := rawMsg.(*pgproto3.CopyData)
 		if !ok {
-			//logger.Printf("Received unexpected message: %T\n", rawMsg)
+			logger.Warnf("Received unexpected message: %T\n", rawMsg)
 			continue
 		}
 
@@ -112,7 +112,7 @@ func (rh *replicationHandler) handleXLogData(xld pglogrepl.XLogData) error {
 	}
 
 	if err := rh.handleReplicationEvents(xld, msg); err != nil {
-		logger.Printf("handling replication event message failed: %s => %+v", err, msg)
+		logger.Warnf("handling replication event message failed: %s => %+v", err, msg)
 	}
 
 	rh.clientXLogPos = xld.WALStart + pglogrepl.LSN(len(xld.WALData))
@@ -124,7 +124,7 @@ func (rh *replicationHandler) handleXLogData(xld pglogrepl.XLogData) error {
 }
 
 func (rh *replicationHandler) handleReplicationEvents(xld pglogrepl.XLogData, msg pglogrepl.Message) error {
-	fmt.Printf("EVENT: %+v", msg)
+	logger.Debugf("EVENT: %+v", msg)
 	switch logicalMsg := msg.(type) {
 	case *pglogrepl.RelationMessage:
 		rh.relations[logicalMsg.RelationID] = logicalMsg

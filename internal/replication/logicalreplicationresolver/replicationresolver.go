@@ -55,7 +55,7 @@ func newLogicalReplicationResolver(config *sysconfig.SystemConfig, dispatcher *e
 
 func (l *logicalReplicationResolver) OnChunkSnapshotStartedEvent(_ *model.Hypertable, chunk *model.Chunk) error {
 	l.eventQueues[chunk.CanonicalName()] = supporting.NewQueue[func(snapshot pglogrepl.LSN) error]()
-	logger.Printf("Snapshot of %s started", chunk.CanonicalName())
+	logger.Infof("Snapshot of %s started", chunk.CanonicalName())
 	return nil
 }
 
@@ -88,25 +88,25 @@ func (l *logicalReplicationResolver) OnChunkSnapshotFinishedEvent(
 			return errors.Wrap(err, 0)
 		}
 	}
-	logger.Printf("Snapshot of %s finished", chunk.CanonicalName())
+	logger.Infoln("Snapshot of %s finished", chunk.CanonicalName())
 
 	return nil
 }
 
 func (l *logicalReplicationResolver) OnRelationEvent(xld pglogrepl.XLogData, msg *decoding.RelationMessage) error {
-	logger.Printf("RELATION MSG: %+v", msg)
+	logger.Debugf("RELATION MSG: %+v", msg)
 	l.relations[msg.RelationID] = msg
 	return nil
 }
 
 func (l *logicalReplicationResolver) OnBeginEvent(xld pglogrepl.XLogData, msg *decoding.BeginMessage) error {
-	logger.Printf("BEGIN MSG: %+v", msg)
+	logger.Debugf("BEGIN MSG: %+v", msg)
 	//TODO implement me
 	return nil
 }
 
 func (l *logicalReplicationResolver) OnCommitEvent(xld pglogrepl.XLogData, msg *decoding.CommitMessage) error {
-	logger.Printf("COMMIT MSG: %+v", msg)
+	logger.Debugf("COMMIT MSG: %+v", msg)
 	//TODO implement me
 	return nil
 }
@@ -283,15 +283,14 @@ func (l *logicalReplicationResolver) OnMessageEvent(xld pglogrepl.XLogData, msg 
 }
 
 func (l *logicalReplicationResolver) OnTypeEvent(xld pglogrepl.XLogData, msg *decoding.TypeMessage) error {
-	logger.Printf("TYPE MSG: %+v", msg)
+	logger.Debugf("TYPE MSG: %+v", msg)
 	//TODO implement me
 	return nil
 }
 
 func (l *logicalReplicationResolver) OnOriginEvent(xld pglogrepl.XLogData, msg *decoding.OriginMessage) error {
-	logger.Printf("ORIGIN MSG: %+v", msg)
+	logger.Debugf("ORIGIN MSG: %+v", msg)
 	//TODO implement me
-	logger.Printf("Origin: %+v", msg)
 	return nil
 }
 
@@ -368,7 +367,7 @@ func (l *logicalReplicationResolver) onChunkDeleteEvent(xld pglogrepl.XLogData, 
 func (l *logicalReplicationResolver) onChunkCompressionEvent(xld pglogrepl.XLogData, chunk *model.Chunk) error {
 	hypertableId := chunk.HypertableId()
 	if uncompressedHypertable, _, present := l.systemCatalog.ResolveUncompressedHypertable(hypertableId); present {
-		logger.Printf(
+		logger.Infoln(
 			"COMPRESSION EVENT %s.%s FOR CHUNK %s.%s", uncompressedHypertable.SchemaName(),
 			uncompressedHypertable.HypertableName(), chunk.SchemaName(), chunk.TableName(),
 		)
@@ -391,7 +390,7 @@ func (l *logicalReplicationResolver) onChunkCompressionEvent(xld pglogrepl.XLogD
 func (l *logicalReplicationResolver) onChunkDecompressionEvent(xld pglogrepl.XLogData, chunk *model.Chunk) error {
 	hypertableId := chunk.HypertableId()
 	if uncompressedHypertable, _, present := l.systemCatalog.ResolveUncompressedHypertable(hypertableId); present {
-		logger.Printf(
+		logger.Infof(
 			"DECOMPRESSION EVENT %s.%s FOR CHUNK %s.%s", uncompressedHypertable.SchemaName(),
 			uncompressedHypertable.HypertableName(), chunk.SchemaName(), chunk.TableName(),
 		)

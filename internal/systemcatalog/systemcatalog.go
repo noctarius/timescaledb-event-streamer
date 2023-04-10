@@ -179,7 +179,7 @@ func (sc *SystemCatalog) RegisterHypertable(hypertable *model.Hypertable) error 
 		sc.hypertable2compressed[hypertable.Id()] = compressedHypertableId
 		sc.compressed2hypertable[compressedHypertableId] = hypertable.Id()
 	}
-	logger.Printf("ADDED CATALOG ENTRY: HYPERTABLE %d => %+v", hypertable.Id(), hypertable)
+	logger.Verbosef("ADDED CATALOG ENTRY: HYPERTABLE %d => %+v", hypertable.Id(), hypertable)
 	return nil
 }
 
@@ -190,7 +190,7 @@ func (sc *SystemCatalog) UnregisterHypertable(hypertable *model.Hypertable) erro
 	delete(sc.hypertable2compressed, hypertable.Id())
 	delete(sc.compressed2hypertable, hypertable.Id())
 	delete(sc.hypertable2chunks, hypertable.Id())
-	logger.Printf("REMOVED CATALOG ENTRY: HYPERTABLE %d", hypertable.Id())
+	logger.Verbosef("REMOVED CATALOG ENTRY: HYPERTABLE %d", hypertable.Id())
 	return nil
 }
 
@@ -200,7 +200,7 @@ func (sc *SystemCatalog) RegisterChunk(chunk *model.Chunk) error {
 		sc.chunkNameIndex[chunk.CanonicalName()] = chunk.Id()
 		sc.chunk2Hypertable[chunk.Id()] = chunk.HypertableId()
 		sc.hypertable2chunks[hypertable.Id()] = append(sc.hypertable2chunks[hypertable.Id()], chunk.Id())
-		logger.Printf("ADDED CATALOG ENTRY: CHUNK %d FOR HYPERTABLE %s => %+v",
+		logger.Verbosef("ADDED CATALOG ENTRY: CHUNK %d FOR HYPERTABLE %s => %+v",
 			chunk.Id(), hypertable.CanonicalName(), *chunk)
 	}
 	return nil
@@ -233,7 +233,7 @@ func (sc *SystemCatalog) ApplySchemaUpdate(hypertable *model.Hypertable, columns
 		hypertableSchemaName := fmt.Sprintf("%s.Value", sc.topicNameGenerator.SchemaTopicName(hypertable))
 		hypertableSchema := schema.HypertableSchema(hypertableSchemaName, hypertable.Columns())
 		sc.schemaRegistry.RegisterSchema(hypertableSchemaName, hypertableSchema)
-		logger.Printf("SCHEMA UPDATE: HYPERTABLE %d => %+v", hypertable.Id(), difference)
+		logger.Verbosef("SCHEMA UPDATE: HYPERTABLE %d => %+v", hypertable.Id(), difference)
 		return len(difference) > 0
 	}
 	return false
@@ -296,11 +296,11 @@ func initializeSystemCatalog(sc *SystemCatalog) (*SystemCatalog, error) {
 	for _, hypertable := range sc.hypertables {
 		if !hypertable.IsCompressedTable() && sc.IsHypertableSelectedForReplication(hypertable.Id()) {
 			if hypertable.IsContinuousAggregate() {
-				logger.Printf("\t* %s (type: Continuous Aggregate => %s)\n",
+				logger.Infof("\t* %s (type: Continuous Aggregate => %s)\n",
 					hypertable.CanonicalContinuousAggregateName(), hypertable.CanonicalName(),
 				)
 			} else {
-				logger.Printf("\t* %s (type: Hypertable)\n", hypertable.CanonicalName())
+				logger.Infof("\t* %s (type: Hypertable)\n", hypertable.CanonicalName())
 			}
 			//atLeastOneHypertableSelected = true
 		}

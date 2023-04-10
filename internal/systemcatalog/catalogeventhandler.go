@@ -83,7 +83,7 @@ func (s *systemCatalogReplicationEventHandler) OnHypertableUpdatedEvent(_ uint32
 				if err := s.systemCatalog.RegisterHypertable(h); err != nil {
 					return fmt.Errorf("registering hypertable failed: %v", h)
 				}
-				logger.Printf("UPDATED CATALOG ENTRY: HYPERTABLE %d => %v", id, differences)
+				logger.Verbosef("UPDATED CATALOG ENTRY: HYPERTABLE %d => %v", id, differences)
 			}
 			return nil
 		},
@@ -133,10 +133,10 @@ func (s *systemCatalogReplicationEventHandler) OnChunkUpdatedEvent(_ uint32, _, 
 
 				hypertableName := "unknown"
 				if uH, cH, present := s.systemCatalog.ResolveUncompressedHypertable(hypertableId); present {
-					hypertableName = fmt.Sprintf("%s.%s", uH.SchemaName(), uH.HypertableName())
+					hypertableName = uH.CanonicalName()
 					if cH != nil {
 						hypertableName = fmt.Sprintf(
-							"%s VIA %s.%s", cH.SchemaName(), cH.HypertableName(), hypertableName)
+							"%s VIA %s", hypertableName, cH.CanonicalName())
 					}
 				}
 
@@ -144,10 +144,10 @@ func (s *systemCatalogReplicationEventHandler) OnChunkUpdatedEvent(_ uint32, _, 
 					return fmt.Errorf("registering chunk failed: %v", c)
 				}
 				if c.Dropped() && !chunk.Dropped() {
-					logger.Printf("UPDATED CATALOG ENTRY: CHUNK %d DROPPED FOR HYPERTABLE %s => %v",
+					logger.Verbosef("UPDATED CATALOG ENTRY: CHUNK %d DROPPED FOR HYPERTABLE %s => %v",
 						id, hypertableName, differences)
 				} else {
-					logger.Printf(
+					logger.Verbosef(
 						"UPDATED CATALOG ENTRY: CHUNK %d FOR HYPERTABLE %s => %v",
 						id, hypertableName, differences)
 				}
@@ -173,7 +173,7 @@ func (s *systemCatalogReplicationEventHandler) OnChunkDeletedEvent(_ uint32, old
 		if err != nil {
 			logger.Fatalf("detaching chunk failed: %d => %v", chunkId, err)
 		}
-		logger.Printf("REMOVED CATALOG ENTRY: CHUNK %d FOR HYPERTABLE %s", chunkId, hypertableName)
+		logger.Verbosef("REMOVED CATALOG ENTRY: CHUNK %d FOR HYPERTABLE %s", chunkId, hypertableName)
 	}
 	return nil
 }

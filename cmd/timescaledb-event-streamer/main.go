@@ -6,6 +6,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal"
 	"github.com/noctarius/timescaledb-event-streamer/internal/configuring"
 	"github.com/noctarius/timescaledb-event-streamer/internal/configuring/sysconfig"
+	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/version"
 	"github.com/urfave/cli"
@@ -19,6 +20,8 @@ import (
 var (
 	configurationFile string
 	verbose           bool
+	debug             bool
+	withCaller        bool
 )
 
 func main() {
@@ -33,9 +36,19 @@ func main() {
 				Destination: &configurationFile,
 			},
 			&cli.BoolFlag{
-				Name:        "verbose,v",
+				Name:        "verbose",
 				Usage:       "Show verbose output",
 				Destination: &verbose,
+			},
+			&cli.BoolFlag{
+				Name:        "caller",
+				Usage:       "Collect caller information for log messages",
+				Destination: &withCaller,
+			},
+			&cli.BoolFlag{
+				Name:        "debug,d",
+				Usage:       "Show debug output",
+				Destination: &withCaller,
 			},
 		},
 		Action: start,
@@ -50,6 +63,10 @@ func start(*cli.Context) error {
 	fmt.Printf("%s version %s (git revision %s; branch %s)\n",
 		version.BinName, version.Version, version.CommitHash, version.Branch,
 	)
+
+	logging.WithCaller = withCaller
+	logging.WithVerbose = verbose
+	logging.WithDebug = debug
 
 	config := &configuring.Config{}
 

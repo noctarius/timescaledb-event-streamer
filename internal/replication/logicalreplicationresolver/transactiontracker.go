@@ -162,7 +162,7 @@ func (tt *transactionTracker) OnUpdateEvent(xld pglogrepl.XLogData, msg *decodin
 				}
 
 				previouslyCompressed := oldChunkStatus != 0 && newChunkStatus == 0
-				logger.Printf("Chunk %d: status=%d, new value=%d", chunkId, oldChunkStatus, newChunkStatus)
+				logger.Verbosef("Chunk %d: status=%d, new value=%d", chunkId, oldChunkStatus, newChunkStatus)
 
 				if previouslyCompressed {
 					tt.currentTransaction.decompressionUpdate = updateEntry

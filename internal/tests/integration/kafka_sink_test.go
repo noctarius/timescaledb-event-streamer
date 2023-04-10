@@ -151,7 +151,7 @@ func (k *kafkaConsumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim 
 			if err := json.Unmarshal(message.Value, &envelope); err != nil {
 				k.t.Error(err)
 			}
-			kafkaLogger.Printf("EVENT: %+v", envelope)
+			kafkaLogger.Infof("EVENT: %+v", envelope)
 			k.envelopes = append(k.envelopes, envelope)
 			if len(k.envelopes) >= 10 {
 				k.collected <- true

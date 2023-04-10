@@ -81,7 +81,7 @@ func (rits *RedisIntegrationTestSuite) Test_Redis_Sink() {
 							rits.T().Error(err)
 						}
 
-						redisLogger.Printf("EVENT: %+v", envelope)
+						redisLogger.Debugf("EVENT: %+v", envelope)
 						envelopes = append(envelopes, envelope)
 						if len(envelopes) >= 10 {
 							collected <- true

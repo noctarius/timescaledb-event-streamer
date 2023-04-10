@@ -174,37 +174,37 @@ func SetupTimescaleContainer() (testcontainers.Container, *ConfigProvider, error
 	}
 
 	// Disable timescale plugin
-	timescaledbLogger.Println("Drop timescaledb extension")
+	timescaledbLogger.Verbosef("Drop timescaledb extension")
 	if err := exec("DROP EXTENSION IF EXISTS timescaledb"); err != nil {
 		return nil, nil, err
 	}
 
 	// Create default user role
-	timescaledbLogger.Println("Create default user login")
+	timescaledbLogger.Verbosef("Create default user login")
 	if err := exec(
 		fmt.Sprintf("CREATE ROLE %s LOGIN ENCRYPTED PASSWORD '%s'", tsdbUser, tsdbPass),
 	); err != nil {
 		return nil, nil, err
 	}
-	timescaledbLogger.Println("Grant permissions to default user")
+	timescaledbLogger.Verbosef("Grant permissions to default user")
 	if err := exec(
 		fmt.Sprintf("GRANT ALL PRIVILEGES ON DATABASE %s TO %s", databaseName, tsdbUser),
 	); err != nil {
 		return nil, nil, err
 	}
-	timescaledbLogger.Printf("Create %s schema", databaseSchema)
+	timescaledbLogger.Verbosef("Create %s schema", databaseSchema)
 	if err := exec(
 		fmt.Sprintf("CREATE SCHEMA %s", databaseSchema),
 	); err != nil {
 		return nil, nil, err
 	}
-	timescaledbLogger.Println("Grant schema permissions to default user")
+	timescaledbLogger.Verbosef("Grant schema permissions to default user")
 	if err := exec(
 		fmt.Sprintf("ALTER SCHEMA %s OWNER TO %s", databaseSchema, tsdbUser),
 	); err != nil {
 		return nil, nil, err
 	}
-	timescaledbLogger.Println("Set default schema for default user")
+	timescaledbLogger.Verbosef("Set default schema for default user")
 	if err := exec(
 		fmt.Sprintf("ALTER ROLE %s SET search_path TO %s, public", tsdbUser, databaseSchema),
 	); err != nil {
@@ -212,26 +212,26 @@ func SetupTimescaleContainer() (testcontainers.Container, *ConfigProvider, error
 	}
 
 	// Create replication user and adjust permissions
-	timescaledbLogger.Println("Create replication user login")
+	timescaledbLogger.Verbosef("Create replication user login")
 	if err := exec(
 		fmt.Sprintf("CREATE ROLE %s LOGIN REPLICATION ENCRYPTED PASSWORD '%s'", replUser, replPass),
 	); err != nil {
 		return nil, nil, err
 	}
-	timescaledbLogger.Println("Grant user permissions for replication user")
+	timescaledbLogger.Verbosef("Grant user permissions for replication user")
 	if err := exec(
 		fmt.Sprintf("GRANT %s TO %s", tsdbUser, replUser),
 	); err != nil {
 		return nil, nil, err
 	}
-	timescaledbLogger.Println("Create timescaledb extension")
+	timescaledbLogger.Verbosef("Create timescaledb extension")
 	if err := exec("CREATE EXTENSION IF NOT EXISTS timescaledb"); err != nil {
 		return nil, nil, err
 	}
-	timescaledbLogger.Println("Drop existing publication")
+	timescaledbLogger.Verbosef("Drop existing publication")
 
 	// Create initial publication function
-	timescaledbLogger.Println("Create publication initiator function")
+	timescaledbLogger.Verbosef("Create publication initiator function")
 	if err := exec(initialPublicationFunction); err != nil {
 		return nil, nil, err
 	}

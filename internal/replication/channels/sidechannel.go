@@ -268,7 +268,7 @@ func (sc *sideChannel) AttachChunkToPublication(chunk *model.Chunk) error {
 		if _, err := session.exec(context.Background(), attachingQuery); err != nil {
 			return errors.Wrap(err, 0)
 		}
-		logger.Printf("Updated publication %s to add table %s", sc.publicationName, canonicalChunkName)
+		logger.Infoln("Updated publication %s to add table %s", sc.publicationName, canonicalChunkName)
 		return nil
 	})
 }
@@ -280,7 +280,7 @@ func (sc *sideChannel) DetachChunkFromPublication(chunk *model.Chunk) error {
 		if _, err := session.exec(context.Background(), detachingQuery); err != nil {
 			return errors.Wrap(err, 0)
 		}
-		logger.Printf("Updated publication %s to drop table %s", sc.publicationName, canonicalChunkName)
+		logger.Infof("Updated publication %s to drop table %s", sc.publicationName, canonicalChunkName)
 		return nil
 	})
 }

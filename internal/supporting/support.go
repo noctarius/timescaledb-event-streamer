@@ -13,13 +13,17 @@ var validCharacters = []string{
 	"n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z",
 }
 
-func Contains[I comparable](collection []I, item I) bool {
-	for _, candidate := range collection {
+func IndexOf[I comparable](collection []I, item I) int {
+	for i, candidate := range collection {
 		if candidate == item {
-			return true
+			return i
 		}
 	}
-	return false
+	return -1
+}
+
+func Contains[I comparable](collection []I, item I) bool {
+	return IndexOf(collection, item) != -1
 }
 
 func Filter[I comparable](collection []I, filter func(item I) bool) []I {

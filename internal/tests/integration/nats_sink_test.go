@@ -80,7 +80,7 @@ func (nits *NatsIntegrationTestSuite) Test_Nats_Sink() {
 					msg.Nak()
 					nits.T().Error(err)
 				}
-				natsLogger.Printf("EVENT: %+v", envelope)
+				natsLogger.Debugf("EVENT: %+v", envelope)
 				envelopes = append(envelopes, envelope)
 				if len(envelopes) >= 10 {
 					collected <- true

@@ -22,6 +22,6 @@ func (s *stdoutSink) Emit(_ time.Time, topicName string, _, envelope schema.Stru
 	if err != nil {
 		return err
 	}
-	logger.Printf("===> /%s: \t%s\n", topicName, string(data))
+	logger.Infof("===> /%s: \t%s\n", topicName, string(data))
 	return nil
 }
