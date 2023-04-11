@@ -71,7 +71,7 @@ type Struct = map[schemaField]any
 
 func ReadEvent(record Struct, source Struct) Struct {
 	event := make(Struct, 0)
-	event[fieldNameOperation] = OP_READ
+	event[fieldNameOperation] = string(OP_READ)
 	event[fieldNameAfter] = record
 	if source != nil {
 		event[fieldNameSource] = source
@@ -82,7 +82,7 @@ func ReadEvent(record Struct, source Struct) Struct {
 
 func CreateEvent(record Struct, source Struct) Struct {
 	event := make(Struct, 0)
-	event[fieldNameOperation] = OP_CREATE
+	event[fieldNameOperation] = string(OP_CREATE)
 	event[fieldNameAfter] = record
 	if source != nil {
 		event[fieldNameSource] = source
@@ -93,7 +93,7 @@ func CreateEvent(record Struct, source Struct) Struct {
 
 func UpdateEvent(before, after, source Struct) Struct {
 	event := make(Struct, 0)
-	event[fieldNameOperation] = OP_UPDATE
+	event[fieldNameOperation] = string(OP_UPDATE)
 	if before != nil {
 		event[fieldNameBefore] = before
 	}
@@ -109,7 +109,7 @@ func UpdateEvent(before, after, source Struct) Struct {
 
 func DeleteEvent(before, source Struct, tombstone bool) Struct {
 	event := make(Struct, 0)
-	event[fieldNameOperation] = OP_DELETE
+	event[fieldNameOperation] = string(OP_DELETE)
 	if before != nil {
 		event[fieldNameBefore] = before
 	}
@@ -125,7 +125,7 @@ func DeleteEvent(before, source Struct, tombstone bool) Struct {
 
 func TruncateEvent(source Struct) Struct {
 	event := make(Struct, 0)
-	event[fieldNameOperation] = OP_TRUNCATE
+	event[fieldNameOperation] = string(OP_TRUNCATE)
 	if source != nil {
 		event[fieldNameSource] = source
 	}
@@ -135,7 +135,7 @@ func TruncateEvent(source Struct) Struct {
 
 func MessageEvent(prefix, content string, source Struct) Struct {
 	event := make(Struct, 0)
-	event[fieldNameOperation] = OP_MESSAGE
+	event[fieldNameOperation] = string(OP_MESSAGE)
 	event[fieldNameMessage] = Struct{
 		fieldNamePrefix:  prefix,
 		fieldNameContent: content,
@@ -149,8 +149,8 @@ func MessageEvent(prefix, content string, source Struct) Struct {
 
 func CompressionEvent(source Struct) Struct {
 	event := make(Struct, 0)
-	event[fieldNameOperation] = OP_TIMESCALE
-	event[fieldNameTimescaleOp] = OP_COMPRESSION
+	event[fieldNameOperation] = string(OP_TIMESCALE)
+	event[fieldNameTimescaleOp] = string(OP_COMPRESSION)
 	if source != nil {
 		event[fieldNameSource] = source
 	}
@@ -160,8 +160,8 @@ func CompressionEvent(source Struct) Struct {
 
 func DecompressionEvent(source Struct) Struct {
 	event := make(Struct, 0)
-	event[fieldNameOperation] = OP_TIMESCALE
-	event[fieldNameTimescaleOp] = OP_DECOMPRESSION
+	event[fieldNameOperation] = string(OP_TIMESCALE)
+	event[fieldNameTimescaleOp] = string(OP_DECOMPRESSION)
 	if source != nil {
 		event[fieldNameSource] = source
 	}

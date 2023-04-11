@@ -44,7 +44,7 @@ func (sc *SystemConfig) defaultEventEmitter(schemaRegistry *schema.Registry, top
 		return nil, err
 	}
 
-	filters, err := eventfiltering.NewSinkEventFilter(sc.Config)
+	filters, err := eventfiltering.NewSinkEventFilter(sc.Config.Sink.Filters)
 	if err != nil {
 		return nil, err
 	}

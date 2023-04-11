@@ -14,8 +14,7 @@ type Filter interface {
 	Evaluate(hypertable *model.Hypertable, key, value schema.Struct) (bool, error)
 }
 
-func NewSinkEventFilter(config *configuring.Config) (Filter, error) {
-	filterDefinitions := config.Sink.Filters
+func NewSinkEventFilter(filterDefinitions map[string]configuring.EventFilterConfig) (Filter, error) {
 	if filterDefinitions == nil {
 		return &acceptAllFilter{}, nil
 	}
@@ -70,7 +69,7 @@ type compositeFilter struct {
 
 func (f *compositeFilter) Evaluate(hypertable *model.Hypertable, key, value schema.Struct) (bool, error) {
 	for i, tableFilter := range f.tableFilters {
-		if tableFilter.Enabled(hypertable) {
+		if hypertable == nil || tableFilter.Enabled(hypertable) {
 			success, err := f.filters[i].evaluate(key, value)
 			if err != nil {
 				return false, err
