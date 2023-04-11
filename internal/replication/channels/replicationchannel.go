@@ -109,16 +109,16 @@ func (rc *replicationChannel) StartReplicationChannel(
 			logger.Errorf("shutdown failed: %+v", err)
 		}
 		if err := replicationHandler.stopReplicationHandler(); err != nil {
-			logger.Errorf("shutdown failed: %+v", err)
+			logger.Errorf("shutdown failed (stop replication handler): %+v", err)
 		}
 		if _, err := pglogrepl.SendStandbyCopyDone(context.Background(), connection); err != nil {
-			logger.Errorf("shutdown failed: %+v", err)
+			logger.Errorf("shutdown failed (send copy done): %+v", err)
 		}
 		if err := pglogrepl.DropReplicationSlot(context.Background(), connection, rc.publicationName, pglogrepl.DropReplicationSlotOptions{Wait: true}); err != nil {
-			logger.Errorf("shutdown failed: %+v", err)
+			logger.Errorf("shutdown failed (drop replication slot): %+v", err)
 		}
 		if err := rc.executeQuery(connection, fmt.Sprintf(dropPublication, rc.publicationName)); err != nil {
-			logger.Errorf("shutdown failed: %+v", err)
+			logger.Errorf("shutdown failed (drop publication): %+v", err)
 		}
 		rc.shutdownAwaiter.SignalDone()
 	}()
