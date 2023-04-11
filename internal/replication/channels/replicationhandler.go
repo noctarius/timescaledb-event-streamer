@@ -70,6 +70,11 @@ func (rh *replicationHandler) startReplicationHandler(connection *pgconn.PgConn,
 			return errors.Wrap(err, 0)
 		}
 
+		// Timeout reached, we'll just ignore that though :)
+		if rawMsg == nil {
+			continue
+		}
+
 		if errMsg, ok := rawMsg.(*pgproto3.ErrorResponse); ok {
 			logger.Fatalf("received Postgres WAL error: %+v", errMsg)
 		}
