@@ -5,6 +5,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/eventhandler"
 	"github.com/noctarius/timescaledb-event-streamer/internal/pg"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/model"
+	"github.com/noctarius/timescaledb-event-streamer/internal/version"
 )
 
 type SideChannel interface {
@@ -28,9 +29,9 @@ type SideChannel interface {
 
 	ReadPublishedTables(publicationName string) ([]string, error)
 
-	GetPostgresVersion() (version uint, err error)
+	GetPostgresVersion() (version version.PostgresVersion, err error)
 
-	GetTimescaleDBVersion() (version uint, err error)
+	GetTimescaleDBVersion() (version version.TimescaleVersion, err error)
 
 	GetWalLevel() (walLevel string, err error)
 }

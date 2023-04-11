@@ -11,8 +11,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/pg/decoding"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/model"
-	"regexp"
-	"strconv"
+	"github.com/noctarius/timescaledb-event-streamer/internal/version"
 	"time"
 )
 
@@ -95,11 +94,6 @@ const postgresqlVersionQuery = `SHOW SERVER_VERSION`
 
 const walLevelQuery = `SHOW WAL_LEVEL`
 
-var (
-	timescaledbVersionRegex = regexp.MustCompile(`([0-9]+)\.([0-9]+)(\.([0-9]+))?`)
-	postgresqlVersionRegex  = regexp.MustCompile(`^((1[0-9])\.([0-9]+))?`)
-)
-
 type sideChannel struct {
 	connConfig        *pgx.ConnConfig
 	publicationName   string
@@ -117,88 +111,42 @@ func NewSideChannel(connConfig *pgx.ConnConfig, publicationName string, snapshot
 
 func (sc *sideChannel) GetWalLevel() (walLevel string, err error) {
 	walLevel = "unknown"
-	err = sc.newSession(func(session session) error {
+	err = sc.newSession(func(session *session) error {
 		return session.queryRow(context.Background(), walLevelQuery).Scan(&walLevel)
 	})
 	return
 }
 
-func (sc *sideChannel) GetPostgresVersion() (version uint, err error) {
-	var major, minor uint
-	if err = sc.newSession(func(session session) error {
-		var version string
-		if err := session.queryRow(context.Background(), postgresqlVersionQuery).Scan(&version); err != nil {
+func (sc *sideChannel) GetPostgresVersion() (pgVersion version.PostgresVersion, err error) {
+	if err = sc.newSession(func(session *session) error {
+		var v string
+		if err := session.queryRow(context.Background(), postgresqlVersionQuery).Scan(&v); err != nil {
 			return err
 		}
-
-		matches := postgresqlVersionRegex.FindStringSubmatch(version)
-		if len(matches) < 3 {
-			return errors.Errorf("failed to extract postgresql version")
-		}
-
-		v, err := strconv.ParseInt(matches[2], 10, 32)
-		if err != nil {
-			return err
-		}
-		major = uint(v)
-
-		v, err = strconv.ParseInt(matches[3], 10, 32)
-		if err != nil {
-			return err
-		}
-		minor = uint(v)
-
+		pgVersion, err = version.ParsePostgresVersion(v)
 		return nil
 	}); err != nil {
 		return
 	}
-
-	return (major * 10000) + minor, nil
+	return
 }
 
-func (sc *sideChannel) GetTimescaleDBVersion() (version uint, err error) {
-	var major, minor, release uint
-	if err = sc.newSession(func(session session) error {
-		var version string
-		if err := session.queryRow(context.Background(), timescaledbVersionQuery).Scan(&version); err != nil {
+func (sc *sideChannel) GetTimescaleDBVersion() (tsdbVersion version.TimescaleVersion, err error) {
+	if err = sc.newSession(func(session *session) error {
+		var v string
+		if err := session.queryRow(context.Background(), timescaledbVersionQuery).Scan(&v); err != nil {
 			return err
 		}
-
-		matches := timescaledbVersionRegex.FindStringSubmatch(version)
-		if len(matches) < 3 {
-			return errors.Errorf("failed to extract timescale version")
-		}
-
-		v, err := strconv.ParseInt(matches[1], 10, 32)
-		if err != nil {
-			return err
-		}
-		major = uint(v)
-
-		v, err = strconv.ParseInt(matches[2], 10, 32)
-		if err != nil {
-			return err
-		}
-		minor = uint(v)
-
-		if len(matches) == 5 {
-			v, err = strconv.ParseInt(matches[4], 10, 32)
-			if err != nil {
-				return err
-			}
-			release = uint(v)
-		}
-
+		tsdbVersion, err = version.ParseTimescaleVersion(v)
 		return nil
 	}); err != nil {
 		return
 	}
-
-	return (major * 10000) + (minor * 100) + release, nil
+	return
 }
 
 func (sc *sideChannel) ReadHypertables(cb func(hypertable *model.Hypertable) error) error {
-	return sc.newSession(func(session session) error {
+	return sc.newSession(func(session *session) error {
 		return session.queryFunc(context.Background(), func(row pgx.Row) error {
 			var id int32
 			var schemaName, hypertableName, associatedSchemaName, associatedTablePrefix string
@@ -224,7 +172,7 @@ func (sc *sideChannel) ReadHypertables(cb func(hypertable *model.Hypertable) err
 }
 
 func (sc *sideChannel) ReadChunks(cb func(chunk *model.Chunk) error) error {
-	return sc.newSession(func(session session) error {
+	return sc.newSession(func(session *session) error {
 		return session.queryFunc(context.Background(), func(row pgx.Row) error {
 			var id, hypertableId int32
 			var schemaName, tableName string
@@ -246,7 +194,7 @@ func (sc *sideChannel) ReadHypertableSchema(
 	cb func(hypertable *model.Hypertable, columns []model.Column) bool,
 	hypertables ...*model.Hypertable) error {
 
-	return sc.newSession(func(session session) error {
+	return sc.newSession(func(session *session) error {
 		for _, hypertable := range hypertables {
 			if (!hypertable.IsContinuousAggregate() && hypertable.SchemaName() == "_timescaledb_internal") ||
 				hypertable.SchemaName() == "_timescaledb_catalog" {
@@ -264,7 +212,7 @@ func (sc *sideChannel) ReadHypertableSchema(
 func (sc *sideChannel) AttachChunkToPublication(chunk *model.Chunk) error {
 	canonicalChunkName := chunk.CanonicalName()
 	attachingQuery := fmt.Sprintf(addTableToPublicationQuery, sc.publicationName, canonicalChunkName)
-	return sc.newSession(func(session session) error {
+	return sc.newSession(func(session *session) error {
 		if _, err := session.exec(context.Background(), attachingQuery); err != nil {
 			return errors.Wrap(err, 0)
 		}
@@ -276,7 +224,7 @@ func (sc *sideChannel) AttachChunkToPublication(chunk *model.Chunk) error {
 func (sc *sideChannel) DetachChunkFromPublication(chunk *model.Chunk) error {
 	canonicalChunkName := chunk.CanonicalName()
 	detachingQuery := fmt.Sprintf(dropTableFromPublicationQuery, sc.publicationName, canonicalChunkName)
-	return sc.newSession(func(session session) error {
+	return sc.newSession(func(session *session) error {
 		if _, err := session.exec(context.Background(), detachingQuery); err != nil {
 			return errors.Wrap(err, 0)
 		}
@@ -290,7 +238,7 @@ func (sc *sideChannel) SnapshotTable(canonicalName string, startingLSN *pglogrep
 
 	var currentLSN pglogrepl.LSN
 
-	err := sc.newSession(func(session session) error {
+	err := sc.newSession(func(session *session) error {
 		if _, err := session.exec(context.Background(),
 			"BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ"); err != nil {
 
@@ -364,7 +312,7 @@ func (sc *sideChannel) SnapshotTable(canonicalName string, startingLSN *pglogrep
 
 func (sc *sideChannel) ReadReplicaIdentity(schemaName, tableName string) (pg.ReplicaIdentity, error) {
 	var replicaIdentity pg.ReplicaIdentity
-	if err := sc.newSession(func(session session) error {
+	if err := sc.newSession(func(session *session) error {
 		row := session.queryRow(context.Background(), replicaIdentityQuery, schemaName, tableName)
 
 		var val string
@@ -383,7 +331,7 @@ func (sc *sideChannel) ReadContinuousAggregate(materializedHypertableId int32) (
 	var viewSchema, viewName string
 
 	found := false
-	if err := sc.newSession(func(session session) error {
+	if err := sc.newSession(func(session *session) error {
 		row := session.queryRow(context.Background(), hypertableContinuousAggregateQuery, materializedHypertableId)
 		if err := row.Scan(&viewSchema, &viewName); err != nil {
 			if err != pgx.ErrNoRows {
@@ -401,7 +349,7 @@ func (sc *sideChannel) ReadContinuousAggregate(materializedHypertableId int32) (
 
 func (sc *sideChannel) ReadPublishedTables(publicationName string) ([]string, error) {
 	tableNames := make([]string, 0)
-	if err := sc.newSession(func(session session) error {
+	if err := sc.newSession(func(session *session) error {
 		return session.queryFunc(context.Background(), func(row pgx.Row) error {
 			var schemaName, tableName string
 			if err := row.Scan(&schemaName, &tableName); err != nil {
@@ -417,7 +365,7 @@ func (sc *sideChannel) ReadPublishedTables(publicationName string) ([]string, er
 }
 
 func (sc *sideChannel) readHypertableSchema(
-	session session, hypertable *model.Hypertable,
+	session *session, hypertable *model.Hypertable,
 	cb func(hypertable *model.Hypertable, columns []model.Column) bool) error {
 
 	columns := make([]model.Column, 0)
@@ -450,33 +398,35 @@ func (sc *sideChannel) readHypertableSchema(
 	return nil
 }
 
-func (sc *sideChannel) newSession(fn func(session session) error) error {
+func (sc *sideChannel) newSession(fn func(session *session) error) error {
 	connection, err := pgx.ConnectConfig(context.Background(), sc.connConfig)
 	if err != nil {
 		return fmt.Errorf("unable to connect to database: %v", err)
 	}
 	defer connection.Close(context.Background())
 
-	return fn(&sessionAdapter{connection: connection})
+	return fn(&session{connection: connection})
 }
 
-type sessionAdapter struct {
+type rowFunction = func(row pgx.Row) error
+
+type session struct {
 	connection *pgx.Conn
 }
 
-func (s *sessionAdapter) exec(ctx context.Context, query string, args ...any) (pgconn.CommandTag, error) {
+func (s *session) exec(ctx context.Context, query string, args ...any) (pgconn.CommandTag, error) {
 	return s.queryExecWithTimeout(s.connection, ctx, time.Second*20, query, args...)
 }
 
-func (s *sessionAdapter) queryRow(ctx context.Context, query string, args ...any) pgx.Row {
+func (s *session) queryRow(ctx context.Context, query string, args ...any) pgx.Row {
 	return s.queryRowWithTimeout(ctx, time.Second*20, query, args...)
 }
 
-func (s *sessionAdapter) queryFunc(ctx context.Context, fn rowFunction, query string, args ...any) error {
+func (s *session) queryFunc(ctx context.Context, fn rowFunction, query string, args ...any) error {
 	return s.queryFuncWithTimeout(ctx, time.Second*20, fn, query, args...)
 }
 
-func (s *sessionAdapter) queryFuncWithTimeout(ctx context.Context, timeout time.Duration,
+func (s *session) queryFuncWithTimeout(ctx context.Context, timeout time.Duration,
 	fn rowFunction, query string, args ...any) error {
 
 	ctx, cancel := context.WithTimeout(ctx, timeout)
@@ -497,7 +447,7 @@ func (s *sessionAdapter) queryFuncWithTimeout(ctx context.Context, timeout time.
 	return rows.Err()
 }
 
-func (s *sessionAdapter) queryRowWithTimeout(ctx context.Context,
+func (s *session) queryRowWithTimeout(ctx context.Context,
 	timeout time.Duration, query string, args ...any) pgx.Row {
 
 	ctx, cancel := context.WithTimeout(ctx, timeout)
@@ -506,7 +456,7 @@ func (s *sessionAdapter) queryRowWithTimeout(ctx context.Context,
 	return s.connection.QueryRow(ctx, query, args...)
 }
 
-func (s *sessionAdapter) queryExecWithTimeout(connection *pgx.Conn, ctx context.Context,
+func (s *session) queryExecWithTimeout(connection *pgx.Conn, ctx context.Context,
 	timeout time.Duration, query string, args ...any) (pgconn.CommandTag, error) {
 
 	ctx, cancel := context.WithTimeout(ctx, timeout)
