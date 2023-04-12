@@ -11,6 +11,8 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/pg/decoding"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
+	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
+	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"runtime"
 	"time"
 )
@@ -135,8 +137,8 @@ func (rh *replicationHandler) handleReplicationEvents(xld pglogrepl.XLogData, ms
 		rh.relations[logicalMsg.RelationID] = logicalMsg
 		return rh.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
 			notificator.NotifyBaseReplicationEventHandler(
-				func(handler eventhandler.BaseReplicationEventHandler) error {
-					return handler.OnRelationEvent(xld, (*decoding.RelationMessage)(logicalMsg))
+				func(handler eventhandlers.BaseReplicationEventHandler) error {
+					return handler.OnRelationEvent(xld, (*pgtypes.RelationMessage)(logicalMsg))
 				},
 			)
 		})
@@ -147,8 +149,8 @@ func (rh *replicationHandler) handleReplicationEvents(xld pglogrepl.XLogData, ms
 		// transactions.
 		return rh.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
 			notificator.NotifyLogicalReplicationEventHandler(
-				func(handler eventhandler.LogicalReplicationEventHandler) error {
-					return handler.OnBeginEvent(xld, (*decoding.BeginMessage)(logicalMsg))
+				func(handler eventhandlers.LogicalReplicationEventHandler) error {
+					return handler.OnBeginEvent(xld, (*pgtypes.BeginMessage)(logicalMsg))
 				},
 			)
 		})
@@ -156,8 +158,8 @@ func (rh *replicationHandler) handleReplicationEvents(xld pglogrepl.XLogData, ms
 		rh.lastTransactionId = nil
 		return rh.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
 			notificator.NotifyLogicalReplicationEventHandler(
-				func(handler eventhandler.LogicalReplicationEventHandler) error {
-					return handler.OnCommitEvent(xld, (*decoding.CommitMessage)(logicalMsg))
+				func(handler eventhandlers.LogicalReplicationEventHandler) error {
+					return handler.OnCommitEvent(xld, (*pgtypes.CommitMessage)(logicalMsg))
 				},
 			)
 		})
@@ -170,31 +172,31 @@ func (rh *replicationHandler) handleReplicationEvents(xld pglogrepl.XLogData, ms
 	case *pglogrepl.TruncateMessage:
 		return rh.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
 			notificator.NotifyLogicalReplicationEventHandler(
-				func(handler eventhandler.LogicalReplicationEventHandler) error {
-					return handler.OnTruncateEvent(xld, (*decoding.TruncateMessage)(logicalMsg))
+				func(handler eventhandlers.LogicalReplicationEventHandler) error {
+					return handler.OnTruncateEvent(xld, (*pgtypes.TruncateMessage)(logicalMsg))
 				},
 			)
 		})
 	case *pglogrepl.TypeMessage:
 		return rh.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
 			notificator.NotifyLogicalReplicationEventHandler(
-				func(handler eventhandler.LogicalReplicationEventHandler) error {
-					return handler.OnTypeEvent(xld, (*decoding.TypeMessage)(logicalMsg))
+				func(handler eventhandlers.LogicalReplicationEventHandler) error {
+					return handler.OnTypeEvent(xld, (*pgtypes.TypeMessage)(logicalMsg))
 				},
 			)
 		})
 	case *pglogrepl.OriginMessage:
 		return rh.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
 			notificator.NotifyLogicalReplicationEventHandler(
-				func(handler eventhandler.LogicalReplicationEventHandler) error {
-					return handler.OnOriginEvent(xld, (*decoding.OriginMessage)(logicalMsg))
+				func(handler eventhandlers.LogicalReplicationEventHandler) error {
+					return handler.OnOriginEvent(xld, (*pgtypes.OriginMessage)(logicalMsg))
 				},
 			)
 		})
-	case *decoding.LogicalReplicationMessage:
+	case *pgtypes.LogicalReplicationMessage:
 		return rh.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
 			notificator.NotifyLogicalReplicationEventHandler(
-				func(handler eventhandler.LogicalReplicationEventHandler) error {
+				func(handler eventhandlers.LogicalReplicationEventHandler) error {
 					return handler.OnMessageEvent(xld, logicalMsg)
 				},
 			)
@@ -215,14 +217,14 @@ func (rh *replicationHandler) handleDeleteMessage(xld pglogrepl.XLogData, msg *p
 	msg.OldTuple = nil
 
 	// Adapt the message object
-	internalMsg := &decoding.DeleteMessage{
+	internalMsg := &pgtypes.DeleteMessage{
 		DeleteMessage: msg,
 		OldValues:     oldValues,
 	}
 
 	return rh.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
 		notificator.NotifyLogicalReplicationEventHandler(
-			func(handler eventhandler.LogicalReplicationEventHandler) error {
+			func(handler eventhandlers.LogicalReplicationEventHandler) error {
 				return handler.OnDeleteEvent(xld, internalMsg)
 			},
 		)
@@ -242,7 +244,7 @@ func (rh *replicationHandler) handleUpdateMessage(xld pglogrepl.XLogData, msg *p
 	msg.NewTuple = nil
 
 	// Adapt the message object
-	internalMsg := &decoding.UpdateMessage{
+	internalMsg := &pgtypes.UpdateMessage{
 		UpdateMessage: msg,
 		OldValues:     oldValues,
 		NewValues:     newValues,
@@ -250,7 +252,7 @@ func (rh *replicationHandler) handleUpdateMessage(xld pglogrepl.XLogData, msg *p
 
 	return rh.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
 		notificator.NotifyLogicalReplicationEventHandler(
-			func(handler eventhandler.LogicalReplicationEventHandler) error {
+			func(handler eventhandlers.LogicalReplicationEventHandler) error {
 				return handler.OnUpdateEvent(xld, internalMsg)
 			},
 		)
@@ -268,14 +270,14 @@ func (rh *replicationHandler) handleInsertMessage(xld pglogrepl.XLogData, msg *p
 	msg.Tuple = nil
 
 	// Adapt the message object
-	internalMsg := &decoding.InsertMessage{
+	internalMsg := &pgtypes.InsertMessage{
 		InsertMessage: msg,
 		NewValues:     newValues,
 	}
 
 	return rh.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
 		notificator.NotifyLogicalReplicationEventHandler(
-			func(handler eventhandler.LogicalReplicationEventHandler) error {
+			func(handler eventhandlers.LogicalReplicationEventHandler) error {
 				return handler.OnInsertEvent(xld, internalMsg)
 			},
 		)

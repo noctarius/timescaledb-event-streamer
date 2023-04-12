@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"github.com/BurntSushi/toml"
 	"github.com/noctarius/timescaledb-event-streamer/internal"
-	"github.com/noctarius/timescaledb-event-streamer/internal/configuring"
 	"github.com/noctarius/timescaledb-event-streamer/internal/configuring/sysconfig"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/version"
+	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/urfave/cli"
 	"io"
 	"log"
@@ -68,7 +68,7 @@ func start(*cli.Context) error {
 	logging.WithVerbose = verbose
 	logging.WithDebug = debug
 
-	config := &configuring.Config{}
+	config := &spiconfig.Config{}
 
 	if configurationFile != "" {
 		f, err := os.Open(configurationFile)
@@ -86,7 +86,7 @@ func start(*cli.Context) error {
 		}
 	}
 
-	if configuring.GetOrDefault(config, "postgresql.connection", "") == "" {
+	if spiconfig.GetOrDefault(config, "postgresql.connection", "") == "" {
 		return cli.NewExitError("PostgreSQL connection string required", 6)
 	}
 

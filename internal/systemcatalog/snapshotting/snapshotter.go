@@ -7,7 +7,8 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/channels"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
-	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/model"
+	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
+	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"hash/fnv"
 	"time"
 )
@@ -15,8 +16,8 @@ import (
 var logger = logging.NewLogger("Snapshotter")
 
 type SnapshotTask struct {
-	Hypertable *model.Hypertable
-	Chunk      *model.Chunk
+	Hypertable *systemcatalog.Hypertable
+	Chunk      *systemcatalog.Chunk
 }
 
 type Snapshotter struct {
@@ -58,7 +59,7 @@ func (s *Snapshotter) EnqueueSnapshot(task SnapshotTask) error {
 	// Notify of snapshotting to save incoming events
 	if task.Chunk != nil {
 		err := s.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
-			notificator.NotifyChunkSnapshotEventHandler(func(handler eventhandler.ChunkSnapshotEventHandler) error {
+			notificator.NotifyChunkSnapshotEventHandler(func(handler eventhandlers.ChunkSnapshotEventHandler) error {
 				return handler.OnChunkSnapshotStartedEvent(task.Hypertable, task.Chunk)
 			})
 			enqueueSnapshotTask()
@@ -117,7 +118,7 @@ func (s *Snapshotter) snapshotChunk(task SnapshotTask) error {
 		func(lsn pglogrepl.LSN, values map[string]any) error {
 			return s.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
 				notificator.NotifyHypertableReplicationEventHandler(
-					func(handler eventhandler.HypertableReplicationEventHandler) error {
+					func(handler eventhandlers.HypertableReplicationEventHandler) error {
 						return handler.OnReadEvent(lsn, task.Hypertable, task.Chunk, values)
 					},
 				)
@@ -129,7 +130,7 @@ func (s *Snapshotter) snapshotChunk(task SnapshotTask) error {
 	}
 
 	return s.dispatcher.EnqueueTaskAndWait(func(notificator eventhandler.Notificator) {
-		notificator.NotifyChunkSnapshotEventHandler(func(handler eventhandler.ChunkSnapshotEventHandler) error {
+		notificator.NotifyChunkSnapshotEventHandler(func(handler eventhandlers.ChunkSnapshotEventHandler) error {
 			return handler.OnChunkSnapshotFinishedEvent(task.Hypertable, task.Chunk, lsn)
 		})
 	})

@@ -5,31 +5,35 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/nats-io/nats.go"
-	"github.com/noctarius/timescaledb-event-streamer/internal/configuring"
-	"github.com/noctarius/timescaledb-event-streamer/internal/event/sink"
-	"github.com/noctarius/timescaledb-event-streamer/internal/schema"
+	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
+	"github.com/noctarius/timescaledb-event-streamer/spi/sink"
 	"time"
 )
+
+func init() {
+	sink.RegisterSink(spiconfig.NATS, newNatsSink)
+}
 
 type natsSink struct {
 	jetStreamContext nats.JetStreamContext
 }
 
-func NewNatsSink(config *configuring.Config) (sink.Sink, error) {
-	address := configuring.GetOrDefault(config, "sink.nats.address", "nats://localhost:4222")
-	authorization := configuring.GetOrDefault(config, "sink.nats.authorization", "userinfo")
-	switch configuring.NatsAuthorizationType(authorization) {
-	case configuring.UserInfo:
-		username := configuring.GetOrDefault(config, "sink.nats.userinfo.username", "")
-		password := configuring.GetOrDefault(config, "sink.nats.userinfo.password", "")
+func newNatsSink(config *spiconfig.Config) (sink.Sink, error) {
+	address := spiconfig.GetOrDefault(config, "sink.nats.address", "nats://localhost:4222")
+	authorization := spiconfig.GetOrDefault(config, "sink.nats.authorization", "userinfo")
+	switch spiconfig.NatsAuthorizationType(authorization) {
+	case spiconfig.UserInfo:
+		username := spiconfig.GetOrDefault(config, "sink.nats.userinfo.username", "")
+		password := spiconfig.GetOrDefault(config, "sink.nats.userinfo.password", "")
 		return newNatsSinkWithUserInfo(address, username, password)
-	case configuring.Credentials:
-		certificate := configuring.GetOrDefault(config, "sink.nats.credentials.certificate", "")
-		seeds := configuring.GetOrDefault(config, "sink.nats.credentials.seeds", []string{})
+	case spiconfig.Credentials:
+		certificate := spiconfig.GetOrDefault(config, "sink.nats.credentials.certificate", "")
+		seeds := spiconfig.GetOrDefault(config, "sink.nats.credentials.seeds", []string{})
 		return newNatsSinkWithUserCredentials(address, certificate, seeds...)
-	case configuring.Jwt:
-		jwt := configuring.GetOrDefault(config, "sink.nats.jwt.jwt", "")
-		seed := configuring.GetOrDefault(config, "sink.nats.jwt.seed", "")
+	case spiconfig.Jwt:
+		jwt := spiconfig.GetOrDefault(config, "sink.nats.jwt.jwt", "")
+		seed := spiconfig.GetOrDefault(config, "sink.nats.jwt.seed", "")
 		return newNatsSinkWithUserJWT(address, jwt, seed)
 	}
 	return nil, fmt.Errorf("NATS AuthorizationType '%s' doesn't exist", authorization)

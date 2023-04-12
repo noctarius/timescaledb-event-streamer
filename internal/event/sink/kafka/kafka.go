@@ -4,53 +4,57 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"github.com/Shopify/sarama"
-	"github.com/noctarius/timescaledb-event-streamer/internal/configuring"
-	"github.com/noctarius/timescaledb-event-streamer/internal/event/sink"
-	"github.com/noctarius/timescaledb-event-streamer/internal/schema"
+	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
+	"github.com/noctarius/timescaledb-event-streamer/spi/sink"
 	"time"
 )
+
+func init() {
+	sink.RegisterSink(spiconfig.Kafka, newKafkaSink)
+}
 
 type kafkaSink struct {
 	producer sarama.SyncProducer
 }
 
-func NewKafkaSink(config *configuring.Config) (sink.Sink, error) {
+func newKafkaSink(config *spiconfig.Config) (sink.Sink, error) {
 	c := sarama.NewConfig()
 	c.ClientID = "event-stream-prototype"
-	c.Producer.Idempotent = configuring.GetOrDefault(
+	c.Producer.Idempotent = spiconfig.GetOrDefault(
 		config, "sink.kafka.idempotent", false,
 	)
 	c.Producer.Return.Successes = true
 	c.Producer.RequiredAcks = sarama.WaitForLocal
 	c.Producer.Retry.Max = 10
 
-	if configuring.GetOrDefault(config, "sink.kafka.sasl.enabled", false) {
+	if spiconfig.GetOrDefault(config, "sink.kafka.sasl.enabled", false) {
 		c.Net.SASL.Enable = true
-		c.Net.SASL.User = configuring.GetOrDefault(
+		c.Net.SASL.User = spiconfig.GetOrDefault(
 			config, "sink.kafka.sasl.user", "",
 		)
-		c.Net.SASL.Password = configuring.GetOrDefault(
+		c.Net.SASL.Password = spiconfig.GetOrDefault(
 			config, "sink.kafka.sasl.password", "",
 		)
-		c.Net.SASL.Mechanism = configuring.GetOrDefault(
+		c.Net.SASL.Mechanism = spiconfig.GetOrDefault(
 			config, "sink.kafka.sasl.mechanism", sarama.SASLMechanism(sarama.SASLTypePlaintext),
 		)
 	}
 
-	if configuring.GetOrDefault(config, "sink.kafka.tls.enabled", false) {
+	if spiconfig.GetOrDefault(config, "sink.kafka.tls.enabled", false) {
 		c.Net.TLS.Enable = true
 		c.Net.TLS.Config = &tls.Config{
-			InsecureSkipVerify: configuring.GetOrDefault(
+			InsecureSkipVerify: spiconfig.GetOrDefault(
 				config, "sink.kafka.tls.skipverify", false,
 			),
-			ClientAuth: configuring.GetOrDefault(
+			ClientAuth: spiconfig.GetOrDefault(
 				config, "sink.kafka.tls.clientauth", tls.NoClientCert,
 			),
 		}
 	}
 
 	producer, err := sarama.NewSyncProducer(
-		configuring.GetOrDefault(config, "sink.kafka.brokers", []string{"localhost:9092"}), c,
+		spiconfig.GetOrDefault(config, "sink.kafka.brokers", []string{"localhost:9092"}), c,
 	)
 	if err != nil {
 		return nil, err

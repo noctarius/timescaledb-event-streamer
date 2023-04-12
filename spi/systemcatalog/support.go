@@ -1,15 +1,15 @@
-package model
+package systemcatalog
 
 import (
-	"github.com/noctarius/timescaledb-event-streamer/internal/pg/decoding"
+	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"strings"
 )
 
-func IsHypertableEvent(relation *decoding.RelationMessage) bool {
+func IsHypertableEvent(relation *pgtypes.RelationMessage) bool {
 	return relation.Namespace == "_timescaledb_catalog" && relation.RelationName == "hypertable"
 }
 
-func IsChunkEvent(relation *decoding.RelationMessage) bool {
+func IsChunkEvent(relation *pgtypes.RelationMessage) bool {
 	return relation.Namespace == "_timescaledb_catalog" && relation.RelationName == "chunk"
 }
 

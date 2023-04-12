@@ -2,18 +2,23 @@ package stdout
 
 import (
 	"encoding/json"
-	"github.com/noctarius/timescaledb-event-streamer/internal/event/sink"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
-	"github.com/noctarius/timescaledb-event-streamer/internal/schema"
+	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
+	"github.com/noctarius/timescaledb-event-streamer/spi/sink"
 	"time"
 )
 
 var logger = logging.NewLogger("StdoutSink")
 
+func init() {
+	sink.RegisterSink(spiconfig.Stdout, newStdoutSink)
+}
+
 type stdoutSink struct{}
 
-func NewStdoutSink() sink.Sink {
-	return &stdoutSink{}
+func newStdoutSink(_ *spiconfig.Config) (sink.Sink, error) {
+	return &stdoutSink{}, nil
 }
 
 func (s *stdoutSink) Emit(_ time.Time, topicName string, _, envelope schema.Struct) error {

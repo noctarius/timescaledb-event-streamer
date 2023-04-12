@@ -4,10 +4,11 @@ import (
 	"github.com/jackc/pglogrepl"
 	"github.com/noctarius/timescaledb-event-streamer/internal/configuring/sysconfig"
 	"github.com/noctarius/timescaledb-event-streamer/internal/eventhandler"
-	"github.com/noctarius/timescaledb-event-streamer/internal/pg/decoding"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog"
-	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/model"
+	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
+	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
+	spicatalog "github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"time"
 )
 
@@ -19,45 +20,48 @@ const (
 type transactionTracker struct {
 	timeout            time.Duration
 	maxSize            uint
-	relations          map[uint32]*decoding.RelationMessage
+	relations          map[uint32]*pgtypes.RelationMessage
 	resolver           *logicalReplicationResolver
 	systemCatalog      *systemcatalog.SystemCatalog
 	currentTransaction *transaction
 }
 
 func newTransactionTracker(timeout time.Duration, maxSize uint, config *sysconfig.SystemConfig,
-	dispatcher *eventhandler.Dispatcher, systemCatalog *systemcatalog.SystemCatalog) eventhandler.LogicalReplicationEventHandler {
+	dispatcher *eventhandler.Dispatcher, systemCatalog *systemcatalog.SystemCatalog,
+) eventhandlers.LogicalReplicationEventHandler {
 
 	return &transactionTracker{
 		timeout:       timeout,
 		maxSize:       maxSize,
 		systemCatalog: systemCatalog,
-		relations:     make(map[uint32]*decoding.RelationMessage),
+		relations:     make(map[uint32]*pgtypes.RelationMessage),
 		resolver:      newLogicalReplicationResolver(config, dispatcher, systemCatalog),
 	}
 }
 
-func (tt *transactionTracker) OnChunkSnapshotStartedEvent(hypertable *model.Hypertable, chunk *model.Chunk) error {
+func (tt *transactionTracker) OnChunkSnapshotStartedEvent(
+	hypertable *spicatalog.Hypertable, chunk *spicatalog.Chunk) error {
+
 	return tt.resolver.OnChunkSnapshotStartedEvent(hypertable, chunk)
 }
 
 func (tt *transactionTracker) OnChunkSnapshotFinishedEvent(
-	hypertable *model.Hypertable, chunk *model.Chunk, snapshot pglogrepl.LSN) error {
+	hypertable *spicatalog.Hypertable, chunk *spicatalog.Chunk, snapshot pglogrepl.LSN) error {
 
 	return tt.resolver.OnChunkSnapshotFinishedEvent(hypertable, chunk, snapshot)
 }
 
-func (tt *transactionTracker) OnRelationEvent(xld pglogrepl.XLogData, msg *decoding.RelationMessage) error {
+func (tt *transactionTracker) OnRelationEvent(xld pglogrepl.XLogData, msg *pgtypes.RelationMessage) error {
 	tt.relations[msg.RelationID] = msg
 	return tt.resolver.OnRelationEvent(xld, msg)
 }
 
-func (tt *transactionTracker) OnBeginEvent(xld pglogrepl.XLogData, msg *decoding.BeginMessage) error {
+func (tt *transactionTracker) OnBeginEvent(xld pglogrepl.XLogData, msg *pgtypes.BeginMessage) error {
 	tt.currentTransaction = tt.newTransaction(msg.Xid, msg.CommitTime, msg.FinalLSN)
 	return nil
 }
 
-func (tt *transactionTracker) OnCommitEvent(xld pglogrepl.XLogData, msg *decoding.CommitMessage) error {
+func (tt *transactionTracker) OnCommitEvent(xld pglogrepl.XLogData, msg *pgtypes.CommitMessage) error {
 	currentTransaction := tt.currentTransaction
 	tt.currentTransaction = nil
 
@@ -65,12 +69,12 @@ func (tt *transactionTracker) OnCommitEvent(xld pglogrepl.XLogData, msg *decodin
 
 	if currentTransaction.compressionUpdate != nil {
 		message := currentTransaction.compressionUpdate
-		chunkId := message.msg.(*decoding.UpdateMessage).NewValues["id"].(int32)
+		chunkId := message.msg.(*pgtypes.UpdateMessage).NewValues["id"].(int32)
 		if chunk, present := tt.systemCatalog.FindChunkById(chunkId); present {
 			if err := tt.resolver.onChunkCompressionEvent(xld, chunk); err != nil {
 				return err
 			}
-			if err := tt.resolver.onChunkUpdateEvent(message.msg.(*decoding.UpdateMessage)); err != nil {
+			if err := tt.resolver.onChunkUpdateEvent(message.msg.(*pgtypes.UpdateMessage)); err != nil {
 				return err
 			}
 		}
@@ -83,12 +87,12 @@ func (tt *transactionTracker) OnCommitEvent(xld pglogrepl.XLogData, msg *decodin
 
 	if currentTransaction.decompressionUpdate != nil {
 		message := currentTransaction.decompressionUpdate
-		chunkId := message.msg.(*decoding.UpdateMessage).NewValues["id"].(int32)
+		chunkId := message.msg.(*pgtypes.UpdateMessage).NewValues["id"].(int32)
 		if chunk, present := tt.systemCatalog.FindChunkById(chunkId); present {
 			if err := tt.resolver.onChunkDecompressionEvent(xld, chunk); err != nil {
 				return err
 			}
-			return tt.resolver.onChunkUpdateEvent(message.msg.(*decoding.UpdateMessage))
+			return tt.resolver.onChunkUpdateEvent(message.msg.(*pgtypes.UpdateMessage))
 		}
 	}
 
@@ -98,15 +102,15 @@ func (tt *transactionTracker) OnCommitEvent(xld pglogrepl.XLogData, msg *decodin
 	return tt.resolver.OnCommitEvent(xld, msg)
 }
 
-func (tt *transactionTracker) OnInsertEvent(xld pglogrepl.XLogData, msg *decoding.InsertMessage) error {
+func (tt *transactionTracker) OnInsertEvent(xld pglogrepl.XLogData, msg *pgtypes.InsertMessage) error {
 	relation, ok := tt.relations[msg.RelationID]
 	if ok {
 		// If no insert events are going to be generated, and we don't need to update the catalog,
 		// we can already ignore the event here and prevent it from hogging memory while we wait
 		// for the transaction to be completely transmitted
 		if !tt.resolver.genInsertEvent &&
-			!model.IsHypertableEvent(relation) &&
-			!model.IsChunkEvent(relation) {
+			!spicatalog.IsHypertableEvent(relation) &&
+			!spicatalog.IsChunkEvent(relation) {
 
 			return nil
 		}
@@ -118,8 +122,8 @@ func (tt *transactionTracker) OnInsertEvent(xld pglogrepl.XLogData, msg *decodin
 		// re-inserted, uncompressed rows that were already replicated into events in the past.
 		if (tt.currentTransaction.decompressionUpdate != nil ||
 			tt.currentTransaction.ongoingDecompression) &&
-			!model.IsHypertableEvent(relation) &&
-			!model.IsChunkEvent(relation) {
+			!spicatalog.IsHypertableEvent(relation) &&
+			!spicatalog.IsChunkEvent(relation) {
 
 			return nil
 		}
@@ -138,14 +142,14 @@ func (tt *transactionTracker) OnInsertEvent(xld pglogrepl.XLogData, msg *decodin
 	return tt.resolver.OnInsertEvent(xld, msg)
 }
 
-func (tt *transactionTracker) OnUpdateEvent(xld pglogrepl.XLogData, msg *decoding.UpdateMessage) error {
+func (tt *transactionTracker) OnUpdateEvent(xld pglogrepl.XLogData, msg *pgtypes.UpdateMessage) error {
 	updateEntry := &transactionEntry{
 		xld: xld,
 		msg: msg,
 	}
 
 	if relation, ok := tt.relations[msg.RelationID]; ok {
-		if model.IsChunkEvent(relation) {
+		if spicatalog.IsChunkEvent(relation) {
 			chunkId := msg.NewValues["id"].(int32)
 			if chunk, present := tt.systemCatalog.FindChunkById(chunkId); present {
 				oldChunkStatus := chunk.Status()
@@ -155,7 +159,7 @@ func (tt *transactionTracker) OnUpdateEvent(xld pglogrepl.XLogData, msg *decodin
 				if oldChunkStatus == 0 && newChunkStatus != 0 {
 					tt.currentTransaction.compressionUpdate = updateEntry
 				} else if tt.currentTransaction.compressionUpdate != nil {
-					compressionMsg := tt.currentTransaction.compressionUpdate.msg.(*decoding.UpdateMessage)
+					compressionMsg := tt.currentTransaction.compressionUpdate.msg.(*pgtypes.UpdateMessage)
 					if compressionMsg.RelationID == msg.RelationID {
 						oldChunkStatus = compressionMsg.NewValues["status"].(int32)
 					}
@@ -174,7 +178,7 @@ func (tt *transactionTracker) OnUpdateEvent(xld pglogrepl.XLogData, msg *decodin
 		// we can already ignore the event here and prevent it from hogging memory while we wait
 		// for the transaction to be completely transmitted
 		if !tt.resolver.genUpdateEvent &&
-			!model.IsHypertableEvent(relation) {
+			!spicatalog.IsHypertableEvent(relation) {
 
 			return nil
 		}
@@ -195,14 +199,14 @@ func (tt *transactionTracker) OnUpdateEvent(xld pglogrepl.XLogData, msg *decodin
 	return tt.resolver.OnUpdateEvent(xld, msg)
 }
 
-func (tt *transactionTracker) OnDeleteEvent(xld pglogrepl.XLogData, msg *decoding.DeleteMessage) error {
+func (tt *transactionTracker) OnDeleteEvent(xld pglogrepl.XLogData, msg *pgtypes.DeleteMessage) error {
 	if relation, ok := tt.relations[msg.RelationID]; ok {
 		// If no delete events are going to be generated, and we don't need to update the catalog,
 		// we can already ignore the event here and prevent it from hogging memory while we wait
 		// for the transaction to be completely transmitted
 		if !tt.resolver.genDeleteEvent &&
-			!model.IsHypertableEvent(relation) &&
-			!model.IsChunkEvent(relation) {
+			!spicatalog.IsHypertableEvent(relation) &&
+			!spicatalog.IsChunkEvent(relation) {
 
 			return nil
 		}
@@ -223,7 +227,7 @@ func (tt *transactionTracker) OnDeleteEvent(xld pglogrepl.XLogData, msg *decodin
 	return tt.resolver.OnDeleteEvent(xld, msg)
 }
 
-func (tt *transactionTracker) OnTruncateEvent(xld pglogrepl.XLogData, msg *decoding.TruncateMessage) error {
+func (tt *transactionTracker) OnTruncateEvent(xld pglogrepl.XLogData, msg *pgtypes.TruncateMessage) error {
 	// Since internal catalog tables shouldn't EVER be truncated, we ignore this case
 	// and only collect the truncate event if we expect the event to be generated in
 	// the later step. If no event is going to be created we discard it right here
@@ -247,15 +251,15 @@ func (tt *transactionTracker) OnTruncateEvent(xld pglogrepl.XLogData, msg *decod
 	return tt.resolver.OnTruncateEvent(xld, msg)
 }
 
-func (tt *transactionTracker) OnTypeEvent(xld pglogrepl.XLogData, msg *decoding.TypeMessage) error {
+func (tt *transactionTracker) OnTypeEvent(xld pglogrepl.XLogData, msg *pgtypes.TypeMessage) error {
 	return tt.resolver.OnTypeEvent(xld, msg)
 }
 
-func (tt *transactionTracker) OnOriginEvent(xld pglogrepl.XLogData, msg *decoding.OriginMessage) error {
+func (tt *transactionTracker) OnOriginEvent(xld pglogrepl.XLogData, msg *pgtypes.OriginMessage) error {
 	return tt.resolver.OnOriginEvent(xld, msg)
 }
 
-func (tt *transactionTracker) OnMessageEvent(xld pglogrepl.XLogData, msg *decoding.LogicalReplicationMessage) error {
+func (tt *transactionTracker) OnMessageEvent(xld pglogrepl.XLogData, msg *pgtypes.LogicalReplicationMessage) error {
 	// If the message is transactional we need to store it into the currently collected
 	// transaction, otherwise we can run it straight away.
 	if msg.IsTransactional() {
@@ -349,27 +353,27 @@ func (t *transaction) drain() error {
 		}
 
 		switch msg := entry.msg.(type) {
-		case *decoding.BeginMessage:
+		case *pgtypes.BeginMessage:
 			if err := t.transactionTracker.resolver.OnBeginEvent(entry.xld, msg); err != nil {
 				return err
 			}
-		case *decoding.InsertMessage:
+		case *pgtypes.InsertMessage:
 			if err := t.transactionTracker.resolver.OnInsertEvent(entry.xld, msg); err != nil {
 				return err
 			}
-		case *decoding.UpdateMessage:
+		case *pgtypes.UpdateMessage:
 			if err := t.transactionTracker.resolver.OnUpdateEvent(entry.xld, msg); err != nil {
 				return err
 			}
-		case *decoding.DeleteMessage:
+		case *pgtypes.DeleteMessage:
 			if err := t.transactionTracker.resolver.OnDeleteEvent(entry.xld, msg); err != nil {
 				return err
 			}
-		case *decoding.TruncateMessage:
+		case *pgtypes.TruncateMessage:
 			if err := t.transactionTracker.resolver.OnTruncateEvent(entry.xld, msg); err != nil {
 				return err
 			}
-		case *decoding.LogicalReplicationMessage:
+		case *pgtypes.LogicalReplicationMessage:
 			if err := t.transactionTracker.resolver.OnMessageEvent(entry.xld, msg); err != nil {
 				return err
 			}

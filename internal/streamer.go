@@ -3,11 +3,20 @@ package internal
 import (
 	"fmt"
 	"github.com/jackc/pgx/v5"
-	"github.com/noctarius/timescaledb-event-streamer/internal/configuring"
 	"github.com/noctarius/timescaledb-event-streamer/internal/configuring/sysconfig"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
+	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/urfave/cli"
+
+	// Register built-in naming strategies
+	_ "github.com/noctarius/timescaledb-event-streamer/internal/event/topic"
+
+	// Register built-in sinks
+	_ "github.com/noctarius/timescaledb-event-streamer/internal/event/sink/kafka"
+	_ "github.com/noctarius/timescaledb-event-streamer/internal/event/sink/nats"
+	_ "github.com/noctarius/timescaledb-event-streamer/internal/event/sink/redis"
+	_ "github.com/noctarius/timescaledb-event-streamer/internal/event/sink/stdout"
 )
 
 const publicationName = "pg_ts_streamer"
@@ -18,14 +27,14 @@ type Streamer struct {
 
 func NewStreamer(config *sysconfig.SystemConfig) (*Streamer, *cli.ExitError) {
 	if config.PgxConfig == nil {
-		connection := configuring.GetOrDefault(config.Config, "postgresql.connection", "host=localhost user=repl_user")
+		connection := spiconfig.GetOrDefault(config.Config, "postgresql.connection", "host=localhost user=repl_user")
 		connConfig, err := pgx.ParseConfig(connection)
 		if err != nil {
 			return nil, cli.NewExitError(
 				fmt.Sprintf("PostgreSQL connection string failed to parse: %s", err.Error()), 6)
 		}
 
-		pgPassword := configuring.GetOrDefault(config.Config, "postgresql.password", "")
+		pgPassword := spiconfig.GetOrDefault(config.Config, "postgresql.password", "")
 		if pgPassword != "" {
 			connConfig.Password = pgPassword
 		}
@@ -33,7 +42,7 @@ func NewStreamer(config *sysconfig.SystemConfig) (*Streamer, *cli.ExitError) {
 		config.PgxConfig = connConfig
 	}
 
-	pgPublication := configuring.GetOrDefault(config.Config, "postgresql.publication.name", "")
+	pgPublication := spiconfig.GetOrDefault(config.Config, "postgresql.publication.name", "")
 	if pgPublication == "" {
 		config.PostgreSQL.Publication.Name = publicationName
 	}

@@ -2,17 +2,17 @@ package replication
 
 import (
 	stderrors "errors"
-	"github.com/noctarius/timescaledb-event-streamer/internal/configuring"
 	"github.com/noctarius/timescaledb-event-streamer/internal/configuring/sysconfig"
 	"github.com/noctarius/timescaledb-event-streamer/internal/eventhandler"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/channels"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/logicalreplicationresolver"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/transactional"
-	"github.com/noctarius/timescaledb-event-streamer/internal/schema"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/snapshotting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/version"
+	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/urfave/cli"
 )
 
@@ -36,8 +36,8 @@ func NewReplicator(config *sysconfig.SystemConfig) Replicator {
 func (r *replicatorImpl) StartReplication() *cli.ExitError {
 	config := r.config.Config
 
-	publicationName := configuring.GetOrDefault(config, "postgresql.publication.name", "")
-	snapshotBatchSize := configuring.GetOrDefault(config, "postgresql.snapshot.batchsize", 1000)
+	publicationName := spiconfig.GetOrDefault(config, "postgresql.publication.name", "")
+	snapshotBatchSize := spiconfig.GetOrDefault(config, "postgresql.snapshot.batchsize", 1000)
 
 	// Create the side and replication channels
 	sideChannel := channels.NewSideChannel(r.config.PgxConfig, publicationName, snapshotBatchSize)
@@ -88,7 +88,7 @@ func (r *replicatorImpl) StartReplication() *cli.ExitError {
 	transactionMonitor := transactional.NewTransactionMonitor()
 
 	// Instantiate the schema registry, keeping track of hypertable schemata
-	schemaRegistry := schema.NewSchemaRegistry(topicNameGenerator)
+	schemaRegistry := schema.NewRegistry(topicNameGenerator)
 
 	// Instantiate the change event emitter
 	eventEmitter, err := r.config.EventEmitterProvider(schemaRegistry, topicNameGenerator, transactionMonitor)

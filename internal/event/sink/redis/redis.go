@@ -4,65 +4,69 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"github.com/go-redis/redis"
-	"github.com/noctarius/timescaledb-event-streamer/internal/configuring"
-	"github.com/noctarius/timescaledb-event-streamer/internal/event/sink"
-	"github.com/noctarius/timescaledb-event-streamer/internal/schema"
+	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
+	"github.com/noctarius/timescaledb-event-streamer/spi/sink"
 	"time"
 )
+
+func init() {
+	sink.RegisterSink(spiconfig.Redis, newRedisSink)
+}
 
 type redisSink struct {
 	client *redis.Client
 }
 
-func NewRedisSink(config *configuring.Config) (sink.Sink, error) {
+func newRedisSink(config *spiconfig.Config) (sink.Sink, error) {
 	options := &redis.Options{
-		Network: configuring.GetOrDefault(
+		Network: spiconfig.GetOrDefault(
 			config, "sink.redis.network", "tcp",
 		),
-		Addr: configuring.GetOrDefault(
+		Addr: spiconfig.GetOrDefault(
 			config, "sink.redis.address", "localhost:6379",
 		),
-		Password: configuring.GetOrDefault(
+		Password: spiconfig.GetOrDefault(
 			config, "sink.redis.password", "",
 		),
-		DB: configuring.GetOrDefault(
+		DB: spiconfig.GetOrDefault(
 			config, "sink.redis.database", 0,
 		),
-		MaxRetries: configuring.GetOrDefault(
+		MaxRetries: spiconfig.GetOrDefault(
 			config, "sink.redis.retries.maxattempts", 0,
 		),
-		MinRetryBackoff: configuring.GetOrDefault(
+		MinRetryBackoff: spiconfig.GetOrDefault(
 			config, "sink.redis.retries.backoff.min", time.Duration(8),
 		) * time.Microsecond,
-		MaxRetryBackoff: configuring.GetOrDefault(
+		MaxRetryBackoff: spiconfig.GetOrDefault(
 			config, "sink.redis.retries.backoff.max", time.Duration(512),
 		) * time.Microsecond,
-		DialTimeout: configuring.GetOrDefault(
+		DialTimeout: spiconfig.GetOrDefault(
 			config, "sink.redis.timeouts.dial", time.Duration(0),
 		),
-		ReadTimeout: configuring.GetOrDefault(
+		ReadTimeout: spiconfig.GetOrDefault(
 			config, "sink.redis.timeouts.read", time.Duration(0),
 		) * time.Second,
-		WriteTimeout: configuring.GetOrDefault(
+		WriteTimeout: spiconfig.GetOrDefault(
 			config, "sink.redis.timeouts.write", time.Duration(0),
 		) * time.Second,
-		PoolSize: configuring.GetOrDefault(
+		PoolSize: spiconfig.GetOrDefault(
 			config, "sink.redis.poolsize", 0,
 		),
-		PoolTimeout: configuring.GetOrDefault(
+		PoolTimeout: spiconfig.GetOrDefault(
 			config, "sink.redis.timeouts.pool", time.Duration(0),
 		) * time.Second,
-		IdleTimeout: configuring.GetOrDefault(
+		IdleTimeout: spiconfig.GetOrDefault(
 			config, "sink.redis.timeouts.idle", time.Duration(0),
 		) * time.Minute,
 	}
 
 	if config.Sink.Redis.TLS.Enabled {
 		options.TLSConfig = &tls.Config{
-			InsecureSkipVerify: configuring.GetOrDefault(
+			InsecureSkipVerify: spiconfig.GetOrDefault(
 				config, "sink.redis.tls.skipverify", false,
 			),
-			ClientAuth: configuring.GetOrDefault(
+			ClientAuth: spiconfig.GetOrDefault(
 				config, "sink.redis.tls.clientauth", tls.NoClientCert,
 			),
 		}

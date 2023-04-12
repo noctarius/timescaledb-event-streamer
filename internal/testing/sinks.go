@@ -3,8 +3,9 @@ package testing
 import (
 	"encoding/json"
 	"github.com/noctarius/timescaledb-event-streamer/internal/configuring/sysconfig"
-	"github.com/noctarius/timescaledb-event-streamer/internal/event/sink"
-	"github.com/noctarius/timescaledb-event-streamer/internal/schema"
+	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
+	"github.com/noctarius/timescaledb-event-streamer/spi/sink"
 	"sync"
 	"time"
 )
@@ -73,7 +74,7 @@ func NewEventCollectorSink(options ...EventCollectorSinkOption) *EventCollectorS
 }
 
 func (t *EventCollectorSink) SystemConfigConfigurator(config *sysconfig.SystemConfig) {
-	config.SinkProvider = func() (sink.Sink, error) {
+	config.SinkProvider = func(_ *spiconfig.Config) (sink.Sink, error) {
 		return t, nil
 	}
 }

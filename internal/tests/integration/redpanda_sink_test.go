@@ -6,12 +6,12 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/go-errors/errors"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/noctarius/timescaledb-event-streamer/internal/configuring"
 	"github.com/noctarius/timescaledb-event-streamer/internal/configuring/sysconfig"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
-	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/model"
 	"github.com/noctarius/timescaledb-event-streamer/internal/testing/containers"
 	"github.com/noctarius/timescaledb-event-streamer/internal/testing/testrunner"
+	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
+	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"github.com/testcontainers/testcontainers-go"
@@ -76,8 +76,8 @@ func (kits *RedPandaIntegrationTestSuite) Test_RedPanda_Sink() {
 
 		testrunner.WithSetup(func(setupContext testrunner.SetupContext) error {
 			sn, tn, err := setupContext.CreateHypertable("ts", time.Hour*24,
-				model.NewColumn("ts", pgtype.TimestamptzOID, "timestamptz", false, false, nil),
-				model.NewColumn("val", pgtype.Int4OID, "integer", false, false, nil),
+				systemcatalog.NewColumn("ts", pgtype.TimestamptzOID, "timestamptz", false, false, nil),
+				systemcatalog.NewColumn("val", pgtype.Int4OID, "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
@@ -94,8 +94,8 @@ func (kits *RedPandaIntegrationTestSuite) Test_RedPanda_Sink() {
 
 			setupContext.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
 				config.Topic.Prefix = topicPrefix
-				config.Sink.Type = configuring.Kafka
-				config.Sink.Kafka = configuring.KafkaConfig{
+				config.Sink.Type = spiconfig.Kafka
+				config.Sink.Kafka = spiconfig.KafkaConfig{
 					Brokers:    brokers,
 					Idempotent: false,
 				}

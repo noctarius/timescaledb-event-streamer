@@ -1,23 +1,24 @@
 package logicalreplicationresolver
 
 import (
-	"github.com/noctarius/timescaledb-event-streamer/internal/configuring"
 	"github.com/noctarius/timescaledb-event-streamer/internal/configuring/sysconfig"
 	"github.com/noctarius/timescaledb-event-streamer/internal/eventhandler"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog"
+	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
+	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"time"
 )
 
 func NewTransactionResolver(config *sysconfig.SystemConfig, dispatcher *eventhandler.Dispatcher,
-	systemCatalog *systemcatalog.SystemCatalog) eventhandler.BaseReplicationEventHandler {
+	systemCatalog *systemcatalog.SystemCatalog) eventhandlers.BaseReplicationEventHandler {
 
-	enabled := configuring.GetOrDefault(
+	enabled := spiconfig.GetOrDefault(
 		config.Config, "postgresql.transaction.window.enabled", true,
 	)
-	timeout := configuring.GetOrDefault(
+	timeout := spiconfig.GetOrDefault(
 		config.Config, "postgresql.transaction.window.timeout", time.Duration(60),
 	) * time.Second
-	maxSize := configuring.GetOrDefault(
+	maxSize := spiconfig.GetOrDefault(
 		config.Config, "postgresql.transaction.window.maxsize", uint(10000),
 	)
 

@@ -1,7 +1,7 @@
 package filtering
 
 import (
-	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/model"
+	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -328,8 +328,8 @@ func invalidStringParsing(t *testing.T, token, expected string) {
 	assert.ErrorContains(t, err, expected)
 }
 
-func makeHypertable(id int32, schemaName, tableName string) *model.Hypertable {
-	return model.NewHypertable(
+func makeHypertable(id int32, schemaName, tableName string) *systemcatalog.Hypertable {
+	return systemcatalog.NewHypertable(
 		id,
 		"test",
 		schemaName,

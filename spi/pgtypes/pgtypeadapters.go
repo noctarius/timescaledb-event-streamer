@@ -1,6 +1,8 @@
-package decoding
+package pgtypes
 
 import "github.com/jackc/pglogrepl"
+
+type LSN pglogrepl.LSN
 
 type BeginMessage pglogrepl.BeginMessage
 

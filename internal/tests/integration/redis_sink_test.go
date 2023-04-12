@@ -7,14 +7,14 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/go-redis/redis"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/noctarius/timescaledb-event-streamer/internal/configuring"
 	"github.com/noctarius/timescaledb-event-streamer/internal/configuring/sysconfig"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
-	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/model"
 	inttest "github.com/noctarius/timescaledb-event-streamer/internal/testing"
 	"github.com/noctarius/timescaledb-event-streamer/internal/testing/containers"
 	"github.com/noctarius/timescaledb-event-streamer/internal/testing/testrunner"
+	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
+	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"github.com/testcontainers/testcontainers-go"
@@ -112,8 +112,8 @@ func (rits *RedisIntegrationTestSuite) Test_Redis_Sink() {
 
 		testrunner.WithSetup(func(setupContext testrunner.SetupContext) error {
 			sn, tn, err := setupContext.CreateHypertable("ts", time.Hour*24,
-				model.NewColumn("ts", pgtype.TimestamptzOID, "timestamptz", false, false, nil),
-				model.NewColumn("val", pgtype.Int4OID, "integer", false, false, nil),
+				systemcatalog.NewColumn("ts", pgtype.TimestamptzOID, "timestamptz", false, false, nil),
+				systemcatalog.NewColumn("val", pgtype.Int4OID, "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
@@ -130,8 +130,8 @@ func (rits *RedisIntegrationTestSuite) Test_Redis_Sink() {
 
 			setupContext.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
 				config.Topic.Prefix = topicPrefix
-				config.Sink.Type = configuring.Redis
-				config.Sink.Redis = configuring.RedisConfig{
+				config.Sink.Type = spiconfig.Redis
+				config.Sink.Redis = spiconfig.RedisConfig{
 					Address: address,
 				}
 			})

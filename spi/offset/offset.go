@@ -2,22 +2,22 @@ package offset
 
 import (
 	"encoding/binary"
-	"github.com/jackc/pglogrepl"
+	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"time"
 )
 
 type Offset struct {
-	Timestamp      time.Time     `json:"timestamp"`
-	Snapshot       bool          `json:"snapshot"`
-	SnapshotOffset int           `json:"snapshot_offset"`
-	LSN            pglogrepl.LSN `json:"lsn"`
+	Timestamp      time.Time   `json:"timestamp"`
+	Snapshot       bool        `json:"snapshot"`
+	SnapshotOffset int         `json:"snapshot_offset"`
+	LSN            pgtypes.LSN `json:"lsn"`
 }
 
 func (o *Offset) UnmarshalBinary(data []byte) error {
 	o.Timestamp = time.Unix(0, int64(binary.BigEndian.Uint64(data[:8]))).In(time.UTC)
 	o.Snapshot = data[8] == 1
 	o.SnapshotOffset = int(binary.BigEndian.Uint32(data[9:]))
-	o.LSN = pglogrepl.LSN(binary.BigEndian.Uint64(data[13:]))
+	o.LSN = pgtypes.LSN(binary.BigEndian.Uint64(data[13:]))
 	return nil
 }
 

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"github.com/go-errors/errors"
 	"github.com/jackc/pglogrepl"
-	"github.com/noctarius/timescaledb-event-streamer/internal/pg/decoding"
-	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/model"
+	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
+	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 )
 
 type hypertableDecomposerCallback = func(
@@ -20,7 +20,7 @@ type systemCatalogReplicationEventHandler struct {
 }
 
 func (s *systemCatalogReplicationEventHandler) OnRelationEvent(
-	_ pglogrepl.XLogData, msg *decoding.RelationMessage) error {
+	_ pglogrepl.XLogData, msg *pgtypes.RelationMessage) error {
 
 	if msg.Namespace != "_timescaledb_catalog" {
 		if hypertable, present := s.systemCatalog.FindHypertableByName(msg.Namespace, msg.RelationName); present {
@@ -28,14 +28,14 @@ func (s *systemCatalogReplicationEventHandler) OnRelationEvent(
 				return nil
 			}
 
-			columns := make([]model.Column, len(msg.Columns))
+			columns := make([]systemcatalog.Column, len(msg.Columns))
 			for i, c := range msg.Columns {
-				dataType, err := model.DataTypeByOID(c.DataType)
+				dataType, err := systemcatalog.DataTypeByOID(c.DataType)
 				if err != nil {
 					return err
 				}
 
-				columns[i] = model.NewColumn(c.Name, c.DataType, string(dataType), false, false, nil)
+				columns[i] = systemcatalog.NewColumn(c.Name, c.DataType, string(dataType), false, false, nil)
 			}
 			s.systemCatalog.ApplySchemaUpdate(hypertable, columns)
 		}
@@ -49,7 +49,7 @@ func (s *systemCatalogReplicationEventHandler) OnHypertableAddedEvent(_ uint32, 
 			compressedHypertableId *int32, compressionState int16, distributed bool) error {
 
 			var viewSchema, viewName *string
-			if model.IsContinuousAggregateHypertable(hypertableName) {
+			if systemcatalog.IsContinuousAggregateHypertable(hypertableName) {
 				if vS, vN, found, err := s.systemCatalog.sideChannel.ReadContinuousAggregate(id); err != nil {
 					return errors.Errorf("failed reading continuous aggregate information: %+v", err)
 				} else if found {
@@ -58,7 +58,7 @@ func (s *systemCatalogReplicationEventHandler) OnHypertableAddedEvent(_ uint32, 
 				}
 			}
 
-			h := model.NewHypertable(id, s.systemCatalog.databaseName, schemaName, hypertableName,
+			h := systemcatalog.NewHypertable(id, s.systemCatalog.databaseName, schemaName, hypertableName,
 				associatedSchemaName, associatedTablePrefix, compressedHypertableId, compressionState,
 				distributed, viewSchema, viewName)
 
@@ -105,7 +105,7 @@ func (s *systemCatalogReplicationEventHandler) OnChunkAddedEvent(_ uint32, newVa
 		func(id, hypertableId int32, schemaName, tableName string, dropped bool,
 			status int32, compressedChunkId *int32) error {
 
-			c := model.NewChunk(id, hypertableId, schemaName, tableName, dropped, status, compressedChunkId)
+			c := systemcatalog.NewChunk(id, hypertableId, schemaName, tableName, dropped, status, compressedChunkId)
 			if err := s.systemCatalog.RegisterChunk(c); err != nil {
 				return fmt.Errorf("registering chunk failed: %v", c)
 			}

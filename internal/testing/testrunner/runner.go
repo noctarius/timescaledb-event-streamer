@@ -6,13 +6,13 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/noctarius/timescaledb-event-streamer/internal"
-	"github.com/noctarius/timescaledb-event-streamer/internal/configuring"
 	"github.com/noctarius/timescaledb-event-streamer/internal/configuring/sysconfig"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
-	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/model"
 	inttest "github.com/noctarius/timescaledb-event-streamer/internal/testing"
 	"github.com/noctarius/timescaledb-event-streamer/internal/testing/containers"
+	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
+	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/stretchr/testify/suite"
 	"github.com/testcontainers/testcontainers-go"
 	"time"
@@ -29,7 +29,7 @@ type Context interface {
 	Begin(ctx context.Context) (pgx.Tx, error)
 	BeginTx(ctx context.Context, txOptions pgx.TxOptions) (pgx.Tx, error)
 	Ping(ctx context.Context) error
-	CreateHypertable(timeDimension string, chunkSize time.Duration, columns ...model.Column) (string, string, error)
+	CreateHypertable(timeDimension string, chunkSize time.Duration, columns ...systemcatalog.Column) (string, string, error)
 	attribute(key string, value any)
 	getAttribute(key string) any
 }
@@ -92,13 +92,13 @@ func (t *testContext) Ping(ctx context.Context) error {
 }
 
 func (t *testContext) CreateHypertable(timeDimension string,
-	chunkSize time.Duration, columns ...model.Column) (string, string, error) {
+	chunkSize time.Duration, columns ...systemcatalog.Column) (string, string, error) {
 
 	schemaName, tableName, err := inttest.CreateHypertable(t.pool, timeDimension, chunkSize, columns...)
 	if err != nil {
 		return "", "", err
 	}
-	t.hypertables = append(t.hypertables, model.MakeRelationKey(schemaName, tableName))
+	t.hypertables = append(t.hypertables, systemcatalog.MakeRelationKey(schemaName, tableName))
 	return schemaName, tableName, nil
 }
 
@@ -197,14 +197,14 @@ func (tr *TestRunner) RunTest(testFn func(context Context) error, configurators 
 		}
 	}
 
-	replConfig := &configuring.Config{
-		PostgreSQL: configuring.PostgreSQLConfig{
-			Publication: configuring.PublicationConfig{
+	replConfig := &spiconfig.Config{
+		PostgreSQL: spiconfig.PostgreSQLConfig{
+			Publication: spiconfig.PublicationConfig{
 				Name: supporting.RandomTextString(10),
 			},
 		},
-		TimescaleDB: configuring.TimescaleDBConfig{
-			Hypertables: configuring.HypertablesConfig{
+		TimescaleDB: spiconfig.TimescaleDBConfig{
+			Hypertables: spiconfig.HypertablesConfig{
 				Includes: tc.hypertables,
 			},
 		},

@@ -1,14 +1,14 @@
 package eventfiltering
 
 import (
-	"github.com/noctarius/timescaledb-event-streamer/internal/configuring"
-	"github.com/noctarius/timescaledb-event-streamer/internal/schema"
+	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
 func TestEventFilter_Evaluate(t *testing.T) {
-	filterDefinitions := map[string]configuring.EventFilterConfig{
+	filterDefinitions := map[string]spiconfig.EventFilterConfig{
 		"test": {
 			Condition: "value.op == \"c\"",
 		},

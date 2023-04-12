@@ -2,18 +2,18 @@ package schema
 
 import (
 	"fmt"
-	"github.com/noctarius/timescaledb-event-streamer/internal/event/topic"
-	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/model"
+	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
+	"github.com/noctarius/timescaledb-event-streamer/spi/topic/namegenerator"
 	"github.com/reugn/async"
 )
 
 type Registry struct {
-	topicNameGenerator *topic.NameGenerator
+	topicNameGenerator *namegenerator.NameGenerator
 	schemaRegistry     map[string]Struct
 	mutex              *async.ReentrantLock
 }
 
-func NewSchemaRegistry(topicNameGenerator *topic.NameGenerator) *Registry {
+func NewRegistry(topicNameGenerator *namegenerator.NameGenerator) *Registry {
 	r := &Registry{
 		topicNameGenerator: topicNameGenerator,
 		schemaRegistry:     make(map[string]Struct, 0),
@@ -46,11 +46,11 @@ func (r *Registry) GetSchemaOrCreate(schemaName string, creator func() Struct) S
 	return schema
 }
 
-func (r *Registry) HypertableEnvelopeSchemaName(hypertable *model.Hypertable) string {
+func (r *Registry) HypertableEnvelopeSchemaName(hypertable *systemcatalog.Hypertable) string {
 	return fmt.Sprintf("%s.Envelope", r.topicNameGenerator.SchemaTopicName(hypertable))
 }
 
-func (r *Registry) HypertableKeySchemaName(hypertable *model.Hypertable) string {
+func (r *Registry) HypertableKeySchemaName(hypertable *systemcatalog.Hypertable) string {
 	return fmt.Sprintf("%s.Key", r.topicNameGenerator.SchemaTopicName(hypertable))
 }
 

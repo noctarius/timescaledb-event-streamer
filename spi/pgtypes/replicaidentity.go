@@ -1,4 +1,4 @@
-package pg
+package pgtypes
 
 type ReplicaIdentity string
 

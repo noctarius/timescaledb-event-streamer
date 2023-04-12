@@ -114,7 +114,9 @@ func (rc *replicationChannel) StartReplicationChannel(
 		if _, err := pglogrepl.SendStandbyCopyDone(context.Background(), connection); err != nil {
 			logger.Errorf("shutdown failed (send copy done): %+v", err)
 		}
-		if err := pglogrepl.DropReplicationSlot(context.Background(), connection, rc.publicationName, pglogrepl.DropReplicationSlotOptions{Wait: true}); err != nil {
+		if err := pglogrepl.DropReplicationSlot(context.Background(), connection,
+			rc.publicationName, pglogrepl.DropReplicationSlotOptions{Wait: true}); err != nil {
+
 			logger.Errorf("shutdown failed (drop replication slot): %+v", err)
 		}
 		if err := rc.executeQuery(connection, fmt.Sprintf(dropPublication, rc.publicationName)); err != nil {

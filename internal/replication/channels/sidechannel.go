@@ -7,11 +7,11 @@ import (
 	"github.com/jackc/pglogrepl"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/noctarius/timescaledb-event-streamer/internal/pg"
 	"github.com/noctarius/timescaledb-event-streamer/internal/pg/decoding"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
-	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/model"
-	"github.com/noctarius/timescaledb-event-streamer/internal/version"
+	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
+	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
+	"github.com/noctarius/timescaledb-event-streamer/spi/version"
 	"time"
 )
 
@@ -145,7 +145,7 @@ func (sc *sideChannel) GetTimescaleDBVersion() (tsdbVersion version.TimescaleVer
 	return
 }
 
-func (sc *sideChannel) ReadHypertables(cb func(hypertable *model.Hypertable) error) error {
+func (sc *sideChannel) ReadHypertables(cb func(hypertable *systemcatalog.Hypertable) error) error {
 	return sc.newSession(time.Second*20, func(session *session) error {
 		return session.queryFunc(func(row pgx.Row) error {
 			var id int32
@@ -162,7 +162,7 @@ func (sc *sideChannel) ReadHypertables(cb func(hypertable *model.Hypertable) err
 				return errors.Wrap(err, 0)
 			}
 
-			hypertable := model.NewHypertable(id, sc.connConfig.Database, schemaName, hypertableName,
+			hypertable := systemcatalog.NewHypertable(id, sc.connConfig.Database, schemaName, hypertableName,
 				associatedSchemaName, associatedTablePrefix, compressedHypertableId, compressionState,
 				distributed, viewSchema, viewName)
 
@@ -171,7 +171,7 @@ func (sc *sideChannel) ReadHypertables(cb func(hypertable *model.Hypertable) err
 	})
 }
 
-func (sc *sideChannel) ReadChunks(cb func(chunk *model.Chunk) error) error {
+func (sc *sideChannel) ReadChunks(cb func(chunk *systemcatalog.Chunk) error) error {
 	return sc.newSession(time.Second*20, func(session *session) error {
 		return session.queryFunc(func(row pgx.Row) error {
 			var id, hypertableId int32
@@ -185,14 +185,16 @@ func (sc *sideChannel) ReadChunks(cb func(chunk *model.Chunk) error) error {
 				return errors.Wrap(err, 0)
 			}
 
-			return cb(model.NewChunk(id, hypertableId, schemaName, tableName, dropped, status, compressedChunkId))
+			return cb(
+				systemcatalog.NewChunk(id, hypertableId, schemaName, tableName, dropped, status, compressedChunkId),
+			)
 		}, initialChunkQuery)
 	})
 }
 
 func (sc *sideChannel) ReadHypertableSchema(
-	cb func(hypertable *model.Hypertable, columns []model.Column) bool,
-	hypertables ...*model.Hypertable) error {
+	cb func(hypertable *systemcatalog.Hypertable, columns []systemcatalog.Column) bool,
+	hypertables ...*systemcatalog.Hypertable) error {
 
 	return sc.newSession(time.Second*10, func(session *session) error {
 		for _, hypertable := range hypertables {
@@ -209,7 +211,7 @@ func (sc *sideChannel) ReadHypertableSchema(
 	})
 }
 
-func (sc *sideChannel) AttachChunkToPublication(chunk *model.Chunk) error {
+func (sc *sideChannel) AttachChunkToPublication(chunk *systemcatalog.Chunk) error {
 	canonicalChunkName := chunk.CanonicalName()
 	attachingQuery := fmt.Sprintf(addTableToPublicationQuery, sc.publicationName, canonicalChunkName)
 	return sc.newSession(time.Second*20, func(session *session) error {
@@ -221,7 +223,7 @@ func (sc *sideChannel) AttachChunkToPublication(chunk *model.Chunk) error {
 	})
 }
 
-func (sc *sideChannel) DetachChunkFromPublication(chunk *model.Chunk) error {
+func (sc *sideChannel) DetachChunkFromPublication(chunk *systemcatalog.Chunk) error {
 	canonicalChunkName := chunk.CanonicalName()
 	detachingQuery := fmt.Sprintf(dropTableFromPublicationQuery, sc.publicationName, canonicalChunkName)
 	return sc.newSession(time.Second*20, func(session *session) error {
@@ -307,8 +309,8 @@ func (sc *sideChannel) SnapshotTable(canonicalName string, startingLSN *pglogrep
 	return currentLSN, nil
 }
 
-func (sc *sideChannel) ReadReplicaIdentity(schemaName, tableName string) (pg.ReplicaIdentity, error) {
-	var replicaIdentity pg.ReplicaIdentity
+func (sc *sideChannel) ReadReplicaIdentity(schemaName, tableName string) (pgtypes.ReplicaIdentity, error) {
+	var replicaIdentity pgtypes.ReplicaIdentity
 	if err := sc.newSession(time.Second*10, func(session *session) error {
 		row := session.queryRow(replicaIdentityQuery, schemaName, tableName)
 
@@ -316,10 +318,10 @@ func (sc *sideChannel) ReadReplicaIdentity(schemaName, tableName string) (pg.Rep
 		if err := row.Scan(&val); err != nil {
 			return err
 		}
-		replicaIdentity = pg.AsReplicaIdentity(val)
+		replicaIdentity = pgtypes.AsReplicaIdentity(val)
 		return nil
 	}); err != nil {
-		return pg.UNKNOWN, err
+		return pgtypes.UNKNOWN, err
 	}
 	return replicaIdentity, nil
 }
@@ -352,7 +354,7 @@ func (sc *sideChannel) ReadPublishedTables(publicationName string) ([]string, er
 			if err := row.Scan(&schemaName, &tableName); err != nil {
 				return err
 			}
-			tableNames = append(tableNames, model.MakeRelationKey(schemaName, tableName))
+			tableNames = append(tableNames, systemcatalog.MakeRelationKey(schemaName, tableName))
 			return nil
 		}, existingPublicationPublishedTablesQuery, publicationName)
 	}); err != nil {
@@ -362,10 +364,10 @@ func (sc *sideChannel) ReadPublishedTables(publicationName string) ([]string, er
 }
 
 func (sc *sideChannel) readHypertableSchema(
-	session *session, hypertable *model.Hypertable,
-	cb func(hypertable *model.Hypertable, columns []model.Column) bool) error {
+	session *session, hypertable *systemcatalog.Hypertable,
+	cb func(hypertable *systemcatalog.Hypertable, columns []systemcatalog.Column) bool) error {
 
-	columns := make([]model.Column, 0)
+	columns := make([]systemcatalog.Column, 0)
 	if err := session.queryFunc(func(row pgx.Row) error {
 		var name string
 		var oid uint32
@@ -376,12 +378,12 @@ func (sc *sideChannel) readHypertableSchema(
 			return errors.Wrap(err, 0)
 		}
 
-		dataType, err := model.DataTypeByOID(oid)
+		dataType, err := systemcatalog.DataTypeByOID(oid)
 		if err != nil {
 			return errors.Wrap(err, 0)
 		}
 
-		column := model.NewColumn(name, oid, string(dataType), nullable, primaryKey, defaultValue)
+		column := systemcatalog.NewColumn(name, oid, string(dataType), nullable, primaryKey, defaultValue)
 		columns = append(columns, column)
 		return nil
 	}, initialTableSchemaQuery, hypertable.SchemaName(), hypertable.HypertableName()); err != nil {

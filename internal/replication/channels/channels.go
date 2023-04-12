@@ -3,27 +3,27 @@ package channels
 import (
 	"github.com/jackc/pglogrepl"
 	"github.com/noctarius/timescaledb-event-streamer/internal/eventhandler"
-	"github.com/noctarius/timescaledb-event-streamer/internal/pg"
-	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/model"
-	"github.com/noctarius/timescaledb-event-streamer/internal/version"
+	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
+	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
+	"github.com/noctarius/timescaledb-event-streamer/spi/version"
 )
 
 type SideChannel interface {
-	ReadHypertables(cb func(hypertable *model.Hypertable) error) error
+	ReadHypertables(cb func(hypertable *systemcatalog.Hypertable) error) error
 
-	ReadChunks(cb func(chunk *model.Chunk) error) error
+	ReadChunks(cb func(chunk *systemcatalog.Chunk) error) error
 
-	ReadHypertableSchema(cb func(hypertable *model.Hypertable, columns []model.Column) bool,
-		hypertables ...*model.Hypertable) error
+	ReadHypertableSchema(cb func(hypertable *systemcatalog.Hypertable,
+		columns []systemcatalog.Column) bool, hypertables ...*systemcatalog.Hypertable) error
 
-	AttachChunkToPublication(chunk *model.Chunk) error
+	AttachChunkToPublication(chunk *systemcatalog.Chunk) error
 
-	DetachChunkFromPublication(chunk *model.Chunk) error
+	DetachChunkFromPublication(chunk *systemcatalog.Chunk) error
 
 	SnapshotTable(canonicalName string, startingLSN *pglogrepl.LSN,
 		cb func(lsn pglogrepl.LSN, values map[string]any) error) (pglogrepl.LSN, error)
 
-	ReadReplicaIdentity(schemaName, tableName string) (pg.ReplicaIdentity, error)
+	ReadReplicaIdentity(schemaName, tableName string) (pgtypes.ReplicaIdentity, error)
 
 	ReadContinuousAggregate(materializedHypertableId int32) (viewSchema, viewName string, found bool, err error)
 

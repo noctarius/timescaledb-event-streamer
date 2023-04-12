@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"github.com/docker/docker/pkg/ioutils"
 	"github.com/go-errors/errors"
-	"github.com/noctarius/timescaledb-event-streamer/internal/offset"
+	"github.com/noctarius/timescaledb-event-streamer/spi/offset"
 	"os"
 	"path/filepath"
 )
@@ -14,7 +14,7 @@ type fileOffsetStorage struct {
 	offsets map[string]*offset.Offset
 }
 
-func NewFileOffsetStorage(path string) (OffsetStorage, error) {
+func NewFileOffsetStorage(path string) (offset.Storage, error) {
 	directory := filepath.Dir(path)
 	fi, err := os.Stat(directory)
 	if err != nil {

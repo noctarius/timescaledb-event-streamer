@@ -1,31 +1,28 @@
 package sysconfig
 
 import (
-	"fmt"
 	"github.com/jackc/pgx/v5"
-	"github.com/noctarius/timescaledb-event-streamer/internal/configuring"
 	"github.com/noctarius/timescaledb-event-streamer/internal/event/eventfiltering"
-	"github.com/noctarius/timescaledb-event-streamer/internal/event/sink"
-	"github.com/noctarius/timescaledb-event-streamer/internal/event/sink/kafka"
-	"github.com/noctarius/timescaledb-event-streamer/internal/event/sink/nats"
-	"github.com/noctarius/timescaledb-event-streamer/internal/event/sink/redis"
-	"github.com/noctarius/timescaledb-event-streamer/internal/event/sink/stdout"
-	"github.com/noctarius/timescaledb-event-streamer/internal/event/topic"
+	intsink "github.com/noctarius/timescaledb-event-streamer/internal/event/sink"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/transactional"
-	"github.com/noctarius/timescaledb-event-streamer/internal/schema"
+	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
+	"github.com/noctarius/timescaledb-event-streamer/spi/sink"
+	"github.com/noctarius/timescaledb-event-streamer/spi/topic/namegenerator"
+	"github.com/noctarius/timescaledb-event-streamer/spi/topic/namingstrategy"
 )
 
 type SystemConfig struct {
-	*configuring.Config
+	*spiconfig.Config
 
 	PgxConfig              *pgx.ConnConfig
-	SinkProvider           SinkProvider
+	SinkProvider           sink.Provider
 	EventEmitterProvider   EventEmitterProvider
 	NameGeneratorProvider  NameGeneratorProvider
-	NamingStrategyProvider NamingStrategyProvider
+	NamingStrategyProvider namingstrategy.Provider
 }
 
-func NewSystemConfig(config *configuring.Config) *SystemConfig {
+func NewSystemConfig(config *spiconfig.Config) *SystemConfig {
 	sc := &SystemConfig{
 		Config: config,
 	}
@@ -36,10 +33,10 @@ func NewSystemConfig(config *configuring.Config) *SystemConfig {
 	return sc
 }
 
-func (sc *SystemConfig) defaultEventEmitter(schemaRegistry *schema.Registry, topicNameGenerator *topic.NameGenerator,
-	transactionMonitor *transactional.TransactionMonitor) (*sink.EventEmitter, error) {
+func (sc *SystemConfig) defaultEventEmitter(schemaRegistry *schema.Registry, topicNameGenerator *namegenerator.NameGenerator,
+	transactionMonitor *transactional.TransactionMonitor) (*intsink.EventEmitter, error) {
 
-	s, err := sc.SinkProvider()
+	s, err := sc.SinkProvider(sc.Config)
 	if err != nil {
 		return nil, err
 	}
@@ -49,35 +46,23 @@ func (sc *SystemConfig) defaultEventEmitter(schemaRegistry *schema.Registry, top
 		return nil, err
 	}
 
-	return sink.NewEventEmitter(schemaRegistry, topicNameGenerator, transactionMonitor, s, filters), nil
+	return intsink.NewEventEmitter(schemaRegistry, topicNameGenerator, transactionMonitor, s, filters), nil
 }
 
-func (sc *SystemConfig) defaultSink() (sink.Sink, error) {
-	switch configuring.GetOrDefault(sc.Config, "sink.type", configuring.Stdout) {
-	case configuring.Stdout:
-		return stdout.NewStdoutSink(), nil
-	case configuring.NATS:
-		return nats.NewNatsSink(sc.Config)
-	case configuring.Kafka:
-		return kafka.NewKafkaSink(sc.Config)
-	case configuring.Redis:
-		return redis.NewRedisSink(sc.Config)
-	}
-	return nil, fmt.Errorf("SinkType '%s' doesn't exist", sc.Config.Sink.Type)
+func (sc *SystemConfig) defaultSink(config *spiconfig.Config) (sink.Sink, error) {
+	name := spiconfig.GetOrDefault(config, "sink.type", spiconfig.Stdout)
+	return sink.NewSink(name, config)
 }
 
-func (sc *SystemConfig) defaultNameGenerator() (*topic.NameGenerator, error) {
-	namingStrategy, err := sc.NamingStrategyProvider()
+func (sc *SystemConfig) defaultNameGenerator() (*namegenerator.NameGenerator, error) {
+	namingStrategy, err := sc.NamingStrategyProvider(sc.Config)
 	if err != nil {
 		return nil, err
 	}
-	return topic.NewNameGenerator(sc.Config.Topic.Prefix, namingStrategy), nil
+	return namegenerator.NewNameGenerator(sc.Config.Topic.Prefix, namingStrategy), nil
 }
 
-func (sc *SystemConfig) defaultNamingStrategy() (topic.NamingStrategy, error) {
-	switch configuring.GetOrDefault(sc.Config, "topic.namingstrategy.type", configuring.Debezium) {
-	case configuring.Debezium:
-		return &topic.DebeziumNamingStrategy{}, nil
-	}
-	return nil, fmt.Errorf("NamingStrategyType '%s' doesn't exist", sc.Config.Topic.NamingStrategy.Type)
+func (sc *SystemConfig) defaultNamingStrategy(config *spiconfig.Config) (namingstrategy.NamingStrategy, error) {
+	name := spiconfig.GetOrDefault(config, "topic.namingstrategy.type", spiconfig.Debezium)
+	return namingstrategy.NewNamingStrategy(name, config)
 }

@@ -3,7 +3,7 @@ package filtering
 import (
 	"fmt"
 	"github.com/go-errors/errors"
-	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/model"
+	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"regexp"
 	"strings"
 	"unicode"
@@ -43,7 +43,7 @@ func NewTableFilter(excludes, includes []string, acceptedByDefault bool) (*Table
 	}, nil
 }
 
-func (rf *TableFilter) Enabled(hypertable *model.Hypertable) bool {
+func (rf *TableFilter) Enabled(hypertable *systemcatalog.Hypertable) bool {
 	// already tested?
 	canonicalName := hypertable.CanonicalName()
 	// _timescaledb_internal._compressed_hypertable_246
@@ -110,7 +110,7 @@ func parseFilter(filterTerm string) (*filter, error) {
 	return f, nil
 }
 
-func (f *filter) matches(hypertable *model.Hypertable) bool {
+func (f *filter) matches(hypertable *systemcatalog.Hypertable) bool {
 	namespace := hypertable.SchemaName()
 	entity := hypertable.HypertableName()
 	if hypertable.IsContinuousAggregate() {

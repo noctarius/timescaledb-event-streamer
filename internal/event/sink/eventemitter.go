@@ -4,25 +4,26 @@ import (
 	"encoding/base64"
 	"github.com/jackc/pglogrepl"
 	"github.com/noctarius/timescaledb-event-streamer/internal/event/eventfiltering"
-	"github.com/noctarius/timescaledb-event-streamer/internal/event/topic"
-	"github.com/noctarius/timescaledb-event-streamer/internal/eventhandler"
-	"github.com/noctarius/timescaledb-event-streamer/internal/pg/decoding"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/transactional"
-	"github.com/noctarius/timescaledb-event-streamer/internal/schema"
-	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/model"
+	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
+	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
+	"github.com/noctarius/timescaledb-event-streamer/spi/sink"
+	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
+	"github.com/noctarius/timescaledb-event-streamer/spi/topic/namegenerator"
 	"time"
 )
 
 type EventEmitter struct {
 	schemaRegistry     *schema.Registry
-	topicNameGenerator *topic.NameGenerator
+	topicNameGenerator *namegenerator.NameGenerator
 	transactionMonitor *transactional.TransactionMonitor
 	filter             eventfiltering.Filter
-	sink               Sink
+	sink               sink.Sink
 }
 
-func NewEventEmitter(schemaRegistry *schema.Registry, topicNameGenerator *topic.NameGenerator,
-	transactionMonitor *transactional.TransactionMonitor, sink Sink, filter eventfiltering.Filter) *EventEmitter {
+func NewEventEmitter(schemaRegistry *schema.Registry, topicNameGenerator *namegenerator.NameGenerator,
+	transactionMonitor *transactional.TransactionMonitor, sink sink.Sink, filter eventfiltering.Filter) *EventEmitter {
 
 	return &EventEmitter{
 		schemaRegistry:     schemaRegistry,
@@ -33,13 +34,13 @@ func NewEventEmitter(schemaRegistry *schema.Registry, topicNameGenerator *topic.
 	}
 }
 
-func (ee *EventEmitter) NewEventHandler() eventhandler.BaseReplicationEventHandler {
+func (ee *EventEmitter) NewEventHandler() eventhandlers.BaseReplicationEventHandler {
 	return &eventEmitterEventHandler{
 		eventEmitter: ee,
 	}
 }
 
-func (ee *EventEmitter) envelopeSchema(hypertable *model.Hypertable) schema.Struct {
+func (ee *EventEmitter) envelopeSchema(hypertable *systemcatalog.Hypertable) schema.Struct {
 	schemaTopicName := ee.schemaRegistry.HypertableEnvelopeSchemaName(hypertable)
 	return ee.schemaRegistry.GetSchemaOrCreate(schemaTopicName, func() schema.Struct {
 		return schema.EnvelopeSchema(ee.schemaRegistry, hypertable, ee.topicNameGenerator)
@@ -53,7 +54,7 @@ func (ee *EventEmitter) envelopeMessageSchema() schema.Struct {
 	})
 }
 
-func (ee *EventEmitter) keySchema(hypertable *model.Hypertable) schema.Struct {
+func (ee *EventEmitter) keySchema(hypertable *systemcatalog.Hypertable) schema.Struct {
 	schemaTopicName := ee.schemaRegistry.HypertableKeySchemaName(hypertable)
 	return ee.schemaRegistry.GetSchemaOrCreate(schemaTopicName, func() schema.Struct {
 		return schema.KeySchema(hypertable, ee.topicNameGenerator)
@@ -68,8 +69,8 @@ type eventEmitterEventHandler struct {
 	eventEmitter *EventEmitter
 }
 
-func (e *eventEmitterEventHandler) OnReadEvent(lsn pglogrepl.LSN, hypertable *model.Hypertable,
-	_ *model.Chunk, newValues map[string]any) error {
+func (e *eventEmitterEventHandler) OnReadEvent(lsn pglogrepl.LSN, hypertable *systemcatalog.Hypertable,
+	_ *systemcatalog.Chunk, newValues map[string]any) error {
 
 	cnValues, err := e.convertValues(hypertable, newValues)
 	if err != nil {
@@ -86,8 +87,8 @@ func (e *eventEmitterEventHandler) OnReadEvent(lsn pglogrepl.LSN, hypertable *mo
 	)
 }
 
-func (e *eventEmitterEventHandler) OnInsertEvent(xld pglogrepl.XLogData, hypertable *model.Hypertable,
-	_ *model.Chunk, newValues map[string]any) error {
+func (e *eventEmitterEventHandler) OnInsertEvent(xld pglogrepl.XLogData, hypertable *systemcatalog.Hypertable,
+	_ *systemcatalog.Chunk, newValues map[string]any) error {
 
 	cnValues, err := e.convertValues(hypertable, newValues)
 	if err != nil {
@@ -104,8 +105,8 @@ func (e *eventEmitterEventHandler) OnInsertEvent(xld pglogrepl.XLogData, hyperta
 	)
 }
 
-func (e *eventEmitterEventHandler) OnUpdateEvent(xld pglogrepl.XLogData, hypertable *model.Hypertable,
-	_ *model.Chunk, oldValues, newValues map[string]any) error {
+func (e *eventEmitterEventHandler) OnUpdateEvent(xld pglogrepl.XLogData, hypertable *systemcatalog.Hypertable,
+	_ *systemcatalog.Chunk, oldValues, newValues map[string]any) error {
 
 	coValues, err := e.convertValues(hypertable, oldValues)
 	if err != nil {
@@ -126,8 +127,8 @@ func (e *eventEmitterEventHandler) OnUpdateEvent(xld pglogrepl.XLogData, hyperta
 	)
 }
 
-func (e *eventEmitterEventHandler) OnDeleteEvent(xld pglogrepl.XLogData, hypertable *model.Hypertable,
-	_ *model.Chunk, oldValues map[string]any, tombstone bool) error {
+func (e *eventEmitterEventHandler) OnDeleteEvent(xld pglogrepl.XLogData, hypertable *systemcatalog.Hypertable,
+	_ *systemcatalog.Chunk, oldValues map[string]any, tombstone bool) error {
 
 	coValues, err := e.convertValues(hypertable, oldValues)
 	if err != nil {
@@ -144,7 +145,7 @@ func (e *eventEmitterEventHandler) OnDeleteEvent(xld pglogrepl.XLogData, hyperta
 	)
 }
 
-func (e *eventEmitterEventHandler) OnTruncateEvent(xld pglogrepl.XLogData, hypertable *model.Hypertable) error {
+func (e *eventEmitterEventHandler) OnTruncateEvent(xld pglogrepl.XLogData, hypertable *systemcatalog.Hypertable) error {
 	return e.emit(xld, hypertable,
 		func(source schema.Struct) schema.Struct {
 			return schema.TruncateEvent(source)
@@ -156,7 +157,7 @@ func (e *eventEmitterEventHandler) OnTruncateEvent(xld pglogrepl.XLogData, hyper
 }
 
 func (e *eventEmitterEventHandler) OnMessageEvent(
-	xld pglogrepl.XLogData, msg *decoding.LogicalReplicationMessage) error {
+	xld pglogrepl.XLogData, msg *pgtypes.LogicalReplicationMessage) error {
 
 	return e.emitMessageEvent(xld, msg, func(source schema.Struct) schema.Struct {
 		content := base64.StdEncoding.EncodeToString(msg.Content)
@@ -165,7 +166,7 @@ func (e *eventEmitterEventHandler) OnMessageEvent(
 }
 
 func (e *eventEmitterEventHandler) OnChunkCompressedEvent(
-	xld pglogrepl.XLogData, hypertable *model.Hypertable, chunk *model.Chunk) error {
+	xld pglogrepl.XLogData, hypertable *systemcatalog.Hypertable, _ *systemcatalog.Chunk) error {
 
 	return e.emit(xld, hypertable,
 		func(source schema.Struct) schema.Struct {
@@ -178,7 +179,7 @@ func (e *eventEmitterEventHandler) OnChunkCompressedEvent(
 }
 
 func (e *eventEmitterEventHandler) OnChunkDecompressedEvent(
-	xld pglogrepl.XLogData, hypertable *model.Hypertable, _ *model.Chunk) error {
+	xld pglogrepl.XLogData, hypertable *systemcatalog.Hypertable, _ *systemcatalog.Chunk) error {
 
 	return e.emit(xld, hypertable,
 		func(source schema.Struct) schema.Struct {
@@ -190,34 +191,34 @@ func (e *eventEmitterEventHandler) OnChunkDecompressedEvent(
 	)
 }
 
-func (e *eventEmitterEventHandler) OnRelationEvent(_ pglogrepl.XLogData, _ *decoding.RelationMessage) error {
+func (e *eventEmitterEventHandler) OnRelationEvent(_ pglogrepl.XLogData, _ *pgtypes.RelationMessage) error {
 	return nil
 }
 
-func (e *eventEmitterEventHandler) OnBeginEvent(_ pglogrepl.XLogData, _ *decoding.BeginMessage) error {
+func (e *eventEmitterEventHandler) OnBeginEvent(_ pglogrepl.XLogData, _ *pgtypes.BeginMessage) error {
 	return nil
 }
 
-func (e *eventEmitterEventHandler) OnCommitEvent(_ pglogrepl.XLogData, _ *decoding.CommitMessage) error {
+func (e *eventEmitterEventHandler) OnCommitEvent(_ pglogrepl.XLogData, _ *pgtypes.CommitMessage) error {
 	return nil
 }
 
-func (e *eventEmitterEventHandler) OnTypeEvent(_ pglogrepl.XLogData, _ *decoding.TypeMessage) error {
+func (e *eventEmitterEventHandler) OnTypeEvent(_ pglogrepl.XLogData, _ *pgtypes.TypeMessage) error {
 	return nil
 }
 
-func (e *eventEmitterEventHandler) OnOriginEvent(_ pglogrepl.XLogData, _ *decoding.OriginMessage) error {
+func (e *eventEmitterEventHandler) OnOriginEvent(_ pglogrepl.XLogData, _ *pgtypes.OriginMessage) error {
 	return nil
 }
 
-func (e *eventEmitterEventHandler) emit(xld pglogrepl.XLogData, hypertable *model.Hypertable,
+func (e *eventEmitterEventHandler) emit(xld pglogrepl.XLogData, hypertable *systemcatalog.Hypertable,
 	eventProvider func(source schema.Struct) schema.Struct, keyProvider func() (schema.Struct, error)) error {
 
 	return e.emit0(xld.ServerWALEnd, xld.ServerTime, false, hypertable, eventProvider, keyProvider)
 }
 
 func (e *eventEmitterEventHandler) emit0(lsn pglogrepl.LSN, timestamp time.Time, snapshot bool,
-	hypertable *model.Hypertable, eventProvider func(source schema.Struct) schema.Struct,
+	hypertable *systemcatalog.Hypertable, eventProvider func(source schema.Struct) schema.Struct,
 	keyProvider func() (schema.Struct, error)) error {
 
 	transactionId := e.eventEmitter.transactionMonitor.TransactionId()
@@ -249,7 +250,7 @@ func (e *eventEmitterEventHandler) emit0(lsn pglogrepl.LSN, timestamp time.Time,
 }
 
 func (e *eventEmitterEventHandler) emitMessageEvent(xld pglogrepl.XLogData,
-	msg *decoding.LogicalReplicationMessage, eventProvider func(source schema.Struct) schema.Struct) error {
+	msg *pgtypes.LogicalReplicationMessage, eventProvider func(source schema.Struct) schema.Struct) error {
 
 	timestamp := time.Now()
 	if msg.IsTransactional() {
@@ -276,9 +277,9 @@ func (e *eventEmitterEventHandler) emitMessageEvent(xld pglogrepl.XLogData,
 }
 
 func (e *eventEmitterEventHandler) hypertableEventKey(
-	hypertable *model.Hypertable, values map[string]any) (schema.Struct, error) {
+	hypertable *systemcatalog.Hypertable, values map[string]any) (schema.Struct, error) {
 
-	columns := make([]model.Column, 0)
+	columns := make([]systemcatalog.Column, 0)
 	for _, column := range hypertable.Columns() {
 		if !column.IsPrimaryKey() {
 			continue
@@ -288,18 +289,18 @@ func (e *eventEmitterEventHandler) hypertableEventKey(
 	return e.convertColumnValues(columns, values)
 }
 
-func (e *eventEmitterEventHandler) timescaleEventKey(hypertable *model.Hypertable) (schema.Struct, error) {
+func (e *eventEmitterEventHandler) timescaleEventKey(hypertable *systemcatalog.Hypertable) (schema.Struct, error) {
 	return schema.TimescaleKey(hypertable.SchemaName(), hypertable.HypertableName()), nil
 }
 
 func (e *eventEmitterEventHandler) convertValues(
-	hypertable *model.Hypertable, values map[string]any) (map[string]any, error) {
+	hypertable *systemcatalog.Hypertable, values map[string]any) (map[string]any, error) {
 
 	return e.convertColumnValues(hypertable.Columns(), values)
 }
 
 func (e *eventEmitterEventHandler) convertColumnValues(
-	columns []model.Column, values map[string]any) (map[string]any, error) {
+	columns []systemcatalog.Column, values map[string]any) (map[string]any, error) {
 
 	if values == nil {
 		return nil, nil
@@ -308,7 +309,7 @@ func (e *eventEmitterEventHandler) convertColumnValues(
 	result := make(map[string]any)
 	for _, column := range columns {
 		if v, present := values[column.Name()]; present {
-			converter, err := model.ConverterByOID(column.DataType())
+			converter, err := systemcatalog.ConverterByOID(column.DataType())
 			if err != nil {
 				return nil, err
 			}

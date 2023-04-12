@@ -4,17 +4,17 @@ import (
 	"github.com/antonmedv/expr"
 	"github.com/antonmedv/expr/vm"
 	"github.com/go-errors/errors"
-	"github.com/noctarius/timescaledb-event-streamer/internal/configuring"
-	"github.com/noctarius/timescaledb-event-streamer/internal/schema"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/filtering"
-	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/model"
+	"github.com/noctarius/timescaledb-event-streamer/spi/config"
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
+	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 )
 
 type Filter interface {
-	Evaluate(hypertable *model.Hypertable, key, value schema.Struct) (bool, error)
+	Evaluate(hypertable *systemcatalog.Hypertable, key, value schema.Struct) (bool, error)
 }
 
-func NewSinkEventFilter(filterDefinitions map[string]configuring.EventFilterConfig) (Filter, error) {
+func NewSinkEventFilter(filterDefinitions map[string]config.EventFilterConfig) (Filter, error) {
 	if filterDefinitions == nil {
 		return &acceptAllFilter{}, nil
 	}
@@ -58,7 +58,7 @@ func NewSinkEventFilter(filterDefinitions map[string]configuring.EventFilterConf
 type acceptAllFilter struct {
 }
 
-func (f *acceptAllFilter) Evaluate(_ *model.Hypertable, _, _ schema.Struct) (bool, error) {
+func (f *acceptAllFilter) Evaluate(_ *systemcatalog.Hypertable, _, _ schema.Struct) (bool, error) {
 	return true, nil
 }
 
@@ -67,7 +67,7 @@ type compositeFilter struct {
 	tableFilters []tableFilter
 }
 
-func (f *compositeFilter) Evaluate(hypertable *model.Hypertable, key, value schema.Struct) (bool, error) {
+func (f *compositeFilter) Evaluate(hypertable *systemcatalog.Hypertable, key, value schema.Struct) (bool, error) {
 	for i, tableFilter := range f.tableFilters {
 		if hypertable == nil || tableFilter.Enabled(hypertable) {
 			success, err := f.filters[i].evaluate(key, value)
@@ -114,12 +114,12 @@ func (f *eventFilter) evaluate(key, value schema.Struct) (bool, error) {
 }
 
 type tableFilter interface {
-	Enabled(hypertable *model.Hypertable) bool
+	Enabled(hypertable *systemcatalog.Hypertable) bool
 }
 
 type acceptAllTableFilter struct {
 }
 
-func (aats *acceptAllTableFilter) Enabled(_ *model.Hypertable) bool {
+func (aats *acceptAllTableFilter) Enabled(_ *systemcatalog.Hypertable) bool {
 	return true
 }

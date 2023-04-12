@@ -3,8 +3,8 @@ package schema
 import (
 	"fmt"
 	"github.com/jackc/pglogrepl"
-	"github.com/noctarius/timescaledb-event-streamer/internal/event/topic"
-	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/model"
+	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
+	"github.com/noctarius/timescaledb-event-streamer/spi/topic/namegenerator"
 	"strconv"
 	"time"
 )
@@ -206,9 +206,9 @@ func Source(lsn pglogrepl.LSN, timestamp time.Time, snapshot bool,
 	}
 }
 
-func HypertableSchema(hypertableSchemaName string, columns []model.Column) Struct {
+func HypertableSchema(hypertableSchemaName string, columns []systemcatalog.Column) Struct {
 	return Struct{
-		fieldNameType: string(model.STRUCT),
+		fieldNameType: string(systemcatalog.STRUCT),
 		fieldNameFields: func() []Struct {
 			fields := make([]Struct, len(columns))
 			for i, column := range columns {
@@ -220,12 +220,12 @@ func HypertableSchema(hypertableSchemaName string, columns []model.Column) Struc
 	}
 }
 
-func KeySchema(hypertable *model.Hypertable, topicSchemaGenerator *topic.NameGenerator) Struct {
+func KeySchema(hypertable *systemcatalog.Hypertable, topicSchemaGenerator *namegenerator.NameGenerator) Struct {
 	schemaTopicName := topicSchemaGenerator.SchemaTopicName(hypertable)
 	hypertableKeySchemaName := fmt.Sprintf("%s.Key", schemaTopicName)
 
 	return Struct{
-		fieldNameType:     string(model.STRUCT),
+		fieldNameType:     string(systemcatalog.STRUCT),
 		fieldNameName:     hypertableKeySchemaName,
 		fieldNameOptional: false,
 		fieldNameFields: func() []Struct {
@@ -245,18 +245,18 @@ func KeySchema(hypertable *model.Hypertable, topicSchemaGenerator *topic.NameGen
 
 func TimescaleEventKeySchema() Struct {
 	return Struct{
-		fieldNameType:     string(model.STRUCT),
+		fieldNameType:     string(systemcatalog.STRUCT),
 		fieldNameName:     TimescaleEventSchemaName,
 		fieldNameOptional: false,
 		fieldNameFields: []Struct{
-			simpleSchemaElement(fieldNameSchema, model.STRING, false),
-			simpleSchemaElement(fieldNameTable, model.STRING, false),
+			simpleSchemaElement(fieldNameSchema, systemcatalog.STRING, false),
+			simpleSchemaElement(fieldNameTable, systemcatalog.STRING, false),
 		},
 	}
 }
 
-func EnvelopeSchema(schemaRegistry *Registry, hypertable *model.Hypertable,
-	topicSchemaGenerator *topic.NameGenerator) Struct {
+func EnvelopeSchema(schemaRegistry *Registry, hypertable *systemcatalog.Hypertable,
+	topicSchemaGenerator *namegenerator.NameGenerator) Struct {
 
 	schemaTopicName := topicSchemaGenerator.SchemaTopicName(hypertable)
 	hypertableSchemaName := fmt.Sprintf("%s.Value", schemaTopicName)
@@ -266,14 +266,14 @@ func EnvelopeSchema(schemaRegistry *Registry, hypertable *model.Hypertable,
 	})
 
 	return Struct{
-		fieldNameType: string(model.STRUCT),
+		fieldNameType: string(systemcatalog.STRUCT),
 		fieldNameFields: []Struct{
 			extendHypertableSchema(hypertableSchema, fieldNameBefore, true),
 			extendHypertableSchema(hypertableSchema, fieldNameAfter, false),
 			schemaRegistry.GetSchema(SourceSchemaName),
-			simpleSchemaElement(fieldNameOperation, model.STRING, false),
-			simpleSchemaElement(fieldNameTimescaleOp, model.STRING, true),
-			simpleSchemaElement(fieldNameTimestamp, model.INT64, true),
+			simpleSchemaElement(fieldNameOperation, systemcatalog.STRING, false),
+			simpleSchemaElement(fieldNameTimescaleOp, systemcatalog.STRING, true),
+			simpleSchemaElement(fieldNameTimestamp, systemcatalog.INT64, true),
 		},
 		fieldNameOptional: false,
 		fieldNameName:     envelopeSchemaName,
@@ -281,19 +281,19 @@ func EnvelopeSchema(schemaRegistry *Registry, hypertable *model.Hypertable,
 }
 
 func EnvelopeMessageSchema(schemaRegistry *Registry,
-	topicSchemaGenerator *topic.NameGenerator) Struct {
+	topicSchemaGenerator *namegenerator.NameGenerator) Struct {
 
 	schemaTopicName := topicSchemaGenerator.MessageTopicName()
 	envelopeSchemaName := fmt.Sprintf("%s.Envelope", schemaTopicName)
 
 	return Struct{
-		fieldNameType: string(model.STRUCT),
+		fieldNameType: string(systemcatalog.STRUCT),
 		fieldNameFields: []Struct{
 			schemaRegistry.GetSchema(MessageValueSchemaName),
 			schemaRegistry.GetSchema(SourceSchemaName),
-			simpleSchemaElement(fieldNameOperation, model.STRING, false),
-			simpleSchemaElement(fieldNameTimescaleOp, model.STRING, true),
-			simpleSchemaElement(fieldNameTimestamp, model.INT64, true),
+			simpleSchemaElement(fieldNameOperation, systemcatalog.STRING, false),
+			simpleSchemaElement(fieldNameTimescaleOp, systemcatalog.STRING, true),
+			simpleSchemaElement(fieldNameTimestamp, systemcatalog.INT64, true),
 		},
 		fieldNameOptional: false,
 		fieldNameName:     envelopeSchemaName,
@@ -302,18 +302,18 @@ func EnvelopeMessageSchema(schemaRegistry *Registry,
 
 func sourceSchema() Struct {
 	return Struct{
-		fieldNameType: string(model.STRUCT),
+		fieldNameType: string(systemcatalog.STRUCT),
 		fieldNameFields: []Struct{
-			simpleSchemaElement(fieldNameVersion, model.STRING, false),
-			simpleSchemaElement(fieldNameConnector, model.STRING, false),
-			simpleSchemaElement(fieldNameName, model.STRING, false),
-			simpleSchemaElement(fieldNameTimestamp, model.STRING, false),
-			simpleSchemaElementWithDefault(fieldNameSnapshot, model.BOOLEAN, true, false),
-			simpleSchemaElement(fieldNameSchema, model.STRING, false),
-			simpleSchemaElement(fieldNameTable, model.STRING, false),
-			simpleSchemaElement(fieldNameTxId, model.INT64, true),
-			simpleSchemaElement(fieldNameLSN, model.INT64, true),
-			simpleSchemaElement(fieldNameXmin, model.INT64, true),
+			simpleSchemaElement(fieldNameVersion, systemcatalog.STRING, false),
+			simpleSchemaElement(fieldNameConnector, systemcatalog.STRING, false),
+			simpleSchemaElement(fieldNameName, systemcatalog.STRING, false),
+			simpleSchemaElement(fieldNameTimestamp, systemcatalog.STRING, false),
+			simpleSchemaElementWithDefault(fieldNameSnapshot, systemcatalog.BOOLEAN, true, false),
+			simpleSchemaElement(fieldNameSchema, systemcatalog.STRING, false),
+			simpleSchemaElement(fieldNameTable, systemcatalog.STRING, false),
+			simpleSchemaElement(fieldNameTxId, systemcatalog.INT64, true),
+			simpleSchemaElement(fieldNameLSN, systemcatalog.INT64, true),
+			simpleSchemaElement(fieldNameXmin, systemcatalog.INT64, true),
 		},
 		fieldNameOptional: false,
 		fieldNameName:     SourceSchemaName,
@@ -326,8 +326,8 @@ func messageValueSchema(schemaRegistry *Registry) Struct {
 		fieldNameVersion: 1,
 		fieldNameName:    MessageValueSchemaName,
 		fieldNameFields: []Struct{
-			simpleSchemaElement(fieldNameOperation, model.STRING, false),
-			simpleSchemaElement(fieldNameTimestamp, model.INT64, true),
+			simpleSchemaElement(fieldNameOperation, systemcatalog.STRING, false),
+			simpleSchemaElement(fieldNameTimestamp, systemcatalog.INT64, true),
 			schemaRegistry.GetSchema(SourceSchemaName),
 			{
 				fieldNameField:    fieldNameMessage,
@@ -343,7 +343,7 @@ func messageKeySchema() Struct {
 		fieldNameVersion: 1,
 		fieldNameName:    MessageKeySchemaName,
 		fieldNameFields: []Struct{
-			simpleSchemaElement(fieldNamePrefix, model.STRING, true),
+			simpleSchemaElement(fieldNamePrefix, systemcatalog.STRING, true),
 		},
 	}
 }
@@ -353,13 +353,13 @@ func messageBlockSchema() Struct {
 		fieldNameVersion: 1,
 		fieldNameName:    MessageBlockSchemaName,
 		fieldNameFields: []Struct{
-			simpleSchemaElement(fieldNamePrefix, model.STRING, true),
-			simpleSchemaElement(fieldNameContent, model.STRING, true),
+			simpleSchemaElement(fieldNamePrefix, systemcatalog.STRING, true),
+			simpleSchemaElement(fieldNameContent, systemcatalog.STRING, true),
 		},
 	}
 }
 
-func simpleSchemaElement(fieldName schemaField, typeName model.DataType, optional bool) Struct {
+func simpleSchemaElement(fieldName schemaField, typeName systemcatalog.DataType, optional bool) Struct {
 	return Struct{
 		fieldNameType:     string(typeName),
 		fieldNameOptional: optional,
@@ -379,7 +379,7 @@ func keySchemaElement(fieldName schemaField, index int, typeName string, optiona
 }
 
 func simpleSchemaElementWithDefault(fieldName schemaField,
-	typeName model.DataType, optional bool, defaultValue any) Struct {
+	typeName systemcatalog.DataType, optional bool, defaultValue any) Struct {
 
 	return Struct{
 		fieldNameType:     string(typeName),
@@ -391,7 +391,7 @@ func simpleSchemaElementWithDefault(fieldName schemaField,
 
 func extendHypertableSchema(hypertableSchema Struct, fieldName schemaField, optional bool) Struct {
 	return Struct{
-		fieldNameType:     string(model.STRUCT),
+		fieldNameType:     string(systemcatalog.STRUCT),
 		fieldNameFields:   hypertableSchema[fieldNameFields],
 		fieldNameName:     hypertableSchema[fieldNameName],
 		fieldNameOptional: optional,
@@ -399,7 +399,7 @@ func extendHypertableSchema(hypertableSchema Struct, fieldName schemaField, opti
 	}
 }
 
-func column2field(colum model.Column) Struct {
+func column2field(colum systemcatalog.Column) Struct {
 	field := Struct{
 		fieldNameType:     colum.TypeName(),
 		fieldNameOptional: colum.IsNullable(),
