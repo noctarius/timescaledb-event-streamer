@@ -5,11 +5,16 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/stretchr/testify/assert"
 	"os"
+	"runtime"
 	"testing"
 	"time"
 )
 
 func Test_Writing_Reading(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.SkipNow()
+	}
+
 	f, err := os.CreateTemp("", "offset")
 	if err != nil {
 		t.FailNow()
