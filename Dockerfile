@@ -25,4 +25,7 @@ RUN apk update \
 COPY --from=0 /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=0 /root/builder/dist/timescaledb-event-streamer .
 
+RUN addgroup -S "tsdb" \
+    && adduser --disabled-password --gecos "" --home "$(pwd)" --ingroup "tsdb" --no-create-home "tsdb"
+
 CMD /usr/sbin/timescaledb-event-streamer
