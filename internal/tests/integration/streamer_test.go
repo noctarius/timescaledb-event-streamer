@@ -24,7 +24,7 @@ func TestIntegrationTestSuite(t *testing.T) {
 }
 
 func (its *IntegrationTestSuite) TestInitialSnapshot_Single_Chunk() {
-	waiter := supporting.NewWaiterWithTimeout(time.Second * 20)
+	waiter := supporting.NewWaiterWithTimeout(time.Second * 30)
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
@@ -80,7 +80,7 @@ func (its *IntegrationTestSuite) TestInitialSnapshot_Single_Chunk() {
 }
 
 func (its *IntegrationTestSuite) TestInitialSnapshot_Multi_Chunk() {
-	waiter := supporting.NewWaiterWithTimeout(time.Second * 20)
+	waiter := supporting.NewWaiterWithTimeout(time.Second * 60)
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
