@@ -2,7 +2,7 @@ package channels
 
 import (
 	"github.com/jackc/pglogrepl"
-	"github.com/noctarius/timescaledb-event-streamer/internal/eventhandler"
+	"github.com/noctarius/timescaledb-event-streamer/internal/dispatching"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/version"
@@ -37,7 +37,7 @@ type SideChannel interface {
 }
 
 type ReplicationChannel interface {
-	StartReplicationChannel(dispatcher *eventhandler.Dispatcher, initialChunkTables []string) error
+	StartReplicationChannel(dispatcher *dispatching.Dispatcher, initialChunkTables []string) error
 
 	StopReplicationChannel() error
 }

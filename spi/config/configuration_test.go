@@ -73,13 +73,13 @@ func Test_Config_Property_Reading(t *testing.T) {
 		},
 	}
 
-	v1 := GetOrDefault(config, "sink.type", "foo")
+	v1 := GetOrDefault(config, PropertySink, "foo")
 	assert.Equal(t, "kafka", v1)
 
-	v2 := GetOrDefault(config, "sink.kafka.brokers", []string{"baz"})
+	v2 := GetOrDefault(config, PropertyKafkaBrokers, []string{"baz"})
 	assert.Equal(t, []string{"foo", "bar"}, v2)
 
-	v3 := GetOrDefault(config, "sink.kafka.tls.enabled", true)
+	v3 := GetOrDefault(config, PropertyKafkaTlsEnabled, true)
 	assert.Equal(t, true, v3)
 
 	v4 := GetOrDefault(config, "sink.kafka.non.existent", true)
@@ -88,7 +88,7 @@ func Test_Config_Property_Reading(t *testing.T) {
 	os.Setenv("SINK_TYPE", "redis")
 	defer os.Unsetenv("SINK_TYPE")
 
-	v5 := GetOrDefault(config, "sink.type", "foo")
+	v5 := GetOrDefault(config, PropertySink, "foo")
 	assert.Equal(t, "redis", v5)
 
 }

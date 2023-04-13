@@ -1,4 +1,4 @@
-package filtering
+package tablefiltering
 
 import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"

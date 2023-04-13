@@ -2,7 +2,7 @@ package replication
 
 import (
 	stderrors "errors"
-	"github.com/noctarius/timescaledb-event-streamer/internal/eventhandler"
+	"github.com/noctarius/timescaledb-event-streamer/internal/dispatching"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/channels"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/logicalreplicationresolver"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/transactional"
@@ -16,28 +16,26 @@ import (
 	"github.com/urfave/cli"
 )
 
-type Replicator interface {
-	StartReplication() *cli.ExitError
-
-	StopReplication() *cli.ExitError
-}
-
-type replicatorImpl struct {
+type Replicator struct {
 	config       *sysconfig.SystemConfig
 	shutdownTask func() error
 }
 
-func NewReplicator(config *sysconfig.SystemConfig) Replicator {
-	return &replicatorImpl{
+func NewReplicator(config *sysconfig.SystemConfig) *Replicator {
+	return &Replicator{
 		config: config,
 	}
 }
 
-func (r *replicatorImpl) StartReplication() *cli.ExitError {
+func (r *Replicator) StartReplication() *cli.ExitError {
 	config := r.config.Config
 
-	publicationName := spiconfig.GetOrDefault(config, "postgresql.publication.name", "")
-	snapshotBatchSize := spiconfig.GetOrDefault(config, "postgresql.snapshot.batchsize", 1000)
+	publicationName := spiconfig.GetOrDefault(
+		config, spiconfig.PropertyPostgresqlPublicationName, "",
+	)
+	snapshotBatchSize := spiconfig.GetOrDefault(
+		config, spiconfig.PropertyPostgresqlSnapshotBatchsize, 1000,
+	)
 
 	// Create the side and replication channels
 	sideChannel := channels.NewSideChannel(r.config.PgxConfig, publicationName, snapshotBatchSize)
@@ -73,7 +71,7 @@ func (r *replicatorImpl) StartReplication() *cli.ExitError {
 	}
 
 	// Instantiate the event dispatcher
-	dispatcher := eventhandler.NewDispatcher()
+	dispatcher := dispatching.NewDispatcher()
 
 	// Instantiate the snapshotter
 	snapshotter := snapshotting.NewSnapshotter(32, sideChannel, dispatcher)
@@ -145,7 +143,7 @@ func (r *replicatorImpl) StartReplication() *cli.ExitError {
 	return nil
 }
 
-func (r *replicatorImpl) StopReplication() *cli.ExitError {
+func (r *Replicator) StopReplication() *cli.ExitError {
 	if r.shutdownTask != nil {
 		return supporting.AdaptError(r.shutdownTask(), 250)
 	}

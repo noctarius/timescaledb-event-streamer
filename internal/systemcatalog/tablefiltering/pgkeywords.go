@@ -1,4 +1,4 @@
-package filtering
+package tablefiltering
 
 var reservedKeywords = []string{
 	"A", "ABORT", "ABS", "ABSENT", "ABSOLUTE", "ACCESS", "ACCORDING", "ACTION", "ADA", "ADD", "ADMIN", "AFTER",

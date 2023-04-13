@@ -14,7 +14,7 @@ func TestEventFilter_Evaluate(t *testing.T) {
 		},
 	}
 
-	filter, err := NewSinkEventFilter(filterDefinitions)
+	filter, err := NewEventFilter(filterDefinitions)
 	if err != nil {
 		t.FailNow()
 	}

@@ -21,53 +21,53 @@ type redisSink struct {
 func newRedisSink(config *spiconfig.Config) (sink.Sink, error) {
 	options := &redis.Options{
 		Network: spiconfig.GetOrDefault(
-			config, "sink.redis.network", "tcp",
+			config, spiconfig.PropertyRedisNetwork, "tcp",
 		),
 		Addr: spiconfig.GetOrDefault(
-			config, "sink.redis.address", "localhost:6379",
+			config, spiconfig.PropertyRedisAddress, "localhost:6379",
 		),
 		Password: spiconfig.GetOrDefault(
-			config, "sink.redis.password", "",
+			config, spiconfig.PropertyRedisPassword, "",
 		),
 		DB: spiconfig.GetOrDefault(
-			config, "sink.redis.database", 0,
+			config, spiconfig.PropertyRedisDatabase, 0,
 		),
 		MaxRetries: spiconfig.GetOrDefault(
-			config, "sink.redis.retries.maxattempts", 0,
+			config, spiconfig.PropertyRedisRetriesMax, 0,
 		),
 		MinRetryBackoff: spiconfig.GetOrDefault(
-			config, "sink.redis.retries.backoff.min", time.Duration(8),
+			config, spiconfig.PropertyRedisRetriesBackoffMin, time.Duration(8),
 		) * time.Microsecond,
 		MaxRetryBackoff: spiconfig.GetOrDefault(
-			config, "sink.redis.retries.backoff.max", time.Duration(512),
+			config, spiconfig.PropertyRedisRetriesBackoffMax, time.Duration(512),
 		) * time.Microsecond,
 		DialTimeout: spiconfig.GetOrDefault(
-			config, "sink.redis.timeouts.dial", time.Duration(0),
+			config, spiconfig.PropertyRedisTimeoutDial, time.Duration(0),
 		),
 		ReadTimeout: spiconfig.GetOrDefault(
-			config, "sink.redis.timeouts.read", time.Duration(0),
+			config, spiconfig.PropertyRedisTimeoutRead, time.Duration(0),
 		) * time.Second,
 		WriteTimeout: spiconfig.GetOrDefault(
-			config, "sink.redis.timeouts.write", time.Duration(0),
+			config, spiconfig.PropertyRedisTimeoutWrite, time.Duration(0),
 		) * time.Second,
 		PoolSize: spiconfig.GetOrDefault(
-			config, "sink.redis.poolsize", 0,
+			config, spiconfig.PropertyRedisPoolsize, 0,
 		),
 		PoolTimeout: spiconfig.GetOrDefault(
-			config, "sink.redis.timeouts.pool", time.Duration(0),
+			config, spiconfig.PropertyRedisTimeoutPool, time.Duration(0),
 		) * time.Second,
 		IdleTimeout: spiconfig.GetOrDefault(
-			config, "sink.redis.timeouts.idle", time.Duration(0),
+			config, spiconfig.PropertyRedisTimeoutIdle, time.Duration(0),
 		) * time.Minute,
 	}
 
 	if config.Sink.Redis.TLS.Enabled {
 		options.TLSConfig = &tls.Config{
 			InsecureSkipVerify: spiconfig.GetOrDefault(
-				config, "sink.redis.tls.skipverify", false,
+				config, spiconfig.PropertyRedisTlsSkipVerify, false,
 			),
 			ClientAuth: spiconfig.GetOrDefault(
-				config, "sink.redis.tls.clientauth", tls.NoClientCert,
+				config, spiconfig.PropertyRedisTlsClientAuth, tls.NoClientCert,
 			),
 		}
 	}

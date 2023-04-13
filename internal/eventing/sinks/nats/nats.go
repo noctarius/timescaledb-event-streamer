@@ -20,20 +20,20 @@ type natsSink struct {
 }
 
 func newNatsSink(config *spiconfig.Config) (sink.Sink, error) {
-	address := spiconfig.GetOrDefault(config, "sink.nats.address", "nats://localhost:4222")
-	authorization := spiconfig.GetOrDefault(config, "sink.nats.authorization", "userinfo")
+	address := spiconfig.GetOrDefault(config, spiconfig.PropertyNatsAddress, "nats://localhost:4222")
+	authorization := spiconfig.GetOrDefault(config, spiconfig.PropertyNatsAuthorization, "userinfo")
 	switch spiconfig.NatsAuthorizationType(authorization) {
 	case spiconfig.UserInfo:
-		username := spiconfig.GetOrDefault(config, "sink.nats.userinfo.username", "")
-		password := spiconfig.GetOrDefault(config, "sink.nats.userinfo.password", "")
+		username := spiconfig.GetOrDefault(config, spiconfig.PropertyNatsUserinfoUsername, "")
+		password := spiconfig.GetOrDefault(config, spiconfig.PropertyNatsUserinfoPassword, "")
 		return newNatsSinkWithUserInfo(address, username, password)
 	case spiconfig.Credentials:
-		certificate := spiconfig.GetOrDefault(config, "sink.nats.credentials.certificate", "")
-		seeds := spiconfig.GetOrDefault(config, "sink.nats.credentials.seeds", []string{})
+		certificate := spiconfig.GetOrDefault(config, spiconfig.PropertyNatsCredentialsCertificate, "")
+		seeds := spiconfig.GetOrDefault(config, spiconfig.PropertyNatsCredentialsSeeds, []string{})
 		return newNatsSinkWithUserCredentials(address, certificate, seeds...)
 	case spiconfig.Jwt:
-		jwt := spiconfig.GetOrDefault(config, "sink.nats.jwt.jwt", "")
-		seed := spiconfig.GetOrDefault(config, "sink.nats.jwt.seed", "")
+		jwt := spiconfig.GetOrDefault(config, spiconfig.PropertyNatsJwt, "")
+		seed := spiconfig.GetOrDefault(config, spiconfig.PropertyNatsJwtSeed, "")
 		return newNatsSinkWithUserJWT(address, jwt, seed)
 	}
 	return nil, fmt.Errorf("NATS AuthorizationType '%s' doesn't exist", authorization)

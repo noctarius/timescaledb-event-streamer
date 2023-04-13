@@ -7,8 +7,8 @@ import (
 	"github.com/jackc/pglogrepl"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/noctarius/timescaledb-event-streamer/internal/eventhandler"
-	"github.com/noctarius/timescaledb-event-streamer/internal/pg/decoding"
+	"github.com/noctarius/timescaledb-event-streamer/internal/dispatching"
+	"github.com/noctarius/timescaledb-event-streamer/internal/pgdecoding"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"strings"
 )
@@ -47,7 +47,7 @@ func (rc *replicationChannel) StopReplicationChannel() error {
 }
 
 func (rc *replicationChannel) StartReplicationChannel(
-	dispatcher *eventhandler.Dispatcher, initialChunkTables []string) error {
+	dispatcher *dispatching.Dispatcher, initialChunkTables []string) error {
 
 	replicationHandler := newReplicationHandler(dispatcher)
 	connection, err := pgconn.ConnectConfig(context.Background(), rc.connConfig)
@@ -156,7 +156,7 @@ func (rc *replicationChannel) createPublication(connection *pgconn.PgConn) (bool
 		if reader.ResultReader().NextRow() {
 			rawRow := reader.ResultReader().Values()
 			for i := 0; i < len(fields); i++ {
-				val, err := decoding.DecodeValue(fields[i], rawRow[i])
+				val, err := pgdecoding.DecodeValue(fields[i], rawRow[i])
 				if err != nil {
 					return false, err
 				}

@@ -7,10 +7,10 @@ import (
 	"github.com/jackc/pglogrepl"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgproto3"
-	"github.com/noctarius/timescaledb-event-streamer/internal/eventhandler"
-	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
-	"github.com/noctarius/timescaledb-event-streamer/internal/pg/decoding"
+	"github.com/noctarius/timescaledb-event-streamer/internal/dispatching"
+	"github.com/noctarius/timescaledb-event-streamer/internal/pgdecoding"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
+	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"runtime"
@@ -20,14 +20,14 @@ import (
 var logger = logging.NewLogger("ReplicationHandler")
 
 type replicationHandler struct {
-	dispatcher        *eventhandler.Dispatcher
+	dispatcher        *dispatching.Dispatcher
 	clientXLogPos     pglogrepl.LSN
 	relations         map[uint32]*pglogrepl.RelationMessage
 	shutdownAwaiter   *supporting.ShutdownAwaiter
 	lastTransactionId *uint32
 }
 
-func newReplicationHandler(dispatcher *eventhandler.Dispatcher) *replicationHandler {
+func newReplicationHandler(dispatcher *dispatching.Dispatcher) *replicationHandler {
 	return &replicationHandler{
 		dispatcher:      dispatcher,
 		relations:       make(map[uint32]*pglogrepl.RelationMessage, 0),
@@ -113,7 +113,7 @@ func (rh *replicationHandler) startReplicationHandler(connection *pgconn.PgConn,
 }
 
 func (rh *replicationHandler) handleXLogData(xld pglogrepl.XLogData) error {
-	msg, err := decoding.ParseXlogData(xld.WALData, rh.lastTransactionId)
+	msg, err := pgdecoding.ParseXlogData(xld.WALData, rh.lastTransactionId)
 	if err != nil {
 		return fmt.Errorf("parsing logical replication message: %s", err)
 	}
@@ -135,7 +135,7 @@ func (rh *replicationHandler) handleReplicationEvents(xld pglogrepl.XLogData, ms
 	switch logicalMsg := msg.(type) {
 	case *pglogrepl.RelationMessage:
 		rh.relations[logicalMsg.RelationID] = logicalMsg
-		return rh.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
+		return rh.dispatcher.EnqueueTask(func(notificator dispatching.Notificator) {
 			notificator.NotifyBaseReplicationEventHandler(
 				func(handler eventhandlers.BaseReplicationEventHandler) error {
 					return handler.OnRelationEvent(xld, (*pgtypes.RelationMessage)(logicalMsg))
@@ -147,7 +147,7 @@ func (rh *replicationHandler) handleReplicationEvents(xld pglogrepl.XLogData, ms
 		// Indicates the beginning of a group of changes in a transaction. This is only
 		// sent for committed transactions. You won't get any events from rolled back
 		// transactions.
-		return rh.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
+		return rh.dispatcher.EnqueueTask(func(notificator dispatching.Notificator) {
 			notificator.NotifyLogicalReplicationEventHandler(
 				func(handler eventhandlers.LogicalReplicationEventHandler) error {
 					return handler.OnBeginEvent(xld, (*pgtypes.BeginMessage)(logicalMsg))
@@ -156,7 +156,7 @@ func (rh *replicationHandler) handleReplicationEvents(xld pglogrepl.XLogData, ms
 		})
 	case *pglogrepl.CommitMessage:
 		rh.lastTransactionId = nil
-		return rh.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
+		return rh.dispatcher.EnqueueTask(func(notificator dispatching.Notificator) {
 			notificator.NotifyLogicalReplicationEventHandler(
 				func(handler eventhandlers.LogicalReplicationEventHandler) error {
 					return handler.OnCommitEvent(xld, (*pgtypes.CommitMessage)(logicalMsg))
@@ -170,7 +170,7 @@ func (rh *replicationHandler) handleReplicationEvents(xld pglogrepl.XLogData, ms
 	case *pglogrepl.DeleteMessage:
 		return rh.handleDeleteMessage(xld, logicalMsg)
 	case *pglogrepl.TruncateMessage:
-		return rh.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
+		return rh.dispatcher.EnqueueTask(func(notificator dispatching.Notificator) {
 			notificator.NotifyLogicalReplicationEventHandler(
 				func(handler eventhandlers.LogicalReplicationEventHandler) error {
 					return handler.OnTruncateEvent(xld, (*pgtypes.TruncateMessage)(logicalMsg))
@@ -178,7 +178,7 @@ func (rh *replicationHandler) handleReplicationEvents(xld pglogrepl.XLogData, ms
 			)
 		})
 	case *pglogrepl.TypeMessage:
-		return rh.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
+		return rh.dispatcher.EnqueueTask(func(notificator dispatching.Notificator) {
 			notificator.NotifyLogicalReplicationEventHandler(
 				func(handler eventhandlers.LogicalReplicationEventHandler) error {
 					return handler.OnTypeEvent(xld, (*pgtypes.TypeMessage)(logicalMsg))
@@ -186,7 +186,7 @@ func (rh *replicationHandler) handleReplicationEvents(xld pglogrepl.XLogData, ms
 			)
 		})
 	case *pglogrepl.OriginMessage:
-		return rh.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
+		return rh.dispatcher.EnqueueTask(func(notificator dispatching.Notificator) {
 			notificator.NotifyLogicalReplicationEventHandler(
 				func(handler eventhandlers.LogicalReplicationEventHandler) error {
 					return handler.OnOriginEvent(xld, (*pgtypes.OriginMessage)(logicalMsg))
@@ -194,7 +194,7 @@ func (rh *replicationHandler) handleReplicationEvents(xld pglogrepl.XLogData, ms
 			)
 		})
 	case *pgtypes.LogicalReplicationMessage:
-		return rh.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
+		return rh.dispatcher.EnqueueTask(func(notificator dispatching.Notificator) {
 			notificator.NotifyLogicalReplicationEventHandler(
 				func(handler eventhandlers.LogicalReplicationEventHandler) error {
 					return handler.OnMessageEvent(xld, logicalMsg)
@@ -222,7 +222,7 @@ func (rh *replicationHandler) handleDeleteMessage(xld pglogrepl.XLogData, msg *p
 		OldValues:     oldValues,
 	}
 
-	return rh.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
+	return rh.dispatcher.EnqueueTask(func(notificator dispatching.Notificator) {
 		notificator.NotifyLogicalReplicationEventHandler(
 			func(handler eventhandlers.LogicalReplicationEventHandler) error {
 				return handler.OnDeleteEvent(xld, internalMsg)
@@ -250,7 +250,7 @@ func (rh *replicationHandler) handleUpdateMessage(xld pglogrepl.XLogData, msg *p
 		NewValues:     newValues,
 	}
 
-	return rh.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
+	return rh.dispatcher.EnqueueTask(func(notificator dispatching.Notificator) {
 		notificator.NotifyLogicalReplicationEventHandler(
 			func(handler eventhandlers.LogicalReplicationEventHandler) error {
 				return handler.OnUpdateEvent(xld, internalMsg)
@@ -275,7 +275,7 @@ func (rh *replicationHandler) handleInsertMessage(xld pglogrepl.XLogData, msg *p
 		NewValues:     newValues,
 	}
 
-	return rh.dispatcher.EnqueueTask(func(notificator eventhandler.Notificator) {
+	return rh.dispatcher.EnqueueTask(func(notificator dispatching.Notificator) {
 		notificator.NotifyLogicalReplicationEventHandler(
 			func(handler eventhandlers.LogicalReplicationEventHandler) error {
 				return handler.OnInsertEvent(xld, internalMsg)
@@ -317,13 +317,13 @@ func (rh *replicationHandler) decodeValues(relation *pglogrepl.RelationMessage,
 			// This TOAST value was not changed. TOAST values are not stored in the tuple, and
 			// logical replication doesn't want to spend a disk read to fetch its value for you.
 		case 't': // text (basically anything other than the two above)
-			val, err := decoding.DecodeTextColumn(col.Data, relation.Columns[idx].DataType)
+			val, err := pgdecoding.DecodeTextColumn(col.Data, relation.Columns[idx].DataType)
 			if err != nil {
 				logger.Fatalln("error decoding column data:", err)
 			}
 			values[colName] = val
 		case 'b': // binary data
-			val, err := decoding.DecodeBinaryColumn(col.Data, relation.Columns[idx].DataType)
+			val, err := pgdecoding.DecodeBinaryColumn(col.Data, relation.Columns[idx].DataType)
 			if err != nil {
 				logger.Fatalln("error decoding column data:", err)
 			}

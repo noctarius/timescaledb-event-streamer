@@ -4,17 +4,17 @@ import (
 	"github.com/antonmedv/expr"
 	"github.com/antonmedv/expr/vm"
 	"github.com/go-errors/errors"
-	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/filtering"
+	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/tablefiltering"
 	"github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 )
 
-type Filter interface {
+type EventFilter interface {
 	Evaluate(hypertable *systemcatalog.Hypertable, key, value schema.Struct) (bool, error)
 }
 
-func NewSinkEventFilter(filterDefinitions map[string]config.EventFilterConfig) (Filter, error) {
+func NewEventFilter(filterDefinitions map[string]config.EventFilterConfig) (EventFilter, error) {
 	if filterDefinitions == nil {
 		return &acceptAllFilter{}, nil
 	}
@@ -28,7 +28,7 @@ func NewSinkEventFilter(filterDefinitions map[string]config.EventFilterConfig) (
 		}
 
 		if def.Hypertables != nil {
-			tf, err := filtering.NewTableFilter(def.Hypertables.Excludes, def.Hypertables.Includes, true)
+			tf, err := tablefiltering.NewTableFilter(def.Hypertables.Excludes, def.Hypertables.Includes, true)
 			if err != nil {
 				return nil, err
 			}

@@ -1,9 +1,9 @@
-package sink
+package eventemitting
 
 import (
 	"encoding/base64"
 	"github.com/jackc/pglogrepl"
-	"github.com/noctarius/timescaledb-event-streamer/internal/event/eventfiltering"
+	"github.com/noctarius/timescaledb-event-streamer/internal/eventing/eventfiltering"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/transactional"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
@@ -18,12 +18,12 @@ type EventEmitter struct {
 	schemaRegistry     *schema.Registry
 	topicNameGenerator *namegenerator.NameGenerator
 	transactionMonitor *transactional.TransactionMonitor
-	filter             eventfiltering.Filter
+	filter             eventfiltering.EventFilter
 	sink               sink.Sink
 }
 
 func NewEventEmitter(schemaRegistry *schema.Registry, topicNameGenerator *namegenerator.NameGenerator,
-	transactionMonitor *transactional.TransactionMonitor, sink sink.Sink, filter eventfiltering.Filter) *EventEmitter {
+	transactionMonitor *transactional.TransactionMonitor, sink sink.Sink, filter eventfiltering.EventFilter) *EventEmitter {
 
 	return &EventEmitter{
 		schemaRegistry:     schemaRegistry,

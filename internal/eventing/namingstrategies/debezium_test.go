@@ -1,4 +1,4 @@
-package topic
+package namingstrategies
 
 import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"

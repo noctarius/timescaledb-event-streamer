@@ -3,7 +3,7 @@ package containers
 import (
 	"context"
 	"fmt"
-	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
+	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"math"

@@ -1,4 +1,4 @@
-package decoding
+package pgdecoding
 
 import (
 	"github.com/go-errors/errors"

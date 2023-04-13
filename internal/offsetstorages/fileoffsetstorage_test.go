@@ -1,4 +1,4 @@
-package storage
+package offsetstorages
 
 import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/offset"

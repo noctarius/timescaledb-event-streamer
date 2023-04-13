@@ -1,4 +1,4 @@
-package filtering
+package tablefiltering
 
 import (
 	"fmt"

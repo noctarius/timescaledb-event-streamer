@@ -28,33 +28,33 @@ func newKafkaSink(config *spiconfig.Config) (sink.Sink, error) {
 	c.Producer.RequiredAcks = sarama.WaitForLocal
 	c.Producer.Retry.Max = 10
 
-	if spiconfig.GetOrDefault(config, "sink.kafka.sasl.enabled", false) {
+	if spiconfig.GetOrDefault(config, spiconfig.PropertyKafkaSaslEnabled, false) {
 		c.Net.SASL.Enable = true
 		c.Net.SASL.User = spiconfig.GetOrDefault(
-			config, "sink.kafka.sasl.user", "",
+			config, spiconfig.PropertyKafkaSaslUser, "",
 		)
 		c.Net.SASL.Password = spiconfig.GetOrDefault(
-			config, "sink.kafka.sasl.password", "",
+			config, spiconfig.PropertyKafkaSaslPassword, "",
 		)
-		c.Net.SASL.Mechanism = spiconfig.GetOrDefault(
-			config, "sink.kafka.sasl.mechanism", sarama.SASLMechanism(sarama.SASLTypePlaintext),
+		c.Net.SASL.Mechanism = spiconfig.GetOrDefault[sarama.SASLMechanism](
+			config, spiconfig.PropertyKafkaSaslMechanism, sarama.SASLTypePlaintext,
 		)
 	}
 
-	if spiconfig.GetOrDefault(config, "sink.kafka.tls.enabled", false) {
+	if spiconfig.GetOrDefault(config, spiconfig.PropertyKafkaTlsEnabled, false) {
 		c.Net.TLS.Enable = true
 		c.Net.TLS.Config = &tls.Config{
 			InsecureSkipVerify: spiconfig.GetOrDefault(
-				config, "sink.kafka.tls.skipverify", false,
+				config, spiconfig.PropertyKafkaTlsSkipVerify, false,
 			),
 			ClientAuth: spiconfig.GetOrDefault(
-				config, "sink.kafka.tls.clientauth", tls.NoClientCert,
+				config, spiconfig.PropertyKafkaTlsClientAuth, tls.NoClientCert,
 			),
 		}
 	}
 
 	producer, err := sarama.NewSyncProducer(
-		spiconfig.GetOrDefault(config, "sink.kafka.brokers", []string{"localhost:9092"}), c,
+		spiconfig.GetOrDefault(config, spiconfig.PropertyKafkaBrokers, []string{"localhost:9092"}), c,
 	)
 	if err != nil {
 		return nil, err

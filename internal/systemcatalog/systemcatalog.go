@@ -3,12 +3,12 @@ package systemcatalog
 import (
 	"fmt"
 	"github.com/go-errors/errors"
-	"github.com/noctarius/timescaledb-event-streamer/internal/eventhandler"
-	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
+	"github.com/noctarius/timescaledb-event-streamer/internal/dispatching"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/channels"
+	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
-	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/filtering"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/snapshotting"
+	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/tablefiltering"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
@@ -33,19 +33,19 @@ type SystemCatalog struct {
 	compressed2hypertable map[int32]int32
 	schemaRegistry        *schema.Registry
 	topicNameGenerator    *namegenerator.NameGenerator
-	dispatcher            *eventhandler.Dispatcher
+	dispatcher            *dispatching.Dispatcher
 	sideChannel           channels.SideChannel
-	replicationFilter     *filtering.TableFilter
+	replicationFilter     *tablefiltering.TableFilter
 	snapshotter           *snapshotting.Snapshotter
 }
 
 func NewSystemCatalog(config *sysconfig.SystemConfig, topicNameGenerator *namegenerator.NameGenerator,
-	dispatcher *eventhandler.Dispatcher, sideChannel channels.SideChannel, schemaRegistry *schema.Registry,
+	dispatcher *dispatching.Dispatcher, sideChannel channels.SideChannel, schemaRegistry *schema.Registry,
 	snapshotter *snapshotting.Snapshotter) (*SystemCatalog, error) {
 
 	// Create the Replication Filter, selecting enabled and blocking disabled hypertables for replication
 	filterDefinition := config.TimescaleDB.Hypertables
-	replicationFilter, err := filtering.NewTableFilter(filterDefinition.Excludes, filterDefinition.Includes, false)
+	replicationFilter, err := tablefiltering.NewTableFilter(filterDefinition.Excludes, filterDefinition.Includes, false)
 	if err != nil {
 		return nil, err
 	}

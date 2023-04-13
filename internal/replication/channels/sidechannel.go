@@ -7,7 +7,7 @@ import (
 	"github.com/jackc/pglogrepl"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/noctarius/timescaledb-event-streamer/internal/pg/decoding"
+	"github.com/noctarius/timescaledb-event-streamer/internal/pgdecoding"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
@@ -264,14 +264,14 @@ func (sc *sideChannel) SnapshotTable(canonicalName string, startingLSN *pglogrep
 			return errors.Wrap(err, 0)
 		}
 
-		var rowDecoder *decoding.RowDecoder
+		var rowDecoder *pgdecoding.RowDecoder
 		for {
 			count := 0
 			if err := session.queryFunc(func(row pgx.Row) error {
 				rows := row.(pgx.Rows)
 
 				if rowDecoder == nil {
-					rd, err := decoding.NewRowDecoder(rows.FieldDescriptions())
+					rd, err := pgdecoding.NewRowDecoder(rows.FieldDescriptions())
 					if err != nil {
 						return err
 					}
