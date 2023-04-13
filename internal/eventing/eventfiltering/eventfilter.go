@@ -14,9 +14,15 @@ type EventFilter interface {
 	Evaluate(hypertable *systemcatalog.Hypertable, key, value schema.Struct) (bool, error)
 }
 
+type eventFilterFunc func(hypertable *systemcatalog.Hypertable, key, value schema.Struct) (bool, error)
+
+func (eff eventFilterFunc) Evaluate(hypertable *systemcatalog.Hypertable, key, value schema.Struct) (bool, error) {
+	return eff(hypertable, key, value)
+}
+
 func NewEventFilter(filterDefinitions map[string]config.EventFilterConfig) (EventFilter, error) {
 	if filterDefinitions == nil {
-		return &acceptAllFilter{}, nil
+		return acceptAllFilter, nil
 	}
 
 	filters := make([]*eventFilter, 0)
@@ -34,7 +40,7 @@ func NewEventFilter(filterDefinitions map[string]config.EventFilterConfig) (Even
 			}
 			tableFilters = append(tableFilters, tf)
 		} else {
-			tableFilters = append(tableFilters, &acceptAllTableFilter{})
+			tableFilters = append(tableFilters, acceptAllTableFilter)
 		}
 
 		prog, err := expr.Compile(def.Condition)
@@ -49,37 +55,28 @@ func NewEventFilter(filterDefinitions map[string]config.EventFilterConfig) (Even
 			vm:           &vm.VM{},
 		})
 	}
-	return &compositeFilter{
-		filters:      filters,
-		tableFilters: tableFilters,
-	}, nil
+	return compositeFilter(filters, tableFilters), nil
 }
 
-type acceptAllFilter struct {
-}
-
-func (f *acceptAllFilter) Evaluate(_ *systemcatalog.Hypertable, _, _ schema.Struct) (bool, error) {
+var acceptAllFilter eventFilterFunc = func(_ *systemcatalog.Hypertable, _, _ schema.Struct) (bool, error) {
 	return true, nil
 }
 
-type compositeFilter struct {
-	filters      []*eventFilter
-	tableFilters []tableFilter
-}
-
-func (f *compositeFilter) Evaluate(hypertable *systemcatalog.Hypertable, key, value schema.Struct) (bool, error) {
-	for i, tableFilter := range f.tableFilters {
-		if hypertable == nil || tableFilter.Enabled(hypertable) {
-			success, err := f.filters[i].evaluate(key, value)
-			if err != nil {
-				return false, err
-			}
-			if !success {
-				return false, nil
+var compositeFilter = func(filters []*eventFilter, tableFilters []tableFilter) EventFilter {
+	return eventFilterFunc(func(hypertable *systemcatalog.Hypertable, key, value schema.Struct) (bool, error) {
+		for i, tableFilter := range tableFilters {
+			if hypertable == nil || tableFilter.Enabled(hypertable) {
+				success, err := filters[i].evaluate(key, value)
+				if err != nil {
+					return false, err
+				}
+				if !success {
+					return false, nil
+				}
 			}
 		}
-	}
-	return true, nil
+		return true, nil
+	})
 }
 
 type eventFilter struct {
@@ -117,9 +114,12 @@ type tableFilter interface {
 	Enabled(hypertable *systemcatalog.Hypertable) bool
 }
 
-type acceptAllTableFilter struct {
+type tableFilterFunc func(hypertable *systemcatalog.Hypertable) bool
+
+func (tff tableFilterFunc) Enabled(hypertable *systemcatalog.Hypertable) bool {
+	return tff(hypertable)
 }
 
-func (aats *acceptAllTableFilter) Enabled(_ *systemcatalog.Hypertable) bool {
+var acceptAllTableFilter tableFilterFunc = func(_ *systemcatalog.Hypertable) bool {
 	return true
 }

@@ -33,8 +33,9 @@ func NewSystemConfig(config *spiconfig.Config) *SystemConfig {
 	return sc
 }
 
-func (sc *SystemConfig) defaultEventEmitter(schemaRegistry *schema.Registry, topicNameGenerator *namegenerator.NameGenerator,
-	transactionMonitor *transactional.TransactionMonitor) (*eventemitting.EventEmitter, error) {
+func (sc *SystemConfig) defaultEventEmitter(schemaRegistry *schema.Registry,
+	topicNameGenerator *namegenerator.NameGenerator, transactionMonitor *transactional.TransactionMonitor,
+) (*eventemitting.EventEmitter, error) {
 
 	s, err := sc.SinkProvider(sc.Config)
 	if err != nil {
