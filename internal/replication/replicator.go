@@ -2,12 +2,12 @@ package replication
 
 import (
 	stderrors "errors"
-	"github.com/noctarius/timescaledb-event-streamer/internal/configuring/sysconfig"
 	"github.com/noctarius/timescaledb-event-streamer/internal/eventhandler"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/channels"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/logicalreplicationresolver"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/transactional"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
+	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/snapshotting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/version"

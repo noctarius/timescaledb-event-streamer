@@ -3,9 +3,9 @@ package internal
 import (
 	"fmt"
 	"github.com/jackc/pgx/v5"
-	"github.com/noctarius/timescaledb-event-streamer/internal/configuring/sysconfig"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
+	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/urfave/cli"
 

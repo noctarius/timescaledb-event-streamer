@@ -3,10 +3,10 @@ package systemcatalog
 import (
 	"fmt"
 	"github.com/go-errors/errors"
-	"github.com/noctarius/timescaledb-event-streamer/internal/configuring/sysconfig"
 	"github.com/noctarius/timescaledb-event-streamer/internal/eventhandler"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/channels"
+	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/filtering"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/snapshotting"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
@@ -44,7 +44,7 @@ func NewSystemCatalog(config *sysconfig.SystemConfig, topicNameGenerator *namege
 	snapshotter *snapshotting.Snapshotter) (*SystemCatalog, error) {
 
 	// Create the Replication Filter, selecting enabled and blocking disabled hypertables for replication
-	filterDefinition := config.Config.TimescaleDB.Hypertables
+	filterDefinition := config.TimescaleDB.Hypertables
 	replicationFilter, err := filtering.NewTableFilter(filterDefinition.Excludes, filterDefinition.Includes, false)
 	if err != nil {
 		return nil, err
