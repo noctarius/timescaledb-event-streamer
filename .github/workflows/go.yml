@@ -54,7 +54,7 @@ jobs:
 
     - name: Install colima on MacOS
       if: ${{ matrix.os == 'macos-latest' }}
-      run: brew install colima && colima start
+      run: brew install colima docker && colima start
 
     - name: Set up Go
       uses: actions/setup-go@v3.5.0
