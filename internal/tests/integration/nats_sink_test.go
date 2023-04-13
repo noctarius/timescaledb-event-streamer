@@ -72,7 +72,7 @@ func (nits *NatsIntegrationTestSuite) Test_Nats_Sink() {
 				return err
 			}
 
-			collected := make(chan bool, 1)
+			waiter := supporting.NewWaiterWithTimeout(time.Minute)
 			envelopes := make([]inttest.Envelope, 0)
 			_, err = js.QueueSubscribe(subjectName, groupName, func(msg *nats.Msg) {
 				envelope := inttest.Envelope{}
@@ -83,7 +83,7 @@ func (nits *NatsIntegrationTestSuite) Test_Nats_Sink() {
 				natsLogger.Debugf("EVENT: %+v", envelope)
 				envelopes = append(envelopes, envelope)
 				if len(envelopes) >= 10 {
-					collected <- true
+					waiter.Signal()
 				}
 				msg.Ack()
 			}, nats.ManualAck())
@@ -100,7 +100,9 @@ func (nits *NatsIntegrationTestSuite) Test_Nats_Sink() {
 				return err
 			}
 
-			<-collected
+			if err := waiter.Await(); err != nil {
+				return err
+			}
 
 			for i, envelope := range envelopes {
 				assert.Equal(nits.T(), i+1, int(envelope.Payload.After["val"].(float64)))
