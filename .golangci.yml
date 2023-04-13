@@ -6,3 +6,5 @@ issues:
     - path: testing/
       linters:
         - errcheck
+run:
+  timeout: 5m
