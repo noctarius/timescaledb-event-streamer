@@ -43,7 +43,7 @@ jobs:
       run: make build
 
     - name: Docker Build
-      run: docker build . --file Dockerfile --tag timescaledb-event-streamer:$(github.run_number)
+      run: docker build . --file Dockerfile --tag timescaledb-event-streamer:$(echo github.run_number)
 
   test:
     name: unit
