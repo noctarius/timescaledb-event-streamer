@@ -4,6 +4,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"os"
 	"reflect"
+	"runtime"
 	"testing"
 )
 
@@ -14,11 +15,15 @@ func Test_Env_Vars(t *testing.T) {
 	os.Setenv("FOO_BAR__BAZ", "bar")
 	defer os.Unsetenv("FOO_BAR__BAZ")
 
-	os.Setenv("foo_bar", "bar")
-	defer os.Unsetenv("foo_bar")
+	// On Windows environment variables are case-insensitive, therefore,
+	// this test will always fail if trying to use different casing versions
+	if runtime.GOOS != "windows" {
+		os.Setenv("foo_bar", "bar")
+		defer os.Unsetenv("foo_bar")
 
-	os.Setenv("foo_bar__baz", "foo")
-	defer os.Unsetenv("foo_bar__baz")
+		os.Setenv("foo_bar__baz", "foo")
+		defer os.Unsetenv("foo_bar__baz")
+	}
 
 	v, found := findEnvProperty("foo.bar", "test")
 	assert.Equal(t, true, found)
