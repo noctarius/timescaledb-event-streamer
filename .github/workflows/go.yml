@@ -44,7 +44,10 @@ jobs:
 
   test:
     name: unit
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
     - name: Check out code into the Go module directory
       uses: actions/checkout@v3
