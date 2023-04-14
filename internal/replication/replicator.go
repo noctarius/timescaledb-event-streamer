@@ -2,9 +2,9 @@ package replication
 
 import (
 	stderrors "errors"
-	"github.com/noctarius/timescaledb-event-streamer/internal/replication/channels"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/logicalreplicationresolver"
+	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationchannel"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/transactional"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
@@ -15,12 +15,16 @@ import (
 	"github.com/urfave/cli"
 )
 
+// Replicator is the main controller for all things logical replication,
+// such as the logical replication connection, the side channel connection,
+// and other services necessary to run the event stream generation.
 type Replicator struct {
 	logger       *logging.Logger
 	config       *sysconfig.SystemConfig
 	shutdownTask func() error
 }
 
+// NewReplicator instantiates a new instance of the Replicator.
 func NewReplicator(config *sysconfig.SystemConfig) *Replicator {
 	return &Replicator{
 		logger: logging.NewLogger("Replicator"),
@@ -28,6 +32,7 @@ func NewReplicator(config *sysconfig.SystemConfig) *Replicator {
 	}
 }
 
+// StartReplication initiates the actual replication process
 func (r *Replicator) StartReplication() *cli.ExitError {
 	// Create the side channels and replication context
 	replicationContext, err := context.NewReplicationContext(
@@ -59,7 +64,7 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 	r.logger.Infof("  * PostgreSQL Database %s", replicationContext.DatabaseName())
 
 	// Create replication channel and internal replication handler
-	replicationChannel := channels.NewReplicationChannel(r.config.PgxConfig, replicationContext)
+	replicationChannel := replicationchannel.NewReplicationChannel(r.config.PgxConfig, replicationContext)
 
 	// Instantiate the snapshotter
 	snapshotter := snapshotting.NewSnapshotter(32, replicationContext)
@@ -126,6 +131,8 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 	return nil
 }
 
+// StopReplication initiates a clean shutdown of the replication process. This
+// call blocks until the shutdown process has finished.
 func (r *Replicator) StopReplication() *cli.ExitError {
 	if r.shutdownTask != nil {
 		return supporting.AdaptError(r.shutdownTask(), 250)

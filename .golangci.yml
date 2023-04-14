@@ -6,5 +6,18 @@ issues:
     - path: testing/
       linters:
         - errcheck
+        - dupl
+    - path: tests/
+      linters:
+        - errcheck
+        - dupl
 run:
   timeout: 5m
+linters:
+  enable:
+    - asasalint
+    - asciicheck
+    - contextcheck
+    - dupl
+    - exportloopref
+    - nilerr

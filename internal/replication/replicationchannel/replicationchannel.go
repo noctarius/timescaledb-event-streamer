@@ -1,4 +1,4 @@
-package channels
+package replicationchannel
 
 import (
 	"context"
@@ -14,6 +14,8 @@ import (
 
 const outputPlugin = "pgoutput"
 
+// ReplicationChannel represents the database connection and handler loop
+// for the logical replication decoding subscriber.
 type ReplicationChannel struct {
 	connConfig             *pgconn.Config
 	replicationContext     *repcontext.ReplicationContext
@@ -22,6 +24,7 @@ type ReplicationChannel struct {
 	shutdownAwaiter        *supporting.ShutdownAwaiter
 }
 
+// NewReplicationChannel instantiates a new instance of the ReplicationChannel.
 func NewReplicationChannel(connConfig *pgx.ConnConfig,
 	replicationContext *repcontext.ReplicationContext) *ReplicationChannel {
 
@@ -38,11 +41,16 @@ func NewReplicationChannel(connConfig *pgx.ConnConfig,
 	}
 }
 
+// StopReplicationChannel initiates a clean shutdown of the replication channel
+// and logical replication handler loop. This call will block until the loop is
+// cleanly shut down.
 func (rc *ReplicationChannel) StopReplicationChannel() error {
 	rc.shutdownAwaiter.SignalShutdown()
 	return rc.shutdownAwaiter.AwaitDone()
 }
 
+// StartReplicationChannel starts the replication channel, as well as initializes
+// and starts the logical replication handler loop.
 func (rc *ReplicationChannel) StartReplicationChannel(
 	replicationContext *repcontext.ReplicationContext, initialTables []systemcatalog.SystemEntity) error {
 

@@ -1,4 +1,4 @@
-package channels
+package replicationchannel
 
 import (
 	"context"

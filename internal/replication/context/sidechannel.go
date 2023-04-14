@@ -468,9 +468,8 @@ func (sc *sideChannelImpl) entitiesToTableList(entities []systemcatalog.SystemEn
 	}
 
 	canonicalEntityNames := make([]string, len(entities))
-	for _, entity := range entities {
-		canonicalEntityName := entity.CanonicalName()
-		canonicalEntityNames = append(canonicalEntityNames, canonicalEntityName)
+	for i, entity := range entities {
+		canonicalEntityNames[i] = entity.CanonicalName()
 	}
 
 	return strings.Join(canonicalEntityNames, ",")
