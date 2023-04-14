@@ -6,10 +6,9 @@ import (
 )
 
 type Chunk struct {
+	*baseSystemEntity
 	id                int32
 	hypertableId      int32
-	schemaName        string
-	tableName         string
 	compressedChunkId *int32
 	dropped           bool
 	status            int32
@@ -20,10 +19,12 @@ func NewChunk(id, hypertableId int32, schemaName, tableName string, dropped bool
 	status int32, compressedChunkId *int32) *Chunk {
 
 	return &Chunk{
+		baseSystemEntity: &baseSystemEntity{
+			schemaName: schemaName,
+			tableName:  tableName,
+		},
 		id:                id,
 		hypertableId:      hypertableId,
-		schemaName:        schemaName,
-		tableName:         tableName,
 		compressedChunkId: compressedChunkId,
 		dropped:           dropped,
 		status:            status,
@@ -37,14 +38,6 @@ func (c *Chunk) Id() int32 {
 
 func (c *Chunk) HypertableId() int32 {
 	return c.hypertableId
-}
-
-func (c *Chunk) SchemaName() string {
-	return c.schemaName
-}
-
-func (c *Chunk) TableName() string {
-	return c.tableName
 }
 
 func (c *Chunk) CompressedChunkId() *int32 {
@@ -67,18 +60,16 @@ func (c *Chunk) IsCompressed() bool {
 	return c.compressed
 }
 
-func (c *Chunk) CanonicalName() string {
-	return canonicalChunkName(c)
-}
-
 func (c *Chunk) ApplyChanges(schemaName, tableName string, dropped bool,
 	status int32, compressedChunkId *int32) (*Chunk, map[string]string) {
 
 	c2 := &Chunk{
+		baseSystemEntity: &baseSystemEntity{
+			schemaName: schemaName,
+			tableName:  tableName,
+		},
 		id:                c.id,
 		hypertableId:      c.hypertableId,
-		schemaName:        schemaName,
-		tableName:         tableName,
 		compressedChunkId: compressedChunkId,
 		dropped:           dropped,
 		status:            status,

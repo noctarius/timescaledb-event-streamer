@@ -50,7 +50,7 @@ func (s *systemCatalogReplicationEventHandler) OnHypertableAddedEvent(_ uint32, 
 
 			var viewSchema, viewName *string
 			if systemcatalog.IsContinuousAggregateHypertable(hypertableName) {
-				if vS, vN, found, err := s.systemCatalog.sideChannel.ReadContinuousAggregate(id); err != nil {
+				if vS, vN, found, err := s.systemCatalog.replicationContext.ReadContinuousAggregate(id); err != nil {
 					return errors.Errorf("failed reading continuous aggregate information: %+v", err)
 				} else if found {
 					viewSchema = &vS
@@ -66,7 +66,7 @@ func (s *systemCatalogReplicationEventHandler) OnHypertableAddedEvent(_ uint32, 
 				return fmt.Errorf("registering hypertable failed: %v", h)
 			}
 
-			return s.systemCatalog.sideChannel.ReadHypertableSchema(s.systemCatalog.ApplySchemaUpdate, h)
+			return s.systemCatalog.replicationContext.ReadHypertableSchema(s.systemCatalog.ApplySchemaUpdate, h)
 		},
 	)
 }
@@ -162,10 +162,10 @@ func (s *systemCatalogReplicationEventHandler) OnChunkDeletedEvent(_ uint32, old
 	if chunk, present := s.systemCatalog.FindChunkById(chunkId); present {
 		hypertableName := "unknown"
 		if uH, cH, present := s.systemCatalog.ResolveUncompressedHypertable(chunk.HypertableId()); present {
-			hypertableName = fmt.Sprintf("%s.%s", uH.SchemaName(), uH.HypertableName())
+			hypertableName = fmt.Sprintf("%s.%s", uH.SchemaName(), uH.TableName())
 			if cH != nil {
 				hypertableName = fmt.Sprintf(
-					"%s VIA %s.%s", cH.SchemaName(), cH.HypertableName(), hypertableName)
+					"%s VIA %s.%s", cH.SchemaName(), cH.TableName(), hypertableName)
 			}
 		}
 

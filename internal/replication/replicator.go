@@ -2,17 +2,15 @@ package replication
 
 import (
 	stderrors "errors"
-	"github.com/noctarius/timescaledb-event-streamer/internal/dispatching"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/channels"
+	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/logicalreplicationresolver"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/transactional"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
-	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog"
+	intsystemcatalog "github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/snapshotting"
-	"github.com/noctarius/timescaledb-event-streamer/internal/version"
-	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
-	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
+	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/urfave/cli"
 )
 
@@ -28,91 +26,63 @@ func NewReplicator(config *sysconfig.SystemConfig) *Replicator {
 }
 
 func (r *Replicator) StartReplication() *cli.ExitError {
-	config := r.config.Config
-
-	publicationName := spiconfig.GetOrDefault(
-		config, spiconfig.PropertyPostgresqlPublicationName, "",
+	// Create the side channels and replication context
+	replicationContext, err := context.NewReplicationContext(
+		r.config.Config, r.config.PgxConfig, r.config.NamingStrategyProvider,
 	)
-	snapshotBatchSize := spiconfig.GetOrDefault(
-		config, spiconfig.PropertyPostgresqlSnapshotBatchsize, 1000,
-	)
+	if err != nil {
+		return cli.NewExitError("failed to initialize replication context", 17)
+	}
 
-	// Create the side and replication channels
-	sideChannel := channels.NewSideChannel(r.config.PgxConfig, publicationName, snapshotBatchSize)
-	replicationChannel := channels.NewReplicationChannel(r.config.PgxConfig, publicationName)
+	// Create replication channel and internal replication handler
+	replicationChannel := channels.NewReplicationChannel(r.config.PgxConfig, replicationContext)
 
 	// Read version information
-	pgVersion, err := sideChannel.GetPostgresVersion()
-	if err != nil {
-		return supporting.AdaptError(err, 11)
-	}
-
-	if pgVersion < version.PG_MIN_VERSION {
+	if !replicationContext.IsMinimumPostgresVersion() {
 		return cli.NewExitError("timescaledb-event-streamer requires PostgreSQL 14 or later", 11)
 	}
-	version.PostgresqlVersion = pgVersion
 
-	tsdbVersion, err := sideChannel.GetTimescaleDBVersion()
-	if err != nil {
-		return supporting.AdaptError(err, 12)
-	}
-	version.TimescaleDbVersion = tsdbVersion
-
-	if tsdbVersion < version.TSDB_MIN_VERSION {
+	if !replicationContext.IsMinimumTimescaleVersion() {
 		return cli.NewExitError("timescaledb-event-streamer requires TimescaleDB 2.10 or later", 12)
 	}
 
-	walLevel, err := sideChannel.GetWalLevel()
-	if err != nil {
-		return supporting.AdaptError(err, 16)
-	}
-	if walLevel != "logical" {
+	if !replicationContext.IsLogicalReplicationEnabled() {
 		return cli.NewExitError("timescaledb-event-streamer requires wal_level set to 'logical'", 16)
 	}
 
-	// Instantiate the event dispatcher
-	dispatcher := dispatching.NewDispatcher()
-
 	// Instantiate the snapshotter
-	snapshotter := snapshotting.NewSnapshotter(32, sideChannel, dispatcher)
-
-	// Instantiate the topic name generator
-	topicNameGenerator, err := r.config.NameGeneratorProvider()
-	if err != nil {
-		return supporting.AdaptError(err, 13)
-	}
+	snapshotter := snapshotting.NewSnapshotter(32, replicationContext)
 
 	// Instantiate the transaction monitor, keeping track of transaction boundaries
 	transactionMonitor := transactional.NewTransactionMonitor()
 
-	// Instantiate the schema registry, keeping track of hypertable schemata
-	schemaRegistry := schema.NewRegistry(topicNameGenerator)
-
 	// Instantiate the change event emitter
-	eventEmitter, err := r.config.EventEmitterProvider(schemaRegistry, topicNameGenerator, transactionMonitor)
+	eventEmitter, err := r.config.EventEmitterProvider(
+		r.config.Config, replicationContext, r.config.SinkProvider, transactionMonitor,
+	)
 	if err != nil {
 		return supporting.AdaptError(err, 14)
 	}
 
-	// Set up the system catalog (replicating the Timescale internal representation)
-	systemCatalog, err := systemcatalog.NewSystemCatalog(
-		r.config, topicNameGenerator, dispatcher, sideChannel, schemaRegistry, snapshotter,
-	)
+	// Set up the system catalog (replicating the TimescaleDB internal representation)
+	systemCatalog, err := intsystemcatalog.NewSystemCatalog(r.config, replicationContext, snapshotter)
 	if err != nil {
 		return supporting.AdaptError(err, 15)
 	}
 
 	// Set up the internal transaction tracking and logical replication resolving
-	transactionResolver := logicalreplicationresolver.NewTransactionResolver(r.config, dispatcher, systemCatalog)
+	transactionResolver := logicalreplicationresolver.NewResolver(r.config, replicationContext, systemCatalog)
 
 	// Register event handlers
-	dispatcher.RegisterReplicationEventHandler(transactionMonitor)
-	dispatcher.RegisterReplicationEventHandler(transactionResolver)
-	dispatcher.RegisterReplicationEventHandler(systemCatalog.NewEventHandler())
-	dispatcher.RegisterReplicationEventHandler(eventEmitter.NewEventHandler())
+	replicationContext.RegisterReplicationEventHandler(transactionMonitor)
+	replicationContext.RegisterReplicationEventHandler(transactionResolver)
+	replicationContext.RegisterReplicationEventHandler(systemCatalog.NewEventHandler())
+	replicationContext.RegisterReplicationEventHandler(eventEmitter.NewEventHandler())
 
-	// Start dispatching events
-	dispatcher.StartDispatcher()
+	// Start internal dispatching
+	if err := replicationContext.StartReplicationContext(); err != nil {
+		return cli.NewExitError("failed to start replication context", 18)
+	}
 
 	// Start the snapshotter
 	snapshotter.StartSnapshotter()
@@ -121,22 +91,24 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 	initialChunkTables := systemCatalog.GetAllChunks()
 
 	// Filter chunks by already published tables
-	alreadyPublished, err := sideChannel.ReadPublishedTables(publicationName)
+	alreadyPublished, err := replicationContext.ReadPublishedTables()
 	if err != nil {
 		return supporting.AdaptError(err, 250)
 	}
-	initialChunkTables = supporting.Filter(initialChunkTables, func(item string) bool {
-		return !supporting.Contains(alreadyPublished, item)
+	initialChunkTables = supporting.Filter(initialChunkTables, func(item systemcatalog.SystemEntity) bool {
+		return !supporting.ContainsWithMatcher(alreadyPublished, func(other systemcatalog.SystemEntity) bool {
+			return item.CanonicalName() == other.CanonicalName()
+		})
 	})
 
-	if err := replicationChannel.StartReplicationChannel(dispatcher, initialChunkTables); err != nil {
+	if err := replicationChannel.StartReplicationChannel(replicationContext, initialChunkTables); err != nil {
 		return supporting.AdaptError(err, 16)
 	}
 
 	r.shutdownTask = func() error {
 		snapshotter.StopSnapshotter()
 		err1 := replicationChannel.StopReplicationChannel()
-		err2 := dispatcher.StopDispatcher()
+		err2 := replicationContext.StopReplicationContext()
 		return stderrors.Join(err1, err2)
 	}
 

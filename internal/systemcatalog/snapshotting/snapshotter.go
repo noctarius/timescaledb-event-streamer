@@ -3,8 +3,7 @@ package snapshotting
 import (
 	"github.com/go-errors/errors"
 	"github.com/jackc/pglogrepl"
-	"github.com/noctarius/timescaledb-event-streamer/internal/dispatching"
-	"github.com/noctarius/timescaledb-event-streamer/internal/replication/channels"
+	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
@@ -21,27 +20,23 @@ type SnapshotTask struct {
 }
 
 type Snapshotter struct {
-	partitionCount  uint64
-	dispatcher      *dispatching.Dispatcher
-	sideChannel     channels.SideChannel
-	snapshotQueues  []chan SnapshotTask
-	shutdownAwaiter *supporting.MultiShutdownAwaiter
+	partitionCount     uint64
+	replicationContext *context.ReplicationContext
+	snapshotQueues     []chan SnapshotTask
+	shutdownAwaiter    *supporting.MultiShutdownAwaiter
 }
 
-func NewSnapshotter(partitionCount uint8, sideChannel channels.SideChannel,
-	dispatcher *dispatching.Dispatcher) *Snapshotter {
-
+func NewSnapshotter(partitionCount uint8, replicationContext *context.ReplicationContext) *Snapshotter {
 	snapshotQueues := make([]chan SnapshotTask, partitionCount)
 	for i := range snapshotQueues {
 		snapshotQueues[i] = make(chan SnapshotTask, 128)
 	}
 
 	return &Snapshotter{
-		partitionCount:  uint64(partitionCount),
-		dispatcher:      dispatcher,
-		sideChannel:     sideChannel,
-		snapshotQueues:  snapshotQueues,
-		shutdownAwaiter: supporting.NewMultiShutdownAwaiter(uint(partitionCount)),
+		partitionCount:     uint64(partitionCount),
+		replicationContext: replicationContext,
+		snapshotQueues:     snapshotQueues,
+		shutdownAwaiter:    supporting.NewMultiShutdownAwaiter(uint(partitionCount)),
 	}
 }
 
@@ -58,7 +53,7 @@ func (s *Snapshotter) EnqueueSnapshot(task SnapshotTask) error {
 
 	// Notify of snapshotting to save incoming events
 	if task.Chunk != nil {
-		err := s.dispatcher.EnqueueTask(func(notificator dispatching.Notificator) {
+		err := s.replicationContext.EnqueueTask(func(notificator context.Notificator) {
 			notificator.NotifyChunkSnapshotEventHandler(func(handler eventhandlers.ChunkSnapshotEventHandler) error {
 				return handler.OnChunkSnapshotStartedEvent(task.Hypertable, task.Chunk)
 			})
@@ -109,14 +104,14 @@ func (s *Snapshotter) snapshot(task SnapshotTask) error {
 }
 
 func (s *Snapshotter) snapshotChunk(task SnapshotTask) error {
-	if err := s.sideChannel.AttachChunkToPublication(task.Chunk); err != nil {
+	if err := s.replicationContext.AttachTablesToPublication(task.Chunk); err != nil {
 		return errors.Wrap(err, 0)
 	}
 
-	lsn, err := s.sideChannel.SnapshotTable(
+	lsn, err := s.replicationContext.SnapshotTable(
 		task.Chunk.CanonicalName(), nil,
 		func(lsn pglogrepl.LSN, values map[string]any) error {
-			return s.dispatcher.EnqueueTask(func(notificator dispatching.Notificator) {
+			return s.replicationContext.EnqueueTask(func(notificator context.Notificator) {
 				notificator.NotifyHypertableReplicationEventHandler(
 					func(handler eventhandlers.HypertableReplicationEventHandler) error {
 						return handler.OnReadEvent(lsn, task.Hypertable, task.Chunk, values)
@@ -129,7 +124,7 @@ func (s *Snapshotter) snapshotChunk(task SnapshotTask) error {
 		return errors.Wrap(err, 0)
 	}
 
-	return s.dispatcher.EnqueueTaskAndWait(func(notificator dispatching.Notificator) {
+	return s.replicationContext.EnqueueTaskAndWait(func(notificator context.Notificator) {
 		notificator.NotifyChunkSnapshotEventHandler(func(handler eventhandlers.ChunkSnapshotEventHandler) error {
 			return handler.OnChunkSnapshotFinishedEvent(task.Hypertable, task.Chunk, lsn)
 		})

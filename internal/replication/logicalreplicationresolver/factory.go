@@ -1,7 +1,7 @@
 package logicalreplicationresolver
 
 import (
-	"github.com/noctarius/timescaledb-event-streamer/internal/dispatching"
+	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func NewTransactionResolver(config *sysconfig.SystemConfig, dispatcher *dispatching.Dispatcher,
+func NewResolver(config *sysconfig.SystemConfig, replicationContext *context.ReplicationContext,
 	systemCatalog *systemcatalog.SystemCatalog) eventhandlers.BaseReplicationEventHandler {
 
 	enabled := spiconfig.GetOrDefault(
@@ -23,7 +23,7 @@ func NewTransactionResolver(config *sysconfig.SystemConfig, dispatcher *dispatch
 	)
 
 	if enabled && maxSize > 0 {
-		return newTransactionTracker(timeout, maxSize, config, dispatcher, systemCatalog)
+		return newTransactionTracker(timeout, maxSize, config, replicationContext, systemCatalog)
 	}
-	return newLogicalReplicationResolver(config, dispatcher, systemCatalog)
+	return newLogicalReplicationResolver(config, replicationContext, systemCatalog)
 }

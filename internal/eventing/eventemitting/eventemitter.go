@@ -4,30 +4,29 @@ import (
 	"encoding/base64"
 	"github.com/jackc/pglogrepl"
 	"github.com/noctarius/timescaledb-event-streamer/internal/eventing/eventfiltering"
+	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/transactional"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/sink"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
-	"github.com/noctarius/timescaledb-event-streamer/spi/topic/namegenerator"
 	"time"
 )
 
 type EventEmitter struct {
-	schemaRegistry     *schema.Registry
-	topicNameGenerator *namegenerator.NameGenerator
+	replicationContext *context.ReplicationContext
 	transactionMonitor *transactional.TransactionMonitor
 	filter             eventfiltering.EventFilter
 	sink               sink.Sink
 }
 
-func NewEventEmitter(schemaRegistry *schema.Registry, topicNameGenerator *namegenerator.NameGenerator,
-	transactionMonitor *transactional.TransactionMonitor, sink sink.Sink, filter eventfiltering.EventFilter) *EventEmitter {
+func NewEventEmitter(
+	replicationContext *context.ReplicationContext, transactionMonitor *transactional.TransactionMonitor,
+	sink sink.Sink, filter eventfiltering.EventFilter) *EventEmitter {
 
 	return &EventEmitter{
-		schemaRegistry:     schemaRegistry,
-		topicNameGenerator: topicNameGenerator,
+		replicationContext: replicationContext,
 		transactionMonitor: transactionMonitor,
 		filter:             filter,
 		sink:               sink,
@@ -41,23 +40,23 @@ func (ee *EventEmitter) NewEventHandler() eventhandlers.BaseReplicationEventHand
 }
 
 func (ee *EventEmitter) envelopeSchema(hypertable *systemcatalog.Hypertable) schema.Struct {
-	schemaTopicName := ee.schemaRegistry.HypertableEnvelopeSchemaName(hypertable)
-	return ee.schemaRegistry.GetSchemaOrCreate(schemaTopicName, func() schema.Struct {
-		return schema.EnvelopeSchema(ee.schemaRegistry, hypertable, ee.topicNameGenerator)
+	schemaTopicName := ee.replicationContext.HypertableEnvelopeSchemaName(hypertable)
+	return ee.replicationContext.GetSchemaOrCreate(schemaTopicName, func() schema.Struct {
+		return schema.EnvelopeSchema(ee.replicationContext, hypertable, ee.replicationContext)
 	})
 }
 
 func (ee *EventEmitter) envelopeMessageSchema() schema.Struct {
-	schemaTopicName := ee.schemaRegistry.MessageEnvelopeSchemaName()
-	return ee.schemaRegistry.GetSchemaOrCreate(schemaTopicName, func() schema.Struct {
-		return schema.EnvelopeMessageSchema(ee.schemaRegistry, ee.topicNameGenerator)
+	schemaTopicName := ee.replicationContext.MessageEnvelopeSchemaName()
+	return ee.replicationContext.GetSchemaOrCreate(schemaTopicName, func() schema.Struct {
+		return schema.EnvelopeMessageSchema(ee.replicationContext, ee.replicationContext)
 	})
 }
 
 func (ee *EventEmitter) keySchema(hypertable *systemcatalog.Hypertable) schema.Struct {
-	schemaTopicName := ee.schemaRegistry.HypertableKeySchemaName(hypertable)
-	return ee.schemaRegistry.GetSchemaOrCreate(schemaTopicName, func() schema.Struct {
-		return schema.KeySchema(hypertable, ee.topicNameGenerator)
+	schemaTopicName := ee.replicationContext.HypertableKeySchemaName(hypertable)
+	return ee.replicationContext.GetSchemaOrCreate(schemaTopicName, func() schema.Struct {
+		return schema.KeySchema(hypertable, ee.replicationContext)
 	})
 }
 
@@ -223,7 +222,7 @@ func (e *eventEmitterEventHandler) emit0(lsn pglogrepl.LSN, timestamp time.Time,
 
 	transactionId := e.eventEmitter.transactionMonitor.TransactionId()
 	envelopeSchema := e.eventEmitter.envelopeSchema(hypertable)
-	eventTopicName := e.eventEmitter.topicNameGenerator.EventTopicName(hypertable)
+	eventTopicName := e.eventEmitter.replicationContext.EventTopicName(hypertable)
 
 	keyData, err := keyProvider()
 	if err != nil {
@@ -232,7 +231,7 @@ func (e *eventEmitterEventHandler) emit0(lsn pglogrepl.LSN, timestamp time.Time,
 	key := schema.Envelope(e.eventEmitter.keySchema(hypertable), keyData)
 
 	event := eventProvider(schema.Source(lsn, timestamp, snapshot, hypertable.DatabaseName(),
-		hypertable.SchemaName(), hypertable.HypertableName(), &transactionId))
+		hypertable.SchemaName(), hypertable.TableName(), &transactionId))
 
 	value := schema.Envelope(envelopeSchema, event)
 
@@ -264,11 +263,11 @@ func (e *eventEmitterEventHandler) emitMessageEvent(xld pglogrepl.XLogData,
 	}
 
 	envelopeSchema := e.eventEmitter.envelopeMessageSchema()
-	messageKeySchema := e.eventEmitter.schemaRegistry.GetSchema(schema.MessageKeySchemaName)
+	messageKeySchema := e.eventEmitter.replicationContext.GetSchema(schema.MessageKeySchemaName)
 
 	source := schema.Source(xld.ServerWALEnd, timestamp, false, "", "", "", transactionId)
 	payload := eventProvider(source)
-	eventTopicName := e.eventEmitter.topicNameGenerator.MessageTopicName()
+	eventTopicName := e.eventEmitter.replicationContext.MessageTopicName()
 
 	key := schema.Envelope(messageKeySchema, schema.MessageKey(msg.Prefix))
 	value := schema.Envelope(envelopeSchema, payload)
@@ -290,7 +289,7 @@ func (e *eventEmitterEventHandler) hypertableEventKey(
 }
 
 func (e *eventEmitterEventHandler) timescaleEventKey(hypertable *systemcatalog.Hypertable) (schema.Struct, error) {
-	return schema.TimescaleKey(hypertable.SchemaName(), hypertable.HypertableName()), nil
+	return schema.TimescaleKey(hypertable.SchemaName(), hypertable.TableName()), nil
 }
 
 func (e *eventEmitterEventHandler) convertValues(

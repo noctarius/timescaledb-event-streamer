@@ -4,7 +4,9 @@ import "github.com/noctarius/timescaledb-event-streamer/spi/version"
 
 const (
 	TSDB_MIN_VERSION version.TimescaleVersion = 21000
-	PG_MIN_VERSION   version.PostgresVersion  = 140000
+	TSDB_211_VERSION version.TimescaleVersion = 21100
+	PG_MIN_VERSION   version.PostgresVersion  = 130000
+	PG_14_VERSION    version.PostgresVersion  = 140000
 )
 
 var (

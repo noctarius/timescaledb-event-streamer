@@ -112,7 +112,7 @@ func parseFilter(filterTerm string) (*filter, error) {
 
 func (f *filter) matches(hypertable *systemcatalog.Hypertable) bool {
 	namespace := hypertable.SchemaName()
-	entity := hypertable.HypertableName()
+	entity := hypertable.TableName()
 	if hypertable.IsContinuousAggregate() {
 		if n, found := hypertable.ViewSchema(); found {
 			namespace = n

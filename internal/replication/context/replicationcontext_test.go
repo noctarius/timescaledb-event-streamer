@@ -1,4 +1,4 @@
-package namegenerator
+package context
 
 import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/eventing/namingstrategies"
@@ -7,20 +7,28 @@ import (
 	"testing"
 )
 
-func TestNameGenerator_EventTopicName(t *testing.T) {
+func TestReplicationContext_EventTopicName(t *testing.T) {
 	topicPrefix := "foobar"
 	hypertable := systemcatalog.NewHypertable(1, "test", "schema", "hypertable", "", "", nil, 0, false, nil, nil)
 
-	nameGenerator := NewNameGenerator(topicPrefix, &namingstrategies.DebeziumNamingStrategy{})
-	topicName := nameGenerator.EventTopicName(hypertable)
+	replicationContext := &ReplicationContext{
+		topicPrefix:    topicPrefix,
+		namingStrategy: &namingstrategies.DebeziumNamingStrategy{},
+	}
+
+	topicName := replicationContext.EventTopicName(hypertable)
 	assert.Equal(t, "foobar.schema.hypertable", topicName)
 
 }
-func TestNameGenerator_SchemaTopicName(t *testing.T) {
+func TestReplicationContext_SchemaTopicName(t *testing.T) {
 	topicPrefix := "foobar"
 	hypertable := systemcatalog.NewHypertable(1, "test", "schema", "hypertable", "", "", nil, 0, false, nil, nil)
 
-	nameGenerator := NewNameGenerator(topicPrefix, &namingstrategies.DebeziumNamingStrategy{})
-	topicName := nameGenerator.SchemaTopicName(hypertable)
+	replicationContext := &ReplicationContext{
+		topicPrefix:    topicPrefix,
+		namingStrategy: &namingstrategies.DebeziumNamingStrategy{},
+	}
+
+	topicName := replicationContext.SchemaTopicName(hypertable)
 	assert.Equal(t, "foobar.schema.hypertable", topicName)
 }

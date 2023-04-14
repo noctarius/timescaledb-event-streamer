@@ -2,7 +2,7 @@ package logicalreplicationresolver
 
 import (
 	"github.com/jackc/pglogrepl"
-	"github.com/noctarius/timescaledb-event-streamer/internal/dispatching"
+	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog"
@@ -27,7 +27,7 @@ type transactionTracker struct {
 }
 
 func newTransactionTracker(timeout time.Duration, maxSize uint, config *sysconfig.SystemConfig,
-	dispatcher *dispatching.Dispatcher, systemCatalog *systemcatalog.SystemCatalog,
+	replicationContext *context.ReplicationContext, systemCatalog *systemcatalog.SystemCatalog,
 ) eventhandlers.LogicalReplicationEventHandler {
 
 	return &transactionTracker{
@@ -35,7 +35,7 @@ func newTransactionTracker(timeout time.Duration, maxSize uint, config *sysconfi
 		maxSize:       maxSize,
 		systemCatalog: systemCatalog,
 		relations:     make(map[uint32]*pgtypes.RelationMessage),
-		resolver:      newLogicalReplicationResolver(config, dispatcher, systemCatalog),
+		resolver:      newLogicalReplicationResolver(config, replicationContext, systemCatalog),
 	}
 }
 

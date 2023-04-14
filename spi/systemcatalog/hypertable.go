@@ -5,10 +5,9 @@ import (
 )
 
 type Hypertable struct {
+	*baseSystemEntity
 	id                     int32
 	databaseName           string
-	schemaName             string
-	hypertableName         string
 	associatedSchemaName   string
 	associatedTablePrefix  string
 	compressedHypertableId *int32
@@ -21,20 +20,22 @@ type Hypertable struct {
 }
 
 func NewHypertable(id int32,
-	databaseName, schemaName, hypertableName, associatedSchemaName, associatedTablePrefix string,
+	databaseName, schemaName, tableName, associatedSchemaName, associatedTablePrefix string,
 	compressedHypertableId *int32, compressionState int16, distributed bool, viewSchema, viewName *string) *Hypertable {
 
 	return &Hypertable{
+		baseSystemEntity: &baseSystemEntity{
+			schemaName: schemaName,
+			tableName:  tableName,
+		},
 		id:                     id,
 		databaseName:           databaseName,
-		schemaName:             schemaName,
-		hypertableName:         hypertableName,
 		associatedSchemaName:   associatedSchemaName,
 		associatedTablePrefix:  associatedTablePrefix,
 		compressedHypertableId: compressedHypertableId,
 		compressionState:       compressionState,
 		distributed:            distributed,
-		continuousAggregate:    isContinuousAggregate(hypertableName, viewSchema, viewName),
+		continuousAggregate:    isContinuousAggregate(tableName, viewSchema, viewName),
 		viewSchema:             viewSchema,
 		viewName:               viewName,
 		columns:                make([]Column, 0),
@@ -47,14 +48,6 @@ func (h *Hypertable) Id() int32 {
 
 func (h *Hypertable) DatabaseName() string {
 	return h.databaseName
-}
-
-func (h *Hypertable) SchemaName() string {
-	return h.schemaName
-}
-
-func (h *Hypertable) HypertableName() string {
-	return h.hypertableName
 }
 
 func (h *Hypertable) ViewSchema() (string, bool) {
@@ -104,10 +97,6 @@ func (h *Hypertable) IsContinuousAggregate() bool {
 
 func (h *Hypertable) Columns() []Column {
 	return h.columns
-}
-
-func (h *Hypertable) CanonicalName() string {
-	return canonicalHypertableName(h)
 }
 
 func (h *Hypertable) CanonicalContinuousAggregateName() string {
@@ -180,14 +169,16 @@ func (h *Hypertable) ApplyTableSchema(newColumns []Column) (changes map[string]s
 }
 
 func (h *Hypertable) ApplyChanges(
-	schemaName, hypertableName, associatedSchemaName, associatedTablePrefix string,
+	schemaName, tableName, associatedSchemaName, associatedTablePrefix string,
 	compressedHypertableId *int32,
 	compressionState int16) (applied *Hypertable, changes map[string]string) {
 
 	h2 := &Hypertable{
+		baseSystemEntity: &baseSystemEntity{
+			schemaName: schemaName,
+			tableName:  tableName,
+		},
 		id:                     h.id,
-		schemaName:             schemaName,
-		hypertableName:         hypertableName,
 		associatedSchemaName:   associatedSchemaName,
 		associatedTablePrefix:  associatedTablePrefix,
 		compressedHypertableId: compressedHypertableId,
@@ -206,8 +197,8 @@ func (h *Hypertable) differences(new *Hypertable) map[string]string {
 	if h.schemaName != new.schemaName {
 		differences["schemaName"] = fmt.Sprintf("%s=>%s", h.schemaName, new.schemaName)
 	}
-	if h.hypertableName != new.hypertableName {
-		differences["hypertableName"] = fmt.Sprintf("%s=>%s", h.hypertableName, new.hypertableName)
+	if h.tableName != new.tableName {
+		differences["hypertableName"] = fmt.Sprintf("%s=>%s", h.tableName, new.tableName)
 	}
 	if h.associatedSchemaName != new.associatedSchemaName {
 		differences["associatedSchemaName"] = fmt.Sprintf("%s=>%s", h.associatedSchemaName, new.associatedSchemaName)

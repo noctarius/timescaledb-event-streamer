@@ -3,8 +3,7 @@ package systemcatalog
 import (
 	"fmt"
 	"github.com/go-errors/errors"
-	"github.com/noctarius/timescaledb-event-streamer/internal/dispatching"
-	"github.com/noctarius/timescaledb-event-streamer/internal/replication/channels"
+	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/snapshotting"
@@ -12,7 +11,6 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
-	"github.com/noctarius/timescaledb-event-streamer/spi/topic/namegenerator"
 	"regexp"
 )
 
@@ -31,17 +29,13 @@ type SystemCatalog struct {
 	hypertable2chunks     map[int32][]int32
 	hypertable2compressed map[int32]int32
 	compressed2hypertable map[int32]int32
-	schemaRegistry        *schema.Registry
-	topicNameGenerator    *namegenerator.NameGenerator
-	dispatcher            *dispatching.Dispatcher
-	sideChannel           channels.SideChannel
+	replicationContext    *context.ReplicationContext
 	replicationFilter     *tablefiltering.TableFilter
 	snapshotter           *snapshotting.Snapshotter
 }
 
-func NewSystemCatalog(config *sysconfig.SystemConfig, topicNameGenerator *namegenerator.NameGenerator,
-	dispatcher *dispatching.Dispatcher, sideChannel channels.SideChannel, schemaRegistry *schema.Registry,
-	snapshotter *snapshotting.Snapshotter) (*SystemCatalog, error) {
+func NewSystemCatalog(config *sysconfig.SystemConfig,
+	replicationContext *context.ReplicationContext, snapshotter *snapshotting.Snapshotter) (*SystemCatalog, error) {
 
 	// Create the Replication Filter, selecting enabled and blocking disabled hypertables for replication
 	filterDefinition := config.TimescaleDB.Hypertables
@@ -62,10 +56,7 @@ func NewSystemCatalog(config *sysconfig.SystemConfig, topicNameGenerator *namege
 		compressed2hypertable: make(map[int32]int32),
 
 		databaseName:       config.PgxConfig.Database,
-		schemaRegistry:     schemaRegistry,
-		topicNameGenerator: topicNameGenerator,
-		dispatcher:         dispatcher,
-		sideChannel:        sideChannel,
+		replicationContext: replicationContext,
 		replicationFilter:  replicationFilter,
 		snapshotter:        snapshotter,
 	})
@@ -233,20 +224,20 @@ func (sc *SystemCatalog) NewEventHandler() eventhandlers.SystemCatalogReplicatio
 
 func (sc *SystemCatalog) ApplySchemaUpdate(hypertable *systemcatalog.Hypertable, columns []systemcatalog.Column) bool {
 	if difference := hypertable.ApplyTableSchema(columns); difference != nil {
-		hypertableSchemaName := fmt.Sprintf("%s.Value", sc.topicNameGenerator.SchemaTopicName(hypertable))
+		hypertableSchemaName := fmt.Sprintf("%s.Value", sc.replicationContext.SchemaTopicName(hypertable))
 		hypertableSchema := schema.HypertableSchema(hypertableSchemaName, hypertable.Columns())
-		sc.schemaRegistry.RegisterSchema(hypertableSchemaName, hypertableSchema)
+		sc.replicationContext.RegisterSchema(hypertableSchemaName, hypertableSchema)
 		logger.Verbosef("SCHEMA UPDATE: HYPERTABLE %d => %+v", hypertable.Id(), difference)
 		return len(difference) > 0
 	}
 	return false
 }
 
-func (sc *SystemCatalog) GetAllChunks() []string {
-	chunkTables := make([]string, 0)
+func (sc *SystemCatalog) GetAllChunks() []systemcatalog.SystemEntity {
+	chunkTables := make([]systemcatalog.SystemEntity, 0)
 	for _, chunk := range sc.chunks {
 		if sc.IsHypertableSelectedForReplication(chunk.HypertableId()) {
-			chunkTables = append(chunkTables, chunk.CanonicalName())
+			chunkTables = append(chunkTables, chunk)
 		}
 	}
 	return chunkTables
@@ -272,7 +263,7 @@ func indexOf[T comparable](slice []T, item T) int {
 }
 
 func initializeSystemCatalog(sc *SystemCatalog) (*SystemCatalog, error) {
-	if err := sc.sideChannel.ReadHypertables(func(hypertable *systemcatalog.Hypertable) error {
+	if err := sc.replicationContext.LoadHypertables(func(hypertable *systemcatalog.Hypertable) error {
 		if !sc.replicationFilter.Enabled(hypertable) {
 			return nil
 		}
@@ -281,7 +272,7 @@ func initializeSystemCatalog(sc *SystemCatalog) (*SystemCatalog, error) {
 		return nil, errors.Wrap(err, 0)
 	}
 
-	if err := sc.sideChannel.ReadChunks(sc.RegisterChunk); err != nil {
+	if err := sc.replicationContext.LoadChunks(sc.RegisterChunk); err != nil {
 		return nil, errors.Wrap(err, 0)
 	}
 
@@ -290,7 +281,7 @@ func initializeSystemCatalog(sc *SystemCatalog) (*SystemCatalog, error) {
 		hypertables = append(hypertables, hypertable)
 	}
 
-	if err := sc.sideChannel.ReadHypertableSchema(sc.ApplySchemaUpdate, hypertables...); err != nil {
+	if err := sc.replicationContext.ReadHypertableSchema(sc.ApplySchemaUpdate, hypertables...); err != nil {
 		return nil, errors.Wrap(err, 0)
 	}
 

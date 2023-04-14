@@ -1,4 +1,4 @@
-package dispatching
+package context
 
 import (
 	"fmt"
@@ -19,7 +19,7 @@ type Notificator interface {
 	NotifyChunkSnapshotEventHandler(fn func(handler eventhandlers.ChunkSnapshotEventHandler) error)
 }
 
-type Dispatcher struct {
+type dispatcher struct {
 	taskQueue           *supporting.Queue[Task]
 	baseHandlers        []eventhandlers.BaseReplicationEventHandler
 	catalogHandlers     []eventhandlers.SystemCatalogReplicationEventHandler
@@ -31,8 +31,8 @@ type Dispatcher struct {
 	shutdownActive      bool
 }
 
-func NewDispatcher() *Dispatcher {
-	d := &Dispatcher{
+func newDispatcher() *dispatcher {
+	d := &dispatcher{
 		taskQueue:           supporting.NewQueue[Task](),
 		baseHandlers:        make([]eventhandlers.BaseReplicationEventHandler, 0),
 		catalogHandlers:     make([]eventhandlers.SystemCatalogReplicationEventHandler, 0),
@@ -45,7 +45,7 @@ func NewDispatcher() *Dispatcher {
 	return d
 }
 
-func (d *Dispatcher) RegisterReplicationEventHandler(handler eventhandlers.BaseReplicationEventHandler) {
+func (d *dispatcher) RegisterReplicationEventHandler(handler eventhandlers.BaseReplicationEventHandler) {
 	for _, candidate := range d.baseHandlers {
 		if candidate == handler {
 			return
@@ -99,7 +99,7 @@ func (d *Dispatcher) RegisterReplicationEventHandler(handler eventhandlers.BaseR
 	}
 }
 
-func (d *Dispatcher) UnregisterReplicationEventHandler(handler eventhandlers.BaseReplicationEventHandler) {
+func (d *dispatcher) UnregisterReplicationEventHandler(handler eventhandlers.BaseReplicationEventHandler) {
 	for index, candidate := range d.baseHandlers {
 		if candidate == handler {
 			// Erase element (zero value) to prevent memory leak
@@ -159,7 +159,7 @@ func (d *Dispatcher) UnregisterReplicationEventHandler(handler eventhandlers.Bas
 	}
 }
 
-func (d *Dispatcher) StartDispatcher() {
+func (d *dispatcher) StartDispatcher() {
 	notificator := &notificatorImpl{dispatcher: d}
 	go func() {
 		for {
@@ -182,13 +182,13 @@ func (d *Dispatcher) StartDispatcher() {
 	}()
 }
 
-func (d *Dispatcher) StopDispatcher() error {
+func (d *dispatcher) StopDispatcher() error {
 	d.shutdownActive = true
 	d.shutdownAwaiter.SignalShutdown()
 	return d.shutdownAwaiter.AwaitDone()
 }
 
-func (d *Dispatcher) EnqueueTask(task Task) error {
+func (d *dispatcher) EnqueueTask(task Task) error {
 	if d.shutdownActive {
 		return fmt.Errorf("shutdown active, draining only")
 	}
@@ -196,7 +196,7 @@ func (d *Dispatcher) EnqueueTask(task Task) error {
 	return nil
 }
 
-func (d *Dispatcher) EnqueueTaskAndWait(task Task) error {
+func (d *dispatcher) EnqueueTaskAndWait(task Task) error {
 	if d.shutdownActive {
 		return fmt.Errorf("shutdown active, draining only")
 	}
@@ -209,7 +209,7 @@ func (d *Dispatcher) EnqueueTaskAndWait(task Task) error {
 }
 
 type notificatorImpl struct {
-	dispatcher *Dispatcher
+	dispatcher *dispatcher
 }
 
 func (n *notificatorImpl) NotifyBaseReplicationEventHandler(

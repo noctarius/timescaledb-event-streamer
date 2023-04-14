@@ -13,6 +13,15 @@ var validCharacters = []string{
 	"n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z",
 }
 
+func IndexOfWithMatcher[I comparable](collection []I, matcher func(other I) bool) int {
+	for i, candidate := range collection {
+		if matcher(candidate) {
+			return i
+		}
+	}
+	return -1
+}
+
 func IndexOf[I comparable](collection []I, item I) int {
 	for i, candidate := range collection {
 		if candidate == item {
@@ -20,6 +29,10 @@ func IndexOf[I comparable](collection []I, item I) int {
 		}
 	}
 	return -1
+}
+
+func ContainsWithMatcher[I comparable](collection []I, matcher func(other I) bool) bool {
+	return IndexOfWithMatcher(collection, matcher) != -1
 }
 
 func Contains[I comparable](collection []I, item I) bool {

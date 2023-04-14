@@ -220,7 +220,7 @@ func HypertableSchema(hypertableSchemaName string, columns []systemcatalog.Colum
 	}
 }
 
-func KeySchema(hypertable *systemcatalog.Hypertable, topicSchemaGenerator *namegenerator.NameGenerator) Struct {
+func KeySchema(hypertable *systemcatalog.Hypertable, topicSchemaGenerator namegenerator.NameGenerator) Struct {
 	schemaTopicName := topicSchemaGenerator.SchemaTopicName(hypertable)
 	hypertableKeySchemaName := fmt.Sprintf("%s.Key", schemaTopicName)
 
@@ -255,8 +255,8 @@ func TimescaleEventKeySchema() Struct {
 	}
 }
 
-func EnvelopeSchema(schemaRegistry *Registry, hypertable *systemcatalog.Hypertable,
-	topicSchemaGenerator *namegenerator.NameGenerator) Struct {
+func EnvelopeSchema(schemaRegistry Registry, hypertable *systemcatalog.Hypertable,
+	topicSchemaGenerator namegenerator.NameGenerator) Struct {
 
 	schemaTopicName := topicSchemaGenerator.SchemaTopicName(hypertable)
 	hypertableSchemaName := fmt.Sprintf("%s.Value", schemaTopicName)
@@ -280,9 +280,7 @@ func EnvelopeSchema(schemaRegistry *Registry, hypertable *systemcatalog.Hypertab
 	}
 }
 
-func EnvelopeMessageSchema(schemaRegistry *Registry,
-	topicSchemaGenerator *namegenerator.NameGenerator) Struct {
-
+func EnvelopeMessageSchema(schemaRegistry Registry, topicSchemaGenerator namegenerator.NameGenerator) Struct {
 	schemaTopicName := topicSchemaGenerator.MessageTopicName()
 	envelopeSchemaName := fmt.Sprintf("%s.Envelope", schemaTopicName)
 
@@ -300,7 +298,7 @@ func EnvelopeMessageSchema(schemaRegistry *Registry,
 	}
 }
 
-func sourceSchema() Struct {
+func SourceSchema() Struct {
 	return Struct{
 		fieldNameType: string(systemcatalog.STRUCT),
 		fieldNameFields: []Struct{
@@ -321,7 +319,7 @@ func sourceSchema() Struct {
 	}
 }
 
-func messageValueSchema(schemaRegistry *Registry) Struct {
+func MessageValueSchema(schemaRegistry Registry) Struct {
 	return Struct{
 		fieldNameVersion: 1,
 		fieldNameName:    MessageValueSchemaName,
@@ -338,7 +336,7 @@ func messageValueSchema(schemaRegistry *Registry) Struct {
 	}
 }
 
-func messageKeySchema() Struct {
+func MessageKeySchema() Struct {
 	return Struct{
 		fieldNameVersion: 1,
 		fieldNameName:    MessageKeySchemaName,

@@ -19,11 +19,11 @@ type DebeziumNamingStrategy struct {
 }
 
 func (d *DebeziumNamingStrategy) EventTopicName(topicPrefix string, hypertable *systemcatalog.Hypertable) string {
-	return fmt.Sprintf("%s.%s.%s", topicPrefix, hypertable.SchemaName(), hypertable.HypertableName())
+	return fmt.Sprintf("%s.%s.%s", topicPrefix, hypertable.SchemaName(), hypertable.TableName())
 }
 
 func (d *DebeziumNamingStrategy) SchemaTopicName(topicPrefix string, hypertable *systemcatalog.Hypertable) string {
-	return fmt.Sprintf("%s.%s.%s", topicPrefix, hypertable.SchemaName(), hypertable.HypertableName())
+	return fmt.Sprintf("%s.%s.%s", topicPrefix, hypertable.SchemaName(), hypertable.TableName())
 }
 
 func (d *DebeziumNamingStrategy) MessageTopicName(topicPrefix string) string {

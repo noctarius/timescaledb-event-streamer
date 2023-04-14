@@ -1,4 +1,4 @@
-package channels
+package context
 
 import (
 	"context"
@@ -9,11 +9,17 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/noctarius/timescaledb-event-streamer/internal/pgdecoding"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
+	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/version"
+	"strings"
 	"time"
 )
+
+const getSystemInformationQuery = `
+SELECT current_database(), pcs.system_identifier, pcc.timeline_id 
+FROM pg_control_system() pcs, pg_control_checkpoint() pcc`
 
 const addTableToPublicationQuery = "ALTER PUBLICATION %s ADD TABLE %s"
 
@@ -80,6 +86,12 @@ SELECT ca.user_view_schema, ca.user_view_name
 FROM _timescaledb_catalog.continuous_agg ca 
 WHERE ca.mat_hypertable_id = $1`
 
+const createPublication = "SELECT create_timescaledb_catalog_publication($1, $2)"
+
+const checkExistingPublication = "SELECT true FROM pg_publication WHERE pubname = $1"
+
+const dropPublication = "DROP PUBLICATION IF EXISTS $1"
+
 const existingPublicationPublishedTablesQuery = `
 SELECT pt.schemaname, pt.tablename
 FROM pg_catalog.pg_publication_tables pt
@@ -94,22 +106,50 @@ const postgresqlVersionQuery = `SHOW SERVER_VERSION`
 
 const walLevelQuery = `SHOW WAL_LEVEL`
 
-type sideChannel struct {
-	connConfig        *pgx.ConnConfig
-	publicationName   string
-	snapshotBatchSize int
+type sideChannelImpl struct {
+	logger     *logging.Logger
+	connConfig *pgx.ConnConfig
 }
 
-func NewSideChannel(connConfig *pgx.ConnConfig, publicationName string, snapshotBatchSize int) SideChannel {
-	sc := &sideChannel{
-		connConfig:        connConfig,
-		publicationName:   publicationName,
-		snapshotBatchSize: snapshotBatchSize,
+func newSideChannel(connConfig *pgx.ConnConfig) *sideChannelImpl {
+	sc := &sideChannelImpl{
+		logger:     logging.NewLogger("SideChannel"),
+		connConfig: connConfig,
 	}
 	return sc
 }
 
-func (sc *sideChannel) GetWalLevel() (walLevel string, err error) {
+func (sc *sideChannelImpl) createPublication(publicationName string) (success bool, err error) {
+	err = sc.newSession(time.Second*10, func(session *session) error {
+		return session.queryRow(createPublication, publicationName, sc.connConfig.User).Scan(&success)
+	})
+	return
+}
+
+func (sc *sideChannelImpl) existsPublication(publicationName string) (found bool, err error) {
+	err = sc.newSession(time.Second*10, func(session *session) error {
+		return session.queryRow(checkExistingPublication, publicationName).Scan(&found)
+	})
+	return
+}
+
+func (sc *sideChannelImpl) dropPublication(publicationName string) error {
+	return sc.newSession(time.Second*10, func(session *session) error {
+		_, err := session.exec(dropPublication, publicationName)
+		return err
+	})
+}
+
+func (sc *sideChannelImpl) getSystemInformation() (databaseName, systemId string, timeline int32, err error) {
+	if err := sc.newSession(time.Second*10, func(session *session) error {
+		return session.queryRow(getSystemInformationQuery).Scan(&databaseName, &systemId, &timeline)
+	}); err != nil {
+		return databaseName, systemId, timeline, err
+	}
+	return
+}
+
+func (sc *sideChannelImpl) getWalLevel() (walLevel string, err error) {
 	walLevel = "unknown"
 	err = sc.newSession(time.Second*10, func(session *session) error {
 		return session.queryRow(walLevelQuery).Scan(&walLevel)
@@ -117,7 +157,7 @@ func (sc *sideChannel) GetWalLevel() (walLevel string, err error) {
 	return
 }
 
-func (sc *sideChannel) GetPostgresVersion() (pgVersion version.PostgresVersion, err error) {
+func (sc *sideChannelImpl) getPostgresVersion() (pgVersion version.PostgresVersion, err error) {
 	if err = sc.newSession(time.Second*10, func(session *session) error {
 		var v string
 		if err := session.queryRow(postgresqlVersionQuery).Scan(&v); err != nil {
@@ -131,7 +171,7 @@ func (sc *sideChannel) GetPostgresVersion() (pgVersion version.PostgresVersion, 
 	return
 }
 
-func (sc *sideChannel) GetTimescaleDBVersion() (tsdbVersion version.TimescaleVersion, err error) {
+func (sc *sideChannelImpl) getTimescaleDBVersion() (tsdbVersion version.TimescaleVersion, err error) {
 	if err = sc.newSession(time.Second*10, func(session *session) error {
 		var v string
 		if err := session.queryRow(timescaledbVersionQuery).Scan(&v); err != nil {
@@ -145,7 +185,7 @@ func (sc *sideChannel) GetTimescaleDBVersion() (tsdbVersion version.TimescaleVer
 	return
 }
 
-func (sc *sideChannel) ReadHypertables(cb func(hypertable *systemcatalog.Hypertable) error) error {
+func (sc *sideChannelImpl) readHypertables(cb func(hypertable *systemcatalog.Hypertable) error) error {
 	return sc.newSession(time.Second*20, func(session *session) error {
 		return session.queryFunc(func(row pgx.Row) error {
 			var id int32
@@ -171,7 +211,7 @@ func (sc *sideChannel) ReadHypertables(cb func(hypertable *systemcatalog.Hyperta
 	})
 }
 
-func (sc *sideChannel) ReadChunks(cb func(chunk *systemcatalog.Chunk) error) error {
+func (sc *sideChannelImpl) readChunks(cb func(chunk *systemcatalog.Chunk) error) error {
 	return sc.newSession(time.Second*20, func(session *session) error {
 		return session.queryFunc(func(row pgx.Row) error {
 			var id, hypertableId int32
@@ -192,7 +232,7 @@ func (sc *sideChannel) ReadChunks(cb func(chunk *systemcatalog.Chunk) error) err
 	})
 }
 
-func (sc *sideChannel) ReadHypertableSchema(
+func (sc *sideChannelImpl) readHypertableSchema(
 	cb func(hypertable *systemcatalog.Hypertable, columns []systemcatalog.Column) bool,
 	hypertables ...*systemcatalog.Hypertable) error {
 
@@ -203,7 +243,7 @@ func (sc *sideChannel) ReadHypertableSchema(
 
 				continue
 			}
-			if err := sc.readHypertableSchema(session, hypertable, cb); err != nil {
+			if err := sc.readHypertableSchema0(session, hypertable, cb); err != nil {
 				return err
 			}
 		}
@@ -211,31 +251,47 @@ func (sc *sideChannel) ReadHypertableSchema(
 	})
 }
 
-func (sc *sideChannel) AttachChunkToPublication(chunk *systemcatalog.Chunk) error {
-	canonicalChunkName := chunk.CanonicalName()
-	attachingQuery := fmt.Sprintf(addTableToPublicationQuery, sc.publicationName, canonicalChunkName)
+func (sc *sideChannelImpl) attachTablesToPublication(
+	publicationName string, entities ...systemcatalog.SystemEntity) error {
+
+	if len(entities) == 0 {
+		return nil
+	}
+
+	entityTableList := sc.entitiesToTableList(entities)
+	attachingQuery := fmt.Sprintf(addTableToPublicationQuery, publicationName, entityTableList)
 	return sc.newSession(time.Second*20, func(session *session) error {
 		if _, err := session.exec(attachingQuery); err != nil {
 			return errors.Wrap(err, 0)
 		}
-		logger.Infoln("Updated publication %s to add table %s", sc.publicationName, canonicalChunkName)
+		for _, entity := range entities {
+			sc.logger.Infoln("Updated publication %s to add table %s", publicationName, entity.CanonicalName())
+		}
 		return nil
 	})
 }
 
-func (sc *sideChannel) DetachChunkFromPublication(chunk *systemcatalog.Chunk) error {
-	canonicalChunkName := chunk.CanonicalName()
-	detachingQuery := fmt.Sprintf(dropTableFromPublicationQuery, sc.publicationName, canonicalChunkName)
+func (sc *sideChannelImpl) detachTablesFromPublication(
+	publicationName string, entities ...systemcatalog.SystemEntity) error {
+
+	if len(entities) == 0 {
+		return nil
+	}
+
+	entityTableList := sc.entitiesToTableList(entities)
+	detachingQuery := fmt.Sprintf(dropTableFromPublicationQuery, publicationName, entityTableList)
 	return sc.newSession(time.Second*20, func(session *session) error {
 		if _, err := session.exec(detachingQuery); err != nil {
 			return errors.Wrap(err, 0)
 		}
-		logger.Infof("Updated publication %s to drop table %s", sc.publicationName, canonicalChunkName)
+		for _, entity := range entities {
+			sc.logger.Infof("Updated publication %s to drop table %s", publicationName, entity.CanonicalName())
+		}
 		return nil
 	})
 }
 
-func (sc *sideChannel) SnapshotTable(canonicalName string, startingLSN *pglogrepl.LSN,
+func (sc *sideChannelImpl) snapshotTable(canonicalName string, startingLSN *pglogrepl.LSN, snapshotBatchSize int,
 	cb func(lsn pglogrepl.LSN, values map[string]any) error) (pglogrepl.LSN, error) {
 
 	var currentLSN pglogrepl.LSN
@@ -282,10 +338,10 @@ func (sc *sideChannel) SnapshotTable(canonicalName string, startingLSN *pglogrep
 					count++
 					return cb(currentLSN, values)
 				})
-			}, fmt.Sprintf("FETCH FORWARD %d FROM %s", sc.snapshotBatchSize, cursorName)); err != nil {
+			}, fmt.Sprintf("FETCH FORWARD %d FROM %s", snapshotBatchSize, cursorName)); err != nil {
 				return errors.Wrap(err, 0)
 			}
-			if count == 0 || count < sc.snapshotBatchSize {
+			if count == 0 || count < snapshotBatchSize {
 				break
 			}
 			session.ResetTimeout(time.Minute * 60)
@@ -309,7 +365,7 @@ func (sc *sideChannel) SnapshotTable(canonicalName string, startingLSN *pglogrep
 	return currentLSN, nil
 }
 
-func (sc *sideChannel) ReadReplicaIdentity(schemaName, tableName string) (pgtypes.ReplicaIdentity, error) {
+func (sc *sideChannelImpl) readReplicaIdentity(schemaName, tableName string) (pgtypes.ReplicaIdentity, error) {
 	var replicaIdentity pgtypes.ReplicaIdentity
 	if err := sc.newSession(time.Second*10, func(session *session) error {
 		row := session.queryRow(replicaIdentityQuery, schemaName, tableName)
@@ -326,7 +382,7 @@ func (sc *sideChannel) ReadReplicaIdentity(schemaName, tableName string) (pgtype
 	return replicaIdentity, nil
 }
 
-func (sc *sideChannel) ReadContinuousAggregate(materializedHypertableId int32) (string, string, bool, error) {
+func (sc *sideChannelImpl) readContinuousAggregate(materializedHypertableId int32) (string, string, bool, error) {
 	var viewSchema, viewName string
 
 	found := false
@@ -346,24 +402,24 @@ func (sc *sideChannel) ReadContinuousAggregate(materializedHypertableId int32) (
 	return viewSchema, viewName, found, nil
 }
 
-func (sc *sideChannel) ReadPublishedTables(publicationName string) ([]string, error) {
-	tableNames := make([]string, 0)
+func (sc *sideChannelImpl) readPublishedTables(publicationName string) ([]systemcatalog.SystemEntity, error) {
+	systemEntities := make([]systemcatalog.SystemEntity, 0)
 	if err := sc.newSession(time.Second*20, func(session *session) error {
 		return session.queryFunc(func(row pgx.Row) error {
 			var schemaName, tableName string
 			if err := row.Scan(&schemaName, &tableName); err != nil {
 				return err
 			}
-			tableNames = append(tableNames, systemcatalog.MakeRelationKey(schemaName, tableName))
+			systemEntities = append(systemEntities, systemcatalog.NewSystemEntity(schemaName, tableName))
 			return nil
 		}, existingPublicationPublishedTablesQuery, publicationName)
 	}); err != nil {
 		return nil, err
 	}
-	return tableNames, nil
+	return systemEntities, nil
 }
 
-func (sc *sideChannel) readHypertableSchema(
+func (sc *sideChannelImpl) readHypertableSchema0(
 	session *session, hypertable *systemcatalog.Hypertable,
 	cb func(hypertable *systemcatalog.Hypertable, columns []systemcatalog.Column) bool) error {
 
@@ -386,7 +442,7 @@ func (sc *sideChannel) readHypertableSchema(
 		column := systemcatalog.NewColumn(name, oid, string(dataType), nullable, primaryKey, defaultValue)
 		columns = append(columns, column)
 		return nil
-	}, initialTableSchemaQuery, hypertable.SchemaName(), hypertable.HypertableName()); err != nil {
+	}, initialTableSchemaQuery, hypertable.SchemaName(), hypertable.TableName()); err != nil {
 		return errors.Wrap(err, 0)
 	}
 
@@ -397,7 +453,21 @@ func (sc *sideChannel) readHypertableSchema(
 	return nil
 }
 
-func (sc *sideChannel) newSession(timeout time.Duration, fn func(session *session) error) error {
+func (sc *sideChannelImpl) entitiesToTableList(entities []systemcatalog.SystemEntity) string {
+	if len(entities) == 1 {
+		return entities[0].CanonicalName()
+	}
+
+	canonicalEntityNames := make([]string, len(entities))
+	for _, entity := range entities {
+		canonicalEntityName := entity.CanonicalName()
+		canonicalEntityNames = append(canonicalEntityNames, canonicalEntityName)
+	}
+
+	return strings.Join(canonicalEntityNames, ",")
+}
+
+func (sc *sideChannelImpl) newSession(timeout time.Duration, fn func(session *session) error) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
