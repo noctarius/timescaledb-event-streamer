@@ -9,7 +9,6 @@ issues:
         - dupl
     - path: tests/
       linters:
-        - errcheck
         - dupl
 run:
   timeout: 5m
