@@ -123,8 +123,10 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 		if rc.createdPublication {
 			if err := rc.replicationContext.DropPublication(); err != nil {
 				logger.Errorf("shutdown failed (drop publication): %+v", err)
-
 			}
+		}
+		if err := connection.Close(context.Background()); err != nil {
+			logger.Warnf("failed to close replication connection: %+v", err)
 		}
 		rc.shutdownAwaiter.SignalDone()
 	}()
