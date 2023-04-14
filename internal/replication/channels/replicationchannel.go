@@ -73,15 +73,21 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 		identification.XLogPos, "DBName:", identification.DBName)
 
 	pluginArguments := []string{
-		"proto_version '2'", // FIXME: Add server version check! <=PG13==1, PG14+==2
+
 		fmt.Sprintf("publication_names '%s'", publicationName),
 	}
 
 	if replicationContext.IsPG14GE() {
 		pluginArguments = append(
 			pluginArguments,
+			"proto_version '2'",
 			"messages 'true'",
 			"binary 'true'",
+		)
+	} else {
+		pluginArguments = append(
+			pluginArguments,
+			"proto_version '1'",
 		)
 	}
 
