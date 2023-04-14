@@ -136,6 +136,11 @@ func (sc *sideChannelImpl) existsPublication(publicationName string) (found bool
 func (sc *sideChannelImpl) dropPublication(publicationName string) error {
 	return sc.newSession(time.Second*10, func(session *session) error {
 		_, err := session.exec(dropPublication, publicationName)
+		if e, ok := err.(*pgconn.PgError); ok {
+			if e.Code == "42704" {
+				return nil
+			}
+		}
 		return err
 	})
 }
