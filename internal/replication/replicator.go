@@ -7,6 +7,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/logicalreplicationresolver"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/transactional"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
+	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
 	intsystemcatalog "github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/snapshotting"
@@ -15,12 +16,14 @@ import (
 )
 
 type Replicator struct {
+	logger       *logging.Logger
 	config       *sysconfig.SystemConfig
 	shutdownTask func() error
 }
 
 func NewReplicator(config *sysconfig.SystemConfig) *Replicator {
 	return &Replicator{
+		logger: logging.NewLogger("Replicator"),
 		config: config,
 	}
 }
@@ -31,24 +34,32 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 		r.config.Config, r.config.PgxConfig, r.config.NamingStrategyProvider,
 	)
 	if err != nil {
-		return cli.NewExitError("failed to initialize replication context", 17)
+		return supporting.AdaptErrorWithMessage(err, "failed to initialize replication context", 17)
 	}
 
-	// Create replication channel and internal replication handler
-	replicationChannel := channels.NewReplicationChannel(r.config.PgxConfig, replicationContext)
-
-	// Read version information
+	// Check version information
 	if !replicationContext.IsMinimumPostgresVersion() {
 		return cli.NewExitError("timescaledb-event-streamer requires PostgreSQL 14 or later", 11)
 	}
-
 	if !replicationContext.IsMinimumTimescaleVersion() {
 		return cli.NewExitError("timescaledb-event-streamer requires TimescaleDB 2.10 or later", 12)
 	}
 
+	// Check WAL replication level
 	if !replicationContext.IsLogicalReplicationEnabled() {
 		return cli.NewExitError("timescaledb-event-streamer requires wal_level set to 'logical'", 16)
 	}
+
+	// Log system information
+	r.logger.Infof("Discovered System Information:")
+	r.logger.Infof("  * PostgreSQL version %s", replicationContext.PostgresVersion().String())
+	r.logger.Infof("  * TimescaleDB version %s", replicationContext.TimescaleVersion().String())
+	r.logger.Infof("  * PostgreSQL System Identity %s", replicationContext.SystemId())
+	r.logger.Infof("  * PostgreSQL Timeline %d", replicationContext.Timeline())
+	r.logger.Infof("  * PostgreSQL Database %s", replicationContext.DatabaseName())
+
+	// Create replication channel and internal replication handler
+	replicationChannel := channels.NewReplicationChannel(r.config.PgxConfig, replicationContext)
 
 	// Instantiate the snapshotter
 	snapshotter := snapshotting.NewSnapshotter(32, replicationContext)

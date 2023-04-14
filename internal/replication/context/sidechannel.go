@@ -171,16 +171,20 @@ func (sc *sideChannelImpl) getPostgresVersion() (pgVersion version.PostgresVersi
 	return
 }
 
-func (sc *sideChannelImpl) getTimescaleDBVersion() (tsdbVersion version.TimescaleVersion, err error) {
+func (sc *sideChannelImpl) getTimescaleDBVersion() (tsdbVersion version.TimescaleVersion, found bool, err error) {
 	if err = sc.newSession(time.Second*10, func(session *session) error {
 		var v string
 		if err := session.queryRow(timescaledbVersionQuery).Scan(&v); err != nil {
 			return err
 		}
 		tsdbVersion, err = version.ParseTimescaleVersion(v)
+		found = true
 		return nil
 	}); err != nil {
-		return
+		if err == pgx.ErrNoRows {
+			err = nil
+		}
+		return 0, false, err
 	}
 	return
 }

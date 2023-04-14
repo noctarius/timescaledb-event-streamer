@@ -12,6 +12,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/topic/namingstrategy"
 	"github.com/noctarius/timescaledb-event-streamer/spi/version"
+	"github.com/urfave/cli"
 )
 
 type ReplicationContext struct {
@@ -56,9 +57,12 @@ func NewReplicationContext(config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
 		return nil, err
 	}
 
-	tsdbVersion, err := sideChannel.getTimescaleDBVersion()
+	tsdbVersion, found, err := sideChannel.getTimescaleDBVersion()
 	if err != nil {
 		return nil, err
+	}
+	if !found {
+		return nil, cli.NewExitError("TimescaleDB extension not found", 17)
 	}
 
 	databaseName, systemId, timeline, err := sideChannel.getSystemInformation()
@@ -128,6 +132,14 @@ func (rp *ReplicationContext) DatabaseName() string {
 
 func (rp *ReplicationContext) TopicPrefix() string {
 	return rp.topicPrefix
+}
+
+func (rp *ReplicationContext) PostgresVersion() version.PostgresVersion {
+	return rp.pgVersion
+}
+
+func (rp *ReplicationContext) TimescaleVersion() version.TimescaleVersion {
+	return rp.tsdbVersion
 }
 
 func (rp *ReplicationContext) IsMinimumPostgresVersion() bool {

@@ -290,11 +290,11 @@ func initializeSystemCatalog(sc *SystemCatalog) (*SystemCatalog, error) {
 	for _, hypertable := range sc.hypertables {
 		if !hypertable.IsCompressedTable() && sc.IsHypertableSelectedForReplication(hypertable.Id()) {
 			if hypertable.IsContinuousAggregate() {
-				logger.Infof("\t* %s (type: Continuous Aggregate => %s)\n",
+				logger.Infof("  * %s (type: Continuous Aggregate => %s)\n",
 					hypertable.CanonicalContinuousAggregateName(), hypertable.CanonicalName(),
 				)
 			} else {
-				logger.Infof("\t* %s (type: Hypertable)\n", hypertable.CanonicalName())
+				logger.Infof("  * %s (type: Hypertable)\n", hypertable.CanonicalName())
 			}
 			//atLeastOneHypertableSelected = true
 		}
