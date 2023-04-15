@@ -8,8 +8,6 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-var redpandaLogger = logging.NewLogger("testcontainers-redpanda")
-
 func SetupRedPandaContainer() (testcontainers.Container, []string, error) {
 	containerRequest := testcontainers.ContainerRequest{
 		Image:        "redpandadata/redpanda:v23.1.4",
@@ -18,12 +16,21 @@ func SetupRedPandaContainer() (testcontainers.Container, []string, error) {
 		WaitingFor:   wait.ForLog("Initialized cluster_id to"),
 	}
 
+	logger, err := logging.NewLogger("testcontainers")
+	if err != nil {
+		return nil, nil, err
+	}
+	redpandaLogger, err := logging.NewLogger("testcontainers-redpanda")
+	if err != nil {
+		return nil, nil, err
+	}
+
 	container, err := testcontainers.GenericContainer(
 		context.Background(),
 		testcontainers.GenericContainerRequest{
 			ContainerRequest: containerRequest,
 			Started:          true,
-			Logger:           logging.NewLogger("testcontainers"),
+			Logger:           logger,
 		},
 	)
 	if err != nil {

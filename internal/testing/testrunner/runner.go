@@ -112,7 +112,6 @@ type TestRunner struct {
 	replPgxConfig *pgx.ConnConfig
 	logger        *logging.Logger
 
-	withDebug  bool
 	withCaller bool
 }
 
@@ -139,11 +138,30 @@ func WithTearDown(fn func(context Context) error) testConfigurator {
 }
 
 func (tr *TestRunner) SetupSuite() {
-	tr.logger = logging.NewLogger("TestRunner")
-	tr.withDebug = logging.WithDebug
 	tr.withCaller = logging.WithCaller
-	logging.WithDebug = true
-	//logging.WithCaller = true
+	logging.WithCaller = true
+
+	c := &spiconfig.Config{
+		Logging: spiconfig.LoggerConfig{
+			Level: "debug",
+			Outputs: spiconfig.LoggerOutputConfig{
+				Console: spiconfig.LoggerConsoleConfig{
+					Enabled: supporting.AddrOf(true),
+				},
+			},
+		},
+	}
+
+	if err := logging.InitializeLogging(c, false); err != nil {
+		tr.T().Error(err)
+	}
+
+	logger, err := logging.NewLogger("TestRunner")
+	if err != nil {
+		tr.T().Error(err)
+	}
+
+	tr.logger = logger
 
 	container, configProvider, err := containers.SetupTimescaleContainer()
 	if err != nil {
@@ -168,7 +186,6 @@ func (tr *TestRunner) TearDownSuite() {
 	if tr.container != nil {
 		tr.container.Terminate(context.Background())
 	}
-	logging.WithDebug = tr.withDebug
 	logging.WithCaller = tr.withCaller
 }
 

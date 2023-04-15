@@ -13,6 +13,10 @@ var validCharacters = []string{
 	"n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z",
 }
 
+func AddrOf[T any](value T) *T {
+	return &value
+}
+
 func IndexOfWithMatcher[I comparable](collection []I, matcher func(other I) bool) int {
 	for i, candidate := range collection {
 		if matcher(candidate) {

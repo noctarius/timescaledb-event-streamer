@@ -9,12 +9,14 @@ require (
 	github.com/docker/docker v23.0.2+incompatible
 	github.com/go-errors/errors v1.3.0
 	github.com/go-redis/redis v6.15.9+incompatible
+	github.com/gookit/color v1.5.3
+	github.com/gookit/slog v0.5.1
 	github.com/hashicorp/go-uuid v1.0.3
+	github.com/inhies/go-bytesize v0.0.0-20220417184213-4913239db9cf
 	github.com/jackc/pglogrepl v0.0.0-20221125161640-1e972958ba03
 	github.com/jackc/pgx/v5 v5.3.1
 	github.com/nats-io/nats.go v1.24.0
 	github.com/reugn/async v0.5.0
-	github.com/sirupsen/logrus v1.9.0
 	github.com/stretchr/testify v1.8.2
 	github.com/testcontainers/testcontainers-go v0.19.0
 	github.com/testcontainers/testcontainers-go/modules/redis v0.0.0-20230403055243-8eb86067dfb4
@@ -39,6 +41,8 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/uuid v1.3.0 // indirect
+	github.com/gookit/goutil v0.6.8 // indirect
+	github.com/gookit/gsr v0.0.8 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/jackc/pgio v1.0.0 // indirect
@@ -70,6 +74,9 @@ require (
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
 	github.com/rogpeppe/go-internal v1.9.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
+	github.com/sirupsen/logrus v1.9.0 // indirect
+	github.com/valyala/bytebufferpool v1.0.0 // indirect
+	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	golang.org/x/crypto v0.6.0 // indirect
 	golang.org/x/mod v0.9.0 // indirect
 	golang.org/x/net v0.8.0 // indirect

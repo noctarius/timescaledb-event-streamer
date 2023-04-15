@@ -10,7 +10,7 @@ import (
 )
 
 func NewResolver(config *sysconfig.SystemConfig, replicationContext *context.ReplicationContext,
-	systemCatalog *systemcatalog.SystemCatalog) eventhandlers.BaseReplicationEventHandler {
+	systemCatalog *systemcatalog.SystemCatalog) (eventhandlers.BaseReplicationEventHandler, error) {
 
 	enabled := spiconfig.GetOrDefault(
 		config.Config, spiconfig.PropertyPostgresqlTxwindowEnabled, true,

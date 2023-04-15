@@ -18,12 +18,17 @@ func SetupNatsContainer() (testcontainers.Container, string, error) {
 		WaitingFor:   wait.NewLogStrategy("Server is ready"),
 	}
 
+	logger, err := logging.NewLogger("testcontainers")
+	if err != nil {
+		return nil, "", err
+	}
+
 	container, err := testcontainers.GenericContainer(
 		context.Background(),
 		testcontainers.GenericContainerRequest{
 			ContainerRequest: containerRequest,
 			Started:          true,
-			Logger:           logging.NewLogger("testcontainers"),
+			Logger:           logger,
 		},
 	)
 	if err != nil {

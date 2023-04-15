@@ -20,8 +20,8 @@ import (
 var (
 	configurationFile string
 	verbose           bool
-	debug             bool
 	withCaller        bool
+	logToStdErr       bool
 )
 
 func main() {
@@ -46,9 +46,9 @@ func main() {
 				Destination: &withCaller,
 			},
 			&cli.BoolFlag{
-				Name:        "debug,d",
-				Usage:       "Show debug output",
-				Destination: &withCaller,
+				Name:        "log-to-stderr",
+				Usage:       "Redirects logging output to stderr, necessary when using StdOut as the sink",
+				Destination: &logToStdErr,
 			},
 		},
 		Action: start,
@@ -66,7 +66,6 @@ func start(*cli.Context) error {
 
 	logging.WithCaller = withCaller
 	logging.WithVerbose = verbose
-	logging.WithDebug = debug
 
 	config := &spiconfig.Config{}
 
@@ -84,6 +83,10 @@ func start(*cli.Context) error {
 		if err := toml.Unmarshal(b, &config); err != nil {
 			return cli.NewExitError(fmt.Sprintf("Configuration file couldn't be decoded: %v\n", err), 5)
 		}
+	}
+
+	if err := logging.InitializeLogging(config, logToStdErr); err != nil {
+		return err
 	}
 
 	if spiconfig.GetOrDefault(config, spiconfig.PropertyPostgresqlConnection, "") == "" {

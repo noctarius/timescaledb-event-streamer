@@ -22,8 +22,6 @@ import (
 	"time"
 )
 
-var natsLogger = logging.NewLogger("Test_Nats_Sink")
-
 type NatsIntegrationTestSuite struct {
 	testrunner.TestRunner
 }
@@ -34,6 +32,11 @@ func TestNatsIntegrationTestSuite(t *testing.T) {
 
 func (nits *NatsIntegrationTestSuite) Test_Nats_Sink() {
 	topicPrefix := supporting.RandomTextString(10)
+
+	natsLogger, err := logging.NewLogger("Test_Nats_Sink")
+	if err != nil {
+		nits.T().Error(err)
+	}
 
 	var natsUrl string
 	var natsContainer testcontainers.Container

@@ -8,10 +8,13 @@ import (
 	"github.com/testcontainers/testcontainers-go/modules/redis"
 )
 
-var redisLogger = logging.NewLogger("testcontainers-redis")
-
 func SetupRedisContainer() (testcontainers.Container, string, error) {
 	container, err := redis.StartContainer(context.Background())
+	if err != nil {
+		return nil, "", err
+	}
+
+	redisLogger, err := logging.NewLogger("testcontainers-redis")
 	if err != nil {
 		return nil, "", err
 	}

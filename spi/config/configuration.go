@@ -176,6 +176,36 @@ type Config struct {
 	Sink        SinkConfig        `toml:"sink"`
 	Topic       TopicConfig       `toml:"topic"`
 	TimescaleDB TimescaleDBConfig `toml:"timescaledb"`
+	Logging     LoggerConfig      `toml:"logging"`
+}
+
+type LoggerConfig struct {
+	Level   string                     `toml:"level"`
+	Outputs LoggerOutputConfig         `toml:"output"`
+	Loggers map[string]SubLoggerConfig `toml:"loggers"`
+}
+
+type LoggerOutputConfig struct {
+	Console LoggerConsoleConfig `toml:"console"`
+	File    LoggerFileConfig    `toml:"file"`
+}
+
+type SubLoggerConfig struct {
+	Level   *string            `toml:"level"`
+	Outputs LoggerOutputConfig `toml:"output"`
+}
+
+type LoggerConsoleConfig struct {
+	Enabled *bool `toml:"enabled"`
+}
+
+type LoggerFileConfig struct {
+	Enabled     *bool          `toml:"enabled"`
+	Path        string         `toml:"path"`
+	Rotate      *bool          `toml:"rotate"`
+	MaxSize     *string        `toml:"maxsize"`
+	MaxDuration *time.Duration `toml:"maxduration"`
+	Compress    bool           `toml:"compress"`
 }
 
 func GetOrDefault[V any](config *Config, canonicalProperty string, defaultValue V) V {

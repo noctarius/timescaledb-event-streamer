@@ -43,6 +43,11 @@ func NewSystemCatalog(config *sysconfig.SystemConfig,
 		return nil, err
 	}
 
+	logger, err := logging.NewLogger("SystemCatalog")
+	if err != nil {
+		return nil, err
+	}
+
 	return initializeSystemCatalog(&SystemCatalog{
 		hypertables:           make(map[int32]*systemcatalog.Hypertable, 0),
 		chunks:                make(map[int32]*systemcatalog.Chunk, 0),
@@ -58,7 +63,7 @@ func NewSystemCatalog(config *sysconfig.SystemConfig,
 		replicationContext: replicationContext,
 		replicationFilter:  replicationFilter,
 		snapshotter:        snapshotter,
-		logger:             logging.NewLogger("SystemCatalog"),
+		logger:             logger,
 	})
 }
 
@@ -289,11 +294,11 @@ func initializeSystemCatalog(sc *SystemCatalog) (*SystemCatalog, error) {
 	for _, hypertable := range sc.hypertables {
 		if !hypertable.IsCompressedTable() && sc.IsHypertableSelectedForReplication(hypertable.Id()) {
 			if hypertable.IsContinuousAggregate() {
-				sc.logger.Infof("  * %s (type: Continuous Aggregate => %s)\n",
+				sc.logger.Infof("  * %s (type: Continuous Aggregate => %s)",
 					hypertable.CanonicalContinuousAggregateName(), hypertable.CanonicalName(),
 				)
 			} else {
-				sc.logger.Infof("  * %s (type: Hypertable)\n", hypertable.CanonicalName())
+				sc.logger.Infof("  * %s (type: Hypertable)", hypertable.CanonicalName())
 			}
 		}
 	}

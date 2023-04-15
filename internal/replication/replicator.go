@@ -25,11 +25,16 @@ type Replicator struct {
 }
 
 // NewReplicator instantiates a new instance of the Replicator.
-func NewReplicator(config *sysconfig.SystemConfig) *Replicator {
-	return &Replicator{
-		logger: logging.NewLogger("Replicator"),
-		config: config,
+func NewReplicator(config *sysconfig.SystemConfig) (*Replicator, error) {
+	logger, err := logging.NewLogger("Replicator")
+	if err != nil {
+		return nil, err
 	}
+
+	return &Replicator{
+		logger: logger,
+		config: config,
+	}, nil
 }
 
 // StartReplication initiates the actual replication process
@@ -64,10 +69,16 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 	r.logger.Infof("  * PostgreSQL Database %s", replicationContext.DatabaseName())
 
 	// Create replication channel and internal replication handler
-	replicationChannel := replicationchannel.NewReplicationChannel(r.config.PgxConfig, replicationContext)
+	replicationChannel, err := replicationchannel.NewReplicationChannel(r.config.PgxConfig, replicationContext)
+	if err != nil {
+		return supporting.AdaptError(err, 18)
+	}
 
 	// Instantiate the snapshotter
-	snapshotter := snapshotting.NewSnapshotter(32, replicationContext)
+	snapshotter, err := snapshotting.NewSnapshotter(32, replicationContext)
+	if err != nil {
+		return supporting.AdaptError(err, 19)
+	}
 
 	// Instantiate the transaction monitor, keeping track of transaction boundaries
 	transactionMonitor := transactional.NewTransactionMonitor()
@@ -87,7 +98,10 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 	}
 
 	// Set up the internal transaction tracking and logical replication resolving
-	transactionResolver := logicalreplicationresolver.NewResolver(r.config, replicationContext, systemCatalog)
+	transactionResolver, err := logicalreplicationresolver.NewResolver(r.config, replicationContext, systemCatalog)
+	if err != nil {
+		return supporting.AdaptError(err, 20)
+	}
 
 	// Register event handlers
 	replicationContext.RegisterReplicationEventHandler(transactionMonitor)

@@ -26,8 +26,6 @@ const (
 	replPass       = "repl_user"
 )
 
-var timescaledbLogger = logging.NewLogger("testcontainers-timescaledb")
-
 var initialPublicationFunction = `FAILED TO READ SQL FILE`
 
 func init() {
@@ -78,12 +76,21 @@ func SetupTimescaleContainer() (testcontainers.Container, *ConfigProvider, error
 		},
 	}
 
+	logger, err := logging.NewLogger("testcontainers")
+	if err != nil {
+		return nil, nil, err
+	}
+	timescaledbLogger, err := logging.NewLogger("testcontainers-timescaledb")
+	if err != nil {
+		return nil, nil, err
+	}
+
 	container, err := testcontainers.GenericContainer(
 		context.Background(),
 		testcontainers.GenericContainerRequest{
 			ContainerRequest: containerRequest,
 			Started:          true,
-			Logger:           logging.NewLogger("testcontainers"),
+			Logger:           logger,
 		},
 	)
 	if err != nil {

@@ -30,16 +30,26 @@ type transactionTracker struct {
 
 func newTransactionTracker(timeout time.Duration, maxSize uint, config *sysconfig.SystemConfig,
 	replicationContext *context.ReplicationContext, systemCatalog *systemcatalog.SystemCatalog,
-) eventhandlers.LogicalReplicationEventHandler {
+) (eventhandlers.LogicalReplicationEventHandler, error) {
+
+	logger, err := logging.NewLogger("TransactionTracker")
+	if err != nil {
+		return nil, err
+	}
+
+	resolver, err := newLogicalReplicationResolver(config, replicationContext, systemCatalog)
+	if err != nil {
+		return nil, err
+	}
 
 	return &transactionTracker{
 		timeout:       timeout,
 		maxSize:       maxSize,
 		systemCatalog: systemCatalog,
 		relations:     make(map[uint32]*pgtypes.RelationMessage),
-		logger:        logging.NewLogger("TransactionTracker"),
-		resolver:      newLogicalReplicationResolver(config, replicationContext, systemCatalog),
-	}
+		logger:        logger,
+		resolver:      resolver,
+	}, nil
 }
 
 func (tt *transactionTracker) OnChunkSnapshotStartedEvent(

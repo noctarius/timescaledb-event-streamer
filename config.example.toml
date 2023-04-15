@@ -60,3 +60,8 @@ timescaledb.events.truncate = true
 timescaledb.events.message = false
 timescaledb.events.compression = false
 timescaledb.events.decompression = false
+
+logging.level = 'info'
+logging.outputs.console.enabled = true
+logging.loggers.LogicalReplicationResolver.level = 'debug'
+logging.loggers.LogicalReplicationResolver.outputs.console.enabled = false

@@ -11,8 +11,6 @@ import (
 
 const starterScript = "/usr/sbin/testcontainers_start.sh"
 
-var kafkaLogger = logging.NewLogger("testcontainers-kafka")
-
 func SetupKafkaContainer() (testcontainers.Container, []string, error) {
 	containerRequest := testcontainers.ContainerRequest{
 		Image:        "confluentinc/cp-kafka:7.3.3",
@@ -37,12 +35,21 @@ func SetupKafkaContainer() (testcontainers.Container, []string, error) {
 		Cmd:        []string{"-c", "while [ ! -f " + starterScript + " ]; do sleep 0.1; done; bash " + starterScript},
 	}
 
+	logger, err := logging.NewLogger("testcontainers")
+	if err != nil {
+		return nil, nil, err
+	}
+	kafkaLogger, err := logging.NewLogger("testcontainers-kafka")
+	if err != nil {
+		return nil, nil, err
+	}
+
 	container, err := testcontainers.GenericContainer(
 		context.Background(),
 		testcontainers.GenericContainerRequest{
 			ContainerRequest: containerRequest,
 			Started:          true,
-			Logger:           logging.NewLogger("testcontainers"),
+			Logger:           logger,
 		},
 	)
 	if err != nil {

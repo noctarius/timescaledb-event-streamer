@@ -45,7 +45,10 @@ func NewReplicationContext(config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
 
 	// Instantiate the actual side channel implementation
 	// which handles queries against the database
-	sideChannel := newSideChannel(pgxConfig)
+	sideChannel, err := newSideChannel(pgxConfig)
+	if err != nil {
+		return nil, err
+	}
 
 	namingStrategy, err := namingStrategyProvider(config)
 	if err != nil {

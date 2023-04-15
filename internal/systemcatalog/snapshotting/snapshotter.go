@@ -25,19 +25,24 @@ type Snapshotter struct {
 	logger             *logging.Logger
 }
 
-func NewSnapshotter(partitionCount uint8, replicationContext *context.ReplicationContext) *Snapshotter {
+func NewSnapshotter(partitionCount uint8, replicationContext *context.ReplicationContext) (*Snapshotter, error) {
 	snapshotQueues := make([]chan SnapshotTask, partitionCount)
 	for i := range snapshotQueues {
 		snapshotQueues[i] = make(chan SnapshotTask, 128)
+	}
+
+	logger, err := logging.NewLogger("Snapshotter")
+	if err != nil {
+		return nil, err
 	}
 
 	return &Snapshotter{
 		partitionCount:     uint64(partitionCount),
 		replicationContext: replicationContext,
 		snapshotQueues:     snapshotQueues,
-		logger:             logging.NewLogger("Snapshotter"),
+		logger:             logger,
 		shutdownAwaiter:    supporting.NewMultiShutdownAwaiter(uint(partitionCount)),
-	}
+	}, nil
 }
 
 func (s *Snapshotter) EnqueueSnapshot(task SnapshotTask) error {

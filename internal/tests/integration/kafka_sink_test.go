@@ -22,8 +22,6 @@ import (
 	"time"
 )
 
-var kafkaLogger = logging.NewLogger("Test_Kafka_Sink")
-
 type KafkaIntegrationTestSuite struct {
 	testrunner.TestRunner
 }
@@ -143,6 +141,11 @@ func (k *kafkaConsumer) Cleanup(_ sarama.ConsumerGroupSession) error {
 }
 
 func (k *kafkaConsumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
+	kafkaLogger, err := logging.NewLogger("Test_Kafka_Sink")
+	if err != nil {
+		return err
+	}
+
 	k.ready <- true
 	for {
 		select {

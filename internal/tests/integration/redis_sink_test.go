@@ -22,8 +22,6 @@ import (
 	"time"
 )
 
-var redisLogger = logging.NewLogger("Test_Redis_Sink")
-
 type RedisIntegrationTestSuite struct {
 	testrunner.TestRunner
 }
@@ -34,6 +32,11 @@ func TestRedisIntegrationTestSuite(t *testing.T) {
 
 func (rits *RedisIntegrationTestSuite) Test_Redis_Sink() {
 	topicPrefix := supporting.RandomTextString(10)
+
+	redisLogger, err := logging.NewLogger("Test_Redis_Sink")
+	if err != nil {
+		rits.T().Error(err)
+	}
 
 	var address string
 	var container testcontainers.Container

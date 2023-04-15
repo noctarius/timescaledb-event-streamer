@@ -33,14 +33,19 @@ type logicalReplicationResolver struct {
 }
 
 func newLogicalReplicationResolver(config *sysconfig.SystemConfig, replicationContext *context.ReplicationContext,
-	systemCatalog *systemcatalog.SystemCatalog) *logicalReplicationResolver {
+	systemCatalog *systemcatalog.SystemCatalog) (*logicalReplicationResolver, error) {
+
+	logger, err := logging.NewLogger("LogicalReplicationResolver")
+	if err != nil {
+		return nil, err
+	}
 
 	return &logicalReplicationResolver{
 		replicationContext: replicationContext,
 		systemCatalog:      systemCatalog,
 		relations:          make(map[uint32]*pgtypes.RelationMessage, 0),
 		eventQueues:        make(map[string]*supporting.Queue[func(snapshot pglogrepl.LSN) error], 0),
-		logger:             logging.NewLogger("LogicalReplicationResolver"),
+		logger:             logger,
 
 		genDeleteTombstone:    spiconfig.GetOrDefault(config.Config, spiconfig.PropertySinkTombstone, false),
 		genReadEvent:          spiconfig.GetOrDefault(config.Config, spiconfig.PropertyEventsRead, true),
@@ -51,7 +56,7 @@ func newLogicalReplicationResolver(config *sysconfig.SystemConfig, replicationCo
 		genMessageEvent:       spiconfig.GetOrDefault(config.Config, spiconfig.PropertyEventsMessage, true),
 		genCompressionEvent:   spiconfig.GetOrDefault(config.Config, spiconfig.PropertyEventsCompression, false),
 		genDecompressionEvent: spiconfig.GetOrDefault(config.Config, spiconfig.PropertyEventsDecompression, false),
-	}
+	}, nil
 }
 
 func (l *logicalReplicationResolver) OnChunkSnapshotStartedEvent(

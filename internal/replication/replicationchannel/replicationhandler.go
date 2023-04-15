@@ -26,13 +26,18 @@ type replicationHandler struct {
 	logger             *logging.Logger
 }
 
-func newReplicationHandler(replicationContext *repcontext.ReplicationContext) *replicationHandler {
+func newReplicationHandler(replicationContext *repcontext.ReplicationContext) (*replicationHandler, error) {
+	logger, err := logging.NewLogger("ReplicationHandler")
+	if err != nil {
+		return nil, err
+	}
+
 	return &replicationHandler{
 		replicationContext: replicationContext,
 		relations:          make(map[uint32]*pglogrepl.RelationMessage, 0),
 		shutdownAwaiter:    supporting.NewShutdownAwaiter(),
-		logger:             logging.NewLogger("ReplicationHandler"),
-	}
+		logger:             logger,
+	}, nil
 }
 
 func (rh *replicationHandler) stopReplicationHandler() error {

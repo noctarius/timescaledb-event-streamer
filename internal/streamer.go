@@ -54,8 +54,13 @@ func NewStreamer(config *sysconfig.SystemConfig) (*Streamer, *cli.ExitError) {
 		config.Topic.Prefix = supporting.RandomTextString(20)
 	}
 
+	replicator, err := replication.NewReplicator(config)
+	if err != nil {
+		return nil, supporting.AdaptError(err, 21)
+	}
+
 	return &Streamer{
-		replicator: replication.NewReplicator(config),
+		replicator: replicator,
 	}, nil
 }
 

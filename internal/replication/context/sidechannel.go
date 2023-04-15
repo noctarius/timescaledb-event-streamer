@@ -111,12 +111,16 @@ type sideChannelImpl struct {
 	connConfig *pgx.ConnConfig
 }
 
-func newSideChannel(connConfig *pgx.ConnConfig) *sideChannelImpl {
-	sc := &sideChannelImpl{
-		logger:     logging.NewLogger("SideChannel"),
-		connConfig: connConfig,
+func newSideChannel(connConfig *pgx.ConnConfig) (*sideChannelImpl, error) {
+	logger, err := logging.NewLogger("SideChannel")
+	if err != nil {
+		return nil, err
 	}
-	return sc
+
+	return &sideChannelImpl{
+		logger:     logger,
+		connConfig: connConfig,
+	}, nil
 }
 
 func (sc *sideChannelImpl) createPublication(publicationName string) (success bool, err error) {

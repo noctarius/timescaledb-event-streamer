@@ -28,7 +28,7 @@ type ReplicationChannel struct {
 
 // NewReplicationChannel instantiates a new instance of the ReplicationChannel.
 func NewReplicationChannel(connConfig *pgx.ConnConfig,
-	replicationContext *repcontext.ReplicationContext) *ReplicationChannel {
+	replicationContext *repcontext.ReplicationContext) (*ReplicationChannel, error) {
 
 	connConfig = connConfig.Copy()
 	if connConfig.RuntimeParams == nil {
@@ -36,12 +36,17 @@ func NewReplicationChannel(connConfig *pgx.ConnConfig,
 	}
 	connConfig.RuntimeParams["replication"] = "database"
 
+	logger, err := logging.NewLogger("ReplicationChannel")
+	if err != nil {
+		return nil, err
+	}
+
 	return &ReplicationChannel{
 		connConfig:         &connConfig.Config,
 		replicationContext: replicationContext,
 		shutdownAwaiter:    supporting.NewShutdownAwaiter(),
-		logger:             logging.NewLogger("ReplicationChannel"),
-	}
+		logger:             logger,
+	}, nil
 }
 
 // StopReplicationChannel initiates a clean shutdown of the replication channel
@@ -57,7 +62,11 @@ func (rc *ReplicationChannel) StopReplicationChannel() error {
 func (rc *ReplicationChannel) StartReplicationChannel(
 	replicationContext *repcontext.ReplicationContext, initialTables []systemcatalog.SystemEntity) error {
 
-	replicationHandler := newReplicationHandler(replicationContext)
+	replicationHandler, err := newReplicationHandler(replicationContext)
+	if err != nil {
+		return errors.Wrap(err, 0)
+	}
+
 	connection, err := pgconn.ConnectConfig(context.Background(), rc.connConfig)
 	if err != nil {
 		return errors.Wrap(err, 0)
