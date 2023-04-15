@@ -4,6 +4,7 @@ const (
 	PropertyPostgresqlConnection        = "postgresql.connection"
 	PropertyPostgresqlPassword          = "postgresql.password"
 	PropertyPostgresqlPublicationName   = "postgresql.publication.name"
+	PropertyPostgresqlPublicationCreate = "postgresql.publication.create"
 	PropertyPostgresqlSnapshotBatchsize = "postgresql.snapshot.batchsize"
 	PropertyPostgresqlTxwindowEnabled   = "postgresql.transaction.window.enabled"
 	PropertyPostgresqlTxwindowTimeout   = "postgresql.transaction.window.timeout"

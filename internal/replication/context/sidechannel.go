@@ -107,25 +107,30 @@ const postgresqlVersionQuery = `SHOW SERVER_VERSION`
 const walLevelQuery = `SHOW WAL_LEVEL`
 
 type sideChannelImpl struct {
-	logger     *logging.Logger
-	connConfig *pgx.ConnConfig
+	logger             *logging.Logger
+	replicationContext *ReplicationContext
 }
 
-func newSideChannel(connConfig *pgx.ConnConfig) (*sideChannelImpl, error) {
+func newSideChannel(replicationContext *ReplicationContext) (*sideChannelImpl, error) {
 	logger, err := logging.NewLogger("SideChannel")
 	if err != nil {
 		return nil, err
 	}
 
 	return &sideChannelImpl{
-		logger:     logger,
-		connConfig: connConfig,
+		logger:             logger,
+		replicationContext: replicationContext,
 	}, nil
 }
 
 func (sc *sideChannelImpl) createPublication(publicationName string) (success bool, err error) {
 	err = sc.newSession(time.Second*10, func(session *session) error {
-		if err := session.queryRow(createPublication, publicationName, sc.connConfig.User).Scan(&success); err != nil {
+		err = session.queryRow(
+			createPublication,
+			publicationName,
+			sc.replicationContext.DatabaseUsername(),
+		).Scan(&success)
+		if err != nil {
 			return err
 		}
 		sc.logger.Infof("Created publication %s", publicationName)
@@ -222,9 +227,9 @@ func (sc *sideChannelImpl) readHypertables(cb func(hypertable *systemcatalog.Hyp
 				return errors.Wrap(err, 0)
 			}
 
-			hypertable := systemcatalog.NewHypertable(id, sc.connConfig.Database, schemaName, hypertableName,
-				associatedSchemaName, associatedTablePrefix, compressedHypertableId, compressionState,
-				distributed, viewSchema, viewName)
+			hypertable := systemcatalog.NewHypertable(id, sc.replicationContext.DatabaseName(), schemaName,
+				hypertableName, associatedSchemaName, associatedTablePrefix, compressedHypertableId,
+				compressionState, distributed, viewSchema, viewName)
 
 			return cb(hypertable)
 		}, initialHypertableQuery)
@@ -490,7 +495,7 @@ func (sc *sideChannelImpl) newSession(timeout time.Duration, fn func(session *se
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	connection, err := pgx.ConnectConfig(ctx, sc.connConfig)
+	connection, err := sc.replicationContext.NewSideChannelConnection(ctx)
 	if err != nil {
 		return fmt.Errorf("unable to connect to database: %v", err)
 	}

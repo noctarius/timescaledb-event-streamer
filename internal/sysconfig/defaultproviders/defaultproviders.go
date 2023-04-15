@@ -11,7 +11,7 @@ import (
 )
 
 type EventEmitterProvider = func(
-	config *spiconfig.Config, replicationContext *context.ReplicationContext, sinkProvider sink.Provider,
+	config *spiconfig.Config, replicationContext *context.ReplicationContext, sink sink.Sink,
 	transactionMonitor *transactional.TransactionMonitor) (*eventemitting.EventEmitter, error)
 
 func DefaultSinkProvider(config *spiconfig.Config) (sink.Sink, error) {
@@ -25,18 +25,13 @@ func DefaultNamingStrategyProvider(config *spiconfig.Config) (namingstrategy.Nam
 }
 
 func DefaultEventEmitterProvider(
-	config *spiconfig.Config, replicationContext *context.ReplicationContext, sinkProvider sink.Provider,
+	config *spiconfig.Config, replicationContext *context.ReplicationContext, sink sink.Sink,
 	transactionMonitor *transactional.TransactionMonitor) (*eventemitting.EventEmitter, error) {
-
-	s, err := sinkProvider(config)
-	if err != nil {
-		return nil, err
-	}
 
 	filters, err := eventfiltering.NewEventFilter(config.Sink.Filters)
 	if err != nil {
 		return nil, err
 	}
 
-	return eventemitting.NewEventEmitter(replicationContext, transactionMonitor, s, filters), nil
+	return eventemitting.NewEventEmitter(replicationContext, transactionMonitor, sink, filters), nil
 }

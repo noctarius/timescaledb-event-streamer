@@ -12,8 +12,8 @@ type hypertableDecomposerCallback = func(
 	id int32, schemaName, hypertableName, associatedSchemaName, associatedTablePrefix string,
 	compressedHypertableId *int32, compressionState int16, distributed bool) error
 
-type chunkDecomposerCallback = func(
-	id, hypertableId int32, schemaName, tableName string, dropped bool, status int32, compressedChunkId *int32) error
+type chunkDecomposerCallback = func(id, hypertableId int32, schemaName,
+	tableName string, dropped bool, status int32, compressedChunkId *int32) error
 
 type systemCatalogReplicationEventHandler struct {
 	systemCatalog *SystemCatalog
@@ -58,8 +58,8 @@ func (s *systemCatalogReplicationEventHandler) OnHypertableAddedEvent(_ uint32, 
 				}
 			}
 
-			h := systemcatalog.NewHypertable(id, s.systemCatalog.databaseName, schemaName, hypertableName,
-				associatedSchemaName, associatedTablePrefix, compressedHypertableId, compressionState,
+			h := systemcatalog.NewHypertable(id, s.systemCatalog.replicationContext.DatabaseName(), schemaName,
+				hypertableName, associatedSchemaName, associatedTablePrefix, compressedHypertableId, compressionState,
 				distributed, viewSchema, viewName)
 
 			if err := s.systemCatalog.RegisterHypertable(h); err != nil {
@@ -178,8 +178,8 @@ func (s *systemCatalogReplicationEventHandler) OnChunkDeletedEvent(_ uint32, old
 	return nil
 }
 
-func (s *systemCatalogReplicationEventHandler) decomposeHypertable(values map[string]any,
-	cb hypertableDecomposerCallback) error {
+func (s *systemCatalogReplicationEventHandler) decomposeHypertable(
+	values map[string]any, cb hypertableDecomposerCallback) error {
 
 	id := values["id"].(int32)
 	schemaName := values["schema_name"].(string)
@@ -200,8 +200,8 @@ func (s *systemCatalogReplicationEventHandler) decomposeHypertable(values map[st
 	)
 }
 
-func (s *systemCatalogReplicationEventHandler) decomposeChunk(values map[string]any,
-	cb chunkDecomposerCallback) error {
+func (s *systemCatalogReplicationEventHandler) decomposeChunk(
+	values map[string]any, cb chunkDecomposerCallback) error {
 
 	id := values["id"].(int32)
 	hypertableId := values["hypertable_id"].(int32)

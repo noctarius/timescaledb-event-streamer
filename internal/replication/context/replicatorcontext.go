@@ -1,8 +1,10 @@
 package context
 
 import (
+	"context"
 	"github.com/jackc/pglogrepl"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	intschema "github.com/noctarius/timescaledb-event-streamer/internal/eventing/schema"
 	intversion "github.com/noctarius/timescaledb-event-streamer/internal/version"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
@@ -16,6 +18,8 @@ import (
 )
 
 type ReplicationContext struct {
+	pgxConfig *pgx.ConnConfig
+
 	sideChannel    *sideChannelImpl
 	dispatcher     *dispatcher
 	schemaRegistry schema.Registry
@@ -35,7 +39,8 @@ type ReplicationContext struct {
 }
 
 func NewReplicationContext(config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
-	namingStrategyProvider namingstrategy.Provider) (*ReplicationContext, error) {
+	namingStrategy namingstrategy.NamingStrategy) (*ReplicationContext, error) {
+
 	publicationName := spiconfig.GetOrDefault(
 		config, spiconfig.PropertyPostgresqlPublicationName, "",
 	)
@@ -43,22 +48,32 @@ func NewReplicationContext(config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
 		config, spiconfig.PropertyPostgresqlSnapshotBatchsize, 1000,
 	)
 
-	// Instantiate the actual side channel implementation
-	// which handles queries against the database
-	sideChannel, err := newSideChannel(pgxConfig)
-	if err != nil {
-		return nil, err
+	// Build the replication context to be passed along in terms of
+	// potential interface implementations to break up internal dependencies
+	replicationContext := &ReplicationContext{
+		pgxConfig: pgxConfig,
+
+		namingStrategy: namingStrategy,
+		dispatcher:     newDispatcher(),
+
+		snapshotBatchSize: snapshotBatchSize,
+		publicationName:   publicationName,
+		topicPrefix:       config.Topic.Prefix,
 	}
 
-	namingStrategy, err := namingStrategyProvider(config)
+	// Instantiate the actual side channel implementation
+	// which handles queries against the database
+	sideChannel, err := newSideChannel(replicationContext)
 	if err != nil {
 		return nil, err
 	}
+	replicationContext.sideChannel = sideChannel
 
 	pgVersion, err := sideChannel.getPostgresVersion()
 	if err != nil {
 		return nil, err
 	}
+	replicationContext.pgVersion = pgVersion
 
 	tsdbVersion, found, err := sideChannel.getTimescaleDBVersion()
 	if err != nil {
@@ -67,35 +82,21 @@ func NewReplicationContext(config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
 	if !found {
 		return nil, cli.NewExitError("TimescaleDB extension not found", 17)
 	}
+	replicationContext.tsdbVersion = tsdbVersion
 
 	databaseName, systemId, timeline, err := sideChannel.getSystemInformation()
 	if err != nil {
 		return nil, err
 	}
+	replicationContext.databaseName = databaseName
+	replicationContext.systemId = systemId
+	replicationContext.timeline = timeline
 
 	walLevel, err := sideChannel.getWalLevel()
 	if err != nil {
 		return nil, err
 	}
-
-	// Build the replication context to be passed along in terms of
-	// potential interface implementations to break up internal dependencies
-	replicationContext := &ReplicationContext{
-		sideChannel:    sideChannel,
-		dispatcher:     newDispatcher(),
-		namingStrategy: namingStrategy,
-
-		snapshotBatchSize: snapshotBatchSize,
-		publicationName:   publicationName,
-		topicPrefix:       config.Topic.Prefix,
-
-		timeline:     timeline,
-		systemId:     systemId,
-		databaseName: databaseName,
-		walLevel:     walLevel,
-		pgVersion:    pgVersion,
-		tsdbVersion:  tsdbVersion,
-	}
+	replicationContext.walLevel = walLevel
 
 	// Instantiate the schema registry, keeping track of hypertable schemas
 	// for the schema generation on event creation
@@ -111,6 +112,23 @@ func (rp *ReplicationContext) StartReplicationContext() error {
 
 func (rp *ReplicationContext) StopReplicationContext() error {
 	return rp.dispatcher.StopDispatcher()
+}
+
+func (rp *ReplicationContext) NewReplicationChannelConnection(ctx context.Context) (*pgconn.PgConn, error) {
+	connConfig := rp.pgxConfig.Config.Copy()
+	if connConfig.RuntimeParams == nil {
+		connConfig.RuntimeParams = make(map[string]string)
+	}
+	connConfig.RuntimeParams["replication"] = "database"
+	return pgconn.ConnectConfig(ctx, connConfig)
+}
+
+func (rp *ReplicationContext) NewSideChannelConnection(ctx context.Context) (*pgx.Conn, error) {
+	return pgx.ConnectConfig(ctx, rp.pgxConfig)
+}
+
+func (rp *ReplicationContext) DatabaseUsername() string {
+	return rp.pgxConfig.User
 }
 
 func (rp *ReplicationContext) PublicationName() string {

@@ -5,8 +5,8 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
-	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog"
+	"github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	spicatalog "github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
@@ -28,7 +28,7 @@ type transactionTracker struct {
 	logger             *logging.Logger
 }
 
-func newTransactionTracker(timeout time.Duration, maxSize uint, config *sysconfig.SystemConfig,
+func newTransactionTracker(timeout time.Duration, maxSize uint, config *config.Config,
 	replicationContext *context.ReplicationContext, systemCatalog *systemcatalog.SystemCatalog,
 ) (eventhandlers.LogicalReplicationEventHandler, error) {
 

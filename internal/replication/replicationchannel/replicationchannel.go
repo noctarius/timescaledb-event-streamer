@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/go-errors/errors"
 	"github.com/jackc/pglogrepl"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	repcontext "github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
@@ -18,7 +17,6 @@ const outputPlugin = "pgoutput"
 // ReplicationChannel represents the database connection and handler loop
 // for the logical replication decoding subscriber.
 type ReplicationChannel struct {
-	connConfig             *pgconn.Config
 	replicationContext     *repcontext.ReplicationContext
 	createdPublication     bool
 	createdReplicationSlot bool
@@ -27,22 +25,13 @@ type ReplicationChannel struct {
 }
 
 // NewReplicationChannel instantiates a new instance of the ReplicationChannel.
-func NewReplicationChannel(connConfig *pgx.ConnConfig,
-	replicationContext *repcontext.ReplicationContext) (*ReplicationChannel, error) {
-
-	connConfig = connConfig.Copy()
-	if connConfig.RuntimeParams == nil {
-		connConfig.RuntimeParams = make(map[string]string)
-	}
-	connConfig.RuntimeParams["replication"] = "database"
-
+func NewReplicationChannel(replicationContext *repcontext.ReplicationContext) (*ReplicationChannel, error) {
 	logger, err := logging.NewLogger("ReplicationChannel")
 	if err != nil {
 		return nil, err
 	}
 
 	return &ReplicationChannel{
-		connConfig:         &connConfig.Config,
 		replicationContext: replicationContext,
 		shutdownAwaiter:    supporting.NewShutdownAwaiter(),
 		logger:             logger,
@@ -67,7 +56,7 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 		return errors.Wrap(err, 0)
 	}
 
-	connection, err := pgconn.ConnectConfig(context.Background(), rc.connConfig)
+	connection, err := replicationContext.NewReplicationChannelConnection(context.Background())
 	if err != nil {
 		return errors.Wrap(err, 0)
 	}

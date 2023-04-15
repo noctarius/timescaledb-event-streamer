@@ -3,7 +3,7 @@ package replication
 import (
 	stderrors "errors"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
-	"github.com/noctarius/timescaledb-event-streamer/internal/replication/logicalreplicationresolver"
+	logrepresolver "github.com/noctarius/timescaledb-event-streamer/internal/replication/logicalreplicationresolver"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationchannel"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/transactional"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
@@ -39,10 +39,13 @@ func NewReplicator(config *sysconfig.SystemConfig) (*Replicator, error) {
 
 // StartReplication initiates the actual replication process
 func (r *Replicator) StartReplication() *cli.ExitError {
+	namingStrategy, err := r.config.NamingStrategyProvider(r.config.Config)
+	if err != nil {
+		return supporting.AdaptErrorWithMessage(err, "failed to instantiate naming strategy", 21)
+	}
+
 	// Create the side channels and replication context
-	replicationContext, err := context.NewReplicationContext(
-		r.config.Config, r.config.PgxConfig, r.config.NamingStrategyProvider,
-	)
+	replicationContext, err := context.NewReplicationContext(r.config.Config, r.config.PgxConfig, namingStrategy)
 	if err != nil {
 		return supporting.AdaptErrorWithMessage(err, "failed to initialize replication context", 17)
 	}
@@ -69,7 +72,7 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 	r.logger.Infof("  * PostgreSQL Database %s", replicationContext.DatabaseName())
 
 	// Create replication channel and internal replication handler
-	replicationChannel, err := replicationchannel.NewReplicationChannel(r.config.PgxConfig, replicationContext)
+	replicationChannel, err := replicationchannel.NewReplicationChannel(replicationContext)
 	if err != nil {
 		return supporting.AdaptError(err, 18)
 	}
@@ -83,22 +86,26 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 	// Instantiate the transaction monitor, keeping track of transaction boundaries
 	transactionMonitor := transactional.NewTransactionMonitor()
 
+	// Instantiate the sink type
+	sink, err := r.config.SinkProvider(r.config.Config)
+	if err != nil {
+		return supporting.AdaptErrorWithMessage(err, "failed to instantiate sink", 22)
+	}
+
 	// Instantiate the change event emitter
-	eventEmitter, err := r.config.EventEmitterProvider(
-		r.config.Config, replicationContext, r.config.SinkProvider, transactionMonitor,
-	)
+	eventEmitter, err := r.config.EventEmitterProvider(r.config.Config, replicationContext, sink, transactionMonitor)
 	if err != nil {
 		return supporting.AdaptError(err, 14)
 	}
 
 	// Set up the system catalog (replicating the TimescaleDB internal representation)
-	systemCatalog, err := intsystemcatalog.NewSystemCatalog(r.config, replicationContext, snapshotter)
+	systemCatalog, err := intsystemcatalog.NewSystemCatalog(r.config.Config, replicationContext, snapshotter)
 	if err != nil {
 		return supporting.AdaptError(err, 15)
 	}
 
 	// Set up the internal transaction tracking and logical replication resolving
-	transactionResolver, err := logicalreplicationresolver.NewResolver(r.config, replicationContext, systemCatalog)
+	transactionResolver, err := logrepresolver.NewResolver(r.config.Config, replicationContext, systemCatalog)
 	if err != nil {
 		return supporting.AdaptError(err, 20)
 	}

@@ -6,7 +6,6 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
-	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
@@ -32,7 +31,7 @@ type logicalReplicationResolver struct {
 	genDecompressionEvent bool
 }
 
-func newLogicalReplicationResolver(config *sysconfig.SystemConfig, replicationContext *context.ReplicationContext,
+func newLogicalReplicationResolver(config *spiconfig.Config, replicationContext *context.ReplicationContext,
 	systemCatalog *systemcatalog.SystemCatalog) (*logicalReplicationResolver, error) {
 
 	logger, err := logging.NewLogger("LogicalReplicationResolver")
@@ -47,15 +46,15 @@ func newLogicalReplicationResolver(config *sysconfig.SystemConfig, replicationCo
 		eventQueues:        make(map[string]*supporting.Queue[func(snapshot pglogrepl.LSN) error], 0),
 		logger:             logger,
 
-		genDeleteTombstone:    spiconfig.GetOrDefault(config.Config, spiconfig.PropertySinkTombstone, false),
-		genReadEvent:          spiconfig.GetOrDefault(config.Config, spiconfig.PropertyEventsRead, true),
-		genInsertEvent:        spiconfig.GetOrDefault(config.Config, spiconfig.PropertyEventsInsert, true),
-		genUpdateEvent:        spiconfig.GetOrDefault(config.Config, spiconfig.PropertyEventsUpdate, true),
-		genDeleteEvent:        spiconfig.GetOrDefault(config.Config, spiconfig.PropertyEventsDelete, true),
-		genTruncateEvent:      spiconfig.GetOrDefault(config.Config, spiconfig.PropertyEventsTruncate, true),
-		genMessageEvent:       spiconfig.GetOrDefault(config.Config, spiconfig.PropertyEventsMessage, true),
-		genCompressionEvent:   spiconfig.GetOrDefault(config.Config, spiconfig.PropertyEventsCompression, false),
-		genDecompressionEvent: spiconfig.GetOrDefault(config.Config, spiconfig.PropertyEventsDecompression, false),
+		genDeleteTombstone:    spiconfig.GetOrDefault(config, spiconfig.PropertySinkTombstone, false),
+		genReadEvent:          spiconfig.GetOrDefault(config, spiconfig.PropertyEventsRead, true),
+		genInsertEvent:        spiconfig.GetOrDefault(config, spiconfig.PropertyEventsInsert, true),
+		genUpdateEvent:        spiconfig.GetOrDefault(config, spiconfig.PropertyEventsUpdate, true),
+		genDeleteEvent:        spiconfig.GetOrDefault(config, spiconfig.PropertyEventsDelete, true),
+		genTruncateEvent:      spiconfig.GetOrDefault(config, spiconfig.PropertyEventsTruncate, true),
+		genMessageEvent:       spiconfig.GetOrDefault(config, spiconfig.PropertyEventsMessage, true),
+		genCompressionEvent:   spiconfig.GetOrDefault(config, spiconfig.PropertyEventsCompression, false),
+		genDecompressionEvent: spiconfig.GetOrDefault(config, spiconfig.PropertyEventsDecompression, false),
 	}, nil
 }
 

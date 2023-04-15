@@ -5,9 +5,9 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
-	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/snapshotting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/tablefiltering"
+	"github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
@@ -17,7 +17,6 @@ import (
 var prefixExtractor = regexp.MustCompile("(distributed)?(compressed)?(_hyper_[0-9]+)_[0-9]+_chunk")
 
 type SystemCatalog struct {
-	databaseName          string
 	hypertables           map[int32]*systemcatalog.Hypertable
 	chunks                map[int32]*systemcatalog.Chunk
 	hypertableNameIndex   map[string]int32
@@ -33,8 +32,8 @@ type SystemCatalog struct {
 	logger                *logging.Logger
 }
 
-func NewSystemCatalog(config *sysconfig.SystemConfig,
-	replicationContext *context.ReplicationContext, snapshotter *snapshotting.Snapshotter) (*SystemCatalog, error) {
+func NewSystemCatalog(config *config.Config, replicationContext *context.ReplicationContext,
+	snapshotter *snapshotting.Snapshotter) (*SystemCatalog, error) {
 
 	// Create the Replication Filter, selecting enabled and blocking disabled hypertables for replication
 	filterDefinition := config.TimescaleDB.Hypertables
@@ -59,7 +58,6 @@ func NewSystemCatalog(config *sysconfig.SystemConfig,
 		hypertable2compressed: make(map[int32]int32),
 		compressed2hypertable: make(map[int32]int32),
 
-		databaseName:       config.PgxConfig.Database,
 		replicationContext: replicationContext,
 		replicationFilter:  replicationFilter,
 		snapshotter:        snapshotter,
