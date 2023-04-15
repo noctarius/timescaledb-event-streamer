@@ -18,8 +18,6 @@ import (
 	"time"
 )
 
-var logger = logging.NewLogger("TestRunner")
-
 type Context interface {
 	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
@@ -112,6 +110,7 @@ type TestRunner struct {
 	container     testcontainers.Container
 	userConfig    *pgxpool.Config
 	replPgxConfig *pgx.ConnConfig
+	logger        *logging.Logger
 
 	withDebug  bool
 	withCaller bool
@@ -140,6 +139,7 @@ func WithTearDown(fn func(context Context) error) testConfigurator {
 }
 
 func (tr *TestRunner) SetupSuite() {
+	tr.logger = logging.NewLogger("TestRunner")
 	tr.withDebug = logging.WithDebug
 	tr.withCaller = logging.WithCaller
 	logging.WithDebug = true
@@ -147,19 +147,19 @@ func (tr *TestRunner) SetupSuite() {
 
 	container, configProvider, err := containers.SetupTimescaleContainer()
 	if err != nil {
-		logger.Fatalf("failed setting up container: %+v", err)
+		tr.logger.Fatalf("failed setting up container: %+v", err)
 	}
 	tr.container = container
 
 	userConfig, err := configProvider.UserConnConfig()
 	if err != nil {
-		logger.Fatalf("failed setting up user connection config: %+v", err)
+		tr.logger.Fatalf("failed setting up user connection config: %+v", err)
 	}
 	tr.userConfig = userConfig
 
 	replPgxConfig, err := configProvider.ReplicationConnConfig()
 	if err != nil {
-		logger.Fatalf("failed setting up replication connection config: %+v", err)
+		tr.logger.Fatalf("failed setting up replication connection config: %+v", err)
 	}
 	tr.replPgxConfig = replPgxConfig
 }

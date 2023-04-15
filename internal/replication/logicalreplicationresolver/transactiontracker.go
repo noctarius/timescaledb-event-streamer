@@ -4,6 +4,7 @@ import (
 	"github.com/jackc/pglogrepl"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
+	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
@@ -24,6 +25,7 @@ type transactionTracker struct {
 	resolver           *logicalReplicationResolver
 	systemCatalog      *systemcatalog.SystemCatalog
 	currentTransaction *transaction
+	logger             *logging.Logger
 }
 
 func newTransactionTracker(timeout time.Duration, maxSize uint, config *sysconfig.SystemConfig,
@@ -35,6 +37,7 @@ func newTransactionTracker(timeout time.Duration, maxSize uint, config *sysconfi
 		maxSize:       maxSize,
 		systemCatalog: systemCatalog,
 		relations:     make(map[uint32]*pgtypes.RelationMessage),
+		logger:        logging.NewLogger("TransactionTracker"),
 		resolver:      newLogicalReplicationResolver(config, replicationContext, systemCatalog),
 	}
 }
@@ -166,7 +169,7 @@ func (tt *transactionTracker) OnUpdateEvent(xld pglogrepl.XLogData, msg *pgtypes
 				}
 
 				previouslyCompressed := oldChunkStatus != 0 && newChunkStatus == 0
-				logger.Verbosef("Chunk %d: status=%d, new value=%d", chunkId, oldChunkStatus, newChunkStatus)
+				tt.logger.Verbosef("Chunk %d: status=%d, new value=%d", chunkId, oldChunkStatus, newChunkStatus)
 
 				if previouslyCompressed {
 					tt.currentTransaction.decompressionUpdate = updateEntry

@@ -17,14 +17,13 @@ import (
 	"time"
 )
 
-var logger = logging.NewLogger("ReplicationHandler")
-
 type replicationHandler struct {
 	replicationContext *repcontext.ReplicationContext
 	clientXLogPos      pglogrepl.LSN
 	relations          map[uint32]*pglogrepl.RelationMessage
 	shutdownAwaiter    *supporting.ShutdownAwaiter
 	lastTransactionId  *uint32
+	logger             *logging.Logger
 }
 
 func newReplicationHandler(replicationContext *repcontext.ReplicationContext) *replicationHandler {
@@ -32,11 +31,12 @@ func newReplicationHandler(replicationContext *repcontext.ReplicationContext) *r
 		replicationContext: replicationContext,
 		relations:          make(map[uint32]*pglogrepl.RelationMessage, 0),
 		shutdownAwaiter:    supporting.NewShutdownAwaiter(),
+		logger:             logging.NewLogger("ReplicationHandler"),
 	}
 }
 
 func (rh *replicationHandler) stopReplicationHandler() error {
-	logger.Println("Starting to shutdown")
+	rh.logger.Println("Starting to shutdown")
 	rh.shutdownAwaiter.SignalShutdown()
 	return rh.shutdownAwaiter.AwaitDone()
 }
@@ -62,7 +62,7 @@ func (rh *replicationHandler) startReplicationHandler(connection *pgconn.PgConn,
 			if err := pglogrepl.SendStandbyStatusUpdate(context.Background(), connection,
 				pglogrepl.StandbyStatusUpdate{WALWritePosition: rh.clientXLogPos}); err != nil {
 
-				logger.Fatalln("SendStandbyStatusUpdate failed:", err)
+				rh.logger.Fatalln("SendStandbyStatusUpdate failed:", err)
 			}
 			nextStandbyMessageDeadline = time.Now().Add(standbyMessageTimeout)
 		}
@@ -78,12 +78,12 @@ func (rh *replicationHandler) startReplicationHandler(connection *pgconn.PgConn,
 		}
 
 		if errMsg, ok := rawMsg.(*pgproto3.ErrorResponse); ok {
-			logger.Fatalf("received Postgres WAL error: %+v", errMsg)
+			rh.logger.Fatalf("received Postgres WAL error: %+v", errMsg)
 		}
 
 		msg, ok := rawMsg.(*pgproto3.CopyData)
 		if !ok {
-			logger.Warnf("Received unexpected message: %T\n", rawMsg)
+			rh.logger.Warnf("Received unexpected message: %T\n", rawMsg)
 			continue
 		}
 
@@ -91,7 +91,7 @@ func (rh *replicationHandler) startReplicationHandler(connection *pgconn.PgConn,
 		case pglogrepl.PrimaryKeepaliveMessageByteID:
 			pkm, err := pglogrepl.ParsePrimaryKeepaliveMessage(msg.Data[1:])
 			if err != nil {
-				logger.Fatalln("ParsePrimaryKeepaliveMessage failed:", err)
+				rh.logger.Fatalln("ParsePrimaryKeepaliveMessage failed:", err)
 			}
 			//logger.Println("Primary Keepalive Message =>", "ServerWALEnd:", pkm.ServerWALEnd, "ServerTime:", pkm.ServerTime, "ReplyRequested:", pkm.ReplyRequested)
 
@@ -102,7 +102,7 @@ func (rh *replicationHandler) startReplicationHandler(connection *pgconn.PgConn,
 		case pglogrepl.XLogDataByteID:
 			xld, err := pglogrepl.ParseXLogData(msg.Data[1:])
 			if err != nil {
-				logger.Fatalln("ParseXLogData failed:", err)
+				rh.logger.Fatalln("ParseXLogData failed:", err)
 			}
 			if err := rh.handleXLogData(xld); err != nil {
 				return errors.Wrap(err, 0)
@@ -119,7 +119,7 @@ func (rh *replicationHandler) handleXLogData(xld pglogrepl.XLogData) error {
 	}
 
 	if err := rh.handleReplicationEvents(xld, msg); err != nil {
-		logger.Warnf("handling replication event message failed: %s => %+v", err, msg)
+		rh.logger.Warnf("handling replication event message failed: %s => %+v", err, msg)
 	}
 
 	rh.clientXLogPos = xld.WALStart + pglogrepl.LSN(len(xld.WALData))
@@ -131,7 +131,7 @@ func (rh *replicationHandler) handleXLogData(xld pglogrepl.XLogData) error {
 }
 
 func (rh *replicationHandler) handleReplicationEvents(xld pglogrepl.XLogData, msg pglogrepl.Message) error {
-	logger.Debugf("EVENT: %+v", msg)
+	rh.logger.Debugf("EVENT: %+v", msg)
 	switch logicalMsg := msg.(type) {
 	case *pglogrepl.RelationMessage:
 		rh.relations[logicalMsg.RelationID] = logicalMsg
@@ -209,7 +209,7 @@ func (rh *replicationHandler) handleReplicationEvents(xld pglogrepl.XLogData, ms
 func (rh *replicationHandler) handleDeleteMessage(xld pglogrepl.XLogData, msg *pglogrepl.DeleteMessage) error {
 	rel, ok := rh.relations[msg.RelationID]
 	if !ok {
-		logger.Fatalf("unknown relation ID %d", msg.RelationID)
+		rh.logger.Fatalf("unknown relation ID %d", msg.RelationID)
 	}
 
 	// Decode values and remove source
@@ -234,7 +234,7 @@ func (rh *replicationHandler) handleDeleteMessage(xld pglogrepl.XLogData, msg *p
 func (rh *replicationHandler) handleUpdateMessage(xld pglogrepl.XLogData, msg *pglogrepl.UpdateMessage) error {
 	rel, ok := rh.relations[msg.RelationID]
 	if !ok {
-		logger.Fatalf("unknown relation ID %d", msg.RelationID)
+		rh.logger.Fatalf("unknown relation ID %d", msg.RelationID)
 	}
 
 	// Decode values and remove source
@@ -262,7 +262,7 @@ func (rh *replicationHandler) handleUpdateMessage(xld pglogrepl.XLogData, msg *p
 func (rh *replicationHandler) handleInsertMessage(xld pglogrepl.XLogData, msg *pglogrepl.InsertMessage) error {
 	rel, ok := rh.relations[msg.RelationID]
 	if !ok {
-		logger.Fatalf("unknown relation ID %d", msg.RelationID)
+		rh.logger.Fatalf("unknown relation ID %d", msg.RelationID)
 	}
 
 	// Decode values and remove source
@@ -319,13 +319,13 @@ func (rh *replicationHandler) decodeValues(relation *pglogrepl.RelationMessage,
 		case 't': // text (basically anything other than the two above)
 			val, err := pgdecoding.DecodeTextColumn(col.Data, relation.Columns[idx].DataType)
 			if err != nil {
-				logger.Fatalln("error decoding column data:", err)
+				rh.logger.Fatalln("error decoding column data:", err)
 			}
 			values[colName] = val
 		case 'b': // binary data
 			val, err := pgdecoding.DecodeBinaryColumn(col.Data, relation.Columns[idx].DataType)
 			if err != nil {
-				logger.Fatalln("error decoding column data:", err)
+				rh.logger.Fatalln("error decoding column data:", err)
 			}
 			values[colName] = val
 		}

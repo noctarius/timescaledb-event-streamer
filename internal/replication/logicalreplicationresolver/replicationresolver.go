@@ -14,13 +14,12 @@ import (
 	spicatalog "github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 )
 
-var logger = logging.NewLogger("logicalReplicationResolver")
-
 type logicalReplicationResolver struct {
 	replicationContext *context.ReplicationContext
 	systemCatalog      *systemcatalog.SystemCatalog
 	relations          map[uint32]*pgtypes.RelationMessage
 	eventQueues        map[string]*supporting.Queue[func(snapshot pglogrepl.LSN) error]
+	logger             *logging.Logger
 
 	genDeleteTombstone    bool
 	genReadEvent          bool
@@ -41,6 +40,7 @@ func newLogicalReplicationResolver(config *sysconfig.SystemConfig, replicationCo
 		systemCatalog:      systemCatalog,
 		relations:          make(map[uint32]*pgtypes.RelationMessage, 0),
 		eventQueues:        make(map[string]*supporting.Queue[func(snapshot pglogrepl.LSN) error], 0),
+		logger:             logging.NewLogger("LogicalReplicationResolver"),
 
 		genDeleteTombstone:    spiconfig.GetOrDefault(config.Config, spiconfig.PropertySinkTombstone, false),
 		genReadEvent:          spiconfig.GetOrDefault(config.Config, spiconfig.PropertyEventsRead, true),
@@ -58,7 +58,7 @@ func (l *logicalReplicationResolver) OnChunkSnapshotStartedEvent(
 	_ *spicatalog.Hypertable, chunk *spicatalog.Chunk) error {
 
 	l.eventQueues[chunk.CanonicalName()] = supporting.NewQueue[func(snapshot pglogrepl.LSN) error]()
-	logger.Infof("Snapshot of %s started", chunk.CanonicalName())
+	l.logger.Infof("Snapshot of %s started", chunk.CanonicalName())
 	return nil
 }
 
@@ -91,25 +91,25 @@ func (l *logicalReplicationResolver) OnChunkSnapshotFinishedEvent(
 			return errors.Wrap(err, 0)
 		}
 	}
-	logger.Infoln("Snapshot of %s finished", chunk.CanonicalName())
+	l.logger.Infof("Snapshot of %s finished", chunk.CanonicalName())
 
 	return nil
 }
 
 func (l *logicalReplicationResolver) OnRelationEvent(xld pglogrepl.XLogData, msg *pgtypes.RelationMessage) error {
-	logger.Debugf("RELATION MSG: %+v", msg)
+	l.logger.Debugf("RELATION MSG: %+v", msg)
 	l.relations[msg.RelationID] = msg
 	return nil
 }
 
 func (l *logicalReplicationResolver) OnBeginEvent(xld pglogrepl.XLogData, msg *pgtypes.BeginMessage) error {
-	logger.Debugf("BEGIN MSG: %+v", msg)
+	l.logger.Debugf("BEGIN MSG: %+v", msg)
 	//TODO implement me
 	return nil
 }
 
 func (l *logicalReplicationResolver) OnCommitEvent(xld pglogrepl.XLogData, msg *pgtypes.CommitMessage) error {
-	logger.Debugf("COMMIT MSG: %+v", msg)
+	l.logger.Debugf("COMMIT MSG: %+v", msg)
 	//TODO implement me
 	return nil
 }
@@ -117,7 +117,7 @@ func (l *logicalReplicationResolver) OnCommitEvent(xld pglogrepl.XLogData, msg *
 func (l *logicalReplicationResolver) OnInsertEvent(xld pglogrepl.XLogData, msg *pgtypes.InsertMessage) error {
 	rel, ok := l.relations[msg.RelationID]
 	if !ok {
-		logger.Fatalf("unknown relation ID %d", msg.RelationID)
+		l.logger.Fatalf("unknown relation ID %d", msg.RelationID)
 	}
 
 	if spicatalog.IsHypertableEvent(rel) {
@@ -150,7 +150,7 @@ func (l *logicalReplicationResolver) OnInsertEvent(xld pglogrepl.XLogData, msg *
 func (l *logicalReplicationResolver) OnUpdateEvent(xld pglogrepl.XLogData, msg *pgtypes.UpdateMessage) error {
 	rel, ok := l.relations[msg.RelationID]
 	if !ok {
-		logger.Fatalf("unknown relation ID %d", msg.RelationID)
+		l.logger.Fatalf("unknown relation ID %d", msg.RelationID)
 	}
 	if spicatalog.IsHypertableEvent(rel) {
 		return l.onHypertableUpdateEvent(msg)
@@ -191,7 +191,7 @@ func (l *logicalReplicationResolver) OnUpdateEvent(xld pglogrepl.XLogData, msg *
 func (l *logicalReplicationResolver) OnDeleteEvent(xld pglogrepl.XLogData, msg *pgtypes.DeleteMessage) error {
 	rel, ok := l.relations[msg.RelationID]
 	if !ok {
-		logger.Fatalf("unknown relation ID %d", msg.RelationID)
+		l.logger.Fatalf("unknown relation ID %d", msg.RelationID)
 	}
 
 	if spicatalog.IsHypertableEvent(rel) {
@@ -244,7 +244,7 @@ func (l *logicalReplicationResolver) OnTruncateEvent(xld pglogrepl.XLogData, msg
 	for i := 0; i < int(msg.RelationNum); i++ {
 		rel, ok := l.relations[msg.RelationIDs[i]]
 		if !ok {
-			logger.Fatalf("unknown relation ID %d", msg.RelationIDs[i])
+			l.logger.Fatalf("unknown relation ID %d", msg.RelationIDs[i])
 		}
 
 		if spicatalog.IsHypertableEvent(rel) || spicatalog.IsChunkEvent(rel) {
@@ -288,13 +288,13 @@ func (l *logicalReplicationResolver) OnMessageEvent(
 }
 
 func (l *logicalReplicationResolver) OnTypeEvent(xld pglogrepl.XLogData, msg *pgtypes.TypeMessage) error {
-	logger.Debugf("TYPE MSG: %+v", msg)
+	l.logger.Debugf("TYPE MSG: %+v", msg)
 	//TODO implement me
 	return nil
 }
 
 func (l *logicalReplicationResolver) OnOriginEvent(xld pglogrepl.XLogData, msg *pgtypes.OriginMessage) error {
-	logger.Debugf("ORIGIN MSG: %+v", msg)
+	l.logger.Debugf("ORIGIN MSG: %+v", msg)
 	//TODO implement me
 	return nil
 }
@@ -372,7 +372,7 @@ func (l *logicalReplicationResolver) onChunkDeleteEvent(xld pglogrepl.XLogData, 
 func (l *logicalReplicationResolver) onChunkCompressionEvent(xld pglogrepl.XLogData, chunk *spicatalog.Chunk) error {
 	hypertableId := chunk.HypertableId()
 	if uncompressedHypertable, _, present := l.systemCatalog.ResolveUncompressedHypertable(hypertableId); present {
-		logger.Infoln(
+		l.logger.Infof(
 			"COMPRESSION EVENT %s.%s FOR CHUNK %s.%s", uncompressedHypertable.SchemaName(),
 			uncompressedHypertable.TableName(), chunk.SchemaName(), chunk.TableName(),
 		)
@@ -395,7 +395,7 @@ func (l *logicalReplicationResolver) onChunkCompressionEvent(xld pglogrepl.XLogD
 func (l *logicalReplicationResolver) onChunkDecompressionEvent(xld pglogrepl.XLogData, chunk *spicatalog.Chunk) error {
 	hypertableId := chunk.HypertableId()
 	if uncompressedHypertable, _, present := l.systemCatalog.ResolveUncompressedHypertable(hypertableId); present {
-		logger.Infof(
+		l.logger.Infof(
 			"DECOMPRESSION EVENT %s.%s FOR CHUNK %s.%s", uncompressedHypertable.SchemaName(),
 			uncompressedHypertable.TableName(), chunk.SchemaName(), chunk.TableName(),
 		)

@@ -90,7 +90,7 @@ const createPublication = "SELECT create_timescaledb_catalog_publication($1, $2)
 
 const checkExistingPublication = "SELECT true FROM pg_publication WHERE pubname = $1"
 
-const dropPublication = "DROP PUBLICATION IF EXISTS $1"
+const dropPublication = "DROP PUBLICATION IF EXISTS %s"
 
 const existingPublicationPublishedTablesQuery = `
 SELECT pt.schemaname, pt.tablename
@@ -121,7 +121,11 @@ func newSideChannel(connConfig *pgx.ConnConfig) *sideChannelImpl {
 
 func (sc *sideChannelImpl) createPublication(publicationName string) (success bool, err error) {
 	err = sc.newSession(time.Second*10, func(session *session) error {
-		return session.queryRow(createPublication, publicationName, sc.connConfig.User).Scan(&success)
+		if err := session.queryRow(createPublication, publicationName, sc.connConfig.User).Scan(&success); err != nil {
+			return err
+		}
+		sc.logger.Infof("Created publication %s", publicationName)
+		return nil
 	})
 	return
 }
@@ -135,11 +139,14 @@ func (sc *sideChannelImpl) existsPublication(publicationName string) (found bool
 
 func (sc *sideChannelImpl) dropPublication(publicationName string) error {
 	return sc.newSession(time.Second*10, func(session *session) error {
-		_, err := session.exec(dropPublication, publicationName)
+		_, err := session.exec(fmt.Sprintf(dropPublication, publicationName))
 		if e, ok := err.(*pgconn.PgError); ok {
 			if e.Code == "42704" {
 				return nil
 			}
+		}
+		if err == nil {
+			sc.logger.Infof("Dropped publication %s", publicationName)
 		}
 		return err
 	})
@@ -274,7 +281,7 @@ func (sc *sideChannelImpl) attachTablesToPublication(
 			return errors.Wrap(err, 0)
 		}
 		for _, entity := range entities {
-			sc.logger.Infoln("Updated publication %s to add table %s", publicationName, entity.CanonicalName())
+			sc.logger.Infof("Updated publication %s to add table %s", publicationName, entity.CanonicalName())
 		}
 		return nil
 	})

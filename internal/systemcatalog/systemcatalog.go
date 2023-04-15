@@ -14,8 +14,6 @@ import (
 	"regexp"
 )
 
-var logger = logging.NewLogger("SystemCatalog")
-
 var prefixExtractor = regexp.MustCompile("(distributed)?(compressed)?(_hyper_[0-9]+)_[0-9]+_chunk")
 
 type SystemCatalog struct {
@@ -32,6 +30,7 @@ type SystemCatalog struct {
 	replicationContext    *context.ReplicationContext
 	replicationFilter     *tablefiltering.TableFilter
 	snapshotter           *snapshotting.Snapshotter
+	logger                *logging.Logger
 }
 
 func NewSystemCatalog(config *sysconfig.SystemConfig,
@@ -59,6 +58,7 @@ func NewSystemCatalog(config *sysconfig.SystemConfig,
 		replicationContext: replicationContext,
 		replicationFilter:  replicationFilter,
 		snapshotter:        snapshotter,
+		logger:             logging.NewLogger("SystemCatalog"),
 	})
 }
 
@@ -173,7 +173,7 @@ func (sc *SystemCatalog) RegisterHypertable(hypertable *systemcatalog.Hypertable
 		sc.hypertable2compressed[hypertable.Id()] = compressedHypertableId
 		sc.compressed2hypertable[compressedHypertableId] = hypertable.Id()
 	}
-	logger.Verbosef("ADDED CATALOG ENTRY: HYPERTABLE %d => %+v", hypertable.Id(), hypertable)
+	sc.logger.Verbosef("ADDED CATALOG ENTRY: HYPERTABLE %d => %+v", hypertable.Id(), hypertable)
 	return nil
 }
 
@@ -184,7 +184,7 @@ func (sc *SystemCatalog) UnregisterHypertable(hypertable *systemcatalog.Hypertab
 	delete(sc.hypertable2compressed, hypertable.Id())
 	delete(sc.compressed2hypertable, hypertable.Id())
 	delete(sc.hypertable2chunks, hypertable.Id())
-	logger.Verbosef("REMOVED CATALOG ENTRY: HYPERTABLE %d", hypertable.Id())
+	sc.logger.Verbosef("REMOVED CATALOG ENTRY: HYPERTABLE %d", hypertable.Id())
 	return nil
 }
 
@@ -194,7 +194,7 @@ func (sc *SystemCatalog) RegisterChunk(chunk *systemcatalog.Chunk) error {
 		sc.chunkNameIndex[chunk.CanonicalName()] = chunk.Id()
 		sc.chunk2Hypertable[chunk.Id()] = chunk.HypertableId()
 		sc.hypertable2chunks[hypertable.Id()] = append(sc.hypertable2chunks[hypertable.Id()], chunk.Id())
-		logger.Verbosef("ADDED CATALOG ENTRY: CHUNK %d FOR HYPERTABLE %s => %+v",
+		sc.logger.Verbosef("ADDED CATALOG ENTRY: CHUNK %d FOR HYPERTABLE %s => %+v",
 			chunk.Id(), hypertable.CanonicalName(), *chunk)
 	}
 	return nil
@@ -227,7 +227,7 @@ func (sc *SystemCatalog) ApplySchemaUpdate(hypertable *systemcatalog.Hypertable,
 		hypertableSchemaName := fmt.Sprintf("%s.Value", sc.replicationContext.SchemaTopicName(hypertable))
 		hypertableSchema := schema.HypertableSchema(hypertableSchemaName, hypertable.Columns())
 		sc.replicationContext.RegisterSchema(hypertableSchemaName, hypertableSchema)
-		logger.Verbosef("SCHEMA UPDATE: HYPERTABLE %d => %+v", hypertable.Id(), difference)
+		sc.logger.Verbosef("SCHEMA UPDATE: HYPERTABLE %d => %+v", hypertable.Id(), difference)
 		return len(difference) > 0
 	}
 	return false
@@ -285,15 +285,15 @@ func initializeSystemCatalog(sc *SystemCatalog) (*SystemCatalog, error) {
 		return nil, errors.Wrap(err, 0)
 	}
 
-	logger.Println("Selected hypertables for replication:")
+	sc.logger.Println("Selected hypertables for replication:")
 	for _, hypertable := range sc.hypertables {
 		if !hypertable.IsCompressedTable() && sc.IsHypertableSelectedForReplication(hypertable.Id()) {
 			if hypertable.IsContinuousAggregate() {
-				logger.Infof("  * %s (type: Continuous Aggregate => %s)\n",
+				sc.logger.Infof("  * %s (type: Continuous Aggregate => %s)\n",
 					hypertable.CanonicalContinuousAggregateName(), hypertable.CanonicalName(),
 				)
 			} else {
-				logger.Infof("  * %s (type: Hypertable)\n", hypertable.CanonicalName())
+				sc.logger.Infof("  * %s (type: Hypertable)\n", hypertable.CanonicalName())
 			}
 		}
 	}

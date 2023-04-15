@@ -12,8 +12,6 @@ import (
 	"time"
 )
 
-var logger = logging.NewLogger("Snapshotter")
-
 type SnapshotTask struct {
 	Hypertable *systemcatalog.Hypertable
 	Chunk      *systemcatalog.Chunk
@@ -24,6 +22,7 @@ type Snapshotter struct {
 	replicationContext *context.ReplicationContext
 	snapshotQueues     []chan SnapshotTask
 	shutdownAwaiter    *supporting.MultiShutdownAwaiter
+	logger             *logging.Logger
 }
 
 func NewSnapshotter(partitionCount uint8, replicationContext *context.ReplicationContext) *Snapshotter {
@@ -36,6 +35,7 @@ func NewSnapshotter(partitionCount uint8, replicationContext *context.Replicatio
 		partitionCount:     uint64(partitionCount),
 		replicationContext: replicationContext,
 		snapshotQueues:     snapshotQueues,
+		logger:             logging.NewLogger("Snapshotter"),
 		shutdownAwaiter:    supporting.NewMultiShutdownAwaiter(uint(partitionCount)),
 	}
 }
@@ -76,7 +76,7 @@ func (s *Snapshotter) StartSnapshotter() {
 				select {
 				case task := <-s.snapshotQueues[partition]:
 					if err := s.snapshot(task); err != nil {
-						logger.Fatalf("snapshotting of task '%+v' failed: %+v", task, err)
+						s.logger.Fatalf("snapshotting of task '%+v' failed: %+v", task, err)
 					}
 				case <-s.shutdownAwaiter.AwaitShutdownChan(uint(partition)):
 					goto shutdown

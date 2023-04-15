@@ -9,16 +9,18 @@ import (
 	"time"
 )
 
-var logger = logging.NewLogger("StdoutSink")
-
 func init() {
 	sink.RegisterSink(spiconfig.Stdout, newStdoutSink)
 }
 
-type stdoutSink struct{}
+type stdoutSink struct {
+	logger *logging.Logger
+}
 
 func newStdoutSink(_ *spiconfig.Config) (sink.Sink, error) {
-	return &stdoutSink{}, nil
+	return &stdoutSink{
+		logger: logging.NewLogger("StdoutSink"),
+	}, nil
 }
 
 func (s *stdoutSink) Emit(_ time.Time, topicName string, _, envelope schema.Struct) error {
@@ -27,6 +29,6 @@ func (s *stdoutSink) Emit(_ time.Time, topicName string, _, envelope schema.Stru
 	if err != nil {
 		return err
 	}
-	logger.Infof("===> /%s: \t%s\n", topicName, string(data))
+	s.logger.Infof("===> /%s: \t%s\n", topicName, string(data))
 	return nil
 }

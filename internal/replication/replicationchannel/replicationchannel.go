@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	repcontext "github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
+	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 )
 
@@ -22,6 +23,7 @@ type ReplicationChannel struct {
 	createdPublication     bool
 	createdReplicationSlot bool
 	shutdownAwaiter        *supporting.ShutdownAwaiter
+	logger                 *logging.Logger
 }
 
 // NewReplicationChannel instantiates a new instance of the ReplicationChannel.
@@ -38,6 +40,7 @@ func NewReplicationChannel(connConfig *pgx.ConnConfig,
 		connConfig:         &connConfig.Config,
 		replicationContext: replicationContext,
 		shutdownAwaiter:    supporting.NewShutdownAwaiter(),
+		logger:             logging.NewLogger("ReplicationChannel"),
 	}
 }
 
@@ -77,7 +80,7 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 	if err != nil {
 		return fmt.Errorf("system identification failed: %s", err)
 	}
-	logger.Println("SystemID:", identification.SystemID, "Timeline:", identification.Timeline, "XLogPos:",
+	rc.logger.Println("SystemID:", identification.SystemID, "Timeline:", identification.Timeline, "XLogPos:",
 		identification.XLogPos, "DBName:", identification.DBName)
 
 	// Build output plugin parameters
@@ -101,7 +104,7 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 	if err := rc.ensureReplicationSlot(connection); err != nil {
 		return fmt.Errorf("CreateReplicationSlot failed: %s", err)
 	}
-	logger.Println("Created temporary replication slot:", rc.replicationContext.PublicationName())
+	rc.logger.Println("Created temporary replication slot:", rc.replicationContext.PublicationName())
 
 	if err := rc.startReplication(connection, identification, pluginArguments); err != nil {
 		return fmt.Errorf("StartReplication failed: %s", err)
@@ -110,31 +113,31 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 	go func() {
 		err := replicationHandler.startReplicationHandler(connection, identification)
 		if err != nil {
-			logger.Fatalf("Issue handling WAL stream: %s", err)
+			rc.logger.Fatalf("Issue handling WAL stream: %s", err)
 		}
 		rc.shutdownAwaiter.SignalShutdown()
 	}()
 
 	go func() {
 		if err := rc.shutdownAwaiter.AwaitShutdown(); err != nil {
-			logger.Errorf("shutdown failed: %+v", err)
+			rc.logger.Errorf("shutdown failed: %+v", err)
 		}
 		if err := replicationHandler.stopReplicationHandler(); err != nil {
-			logger.Errorf("shutdown failed (stop replication handler): %+v", err)
+			rc.logger.Errorf("shutdown failed (stop replication handler): %+v", err)
 		}
 		if err := rc.stopReplication(connection); err != nil {
-			logger.Errorf("shutdown failed (send copy done): %+v", err)
+			rc.logger.Errorf("shutdown failed (send copy done): %+v", err)
 		}
 		if err := rc.dropReplicationSlotIfNecessary(connection); err != nil {
-			logger.Errorf("shutdown failed (drop replication slot): %+v", err)
+			rc.logger.Errorf("shutdown failed (drop replication slot): %+v", err)
 		}
 		if rc.createdPublication {
 			if err := rc.replicationContext.DropPublication(); err != nil {
-				logger.Errorf("shutdown failed (drop publication): %+v", err)
+				rc.logger.Errorf("shutdown failed (drop publication): %+v", err)
 			}
 		}
 		if err := connection.Close(context.Background()); err != nil {
-			logger.Warnf("failed to close replication connection: %+v", err)
+			rc.logger.Warnf("failed to close replication connection: %+v", err)
 		}
 		rc.shutdownAwaiter.SignalDone()
 	}()
@@ -161,14 +164,18 @@ func (rc *ReplicationChannel) dropReplicationSlotIfNecessary(connection *pgconn.
 	if !rc.createdReplicationSlot {
 		return nil
 	}
-	return pglogrepl.DropReplicationSlot(
+	if err := pglogrepl.DropReplicationSlot(
 		context.Background(),
 		connection,
 		rc.replicationContext.PublicationName(),
 		pglogrepl.DropReplicationSlotOptions{
 			Wait: true,
 		},
-	)
+	); err != nil {
+		return err
+	}
+	rc.logger.Infoln("Dropped replication slot")
+	return nil
 }
 
 func (rc *ReplicationChannel) startReplication(connection *pgconn.PgConn,
