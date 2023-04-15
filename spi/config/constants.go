@@ -1,11 +1,11 @@
 package config
 
 const (
-	PropertyLoggingDefaultFileEnabled    = "logging.outputs.file.enabled"
-	PropertyLoggingDefaultFilePath       = "logging.outputs.file.path"
-	PropertyLoggingDefaultFileRotate     = "logging.outputs.file.rotate"
-	PropertyLoggingDefaultFileMaxSize    = "logging.outputs.file.maxsize"
-	PropertyLoggingDefaultFileMaxDuration   = "logging.outputs.file.maxduration"
+	PropertyLoggingDefaultFileEnabled     = "logging.outputs.file.enabled"
+	PropertyLoggingDefaultFilePath        = "logging.outputs.file.path"
+	PropertyLoggingDefaultFileRotate      = "logging.outputs.file.rotate"
+	PropertyLoggingDefaultFileMaxSize     = "logging.outputs.file.maxsize"
+	PropertyLoggingDefaultFileMaxDuration = "logging.outputs.file.maxduration"
 
 	PropertyPostgresqlConnection        = "postgresql.connection"
 	PropertyPostgresqlPassword          = "postgresql.password"
