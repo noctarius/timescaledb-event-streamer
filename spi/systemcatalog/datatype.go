@@ -57,6 +57,8 @@ var converters = map[uint32]Converter{
 	pgtype.Int2OID:        nil,
 	pgtype.Int4OID:        nil,
 	pgtype.Int8OID:        nil,
+	pgtype.Float4OID:      nil,
+	pgtype.Float8OID:      nil,
 	pgtype.QCharOID:       nil,
 	pgtype.VarcharOID:     nil,
 	pgtype.TextOID:        nil,
