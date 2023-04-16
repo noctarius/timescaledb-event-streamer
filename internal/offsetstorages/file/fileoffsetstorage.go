@@ -1,4 +1,4 @@
-package offsetstorages
+package file
 
 import (
 	"encoding/binary"
@@ -55,7 +55,7 @@ func (f *fileOffsetStorage) Start() error {
 }
 
 func (f *fileOffsetStorage) Stop() error {
-	return nil
+	return f.Save()
 }
 
 func (f *fileOffsetStorage) Save() error {

@@ -1,11 +1,9 @@
 package replicationchannel
 
 import (
-	"context"
 	"fmt"
 	"github.com/go-errors/errors"
 	"github.com/jackc/pglogrepl"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgproto3"
 	"github.com/noctarius/timescaledb-event-streamer/internal/pgdecoding"
 	repcontext "github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
@@ -46,10 +44,7 @@ func (rh *replicationHandler) stopReplicationHandler() error {
 	return rh.shutdownAwaiter.AwaitDone()
 }
 
-func (rh *replicationHandler) startReplicationHandler(connection *pgconn.PgConn,
-	identification pglogrepl.IdentifySystemResult) error {
-
-	rh.clientXLogPos = identification.XLogPos
+func (rh *replicationHandler) startReplicationHandler(replicationConnection *repcontext.ReplicationConnection) error {
 	standbyMessageTimeout := time.Second * 10
 	nextStandbyMessageDeadline := time.Now().Add(standbyMessageTimeout)
 
@@ -64,15 +59,13 @@ func (rh *replicationHandler) startReplicationHandler(connection *pgconn.PgConn,
 		}
 
 		if time.Now().After(nextStandbyMessageDeadline) {
-			if err := pglogrepl.SendStandbyStatusUpdate(context.Background(), connection,
-				pglogrepl.StandbyStatusUpdate{WALWritePosition: rh.clientXLogPos}); err != nil {
-
+			if err := replicationConnection.SendStatusUpdate(); err != nil {
 				rh.logger.Fatalln("SendStandbyStatusUpdate failed:", err)
 			}
 			nextStandbyMessageDeadline = time.Now().Add(standbyMessageTimeout)
 		}
 
-		rawMsg, err := rh.receiveNextMessage(connection, nextStandbyMessageDeadline)
+		rawMsg, err := replicationConnection.ReceiveMessage(nextStandbyMessageDeadline)
 		if err != nil {
 			return errors.Wrap(err, 0)
 		}
@@ -112,7 +105,7 @@ func (rh *replicationHandler) startReplicationHandler(connection *pgconn.PgConn,
 			if err := rh.handleXLogData(xld); err != nil {
 				return errors.Wrap(err, 0)
 			}
-			rh.clientXLogPos = xld.WALStart + pglogrepl.LSN(len(xld.WALData))
+			rh.replicationContext.AcknowledgeReceived(xld)
 		}
 	}
 }
@@ -287,22 +280,6 @@ func (rh *replicationHandler) handleInsertMessage(xld pglogrepl.XLogData, msg *p
 			},
 		)
 	})
-}
-
-func (rh *replicationHandler) receiveNextMessage(connection *pgconn.PgConn,
-	nextStandbyMessageDeadline time.Time) (pgproto3.BackendMessage, error) {
-
-	ctx, cancel := context.WithDeadline(context.Background(), nextStandbyMessageDeadline)
-	defer cancel()
-
-	msg, err := connection.ReceiveMessage(ctx)
-	if err != nil {
-		if pgconn.Timeout(err) {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("ReceiveMessage failed: %s", err)
-	}
-	return msg, nil
 }
 
 func (rh *replicationHandler) decodeValues(relation *pglogrepl.RelationMessage,

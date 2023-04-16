@@ -33,15 +33,23 @@ const (
 )
 
 type PostgreSQLConfig struct {
-	Connection  string            `toml:"connection"`
-	Password    string            `toml:"password"`
-	Publication PublicationConfig `toml:"publication"`
-	Transaction TransactionConfig `toml:"transaction"`
+	Connection      string                `toml:"connection"`
+	Password        string                `toml:"password"`
+	Publication     PublicationConfig     `toml:"publication"`
+	ReplicationSlot ReplicationSlotConfig `toml:"replicationslot"`
+	Transaction     TransactionConfig     `toml:"transaction"`
 }
 
 type PublicationConfig struct {
 	Name   string `toml:"name"`
 	Create *bool  `toml:"create"`
+	Drop   *bool  `toml:"drop"`
+}
+
+type ReplicationSlotConfig struct {
+	Name     *string `toml:"name"`
+	Create   *bool   `toml:"create"`
+	AutoDrop *bool   `toml:"autodrop"`
 }
 
 type TransactionConfig struct {

@@ -60,8 +60,11 @@ func (ee *EventEmitter) keySchema(hypertable *systemcatalog.Hypertable) schema.S
 	})
 }
 
-func (ee *EventEmitter) emit(eventTopicName string, timestamp time.Time, key, envelope schema.Struct) error {
-	return ee.sink.Emit(timestamp, eventTopicName, key, envelope)
+func (ee *EventEmitter) emit(xld pglogrepl.XLogData, eventTopicName string, key, envelope schema.Struct) error {
+	if err := ee.sink.Emit(xld.ServerTime, eventTopicName, key, envelope); err != nil {
+		return err
+	}
+	return ee.replicationContext.AcknowledgeProcessed(xld)
 }
 
 type eventEmitterEventHandler struct {
@@ -76,7 +79,14 @@ func (e *eventEmitterEventHandler) OnReadEvent(lsn pglogrepl.LSN, hypertable *sy
 		return err
 	}
 
-	return e.emit0(lsn, time.Now(), true, hypertable,
+	xld := pglogrepl.XLogData{
+		WALStart:     lsn,
+		WALData:      []byte{},
+		ServerWALEnd: lsn,
+		ServerTime:   time.Now(),
+	}
+
+	return e.emit0(xld, true, hypertable,
 		func(source schema.Struct) schema.Struct {
 			return schema.ReadEvent(cnValues, source)
 		},
@@ -213,10 +223,10 @@ func (e *eventEmitterEventHandler) OnOriginEvent(_ pglogrepl.XLogData, _ *pgtype
 func (e *eventEmitterEventHandler) emit(xld pglogrepl.XLogData, hypertable *systemcatalog.Hypertable,
 	eventProvider func(source schema.Struct) schema.Struct, keyProvider func() (schema.Struct, error)) error {
 
-	return e.emit0(xld.ServerWALEnd, xld.ServerTime, false, hypertable, eventProvider, keyProvider)
+	return e.emit0(xld, false, hypertable, eventProvider, keyProvider)
 }
 
-func (e *eventEmitterEventHandler) emit0(lsn pglogrepl.LSN, timestamp time.Time, snapshot bool,
+func (e *eventEmitterEventHandler) emit0(xld pglogrepl.XLogData, snapshot bool,
 	hypertable *systemcatalog.Hypertable, eventProvider func(source schema.Struct) schema.Struct,
 	keyProvider func() (schema.Struct, error)) error {
 
@@ -230,8 +240,8 @@ func (e *eventEmitterEventHandler) emit0(lsn pglogrepl.LSN, timestamp time.Time,
 	}
 	key := schema.Envelope(e.eventEmitter.keySchema(hypertable), keyData)
 
-	event := eventProvider(schema.Source(lsn, timestamp, snapshot, hypertable.DatabaseName(),
-		hypertable.SchemaName(), hypertable.TableName(), &transactionId))
+	event := eventProvider(schema.Source(xld.ServerWALEnd, xld.ServerTime, snapshot,
+		hypertable.DatabaseName(), hypertable.SchemaName(), hypertable.TableName(), &transactionId))
 
 	value := schema.Envelope(envelopeSchema, event)
 
@@ -242,10 +252,10 @@ func (e *eventEmitterEventHandler) emit0(lsn pglogrepl.LSN, timestamp time.Time,
 
 	// If unsuccessful we'll discard the event and not send it to the sink
 	if !success {
-		return nil
+		return e.eventEmitter.replicationContext.AcknowledgeProcessed(xld)
 	}
 
-	return e.eventEmitter.emit(eventTopicName, timestamp, key, value)
+	return e.eventEmitter.emit(xld, eventTopicName, key, value)
 }
 
 func (e *eventEmitterEventHandler) emitMessageEvent(xld pglogrepl.XLogData,
@@ -272,7 +282,7 @@ func (e *eventEmitterEventHandler) emitMessageEvent(xld pglogrepl.XLogData,
 	key := schema.Envelope(messageKeySchema, schema.MessageKey(msg.Prefix))
 	value := schema.Envelope(envelopeSchema, payload)
 
-	return e.eventEmitter.emit(eventTopicName, timestamp, key, value)
+	return e.eventEmitter.emit(xld, eventTopicName, key, value)
 }
 
 func (e *eventEmitterEventHandler) hypertableEventKey(

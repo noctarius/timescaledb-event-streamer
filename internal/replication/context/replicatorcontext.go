@@ -6,9 +6,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	intschema "github.com/noctarius/timescaledb-event-streamer/internal/eventing/schema"
+	"github.com/noctarius/timescaledb-event-streamer/internal/offsetstorages/dummy"
+	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	intversion "github.com/noctarius/timescaledb-event-streamer/internal/version"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
+	"github.com/noctarius/timescaledb-event-streamer/spi/offset"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
@@ -24,15 +27,21 @@ type ReplicationContext struct {
 	dispatcher     *dispatcher
 	schemaRegistry schema.Registry
 	namingStrategy namingstrategy.NamingStrategy
+	offsetStorage  offset.Storage
 
-	snapshotBatchSize int
-	publicationName   string
-	topicPrefix       string
+	snapshotBatchSize       int
+	publicationName         string
+	topicPrefix             string
+	replicationSlotName     string
+	replicationSlotCreate   bool
+	replicationSlotAutoDrop bool
 
 	timeline     int32
 	systemId     string
 	databaseName string
 	walLevel     string
+	receivedLSN  pgtypes.LSN
+	processedLSN pgtypes.LSN
 
 	pgVersion   version.PostgresVersion
 	tsdbVersion version.TimescaleVersion
@@ -47,6 +56,15 @@ func NewReplicationContext(config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
 	snapshotBatchSize := spiconfig.GetOrDefault(
 		config, spiconfig.PropertyPostgresqlSnapshotBatchsize, 1000,
 	)
+	replicationSlotName := spiconfig.GetOrDefault(
+		config, spiconfig.PropertyPostgresqlReplicationSlotName, supporting.RandomTextString(20),
+	)
+	replicationSlotCreate := spiconfig.GetOrDefault(
+		config, spiconfig.PropertyPostgresqlReplicationSlotCreate, true,
+	)
+	replicationSlotAutoDrop := spiconfig.GetOrDefault(
+		config, spiconfig.PropertyPostgresqlReplicationSlotAutoDrop, true,
+	)
 
 	// Build the replication context to be passed along in terms of
 	// potential interface implementations to break up internal dependencies
@@ -55,10 +73,14 @@ func NewReplicationContext(config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
 
 		namingStrategy: namingStrategy,
 		dispatcher:     newDispatcher(),
+		offsetStorage:  &dummy.DummyOffsetStorage{},
 
-		snapshotBatchSize: snapshotBatchSize,
-		publicationName:   publicationName,
-		topicPrefix:       config.Topic.Prefix,
+		snapshotBatchSize:       snapshotBatchSize,
+		publicationName:         publicationName,
+		topicPrefix:             config.Topic.Prefix,
+		replicationSlotName:     replicationSlotName,
+		replicationSlotCreate:   replicationSlotCreate,
+		replicationSlotAutoDrop: replicationSlotAutoDrop,
 	}
 
 	// Instantiate the actual side channel implementation
@@ -114,17 +136,39 @@ func (rp *ReplicationContext) StopReplicationContext() error {
 	return rp.dispatcher.StopDispatcher()
 }
 
-func (rp *ReplicationContext) NewReplicationChannelConnection(ctx context.Context) (*pgconn.PgConn, error) {
-	connConfig := rp.pgxConfig.Config.Copy()
-	if connConfig.RuntimeParams == nil {
-		connConfig.RuntimeParams = make(map[string]string)
+func (rp *ReplicationContext) Offset() (*offset.Offset, error) {
+	offsets, err := rp.offsetStorage.Get()
+	if err != nil {
+		return nil, err
 	}
-	connConfig.RuntimeParams["replication"] = "database"
-	return pgconn.ConnectConfig(ctx, connConfig)
+	if offsets == nil {
+		return nil, nil
+	}
+	if o, present := offsets[rp.replicationSlotName]; present {
+		return o, nil
+	}
+	return nil, nil
 }
 
-func (rp *ReplicationContext) NewSideChannelConnection(ctx context.Context) (*pgx.Conn, error) {
-	return pgx.ConnectConfig(ctx, rp.pgxConfig)
+func (rp *ReplicationContext) AcknowledgeReceived(xld pglogrepl.XLogData) {
+	rp.receivedLSN = pgtypes.LSN(xld.WALStart + pglogrepl.LSN(len(xld.WALData)))
+}
+
+func (rp *ReplicationContext) AcknowledgeProcessed(xld pglogrepl.XLogData) error {
+	rp.processedLSN = pgtypes.LSN(xld.WALStart + pglogrepl.LSN(len(xld.WALData)))
+
+	o, err := rp.Offset()
+	if err != nil {
+		return err
+	}
+
+	if o == nil {
+		o = &offset.Offset{
+			LSN:       rp.processedLSN,
+			Timestamp: xld.ServerTime,
+		}
+	}
+	return rp.offsetStorage.Set(rp.replicationSlotName, o)
 }
 
 func (rp *ReplicationContext) DatabaseUsername() string {
@@ -133,6 +177,18 @@ func (rp *ReplicationContext) DatabaseUsername() string {
 
 func (rp *ReplicationContext) PublicationName() string {
 	return rp.publicationName
+}
+
+func (rp *ReplicationContext) ReplicationSlotName() string {
+	return rp.replicationSlotName
+}
+
+func (rp *ReplicationContext) ReplicationSlotCreate() bool {
+	return rp.replicationSlotCreate
+}
+
+func (rp *ReplicationContext) ReplicationSlotAutoDrop() bool {
+	return rp.replicationSlotAutoDrop
 }
 
 func (rp *ReplicationContext) WALLevel() string {
@@ -292,4 +348,21 @@ func (rp *ReplicationContext) HypertableKeySchemaName(hypertable *systemcatalog.
 
 func (rp *ReplicationContext) MessageEnvelopeSchemaName() string {
 	return rp.schemaRegistry.MessageEnvelopeSchemaName()
+}
+
+func (rp *ReplicationContext) NewReplicationConnection() (*ReplicationConnection, error) {
+	return newReplicationConnection(rp)
+}
+
+func (rp *ReplicationContext) newReplicationChannelConnection(ctx context.Context) (*pgconn.PgConn, error) {
+	connConfig := rp.pgxConfig.Config.Copy()
+	if connConfig.RuntimeParams == nil {
+		connConfig.RuntimeParams = make(map[string]string)
+	}
+	connConfig.RuntimeParams["replication"] = "database"
+	return pgconn.ConnectConfig(ctx, connConfig)
+}
+
+func (rp *ReplicationContext) newSideChannelConnection(ctx context.Context) (*pgx.Conn, error) {
+	return pgx.ConnectConfig(ctx, rp.pgxConfig)
 }

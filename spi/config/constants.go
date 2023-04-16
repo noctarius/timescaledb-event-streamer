@@ -1,14 +1,18 @@
 package config
 
 const (
-	PropertyPostgresqlConnection        = "postgresql.connection"
-	PropertyPostgresqlPassword          = "postgresql.password"
-	PropertyPostgresqlPublicationName   = "postgresql.publication.name"
-	PropertyPostgresqlPublicationCreate = "postgresql.publication.create"
-	PropertyPostgresqlSnapshotBatchsize = "postgresql.snapshot.batchsize"
-	PropertyPostgresqlTxwindowEnabled   = "postgresql.transaction.window.enabled"
-	PropertyPostgresqlTxwindowTimeout   = "postgresql.transaction.window.timeout"
-	PropertyPostgresqlTxwindowMaxsize   = "postgresql.transaction.window.maxsize"
+	PropertyPostgresqlConnection              = "postgresql.connection"
+	PropertyPostgresqlPassword                = "postgresql.password"
+	PropertyPostgresqlPublicationName         = "postgresql.publication.name"
+	PropertyPostgresqlPublicationCreate       = "postgresql.publication.create"
+	PropertyPostgresqlPublicationDrop         = "postgresql.publication.drop"
+	PropertyPostgresqlSnapshotBatchsize       = "postgresql.snapshot.batchsize"
+	PropertyPostgresqlReplicationSlotName     = "postgresql.replicationslot.name"
+	PropertyPostgresqlReplicationSlotCreate   = "postgresql.replicationslot.create"
+	PropertyPostgresqlReplicationSlotAutoDrop = "postgresql.replicationslot.autodrop"
+	PropertyPostgresqlTxwindowEnabled         = "postgresql.transaction.window.enabled"
+	PropertyPostgresqlTxwindowTimeout         = "postgresql.transaction.window.timeout"
+	PropertyPostgresqlTxwindowMaxsize         = "postgresql.transaction.window.maxsize"
 
 	PropertySink          = "sink.type"
 	PropertySinkTombstone = "sink.tombstone"

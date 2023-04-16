@@ -86,6 +86,11 @@ SELECT ca.user_view_schema, ca.user_view_name
 FROM _timescaledb_catalog.continuous_agg ca 
 WHERE ca.mat_hypertable_id = $1`
 
+const readReplicationSlot = `
+SELECT plugin, slot_type, restart_lsn, confirmed_flush_lsn
+FROM pg_catalog.pg_replication_slots prs
+WHERE slot_name = $1`
+
 const createPublication = "SELECT create_timescaledb_catalog_publication($1, $2)"
 
 const checkExistingPublication = "SELECT true FROM pg_publication WHERE pubname = $1"
@@ -444,6 +449,20 @@ func (sc *sideChannelImpl) readPublishedTables(publicationName string) ([]system
 	return systemEntities, nil
 }
 
+func (sc *sideChannelImpl) readReplicationSlot(
+	slotName string,
+) (pluginName, slotType string, restartLsn, confirmedFlushLsn pgtypes.LSN, err error) {
+	err = sc.newSession(time.Second*10, func(session *session) error {
+		return session.queryRow(readReplicationSlot, slotName).Scan(
+			&pluginName, &slotType, &restartLsn, &confirmedFlushLsn,
+		)
+	})
+	if err == pgx.ErrNoRows {
+		err = nil
+	}
+	return
+}
+
 func (sc *sideChannelImpl) readHypertableSchema0(
 	session *session, hypertable *systemcatalog.Hypertable,
 	cb func(hypertable *systemcatalog.Hypertable, columns []systemcatalog.Column) bool) error {
@@ -495,7 +514,7 @@ func (sc *sideChannelImpl) newSession(timeout time.Duration, fn func(session *se
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	connection, err := sc.replicationContext.NewSideChannelConnection(ctx)
+	connection, err := sc.replicationContext.newSideChannelConnection(ctx)
 	if err != nil {
 		return fmt.Errorf("unable to connect to database: %v", err)
 	}

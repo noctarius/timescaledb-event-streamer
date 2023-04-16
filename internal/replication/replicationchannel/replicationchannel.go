@@ -1,27 +1,21 @@
 package replicationchannel
 
 import (
-	"context"
 	"fmt"
 	"github.com/go-errors/errors"
-	"github.com/jackc/pglogrepl"
-	"github.com/jackc/pgx/v5/pgconn"
 	repcontext "github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 )
 
-const outputPlugin = "pgoutput"
-
 // ReplicationChannel represents the database connection and handler loop
 // for the logical replication decoding subscriber.
 type ReplicationChannel struct {
-	replicationContext     *repcontext.ReplicationContext
-	createdPublication     bool
-	createdReplicationSlot bool
-	shutdownAwaiter        *supporting.ShutdownAwaiter
-	logger                 *logging.Logger
+	replicationContext *repcontext.ReplicationContext
+	createdPublication bool
+	shutdownAwaiter    *supporting.ShutdownAwaiter
+	logger             *logging.Logger
 }
 
 // NewReplicationChannel instantiates a new instance of the ReplicationChannel.
@@ -56,7 +50,7 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 		return errors.Wrap(err, 0)
 	}
 
-	connection, err := replicationContext.NewReplicationChannelConnection(context.Background())
+	replicationConnection, err := replicationContext.NewReplicationConnection()
 	if err != nil {
 		return errors.Wrap(err, 0)
 	}
@@ -72,14 +66,6 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 			return errors.Wrap(err, 0)
 		}
 	}
-
-	// Retrieve system identifiers for replication
-	identification, err := pglogrepl.IdentifySystem(context.Background(), connection)
-	if err != nil {
-		return fmt.Errorf("system identification failed: %s", err)
-	}
-	rc.logger.Println("SystemID:", identification.SystemID, "Timeline:", identification.Timeline, "XLogPos:",
-		identification.XLogPos, "DBName:", identification.DBName)
 
 	// Build output plugin parameters
 	pluginArguments := []string{
@@ -99,17 +85,18 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 		)
 	}
 
-	if err := rc.ensureReplicationSlot(connection); err != nil {
+	if slotName, _, err := replicationConnection.CreateReplicationSlot(); err != nil {
 		return fmt.Errorf("CreateReplicationSlot failed: %s", err)
+	} else {
+		rc.logger.Println("Created temporary replication slot:", slotName)
 	}
-	rc.logger.Println("Created temporary replication slot:", rc.replicationContext.PublicationName())
 
-	if err := rc.startReplication(connection, identification, pluginArguments); err != nil {
+	if err := replicationConnection.StartReplication(pluginArguments); err != nil {
 		return fmt.Errorf("StartReplication failed: %s", err)
 	}
 
 	go func() {
-		err := replicationHandler.startReplicationHandler(connection, identification)
+		err := replicationHandler.startReplicationHandler(replicationConnection)
 		if err != nil {
 			rc.logger.Fatalf("Issue handling WAL stream: %s", err)
 		}
@@ -123,10 +110,10 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 		if err := replicationHandler.stopReplicationHandler(); err != nil {
 			rc.logger.Errorf("shutdown failed (stop replication handler): %+v", err)
 		}
-		if err := rc.stopReplication(connection); err != nil {
+		if err := replicationConnection.StopReplication(); err != nil {
 			rc.logger.Errorf("shutdown failed (send copy done): %+v", err)
 		}
-		if err := rc.dropReplicationSlotIfNecessary(connection); err != nil {
+		if err := replicationConnection.DropReplicationSlot(); err != nil {
 			rc.logger.Errorf("shutdown failed (drop replication slot): %+v", err)
 		}
 		if rc.createdPublication {
@@ -134,68 +121,11 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 				rc.logger.Errorf("shutdown failed (drop publication): %+v", err)
 			}
 		}
-		if err := connection.Close(context.Background()); err != nil {
+		if err := replicationConnection.Close(); err != nil {
 			rc.logger.Warnf("failed to close replication connection: %+v", err)
 		}
 		rc.shutdownAwaiter.SignalDone()
 	}()
 
 	return nil
-}
-
-func (rc *ReplicationChannel) ensureReplicationSlot(connection *pgconn.PgConn) error {
-	_ /*slot*/, err := pglogrepl.CreateReplicationSlot(
-		context.Background(),
-		connection,
-		rc.replicationContext.PublicationName(),
-		outputPlugin,
-		pglogrepl.CreateReplicationSlotOptions{
-			Temporary:      true,
-			SnapshotAction: "EXPORT_SNAPSHOT",
-		},
-	)
-	rc.createdReplicationSlot = true
-	return err
-}
-
-func (rc *ReplicationChannel) dropReplicationSlotIfNecessary(connection *pgconn.PgConn) error {
-	if !rc.createdReplicationSlot {
-		return nil
-	}
-	if err := pglogrepl.DropReplicationSlot(
-		context.Background(),
-		connection,
-		rc.replicationContext.PublicationName(),
-		pglogrepl.DropReplicationSlotOptions{
-			Wait: true,
-		},
-	); err != nil {
-		return err
-	}
-	rc.logger.Infoln("Dropped replication slot")
-	return nil
-}
-
-func (rc *ReplicationChannel) startReplication(connection *pgconn.PgConn,
-	identification pglogrepl.IdentifySystemResult, pluginArguments []string) error {
-
-	return pglogrepl.StartReplication(
-		context.Background(),
-		connection,
-		rc.replicationContext.PublicationName(),
-		identification.XLogPos,
-		pglogrepl.StartReplicationOptions{
-			PluginArgs: pluginArguments,
-		},
-	)
-}
-
-func (rc *ReplicationChannel) stopReplication(connection *pgconn.PgConn) error {
-	_, err := pglogrepl.SendStandbyCopyDone(context.Background(), connection)
-	if e, ok := err.(*pgconn.PgError); ok {
-		if e.Code == "XX000" {
-			return nil
-		}
-	}
-	return err
 }
