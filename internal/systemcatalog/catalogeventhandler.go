@@ -113,6 +113,15 @@ func (s *systemCatalogReplicationEventHandler) OnChunkAddedEvent(_ uint32, newVa
 			if !c.IsCompressed() &&
 				s.systemCatalog.IsHypertableSelectedForReplication(hypertableId) {
 
+				if found, err := s.systemCatalog.replicationContext.ExistsTableInPublication(c); err != nil {
+					return err
+				} else if found {
+					s.systemCatalog.logger.Infof(
+						"Chunk %s already in publication %s, skipping snapshotting",
+						c.CanonicalName(), s.systemCatalog.replicationContext.PublicationName(),
+					)
+					return nil
+				}
 				if err := s.systemCatalog.snapshotChunk(c); err != nil {
 					s.systemCatalog.logger.Fatalf("failed to snapshot chunk %s", c.CanonicalName())
 				}

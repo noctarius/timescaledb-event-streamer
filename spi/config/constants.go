@@ -5,7 +5,7 @@ const (
 	PropertyPostgresqlPassword                = "postgresql.password"
 	PropertyPostgresqlPublicationName         = "postgresql.publication.name"
 	PropertyPostgresqlPublicationCreate       = "postgresql.publication.create"
-	PropertyPostgresqlPublicationDrop         = "postgresql.publication.drop"
+	PropertyPostgresqlPublicationAutoDrop     = "postgresql.publication.autodrop"
 	PropertyPostgresqlSnapshotBatchsize       = "postgresql.snapshot.batchsize"
 	PropertyPostgresqlReplicationSlotName     = "postgresql.replicationslot.name"
 	PropertyPostgresqlReplicationSlotCreate   = "postgresql.replicationslot.create"

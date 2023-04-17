@@ -30,6 +30,8 @@ type ReplicationContext struct {
 
 	snapshotBatchSize       int
 	publicationName         string
+	publicationCreate       bool
+	publicationAutoDrop     bool
 	topicPrefix             string
 	replicationSlotName     string
 	replicationSlotCreate   bool
@@ -51,6 +53,12 @@ func NewReplicationContext(config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
 
 	publicationName := spiconfig.GetOrDefault(
 		config, spiconfig.PropertyPostgresqlPublicationName, "",
+	)
+	publicationCreate := spiconfig.GetOrDefault(
+		config, spiconfig.PropertyPostgresqlPublicationCreate, true,
+	)
+	publicationAutoDrop := spiconfig.GetOrDefault(
+		config, spiconfig.PropertyPostgresqlPublicationAutoDrop, true,
 	)
 	snapshotBatchSize := spiconfig.GetOrDefault(
 		config, spiconfig.PropertyPostgresqlSnapshotBatchsize, 1000,
@@ -76,6 +84,8 @@ func NewReplicationContext(config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
 
 		snapshotBatchSize:       snapshotBatchSize,
 		publicationName:         publicationName,
+		publicationCreate:       publicationCreate,
+		publicationAutoDrop:     publicationAutoDrop,
 		topicPrefix:             config.Topic.Prefix,
 		replicationSlotName:     replicationSlotName,
 		replicationSlotCreate:   replicationSlotCreate,
@@ -181,6 +191,14 @@ func (rp *ReplicationContext) PublicationName() string {
 	return rp.publicationName
 }
 
+func (rp *ReplicationContext) PublicationCreate() bool {
+	return rp.publicationCreate
+}
+
+func (rp *ReplicationContext) PublicationAutoDrop() bool {
+	return rp.publicationAutoDrop
+}
+
 func (rp *ReplicationContext) ReplicationSlotName() string {
 	return rp.replicationSlotName
 }
@@ -256,6 +274,10 @@ func (rp *ReplicationContext) ReadHypertableSchema(
 	hypertables ...*systemcatalog.Hypertable) error {
 
 	return rp.sideChannel.readHypertableSchema(cb, hypertables...)
+}
+
+func (rp *ReplicationContext) ExistsTableInPublication(entity systemcatalog.SystemEntity) (found bool, err error) {
+	return rp.sideChannel.existsTableInPublication(rp.publicationName, entity.SchemaName(), entity.TableName())
 }
 
 func (rp *ReplicationContext) AttachTablesToPublication(entities ...systemcatalog.SystemEntity) error {

@@ -6,6 +6,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
+	"os"
 	"strings"
 	"time"
 )
@@ -13,6 +14,15 @@ import (
 const (
 	DatabaseSchema = "tsdb"
 )
+
+func CreateTempFile(pattern string) (string, error) {
+	f, err := os.CreateTemp("", pattern)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	return f.Name(), nil
+}
 
 func CreateHypertable(pool *pgxpool.Pool, timeDimension string,
 	chunkSize time.Duration, columns ...systemcatalog.Column) (string, string, error) {

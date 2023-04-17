@@ -48,15 +48,15 @@ type PostgreSQLConfig struct {
 }
 
 type PublicationConfig struct {
-	Name   string `toml:"name"`
-	Create *bool  `toml:"create"`
-	Drop   *bool  `toml:"drop"`
+	Name     string `toml:"name"`
+	Create   *bool  `toml:"create"`
+	AutoDrop *bool  `toml:"autodrop"`
 }
 
 type ReplicationSlotConfig struct {
-	Name     *string `toml:"name"`
-	Create   *bool   `toml:"create"`
-	AutoDrop *bool   `toml:"autodrop"`
+	Name     string `toml:"name"`
+	Create   *bool  `toml:"create"`
+	AutoDrop *bool  `toml:"autodrop"`
 }
 
 type TransactionConfig struct {

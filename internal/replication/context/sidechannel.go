@@ -102,10 +102,17 @@ const checkExistingPublication = "SELECT true FROM pg_publication WHERE pubname 
 
 const dropPublication = "DROP PUBLICATION IF EXISTS %s"
 
-const existingPublicationPublishedTablesQuery = `
+const checkExistingPublicationPublishedTablesQuery = `
 SELECT pt.schemaname, pt.tablename
 FROM pg_catalog.pg_publication_tables pt
 WHERE pt.pubname = $1`
+
+const checkExistingTableInPublication = `
+SELECT true
+FROM pg_catalog.pg_publication_tables pt
+WHERE pt.pubname = $1
+  AND pt.schemaname = $2
+  AND pt.tablename = $3`
 
 const timescaledbVersionQuery = `
 SELECT extversion
@@ -172,6 +179,18 @@ func (sc *sideChannelImpl) dropPublication(publicationName string) error {
 		}
 		return err
 	})
+}
+
+func (sc *sideChannelImpl) existsTableInPublication(
+	publicationName, schemaName, tableName string) (found bool, err error) {
+
+	err = sc.newSession(time.Second*10, func(session *session) error {
+		return session.queryRow(checkExistingTableInPublication, publicationName, schemaName, tableName).Scan(&found)
+	})
+	if err == pgx.ErrNoRows {
+		err = nil
+	}
+	return
 }
 
 func (sc *sideChannelImpl) getSystemInformation() (databaseName, systemId string, timeline int32, err error) {
@@ -450,7 +469,7 @@ func (sc *sideChannelImpl) readPublishedTables(publicationName string) ([]system
 			}
 			systemEntities = append(systemEntities, systemcatalog.NewSystemEntity(schemaName, tableName))
 			return nil
-		}, existingPublicationPublishedTablesQuery, publicationName)
+		}, checkExistingPublicationPublishedTablesQuery, publicationName)
 	}); err != nil {
 		return nil, err
 	}

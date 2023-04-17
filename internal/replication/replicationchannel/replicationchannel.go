@@ -58,15 +58,12 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 	if found, err := rc.replicationContext.ExistsPublication(); err != nil {
 		return errors.Wrap(err, 0)
 	} else if !found {
+		if !rc.replicationContext.PublicationCreate() {
+			return errors.Errorf("Publication missing but wasn't asked to create it either")
+		}
 		if created, err := rc.replicationContext.CreatePublication(); created {
 			rc.createdPublication = true
 		} else if err != nil {
-			return errors.Wrap(err, 0)
-		}
-	}
-
-	if len(initialTables) > 0 {
-		if err := rc.replicationContext.AttachTablesToPublication(initialTables...); err != nil {
 			return errors.Wrap(err, 0)
 		}
 	}
@@ -93,6 +90,15 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 		return fmt.Errorf("CreateReplicationSlot failed: %s", err)
 	} else if created {
 		rc.logger.Println("Created replication slot:", slotName)
+
+		// If slot was newly created we immediately try to add as many chunks to the publication
+		// as possible, otherwise we wait for the catalog handler to do it one by one since we may
+		// have to snapshot or replay some of them which were created while we were gone.
+		if len(initialTables) > 0 {
+			if err := rc.replicationContext.AttachTablesToPublication(initialTables...); err != nil {
+				return errors.Wrap(err, 0)
+			}
+		}
 	} else {
 		rc.logger.Println("Reused replication slot:", slotName)
 	}
@@ -122,7 +128,7 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 		if err := replicationConnection.DropReplicationSlot(); err != nil {
 			rc.logger.Errorf("shutdown failed (drop replication slot): %+v", err)
 		}
-		if rc.createdPublication {
+		if rc.createdPublication && rc.replicationContext.PublicationAutoDrop() {
 			if err := rc.replicationContext.DropPublication(); err != nil {
 				rc.logger.Errorf("shutdown failed (drop publication): %+v", err)
 			}

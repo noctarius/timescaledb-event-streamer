@@ -28,6 +28,8 @@ type Context interface {
 	BeginTx(ctx context.Context, txOptions pgx.TxOptions) (pgx.Tx, error)
 	Ping(ctx context.Context) error
 	CreateHypertable(timeDimension string, chunkSize time.Duration, columns ...systemcatalog.Column) (string, string, error)
+	PauseReplicator() error
+	ResumeReplicator() error
 	attribute(key string, value any)
 	getAttribute(key string) any
 }
@@ -47,12 +49,37 @@ func GetAttribute[V any](context Context, key string) V {
 
 type testContext struct {
 	pool        *pgxpool.Pool
+	streamer    *internal.Streamer
 	hypertables []string
 	attributes  map[string]any
+
+	streamerRunning bool
 
 	setupFunctions            []func(setupContext SetupContext) error
 	tearDownFunction          []func(Context) error
 	systemConfigConfigurators []func(config *sysconfig.SystemConfig)
+}
+
+func (t *testContext) PauseReplicator() error {
+	if !t.streamerRunning {
+		return nil
+	}
+	if err := t.streamer.Stop(); err != nil {
+		return err
+	}
+	t.streamerRunning = false
+	return nil
+}
+
+func (t *testContext) ResumeReplicator() error {
+	if t.streamerRunning {
+		return nil
+	}
+	if err := t.streamer.Start(); err != nil {
+		return err
+	}
+	t.streamerRunning = true
+	return nil
 }
 
 func (t *testContext) Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
@@ -238,8 +265,9 @@ func (tr *TestRunner) RunTest(testFn func(context Context) error, configurators 
 		tr.T().Fatalf("failed to create streamer with exitCode: %d and error: %+v", e.ExitCode(), e.Error())
 		return
 	}
+	tc.streamer = streamer
 
-	if err := streamer.Start(); err != nil {
+	if err := tc.ResumeReplicator(); err != nil {
 		tr.T().Fatalf("failed to start streamer: %+v", err)
 		return
 	}
@@ -252,7 +280,7 @@ func (tr *TestRunner) RunTest(testFn func(context Context) error, configurators 
 			}
 		}
 
-		if err := streamer.Stop(); err != nil {
+		if err := tc.PauseReplicator(); err != nil {
 			tr.T().Fatalf("failed to stop streamer: %+v", err)
 		}
 	}()
