@@ -4,6 +4,10 @@ import "github.com/jackc/pglogrepl"
 
 type LSN pglogrepl.LSN
 
+func (lsn LSN) String() string {
+	return pglogrepl.LSN(lsn).String()
+}
+
 type BeginMessage pglogrepl.BeginMessage
 
 type CommitMessage pglogrepl.CommitMessage
