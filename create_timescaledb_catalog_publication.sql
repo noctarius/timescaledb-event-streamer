@@ -42,8 +42,9 @@ BEGIN
         END IF;
 
         SELECT true
-        FROM (SELECT session_user as uid) s
-        WHERE s.uid = owner
+        FROM (SELECT session_user as username) s
+        LEFT JOIN pg_catalog.pg_user u ON u.usename = s.username
+        WHERE u.usesysid = owner
         INTO found;
 
         IF NOT found THEN
