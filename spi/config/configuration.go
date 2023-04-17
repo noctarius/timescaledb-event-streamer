@@ -9,6 +9,13 @@ import (
 	"time"
 )
 
+type OffsetStorageType string
+
+const (
+	NoneStorage OffsetStorageType = "none"
+	FileStorage OffsetStorageType = "file"
+)
+
 type SinkType string
 
 const (
@@ -180,11 +187,21 @@ type TimescaleEventsConfig struct {
 }
 
 type Config struct {
-	PostgreSQL  PostgreSQLConfig  `toml:"postgresql"`
-	Sink        SinkConfig        `toml:"sink"`
-	Topic       TopicConfig       `toml:"topic"`
-	TimescaleDB TimescaleDBConfig `toml:"timescaledb"`
-	Logging     LoggerConfig      `toml:"logging"`
+	PostgreSQL    PostgreSQLConfig    `toml:"postgresql"`
+	Sink          SinkConfig          `toml:"sink"`
+	Topic         TopicConfig         `toml:"topic"`
+	TimescaleDB   TimescaleDBConfig   `toml:"timescaledb"`
+	Logging       LoggerConfig        `toml:"logging"`
+	OffsetStorage OffsetStorageConfig `toml:"offsetstorage"`
+}
+
+type OffsetStorageConfig struct {
+	Type        OffsetStorageType `toml:"type"`
+	FileStorage FileStorageConfig `toml:"file"`
+}
+
+type FileStorageConfig struct {
+	Path string `toml:"path"`
 }
 
 type LoggerConfig struct {
@@ -234,6 +251,11 @@ func GetOrDefault[V any](config *Config, canonicalProperty string, defaultValue 
 
 	if !element.IsZero() &&
 		!(element.Kind() == reflect.Ptr && element.IsNil()) {
+
+		if element.Kind() == reflect.Ptr {
+			element = element.Elem()
+		}
+
 		return element.Convert(reflect.TypeOf(defaultValue)).Interface().(V)
 	}
 	return defaultValue

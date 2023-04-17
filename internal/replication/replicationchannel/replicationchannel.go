@@ -55,10 +55,14 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 		return errors.Wrap(err, 0)
 	}
 
-	if created, err := rc.replicationContext.CreatePublication(); created {
-		rc.createdPublication = true
-	} else if err != nil {
+	if found, err := rc.replicationContext.ExistsPublication(); err != nil {
 		return errors.Wrap(err, 0)
+	} else if !found {
+		if created, err := rc.replicationContext.CreatePublication(); created {
+			rc.createdPublication = true
+		} else if err != nil {
+			return errors.Wrap(err, 0)
+		}
 	}
 
 	if len(initialTables) > 0 {
@@ -85,10 +89,12 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 		)
 	}
 
-	if slotName, _, err := replicationConnection.CreateReplicationSlot(); err != nil {
+	if slotName, _, created, err := replicationConnection.CreateReplicationSlot(); err != nil {
 		return fmt.Errorf("CreateReplicationSlot failed: %s", err)
+	} else if created {
+		rc.logger.Println("Created replication slot:", slotName)
 	} else {
-		rc.logger.Println("Created temporary replication slot:", slotName)
+		rc.logger.Println("Reused replication slot:", slotName)
 	}
 
 	if err := replicationConnection.StartReplication(pluginArguments); err != nil {

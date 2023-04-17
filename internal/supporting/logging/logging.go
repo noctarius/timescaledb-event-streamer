@@ -75,7 +75,11 @@ func newConsoleHandler(logToStdErr bool) slog.Handler {
 	consoleHandler := handler.NewConsoleHandler(slog.AllLevels)
 	if !WithCaller {
 		consoleHandler.TextFormatter().SetTemplate(
-			"[{{datetime}}] [{{channel}}] [{{level}}] {{message}} {{data}} {{extra}}\n",
+			"[{{datetime}}] [{{level}}] {{message}} {{data}} {{extra}}\n",
+		)
+	} else {
+		consoleHandler.TextFormatter().SetTemplate(
+			"[{{datetime}}] [{{level}}] [{{caller}}] {{message}} {{data}} {{extra}}\n",
 		)
 	}
 	if logToStdErr {

@@ -12,6 +12,9 @@ postgresql.password = '...'
 #postgresql.transaction.window.timeout = 60
 #postgresql.transaction.window.maxsize = 100000
 
+offsetstorage.type = 'file'
+offsetstorage.file.path = '/tmp/offsetstorage.dat'
+
 sink.tombstone = false
 
 #sink.filters.filterName.condition = '''value.op == "u" && value.before.id == 2'''

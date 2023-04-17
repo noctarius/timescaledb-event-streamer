@@ -44,8 +44,15 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 		return supporting.AdaptErrorWithMessage(err, "failed to instantiate naming strategy", 21)
 	}
 
+	offsetStorage, err := r.config.OffsetStorageProvider(r.config.Config)
+	if err != nil {
+		return supporting.AdaptErrorWithMessage(err, "failed to instantiate offset storage", 23)
+	}
+
 	// Create the side channels and replication context
-	replicationContext, err := context.NewReplicationContext(r.config.Config, r.config.PgxConfig, namingStrategy)
+	replicationContext, err := context.NewReplicationContext(
+		r.config.Config, r.config.PgxConfig, namingStrategy, offsetStorage,
+	)
 	if err != nil {
 		return supporting.AdaptErrorWithMessage(err, "failed to initialize replication context", 17)
 	}

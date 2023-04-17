@@ -6,7 +6,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	intschema "github.com/noctarius/timescaledb-event-streamer/internal/eventing/schema"
-	"github.com/noctarius/timescaledb-event-streamer/internal/offsetstorages/dummy"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	intversion "github.com/noctarius/timescaledb-event-streamer/internal/version"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
@@ -48,7 +47,7 @@ type ReplicationContext struct {
 }
 
 func NewReplicationContext(config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
-	namingStrategy namingstrategy.NamingStrategy) (*ReplicationContext, error) {
+	namingStrategy namingstrategy.NamingStrategy, offsetStorage offset.Storage) (*ReplicationContext, error) {
 
 	publicationName := spiconfig.GetOrDefault(
 		config, spiconfig.PropertyPostgresqlPublicationName, "",
@@ -73,7 +72,7 @@ func NewReplicationContext(config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
 
 		namingStrategy: namingStrategy,
 		dispatcher:     newDispatcher(),
-		offsetStorage:  &dummy.DummyOffsetStorage{},
+		offsetStorage:  offsetStorage,
 
 		snapshotBatchSize:       snapshotBatchSize,
 		publicationName:         publicationName,
@@ -129,11 +128,14 @@ func NewReplicationContext(config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
 
 func (rp *ReplicationContext) StartReplicationContext() error {
 	rp.dispatcher.StartDispatcher()
-	return nil
+	return rp.offsetStorage.Start()
 }
 
 func (rp *ReplicationContext) StopReplicationContext() error {
-	return rp.dispatcher.StopDispatcher()
+	if err := rp.dispatcher.StopDispatcher(); err != nil {
+		return err
+	}
+	return rp.offsetStorage.Stop()
 }
 
 func (rp *ReplicationContext) Offset() (*offset.Offset, error) {

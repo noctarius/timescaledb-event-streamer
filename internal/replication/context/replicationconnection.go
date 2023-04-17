@@ -105,26 +105,39 @@ func (rc *ReplicationConnection) StopReplication() error {
 	return err
 }
 
-func (rc *ReplicationConnection) CreateReplicationSlot() (slotName, snapshotName string, err error) {
-	slot, err := pglogrepl.CreateReplicationSlot(context.Background(), rc.conn,
-		rc.replicationContext.PublicationName(), outputPlugin,
+func (rc *ReplicationConnection) CreateReplicationSlot() (slotName, snapshotName string, created bool, err error) {
+	if !rc.replicationContext.replicationSlotCreate {
+		return "", "", false, nil
+	}
+
+	replicationSlotName := rc.replicationContext.ReplicationSlotName()
+	found, err := rc.replicationContext.sideChannel.existsReplicationSlot(replicationSlotName)
+	if err != nil {
+		return "", "", false, err
+	}
+
+	if found {
+		return replicationSlotName, "", false, nil
+	}
+
+	slot, err := pglogrepl.CreateReplicationSlot(context.Background(), rc.conn, replicationSlotName, outputPlugin,
 		pglogrepl.CreateReplicationSlotOptions{
 			SnapshotAction: "EXPORT_SNAPSHOT",
 		},
 	)
 	if err != nil {
-		return "", "", err
+		return "", "", false, err
 	}
 
 	rc.replicationSlotCreated = true
-	return slot.SlotName, slot.SnapshotName, err
+	return slot.SlotName, slot.SnapshotName, true, err
 }
 
 func (rc *ReplicationConnection) DropReplicationSlot() error {
-	if !rc.replicationSlotCreated {
+	if !rc.replicationSlotCreated || !rc.replicationContext.replicationSlotAutoDrop {
 		return nil
 	}
-	if err := pglogrepl.DropReplicationSlot(context.Background(), rc.conn, rc.replicationContext.PublicationName(),
+	if err := pglogrepl.DropReplicationSlot(context.Background(), rc.conn, rc.replicationContext.ReplicationSlotName(),
 		pglogrepl.DropReplicationSlotOptions{
 			Wait: true,
 		},
@@ -190,6 +203,14 @@ func (rc *ReplicationConnection) locateRestartLSN() (pgtypes.LSN, error) {
 
 	if restartLSN == 0 {
 		restartLSN = pgtypes.LSN(rc.identification.XLogPos)
+	}
+
+	if restartLSN == confirmedFlushLSN && !rc.replicationSlotCreated {
+		rc.logger.Infof("Restarting replication at last confirmed flush LSN: %s", restartLSN)
+	} else if offset != nil && restartLSN == offset.LSN {
+		rc.logger.Infof("Restarting replication at last LSN in offset storage: %s", restartLSN)
+	} else {
+		rc.logger.Infof("Starting replication at current LSN: %s", restartLSN)
 	}
 	return restartLSN, nil
 }

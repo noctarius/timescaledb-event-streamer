@@ -17,6 +17,9 @@ const (
 	PropertySink          = "sink.type"
 	PropertySinkTombstone = "sink.tombstone"
 
+	PropertyOffsetStorageType     = "offsetstorage.type"
+	PropertyFileOffsetStoragePath = "offsetstorage.file.path"
+
 	PropertyEventsRead          = "timescaledb.events.read"
 	PropertyEventsInsert        = "timescaledb.events.insert"
 	PropertyEventsUpdate        = "timescaledb.events.update"

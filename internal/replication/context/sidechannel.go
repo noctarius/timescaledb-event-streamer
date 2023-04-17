@@ -91,6 +91,11 @@ SELECT plugin, slot_type, restart_lsn, confirmed_flush_lsn
 FROM pg_catalog.pg_replication_slots prs
 WHERE slot_name = $1`
 
+const checkExistingReplicationSlot = `
+SELECT true
+FROM pg_catalog.pg_replication_slots prs
+WHERE slot_name = $1`
+
 const createPublication = "SELECT create_timescaledb_catalog_publication($1, $2)"
 
 const checkExistingPublication = "SELECT true FROM pg_publication WHERE pubname = $1"
@@ -148,6 +153,9 @@ func (sc *sideChannelImpl) existsPublication(publicationName string) (found bool
 	err = sc.newSession(time.Second*10, func(session *session) error {
 		return session.queryRow(checkExistingPublication, publicationName).Scan(&found)
 	})
+	if err == pgx.ErrNoRows {
+		err = nil
+	}
 	return
 }
 
@@ -453,9 +461,33 @@ func (sc *sideChannelImpl) readReplicationSlot(
 	slotName string,
 ) (pluginName, slotType string, restartLsn, confirmedFlushLsn pgtypes.LSN, err error) {
 	err = sc.newSession(time.Second*10, func(session *session) error {
-		return session.queryRow(readReplicationSlot, slotName).Scan(
-			&pluginName, &slotType, &restartLsn, &confirmedFlushLsn,
-		)
+		var restart, confirmed string
+		if err := session.queryRow(readReplicationSlot, slotName).Scan(
+			&pluginName, &slotType, &restart, &confirmed,
+		); err != nil {
+			return err
+		}
+		lsn, err := pglogrepl.ParseLSN(restart)
+		if err != nil {
+			return err
+		}
+		restartLsn = pgtypes.LSN(lsn)
+		lsn, err = pglogrepl.ParseLSN(confirmed)
+		if err != nil {
+			return err
+		}
+		confirmedFlushLsn = pgtypes.LSN(lsn)
+		return nil
+	})
+	if err == pgx.ErrNoRows {
+		err = nil
+	}
+	return
+}
+
+func (sc *sideChannelImpl) existsReplicationSlot(slotName string) (found bool, err error) {
+	err = sc.newSession(time.Second*10, func(session *session) error {
+		return session.queryRow(checkExistingReplicationSlot, slotName).Scan(&found)
 	})
 	if err == pgx.ErrNoRows {
 		err = nil
