@@ -3,6 +3,7 @@ package schema
 import (
 	"fmt"
 	"github.com/jackc/pglogrepl"
+	"github.com/noctarius/timescaledb-event-streamer/internal/version"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/topic/namegenerator"
 	"strconv"
@@ -193,8 +194,8 @@ func Source(lsn pglogrepl.LSN, timestamp time.Time, snapshot bool,
 	databaseName, schemaName, hypertableName string, transactionId *uint32) Struct {
 
 	return Struct{
-		fieldNameVersion:   "0.0.1", // FIXME, get a real version
-		fieldNameConnector: "event-stream-prototype",
+		fieldNameVersion:   version.Version,
+		fieldNameConnector: "timescaledb-event-streamer",
 		fieldNameName:      databaseName,
 		fieldNameTimestamp: timestamp.UnixMilli(),
 		fieldNameSnapshot:  snapshot,
