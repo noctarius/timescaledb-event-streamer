@@ -88,7 +88,7 @@ func (rc *ReplicationConnection) StartReplication(pluginArguments []string) erro
 	rc.replicationContext.processedLSN = restartLSN
 
 	return pglogrepl.StartReplication(context.Background(), rc.conn,
-		rc.replicationContext.PublicationName(), pglogrepl.LSN(restartLSN),
+		rc.replicationContext.ReplicationSlotName(), pglogrepl.LSN(restartLSN),
 		pglogrepl.StartReplicationOptions{
 			PluginArgs: pluginArguments,
 		},
