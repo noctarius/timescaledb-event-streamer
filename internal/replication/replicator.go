@@ -44,14 +44,14 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 		return supporting.AdaptErrorWithMessage(err, "failed to instantiate naming strategy", 21)
 	}
 
-	offsetStorage, err := r.config.OffsetStorageProvider(r.config.Config)
+	stateStorage, err := r.config.StateStorageProvider(r.config.Config)
 	if err != nil {
-		return supporting.AdaptErrorWithMessage(err, "failed to instantiate offset storage", 23)
+		return supporting.AdaptErrorWithMessage(err, "failed to instantiate state storage", 23)
 	}
 
 	// Create the side channels and replication context
 	replicationContext, err := context.NewReplicationContext(
-		r.config.Config, r.config.PgxConfig, namingStrategy, offsetStorage,
+		r.config.Config, r.config.PgxConfig, namingStrategy, stateStorage,
 	)
 	if err != nil {
 		return supporting.AdaptErrorWithMessage(err, "failed to initialize replication context", 17)
@@ -128,6 +128,11 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 		return cli.NewExitError("failed to start replication context", 18)
 	}
 
+	// Start event emitter
+	if err := eventEmitter.Start(); err != nil {
+		return supporting.AdaptErrorWithMessage(err, "failed to start event emitter", 24)
+	}
+
 	// Start the snapshotter
 	snapshotter.StartSnapshotter()
 
@@ -152,8 +157,9 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 	r.shutdownTask = func() error {
 		snapshotter.StopSnapshotter()
 		err1 := replicationChannel.StopReplicationChannel()
-		err2 := replicationContext.StopReplicationContext()
-		return stderrors.Join(err1, err2)
+		err2 := eventEmitter.Stop()
+		err3 := replicationContext.StopReplicationContext()
+		return stderrors.Join(err1, err2, err3)
 	}
 
 	return nil

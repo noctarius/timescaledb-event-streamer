@@ -6,8 +6,8 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/transactional"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
-	"github.com/noctarius/timescaledb-event-streamer/spi/offset"
 	"github.com/noctarius/timescaledb-event-streamer/spi/sink"
+	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
 	"github.com/noctarius/timescaledb-event-streamer/spi/topic/namingstrategy"
 )
 
@@ -37,7 +37,7 @@ func DefaultEventEmitterProvider(
 	return eventemitting.NewEventEmitter(replicationContext, transactionMonitor, sink, filters), nil
 }
 
-func DefaultOffsetStorageProvider(config *spiconfig.Config) (offset.Storage, error) {
-	name := spiconfig.GetOrDefault(config, spiconfig.PropertyOffsetStorageType, spiconfig.NoneStorage)
-	return offset.NewOffsetStorage(name, config)
+func DefaultStateStorageProvider(config *spiconfig.Config) (statestorage.Storage, error) {
+	name := spiconfig.GetOrDefault(config, spiconfig.PropertyStateStorageType, spiconfig.NoneStorage)
+	return statestorage.NewStateStorage(name, config)
 }

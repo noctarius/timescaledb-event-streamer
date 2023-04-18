@@ -1,4 +1,4 @@
-package offset
+package statestorage
 
 import (
 	"encoding/binary"

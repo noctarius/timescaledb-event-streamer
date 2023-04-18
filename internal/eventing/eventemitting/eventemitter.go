@@ -2,6 +2,7 @@ package eventemitting
 
 import (
 	"encoding/base64"
+	"encoding/binary"
 	"github.com/jackc/pglogrepl"
 	"github.com/noctarius/timescaledb-event-streamer/internal/eventing/eventfiltering"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
@@ -19,6 +20,7 @@ type EventEmitter struct {
 	transactionMonitor *transactional.TransactionMonitor
 	filter             eventfiltering.EventFilter
 	sink               sink.Sink
+	sinkContext        *sinkContextImpl
 }
 
 func NewEventEmitter(
@@ -30,7 +32,20 @@ func NewEventEmitter(
 		transactionMonitor: transactionMonitor,
 		filter:             filter,
 		sink:               sink,
+		sinkContext:        newSinkContextImpl(),
 	}
+}
+
+func (ee *EventEmitter) Start() error {
+	if encodedSinkContextState, present := ee.replicationContext.EncodedState("SinkContextState"); present {
+		return ee.sinkContext.UnmarshalBinary(encodedSinkContextState)
+	}
+	ee.replicationContext.RegisterStateEncoder("SinkContextState", ee.sinkContext.MarshalBinary)
+	return nil
+}
+
+func (ee *EventEmitter) Stop() error {
+	return nil
 }
 
 func (ee *EventEmitter) NewEventHandler() eventhandlers.BaseReplicationEventHandler {
@@ -61,7 +76,7 @@ func (ee *EventEmitter) keySchema(hypertable *systemcatalog.Hypertable) schema.S
 }
 
 func (ee *EventEmitter) emit(xld pglogrepl.XLogData, eventTopicName string, key, envelope schema.Struct) error {
-	if err := ee.sink.Emit(xld.ServerTime, eventTopicName, key, envelope); err != nil {
+	if err := ee.sink.Emit(ee.sinkContext, xld.ServerTime, eventTopicName, key, envelope); err != nil {
 		return err
 	}
 	return ee.replicationContext.AcknowledgeProcessed(xld)
@@ -332,4 +347,75 @@ func (e *eventEmitterEventHandler) convertColumnValues(
 		}
 	}
 	return result, nil
+}
+
+type sinkContextImpl struct {
+	attributes          map[string]string
+	transientAttributes map[string]string
+}
+
+func newSinkContextImpl() *sinkContextImpl {
+	return &sinkContextImpl{
+		attributes:          make(map[string]string),
+		transientAttributes: make(map[string]string),
+	}
+}
+
+func (s *sinkContextImpl) UnmarshalBinary(data []byte) error {
+	offset := uint32(0)
+	numOfItems := binary.BigEndian.Uint32(data[offset:])
+	offset += 4
+
+	for i := uint32(0); i < numOfItems; i++ {
+		keyLength := binary.BigEndian.Uint32(data[offset:])
+		offset += 4
+		valueLength := binary.BigEndian.Uint32(data[offset:])
+		offset += 4
+
+		key := string(data[offset : offset+keyLength])
+		offset += keyLength
+
+		value := string(data[offset : offset+valueLength])
+		offset += valueLength
+
+		s.SetAttribute(key, value)
+	}
+	return nil
+}
+
+func (s *sinkContextImpl) MarshalBinary() (data []byte, err error) {
+	data = make([]byte, 0)
+
+	numOfItems := uint32(len(s.attributes))
+	data = binary.BigEndian.AppendUint32(data, numOfItems)
+
+	for key, value := range s.attributes {
+		keyBytes := []byte(key)
+		valueBytes := []byte(value)
+
+		data = binary.BigEndian.AppendUint32(data, uint32(len(keyBytes)))
+		data = binary.BigEndian.AppendUint32(data, uint32(len(valueBytes)))
+
+		data = append(data, keyBytes...)
+		data = append(data, valueBytes...)
+	}
+	return data, nil
+}
+
+func (s *sinkContextImpl) SetTransientAttribute(key string, value string) {
+	s.transientAttributes[key] = value
+}
+
+func (s *sinkContextImpl) TransientAttribute(key string) (value string, present bool) {
+	value, present = s.transientAttributes[key]
+	return
+}
+
+func (s *sinkContextImpl) SetAttribute(key string, value string) {
+	s.attributes[key] = value
+}
+
+func (s *sinkContextImpl) Attribute(key string) (value string, present bool) {
+	value, present = s.attributes[key]
+	return
 }

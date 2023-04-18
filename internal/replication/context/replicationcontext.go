@@ -10,9 +10,9 @@ import (
 	intversion "github.com/noctarius/timescaledb-event-streamer/internal/version"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
-	"github.com/noctarius/timescaledb-event-streamer/spi/offset"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
+	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/topic/namingstrategy"
 	"github.com/noctarius/timescaledb-event-streamer/spi/version"
@@ -26,7 +26,7 @@ type ReplicationContext struct {
 	dispatcher     *dispatcher
 	schemaRegistry schema.Registry
 	namingStrategy namingstrategy.NamingStrategy
-	offsetStorage  offset.Storage
+	stateStorage   statestorage.Storage
 
 	snapshotBatchSize       int
 	publicationName         string
@@ -49,7 +49,7 @@ type ReplicationContext struct {
 }
 
 func NewReplicationContext(config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
-	namingStrategy namingstrategy.NamingStrategy, offsetStorage offset.Storage) (*ReplicationContext, error) {
+	namingStrategy namingstrategy.NamingStrategy, stateStorage statestorage.Storage) (*ReplicationContext, error) {
 
 	publicationName := spiconfig.GetOrDefault(
 		config, spiconfig.PropertyPostgresqlPublicationName, "",
@@ -80,7 +80,7 @@ func NewReplicationContext(config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
 
 		namingStrategy: namingStrategy,
 		dispatcher:     newDispatcher(),
-		offsetStorage:  offsetStorage,
+		stateStorage:   stateStorage,
 
 		snapshotBatchSize:       snapshotBatchSize,
 		publicationName:         publicationName,
@@ -138,18 +138,18 @@ func NewReplicationContext(config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
 
 func (rp *ReplicationContext) StartReplicationContext() error {
 	rp.dispatcher.StartDispatcher()
-	return rp.offsetStorage.Start()
+	return rp.stateStorage.Start()
 }
 
 func (rp *ReplicationContext) StopReplicationContext() error {
 	if err := rp.dispatcher.StopDispatcher(); err != nil {
 		return err
 	}
-	return rp.offsetStorage.Stop()
+	return rp.stateStorage.Stop()
 }
 
-func (rp *ReplicationContext) Offset() (*offset.Offset, error) {
-	offsets, err := rp.offsetStorage.Get()
+func (rp *ReplicationContext) Offset() (*statestorage.Offset, error) {
+	offsets, err := rp.stateStorage.Get()
 	if err != nil {
 		return nil, err
 	}
@@ -175,12 +175,24 @@ func (rp *ReplicationContext) AcknowledgeProcessed(xld pglogrepl.XLogData) error
 	}
 
 	if o == nil {
-		o = &offset.Offset{
+		o = &statestorage.Offset{
 			LSN:       rp.processedLSN,
 			Timestamp: xld.ServerTime,
 		}
 	}
-	return rp.offsetStorage.Set(rp.replicationSlotName, o)
+	return rp.stateStorage.Set(rp.replicationSlotName, o)
+}
+
+func (rp *ReplicationContext) RegisterStateEncoder(name string, encoder statestorage.StateEncoder) {
+	rp.stateStorage.RegisterStateEncoder(name, encoder)
+}
+
+func (rp *ReplicationContext) SetSinkContextAttribute(name string, encodedState []byte) {
+	rp.stateStorage.SetEncodedState(name, encodedState)
+}
+
+func (rp *ReplicationContext) EncodedState(name string) (encodedState []byte, present bool) {
+	return rp.stateStorage.EncodedState(name)
 }
 
 func (rp *ReplicationContext) DatabaseUsername() string {

@@ -9,20 +9,21 @@ import (
 	"time"
 )
 
-type OffsetStorageType string
+type StateStorageType string
 
 const (
-	NoneStorage OffsetStorageType = "none"
-	FileStorage OffsetStorageType = "file"
+	NoneStorage StateStorageType = "none"
+	FileStorage StateStorageType = "file"
 )
 
 type SinkType string
 
 const (
-	Stdout SinkType = "stdout"
-	NATS   SinkType = "nats"
-	Kafka  SinkType = "kafka"
-	Redis  SinkType = "redis"
+	Stdout     SinkType = "stdout"
+	NATS       SinkType = "nats"
+	Kafka      SinkType = "kafka"
+	Redis      SinkType = "redis"
+	AwsKinesis SinkType = "awskinesis"
 )
 
 type NamingStrategyType string
@@ -70,12 +71,13 @@ type TransactionWindowConfig struct {
 }
 
 type SinkConfig struct {
-	Type      SinkType                     `toml:"type"`
-	Tombstone bool                         `toml:"tombstone"`
-	Filters   map[string]EventFilterConfig `toml:"filters"`
-	Nats      NatsConfig                   `toml:"nats"`
-	Kafka     KafkaConfig                  `toml:"kafka"`
-	Redis     RedisConfig                  `toml:"redis"`
+	Type       SinkType                     `toml:"type"`
+	Tombstone  bool                         `toml:"tombstone"`
+	Filters    map[string]EventFilterConfig `toml:"filters"`
+	Nats       NatsConfig                   `toml:"nats"`
+	Kafka      KafkaConfig                  `toml:"kafka"`
+	Redis      RedisConfig                  `toml:"redis"`
+	AwsKinesis AwsKinesisConfig             `toml:"kinesis"`
 }
 
 type EventFilterConfig struct {
@@ -186,17 +188,36 @@ type TimescaleEventsConfig struct {
 	Decompression bool `toml:"decompression"`
 }
 
-type Config struct {
-	PostgreSQL    PostgreSQLConfig    `toml:"postgresql"`
-	Sink          SinkConfig          `toml:"sink"`
-	Topic         TopicConfig         `toml:"topic"`
-	TimescaleDB   TimescaleDBConfig   `toml:"timescaledb"`
-	Logging       LoggerConfig        `toml:"logging"`
-	OffsetStorage OffsetStorageConfig `toml:"offsetstorage"`
+type AwsKinesisConfig struct {
+	Stream AwsKinesisStreamConfig `toml:"stream"`
+	Aws    AwsConnectionConfig    `toml:"aws"`
 }
 
-type OffsetStorageConfig struct {
-	Type        OffsetStorageType `toml:"type"`
+type AwsKinesisStreamConfig struct {
+	Name       *string `toml:"stream"`
+	Create     *bool   `toml:"create"`
+	ShardCount *int64  `toml:"shardcount"`
+	Mode       *string `toml:"mode"`
+}
+
+type AwsConnectionConfig struct {
+	Endpoint        string `toml:"endpoint"`
+	AccessKeyId     string `toml:"accesskeyid"`
+	SecretAccessKey string `toml:"secretaccesskey"`
+	SessionToken    string `toml:"sessiontoken"`
+}
+
+type Config struct {
+	PostgreSQL   PostgreSQLConfig   `toml:"postgresql"`
+	Sink         SinkConfig         `toml:"sink"`
+	Topic        TopicConfig        `toml:"topic"`
+	TimescaleDB  TimescaleDBConfig  `toml:"timescaledb"`
+	Logging      LoggerConfig       `toml:"logging"`
+	StateStorage StateStorageConfig `toml:"statestorage"`
+}
+
+type StateStorageConfig struct {
+	Type        StateStorageType  `toml:"type"`
 	FileStorage FileStorageConfig `toml:"file"`
 }
 

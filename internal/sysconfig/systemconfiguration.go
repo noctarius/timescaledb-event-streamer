@@ -4,8 +4,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig/defaultproviders"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
-	"github.com/noctarius/timescaledb-event-streamer/spi/offset"
 	"github.com/noctarius/timescaledb-event-streamer/spi/sink"
+	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
 	"github.com/noctarius/timescaledb-event-streamer/spi/topic/namingstrategy"
 )
 
@@ -16,7 +16,7 @@ type SystemConfig struct {
 	SinkProvider           sink.Provider
 	EventEmitterProvider   defaultproviders.EventEmitterProvider
 	NamingStrategyProvider namingstrategy.Provider
-	OffsetStorageProvider  offset.Provider
+	StateStorageProvider  statestorage.Provider
 }
 
 func NewSystemConfig(config *spiconfig.Config) *SystemConfig {
@@ -26,6 +26,6 @@ func NewSystemConfig(config *spiconfig.Config) *SystemConfig {
 	sc.SinkProvider = defaultproviders.DefaultSinkProvider
 	sc.EventEmitterProvider = defaultproviders.DefaultEventEmitterProvider
 	sc.NamingStrategyProvider = defaultproviders.DefaultNamingStrategyProvider
-	sc.OffsetStorageProvider = defaultproviders.DefaultOffsetStorageProvider
+	sc.StateStorageProvider = defaultproviders.DefaultStateStorageProvider
 	return sc
 }

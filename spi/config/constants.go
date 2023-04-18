@@ -17,8 +17,8 @@ const (
 	PropertySink          = "sink.type"
 	PropertySinkTombstone = "sink.tombstone"
 
-	PropertyOffsetStorageType     = "offsetstorage.type"
-	PropertyFileOffsetStoragePath = "offsetstorage.file.path"
+	PropertyStateStorageType     = "statestorage.type"
+	PropertyFileStateStoragePath = "statestorage.file.path"
 
 	PropertyEventsRead          = "timescaledb.events.read"
 	PropertyEventsInsert        = "timescaledb.events.insert"
@@ -64,4 +64,14 @@ const (
 	PropertyRedisTimeoutIdle       = "sink.redis.timeouts.idle"
 	PropertyRedisTlsSkipVerify     = "sink.redis.tls.skipverify"
 	PropertyRedisTlsClientAuth     = "sink.redis.tls.clientauth"
+
+	PropertyKinesisStreamName         = "sink.kinesis.stream.name"
+	PropertyKinesisStreamCreate       = "sink.kinesis.stream.create"
+	PropertyKinesisStreamShardCount   = "sink.kinesis.stream.shardcount"
+	PropertyKinesisStreamMode         = "sink.kinesis.stream.mode"
+	PropertyKinesisRegion             = "sink.kinesis.region"
+	PropertyKinesisAwsEndpoint        = "sink.kinesis.aws.endpoint"
+	PropertyKinesisAwsAccessKeyId     = "sink.kinesis.aws.accesskeyid"
+	PropertyKinesisAwsSecretAccessKey = "sink.kinesis.aws.secretaccesskey"
+	PropertyKinesisAwsSessionToken    = "sink.kinesis.aws.sessiontoken"
 )

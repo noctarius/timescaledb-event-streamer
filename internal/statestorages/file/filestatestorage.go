@@ -7,7 +7,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
-	"github.com/noctarius/timescaledb-event-streamer/spi/offset"
+	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
 	"os"
 	"path/filepath"
 	"sync"
@@ -15,30 +15,33 @@ import (
 )
 
 func init() {
-	offset.RegisterOffsetStorage(spiconfig.FileStorage, newFileOffsetStorage)
+	statestorage.RegisterStateStorage(spiconfig.FileStorage, newFileStateStorage)
 }
 
-type fileOffsetStorage struct {
+type fileStateStorage struct {
 	path    string
 	mutex   sync.Mutex
 	logger  *logging.Logger
-	offsets map[string]*offset.Offset
+	offsets map[string]*statestorage.Offset
+
+	stateEncoders map[string]statestorage.StateEncoder
+	encodedStates map[string][]byte
 
 	changeCounter  uint64
 	ticker         *time.Ticker
 	shutdownWaiter *supporting.ShutdownAwaiter
 }
 
-func newFileOffsetStorage(config *spiconfig.Config) (offset.Storage, error) {
-	path := spiconfig.GetOrDefault(config, spiconfig.PropertyFileOffsetStoragePath, "")
+func newFileStateStorage(config *spiconfig.Config) (statestorage.Storage, error) {
+	path := spiconfig.GetOrDefault(config, spiconfig.PropertyFileStateStoragePath, "")
 	if path == "" {
-		return nil, errors.Errorf("FileOffsetStorage needs a path to be configured")
+		return nil, errors.Errorf("FileStateStorage needs a path to be configured")
 	}
-	return NewFileOffsetStorage(path)
+	return NewFileStateStorage(path)
 }
 
-func NewFileOffsetStorage(path string) (offset.Storage, error) {
-	logger, err := logging.NewLogger("FileOffsetStorage")
+func NewFileStateStorage(path string) (statestorage.Storage, error) {
+	logger, err := logging.NewLogger("FileStateStorage")
 	if err != nil {
 		return nil, err
 	}
@@ -72,16 +75,16 @@ func NewFileOffsetStorage(path string) (offset.Storage, error) {
 		return nil, errors.Errorf("path '%s' exists already but is not a file", path)
 	}
 
-	return &fileOffsetStorage{
+	return &fileStateStorage{
 		path:           path,
 		logger:         logger,
 		shutdownWaiter: supporting.NewShutdownAwaiter(),
-		offsets:        make(map[string]*offset.Offset, 0),
+		offsets:        make(map[string]*statestorage.Offset, 0),
 	}, nil
 }
 
-func (f *fileOffsetStorage) Start() error {
-	f.logger.Infof("Starting FileOffsetStorage at %s", f.path)
+func (f *fileStateStorage) Start() error {
+	f.logger.Infof("Starting FileStateStorage at %s", f.path)
 	if err := f.Load(); err != nil {
 		return err
 	}
@@ -93,8 +96,8 @@ func (f *fileOffsetStorage) Start() error {
 	return nil
 }
 
-func (f *fileOffsetStorage) Stop() error {
-	f.logger.Infof("Stopping FileOffsetStorage at %s", f.path)
+func (f *fileStateStorage) Stop() error {
+	f.logger.Infof("Stopping FileStateStorage at %s", f.path)
 	f.shutdownWaiter.SignalShutdown()
 	if err := f.shutdownWaiter.AwaitDone(); err != nil {
 		f.logger.Warnln("Failed to shutdown auto storage in time")
@@ -102,8 +105,10 @@ func (f *fileOffsetStorage) Stop() error {
 	return f.Save()
 }
 
-func (f *fileOffsetStorage) Save() error {
-	f.logger.Infof("Storing FileOffsetStorage at %s", f.path)
+func (f *fileStateStorage) Save() error {
+	f.logger.Infof("Storing FileStateStorage at %s", f.path)
+
+
 
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
@@ -120,7 +125,7 @@ func (f *fileOffsetStorage) Save() error {
 		return writer.Write(buffer[0:4])
 	}
 
-	writeOffsetWithLength := func(val *offset.Offset) (int, error) {
+	writeOffsetWithLength := func(val *statestorage.Offset) (int, error) {
 		data, err := val.MarshalBinary()
 		if err != nil {
 			return 0, errors.Wrap(err, 0)
@@ -164,8 +169,8 @@ func (f *fileOffsetStorage) Save() error {
 	return nil
 }
 
-func (f *fileOffsetStorage) Load() error {
-	f.logger.Infof("Loading FileOffsetStorage at %s", f.path)
+func (f *fileStateStorage) Load() error {
+	f.logger.Infof("Loading FileStateStorage at %s", f.path)
 
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
@@ -176,7 +181,7 @@ func (f *fileOffsetStorage) Load() error {
 			return errors.Wrap(err, 0)
 		} else {
 			// Reset internal map
-			f.offsets = make(map[string]*offset.Offset, 0)
+			f.offsets = make(map[string]*statestorage.Offset, 0)
 			return nil
 		}
 	}
@@ -187,7 +192,7 @@ func (f *fileOffsetStorage) Load() error {
 
 	if fi.Size() == 0 {
 		// Reset internal map
-		f.offsets = make(map[string]*offset.Offset, 0)
+		f.offsets = make(map[string]*statestorage.Offset, 0)
 		return nil
 	}
 
@@ -215,9 +220,9 @@ func (f *fileOffsetStorage) Load() error {
 		return val
 	}
 
-	readOffset := func() (*offset.Offset, error) {
+	readOffset := func() (*statestorage.Offset, error) {
 		length := readUint32()
-		o := &offset.Offset{}
+		o := &statestorage.Offset{}
 		if err := o.UnmarshalBinary(buffer[readerOffset : readerOffset+int64(length)]); err != nil {
 			return nil, err
 		}
@@ -237,13 +242,13 @@ func (f *fileOffsetStorage) Load() error {
 	return nil
 }
 
-func (f *fileOffsetStorage) Get() (map[string]*offset.Offset, error) {
+func (f *fileStateStorage) Get() (map[string]*statestorage.Offset, error) {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 	return f.offsets, nil
 }
 
-func (f *fileOffsetStorage) Set(key string, value *offset.Offset) error {
+func (f *fileStateStorage) Set(key string, value *statestorage.Offset) error {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 	f.offsets[key] = value
@@ -251,7 +256,20 @@ func (f *fileOffsetStorage) Set(key string, value *offset.Offset) error {
 	return nil
 }
 
-func (f *fileOffsetStorage) autoStoreHandler() {
+func (f *fileStateStorage) RegisterStateEncoder(name string, encoder statestorage.StateEncoder) {
+	f.stateEncoders[name] = encoder
+}
+
+func (f *fileStateStorage) EncodedState(key string) (encodedState []byte, present bool) {
+	encodedState, present = f.encodedStates[key]
+	return
+}
+
+func (f *fileStateStorage) SetEncodedState(key string, encodedState []byte) {
+	f.encodedStates[key] = encodedState
+}
+
+func (f *fileStateStorage) autoStoreHandler() {
 	for {
 		select {
 		case <-f.shutdownWaiter.AwaitShutdownChan():
@@ -261,7 +279,7 @@ func (f *fileOffsetStorage) autoStoreHandler() {
 
 		case <-f.ticker.C:
 			if f.changeCounter != 0 {
-				f.logger.Infof("Auto storing FileOffsetStorage at %s", f.path)
+				f.logger.Infof("Auto storing FileStateStorage at %s", f.path)
 				if err := f.Save(); err != nil {
 					f.logger.Warnf("failed to auto storage offsets: %s", err.Error())
 				}
