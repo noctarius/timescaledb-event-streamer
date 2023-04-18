@@ -3,13 +3,14 @@ package awskinesis
 import (
 	"encoding/json"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/kinesis"
 	"github.com/go-errors/errors"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/sink"
+	"log"
 	"time"
 )
 
@@ -23,8 +24,6 @@ type awsKinesisSink struct {
 }
 
 func newAwsKinesisSink(config *spiconfig.Config) (sink.Sink, error) {
-	awsConfig := aws.NewConfig()
-
 	streamName := spiconfig.GetOrDefault[*string](config, spiconfig.PropertyKinesisStreamName, nil)
 	if streamName == nil {
 		return nil, errors.Errorf("AWS Kinesis sink needs the stream name to be configured")
@@ -34,6 +33,20 @@ func newAwsKinesisSink(config *spiconfig.Config) (sink.Sink, error) {
 	streamMode := spiconfig.GetOrDefault[*string](config, spiconfig.PropertyKinesisStreamMode, nil)
 	streamCreate := spiconfig.GetOrDefault(config, spiconfig.PropertyKinesisStreamCreate, true)
 
+	awsRegion := spiconfig.GetOrDefault[*string](config, spiconfig.PropertyKinesisRegion, nil)
+	endpoint := spiconfig.GetOrDefault(config, spiconfig.PropertyKinesisAwsEndpoint, "")
+	accessKeyId := spiconfig.GetOrDefault(config, spiconfig.PropertyKinesisAwsAccessKeyId, "")
+	secretAccessKey := spiconfig.GetOrDefault(config, spiconfig.PropertyKinesisAwsSecretAccessKey, "")
+	sessionToken := spiconfig.GetOrDefault(config, spiconfig.PropertyKinesisAwsSessionToken, "")
+
+	awsConfig := aws.NewConfig().
+		WithEndpoint(endpoint).
+		WithCredentials(credentials.NewStaticCredentials(accessKeyId, secretAccessKey, sessionToken))
+
+	if awsRegion != nil {
+		awsConfig = awsConfig.WithRegion(*awsRegion)
+	}
+
 	var streamModeDetails *kinesis.StreamModeDetails
 	if streamMode != nil {
 		streamModeDetails = &kinesis.StreamModeDetails{
@@ -41,12 +54,12 @@ func newAwsKinesisSink(config *spiconfig.Config) (sink.Sink, error) {
 		}
 	}
 
-	awsSession, err := session.NewSession()
+	awsSession, err := session.NewSession(awsConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	awsKinesis := kinesis.New(awsSession, awsConfig)
+	awsKinesis := kinesis.New(awsSession)
 	_, err = awsKinesis.DescribeStream(&kinesis.DescribeStreamInput{
 		StreamName: streamName,
 	})
@@ -61,13 +74,18 @@ func newAwsKinesisSink(config *spiconfig.Config) (sink.Sink, error) {
 		}
 
 		// Create the stream in AWS Kinesis
-		_, err = awsKinesis.CreateStream(&kinesis.CreateStreamInput{
+		if _, err = awsKinesis.CreateStream(&kinesis.CreateStreamInput{
 			ShardCount:        shardCount,
 			StreamModeDetails: streamModeDetails,
-			StreamName:        supporting.AddrOf("streamName"),
-		})
-		if err != nil {
+			StreamName:        streamName,
+		}); err != nil {
 			return nil, err
+		}
+
+		if err := awsKinesis.WaitUntilStreamExists(&kinesis.DescribeStreamInput{
+			StreamName: streamName,
+		}); err != nil {
+			log.Panic(err)
 		}
 	}
 

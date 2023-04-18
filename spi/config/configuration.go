@@ -201,10 +201,11 @@ type AwsKinesisStreamConfig struct {
 }
 
 type AwsConnectionConfig struct {
-	Endpoint        string `toml:"endpoint"`
-	AccessKeyId     string `toml:"accesskeyid"`
-	SecretAccessKey string `toml:"secretaccesskey"`
-	SessionToken    string `toml:"sessiontoken"`
+	Region          *string `toml:"region"`
+	Endpoint        string  `toml:"endpoint"`
+	AccessKeyId     string  `toml:"accesskeyid"`
+	SecretAccessKey string  `toml:"secretaccesskey"`
+	SessionToken    string  `toml:"sessiontoken"`
 }
 
 type Config struct {
