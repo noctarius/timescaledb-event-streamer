@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/go-errors/errors"
+	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pglogrepl"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -170,7 +171,7 @@ func (sc *sideChannelImpl) dropPublication(publicationName string) error {
 	return sc.newSession(time.Second*10, func(session *session) error {
 		_, err := session.exec(fmt.Sprintf(dropPublication, publicationName))
 		if e, ok := err.(*pgconn.PgError); ok {
-			if e.Code == "42704" {
+			if e.Code == pgerrcode.UndefinedObject {
 				return nil
 			}
 		}

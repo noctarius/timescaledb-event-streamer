@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/go-errors/errors"
+	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pglogrepl"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgproto3"
@@ -98,7 +99,7 @@ func (rc *ReplicationConnection) StartReplication(pluginArguments []string) erro
 func (rc *ReplicationConnection) StopReplication() error {
 	_, err := pglogrepl.SendStandbyCopyDone(context.Background(), rc.conn)
 	if e, ok := err.(*pgconn.PgError); ok {
-		if e.Code == "XX000" {
+		if e.Code == pgerrcode.InternalError {
 			return nil
 		}
 	}
