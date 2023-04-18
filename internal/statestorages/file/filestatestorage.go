@@ -27,7 +27,6 @@ type fileStateStorage struct {
 	stateEncoders map[string]statestorage.StateEncoder
 	encodedStates map[string][]byte
 
-	changeCounter  uint64
 	ticker         *time.Ticker
 	shutdownWaiter *supporting.ShutdownAwaiter
 }
@@ -79,7 +78,9 @@ func NewFileStateStorage(path string) (statestorage.Storage, error) {
 		path:           path,
 		logger:         logger,
 		shutdownWaiter: supporting.NewShutdownAwaiter(),
-		offsets:        make(map[string]*statestorage.Offset, 0),
+		offsets:        make(map[string]*statestorage.Offset),
+		stateEncoders:  make(map[string]statestorage.StateEncoder),
+		encodedStates:  make(map[string][]byte),
 	}, nil
 }
 
@@ -108,8 +109,6 @@ func (f *fileStateStorage) Stop() error {
 func (f *fileStateStorage) Save() error {
 	f.logger.Infof("Storing FileStateStorage at %s", f.path)
 
-
-
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 
@@ -119,54 +118,45 @@ func (f *fileStateStorage) Save() error {
 	}
 	defer writer.Close()
 
-	buffer := make([]byte, 4)
-	writeUint32 := func(val uint32) (int, error) {
-		binary.BigEndian.PutUint32(buffer[0:4], val)
-		return writer.Write(buffer[0:4])
-	}
-
-	writeOffsetWithLength := func(val *statestorage.Offset) (int, error) {
-		data, err := val.MarshalBinary()
-		if err != nil {
-			return 0, errors.Wrap(err, 0)
-		}
-
-		if _, err := writeUint32(uint32(len(data))); err != nil {
-			return 0, errors.Wrap(err, 0)
-		}
-
-		if _, err := writer.Write(data); err != nil {
-			return 0, errors.Wrap(err, 0)
-		}
-		return 4 + len(data), nil
-	}
-
-	writeStringWithLength := func(val string) (int, error) {
-		byteString := []byte(val)
-		if _, err := writeUint32(uint32(len(byteString))); err != nil {
-			return 0, errors.Wrap(err, 0)
-		}
-
-		if _, err := writer.Write(byteString); err != nil {
-			return 0, errors.Wrap(err, 0)
-		}
-		return 4 + len(byteString), nil
-	}
-
-	numOfOffsets := uint32(len(f.offsets))
-	if _, err := writeUint32(numOfOffsets); err != nil {
-		return errors.Wrap(err, 0)
-	}
-
+	data := make([]byte, 0)
+	data = binary.BigEndian.AppendUint32(data, uint32(len(f.offsets)))
 	for key, value := range f.offsets {
-		if _, err := writeStringWithLength(key); err != nil {
-			return errors.Wrap(err, 0)
+		keyBytes := []byte(key)
+		data = binary.BigEndian.AppendUint32(data, uint32(len(keyBytes)))
+		data = append(data, keyBytes...)
+
+		valueBytes, err := value.MarshalBinary()
+		if err != nil {
+			return err
 		}
-		if _, err := writeOffsetWithLength(value); err != nil {
-			return errors.Wrap(err, 0)
-		}
+		data = binary.BigEndian.AppendUint32(data, uint32(len(valueBytes)))
+		data = append(data, valueBytes...)
 	}
-	return nil
+
+	encodedStates := make(map[string][]byte)
+	for name, encodedState := range f.encodedStates {
+		encodedStates[name] = encodedState
+	}
+	for name, encoder := range f.stateEncoders {
+		encodedState, err := encoder()
+		if err != nil {
+			return err
+		}
+		encodedStates[name] = encodedState
+	}
+
+	data = binary.BigEndian.AppendUint32(data, uint32(len(encodedStates)))
+	for name, encodedState := range encodedStates {
+		nameBytes := []byte(name)
+		data = binary.BigEndian.AppendUint32(data, uint32(len(nameBytes)))
+		data = append(data, nameBytes...)
+
+		data = binary.BigEndian.AppendUint32(data, uint32(len(encodedState)))
+		data = append(data, encodedState...)
+	}
+
+	_, err = writer.Write(data)
+	return err
 }
 
 func (f *fileStateStorage) Load() error {
@@ -230,6 +220,13 @@ func (f *fileStateStorage) Load() error {
 		return o, nil
 	}
 
+	readEncodedState := func() ([]byte, error) {
+		length := readUint32()
+		data := buffer[readerOffset : readerOffset+int64(length)]
+		readerOffset += int64(length)
+		return data, nil
+	}
+
 	numOfOffsets := readUint32()
 	for i := uint32(0); i < numOfOffsets; i++ {
 		key := readString()
@@ -238,6 +235,16 @@ func (f *fileStateStorage) Load() error {
 			return errors.Wrap(err, 0)
 		}
 		f.offsets[key] = value
+	}
+
+	numOfEncodedStates := readUint32()
+	for i := uint32(0); i < numOfEncodedStates; i++ {
+		name := readString()
+		encodedState, err := readEncodedState()
+		if err != nil {
+			return errors.Wrap(err, 0)
+		}
+		f.encodedStates[name] = encodedState
 	}
 	return nil
 }
@@ -252,7 +259,6 @@ func (f *fileStateStorage) Set(key string, value *statestorage.Offset) error {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 	f.offsets[key] = value
-	f.changeCounter++
 	return nil
 }
 
@@ -278,12 +284,9 @@ func (f *fileStateStorage) autoStoreHandler() {
 			return
 
 		case <-f.ticker.C:
-			if f.changeCounter != 0 {
-				f.logger.Infof("Auto storing FileStateStorage at %s", f.path)
-				if err := f.Save(); err != nil {
-					f.logger.Warnf("failed to auto storage offsets: %s", err.Error())
-				}
-				f.changeCounter = 0
+			f.logger.Infof("Auto storing FileStateStorage at %s", f.path)
+			if err := f.Save(); err != nil {
+				f.logger.Warnf("failed to auto storage state: %s", err.Error())
 			}
 		}
 	}

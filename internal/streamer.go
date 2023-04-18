@@ -19,8 +19,8 @@ import (
 	_ "github.com/noctarius/timescaledb-event-streamer/internal/eventing/sinks/stdout"
 
 	// Register built-in offset storages
-	_ "github.com/noctarius/timescaledb-event-streamer/internal/offsetstorages/dummy"
-	_ "github.com/noctarius/timescaledb-event-streamer/internal/offsetstorages/file"
+	_ "github.com/noctarius/timescaledb-event-streamer/internal/statestorages/dummy"
+	_ "github.com/noctarius/timescaledb-event-streamer/internal/statestorages/file"
 )
 
 const publicationName = "pg_ts_streamer"

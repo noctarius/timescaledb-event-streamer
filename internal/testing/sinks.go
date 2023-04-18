@@ -91,7 +91,9 @@ func (t *EventCollectorSink) NumOfEvents() int {
 	return len(t.events)
 }
 
-func (t *EventCollectorSink) Emit(timestamp time.Time, topicName string, key, envelope schema.Struct) error {
+func (t *EventCollectorSink) Emit(_ sink.Context, timestamp time.Time,
+	topicName string, key, envelope schema.Struct) error {
+
 	if t.preHook != nil {
 		t.preHook(t)
 	}

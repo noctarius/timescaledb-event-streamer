@@ -77,7 +77,7 @@ func newRedisSink(config *spiconfig.Config) (sink.Sink, error) {
 	}, nil
 }
 
-func (r *redisSink) Emit(_ time.Time, topicName string, key, envelope schema.Struct) error {
+func (r *redisSink) Emit(_ sink.Context, _ time.Time, topicName string, key, envelope schema.Struct) error {
 	keyData, err := json.Marshal(key)
 	if err != nil {
 		return err

@@ -2,6 +2,7 @@ package stdout
 
 import (
 	"encoding/json"
+	"fmt"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/sink"
@@ -15,13 +16,13 @@ func init() {
 
 func newStdoutSink(_ *spiconfig.Config) (sink.Sink, error) {
 	return sink.SinkFunc(
-		func(context *sink.Context, timestamp time.Time, topicName string, key, envelope schema.Struct) error {
+		func(_ sink.Context, _ time.Time, _ string, _, envelope schema.Struct) error {
 			delete(envelope, "schema")
 			data, err := json.Marshal(envelope)
 			if err != nil {
 				return err
 			}
-			_, err = os.Stdout.WriteString(string(data))
+			_, err = os.Stdout.WriteString(fmt.Sprintf("%s\n", string(data)))
 			return err
 		},
 	), nil

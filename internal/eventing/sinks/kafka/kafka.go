@@ -65,7 +65,7 @@ func newKafkaSink(config *spiconfig.Config) (sink.Sink, error) {
 	}, nil
 }
 
-func (k *kafkaSink) Emit(timestamp time.Time, topicName string, key, envelope schema.Struct) error {
+func (k *kafkaSink) Emit(_ sink.Context, timestamp time.Time, topicName string, key, envelope schema.Struct) error {
 	keyData, err := json.Marshal(key)
 	if err != nil {
 		return err

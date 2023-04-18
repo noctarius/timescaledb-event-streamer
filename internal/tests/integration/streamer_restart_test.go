@@ -116,8 +116,8 @@ func (irts *IntegrationRestartTestSuite) Test_() {
 				config.Config.PostgreSQL.Publication.Name = supporting.RandomTextString(10)
 				config.Config.PostgreSQL.Publication.Create = supporting.AddrOf(true)
 				config.Config.PostgreSQL.Publication.AutoDrop = supporting.AddrOf(false)
-				config.Config.OffsetStorage.Type = spiconfig.FileStorage
-				config.Config.OffsetStorage.FileStorage.Path = tempFile
+				config.Config.StateStorage.Type = spiconfig.FileStorage
+				config.Config.StateStorage.FileStorage.Path = tempFile
 			})
 			return nil
 		}),

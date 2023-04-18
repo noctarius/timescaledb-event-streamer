@@ -76,7 +76,7 @@ func connectJetStreamContext(address string, options ...nats.Option) (sink.Sink,
 	}, nil
 }
 
-func (n *natsSink) Emit(_ time.Time, topicName string, key, envelope schema.Struct) error {
+func (n *natsSink) Emit(_ sink.Context, _ time.Time, topicName string, key, envelope schema.Struct) error {
 	keyData, err := json.Marshal(key)
 	if err != nil {
 		return err
