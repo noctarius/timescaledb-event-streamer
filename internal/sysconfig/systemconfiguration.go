@@ -16,7 +16,7 @@ type SystemConfig struct {
 	SinkProvider           sink.Provider
 	EventEmitterProvider   defaultproviders.EventEmitterProvider
 	NamingStrategyProvider namingstrategy.Provider
-	StateStorageProvider  statestorage.Provider
+	StateStorageProvider   statestorage.Provider
 }
 
 func NewSystemConfig(config *spiconfig.Config) *SystemConfig {
