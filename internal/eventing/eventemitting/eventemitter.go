@@ -3,6 +3,7 @@ package eventemitting
 import (
 	"encoding/base64"
 	"encoding/binary"
+	"github.com/cenkalti/backoff/v4"
 	"github.com/jackc/pglogrepl"
 	"github.com/noctarius/timescaledb-event-streamer/internal/eventing/eventfiltering"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
@@ -21,6 +22,7 @@ type EventEmitter struct {
 	filter             eventfiltering.EventFilter
 	sink               sink.Sink
 	sinkContext        *sinkContextImpl
+	backOff            backoff.BackOff
 }
 
 func NewEventEmitter(
@@ -33,6 +35,7 @@ func NewEventEmitter(
 		filter:             filter,
 		sink:               sink,
 		sinkContext:        newSinkContextImpl(),
+		backOff:            backoff.WithMaxRetries(backoff.NewExponentialBackOff(), 8),
 	}
 }
 
@@ -76,7 +79,13 @@ func (ee *EventEmitter) keySchema(hypertable *systemcatalog.Hypertable) schema.S
 }
 
 func (ee *EventEmitter) emit(xld pglogrepl.XLogData, eventTopicName string, key, envelope schema.Struct) error {
-	if err := ee.sink.Emit(ee.sinkContext, xld.ServerTime, eventTopicName, key, envelope); err != nil {
+	// Retryable operation
+	operation := func() error {
+		return ee.sink.Emit(ee.sinkContext, xld.ServerTime, eventTopicName, key, envelope)
+	}
+
+	// Run with backoff (it'll automatically reset before starting)
+	if err := backoff.Retry(operation, ee.backOff); err != nil {
 		return err
 	}
 	return ee.replicationContext.AcknowledgeProcessed(xld)
