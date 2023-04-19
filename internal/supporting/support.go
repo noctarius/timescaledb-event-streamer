@@ -3,6 +3,7 @@ package supporting
 import (
 	"fmt"
 	"math/rand"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -15,6 +16,12 @@ var validCharacters = []string{
 
 func AddrOf[T any](value T) *T {
 	return &value
+}
+
+func Sort[I comparable](collection []I, less func(this, other I) bool) {
+	sort.Slice(collection, func(i, j int) bool {
+		return less(collection[i], collection[j])
+	})
 }
 
 func IndexOfWithMatcher[I comparable](collection []I, matcher func(other I) bool) int {

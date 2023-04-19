@@ -53,24 +53,34 @@ const initialTableSchemaQuery = `
 SELECT
    c.column_name,
    t.oid::int,
-   CASE WHEN c.is_nullable = 'YES' THEN true ELSE false END,
-   CASE WHEN p.attname IS NOT NULL THEN true ELSE false END,
-   c.column_default
+   CASE WHEN c.is_nullable = 'YES' THEN true ELSE false END AS nullable,
+   coalesce(p.indisprimary, false) AS is_primary_key,
+   p.primary_key_seq,
+   c.column_default,
+   coalesce(p.indisreplident, false) AS is_replica_ident,
+   p.index_name
 FROM information_schema.columns c
-LEFT JOIN pg_catalog.pg_namespace n ON n.nspname = c.udt_schema
-LEFT JOIN pg_catalog.pg_type t ON t.typnamespace = n.oid AND t.typname = c.udt_name
-LEFT JOIN LATERAL (
-    SELECT a.attname
-    FROM pg_index i, pg_attribute a, pg_class cl, pg_namespace n
-    WHERE cl.relname = c.table_name
-      AND n.nspname = c.table_schema
-      AND cl.relnamespace = n.oid
+LEFT JOIN (
+    SELECT
+        cl.relname,
+        n.nspname,
+        a.attname,
+        (information_schema._pg_expandarray(i.indkey)).n AS primary_key_seq,
+        (information_schema._pg_expandarray(i.indkey)).n AS replia_ident_seq,
+        (information_schema._pg_expandarray(i.indkey)) AS keys,
+        a.attnum,
+        i.indisreplident,
+        i.indisprimary,
+        cl2.relname AS index_name
+    FROM pg_index i, pg_attribute a, pg_class cl, pg_namespace n, pg_class cl2
+    WHERE cl.relnamespace = n.oid
       AND a.attrelid = cl.oid
       AND i.indrelid = cl.oid
-      AND a.attname = c.column_name
-      AND a.attnum = any(i.indkey)
+      AND i.indexrelid = cl2.oid
       AND i.indisprimary
-) p ON TRUE
+) p ON p.attname = c.column_name AND p.nspname = c.table_schema AND p.relname = c.table_name AND p.attnum = (p.keys).x
+LEFT JOIN pg_catalog.pg_namespace n ON n.nspname = c.udt_schema
+LEFT JOIN pg_catalog.pg_type t ON t.typnamespace = n.oid AND t.typname = c.udt_name
 WHERE c.table_schema = $1
   AND c.table_name = $2
 ORDER BY c.ordinal_position`
@@ -523,10 +533,13 @@ func (sc *sideChannelImpl) readHypertableSchema0(
 	if err := session.queryFunc(func(row pgx.Row) error {
 		var name string
 		var oid uint32
-		var nullable, primaryKey bool
-		var defaultValue *string
+		var primaryKeySeq *int
+		var nullable, primaryKey, isReplicaIdent bool
+		var defaultValue, indexName *string
 
-		if err := row.Scan(&name, &oid, &nullable, &primaryKey, &defaultValue); err != nil {
+		if err := row.Scan(&name, &oid, &nullable, &primaryKey, &primaryKeySeq,
+			&defaultValue, &isReplicaIdent, &indexName); err != nil {
+
 			return errors.Wrap(err, 0)
 		}
 
@@ -535,7 +548,9 @@ func (sc *sideChannelImpl) readHypertableSchema0(
 			return errors.Wrap(err, 0)
 		}
 
-		column := systemcatalog.NewColumn(name, oid, string(dataType), nullable, primaryKey, defaultValue)
+		column := systemcatalog.NewIndexColumn(
+			name, oid, string(dataType), nullable, primaryKey, primaryKeySeq, defaultValue, isReplicaIdent, indexName,
+		)
 		columns = append(columns, column)
 		return nil
 	}, initialTableSchemaQuery, hypertable.SchemaName(), hypertable.TableName()); err != nil {

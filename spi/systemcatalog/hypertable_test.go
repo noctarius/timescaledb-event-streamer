@@ -3,17 +3,17 @@ package systemcatalog
 import "testing"
 
 func TestSchemaDifferences_Added_Column(t *testing.T) {
-	expected := "added: {name:test4 dataType:10 typeName:foo nullable:false primaryKey:false defaultValue:<nil>}"
+	expected := "added: {name:test4 dataType:10 typeName:foo nullable:false primaryKey:false primaryKeySeq:<nil> defaultValue:<nil> isReplicaIdent:false indexName:<nil>}"
 	oldColumns := []Column{
-		NewColumn("test1", 10, "foo", false, false, nil),
-		NewColumn("test2", 10, "foo", false, false, nil),
-		NewColumn("test3", 10, "foo", false, false, nil),
+		NewColumn("test1", 10, "foo", false, nil),
+		NewColumn("test2", 10, "foo", false, nil),
+		NewColumn("test3", 10, "foo", false, nil),
 	}
 	newColumns := []Column{
-		NewColumn("test1", 10, "foo", false, false, nil),
-		NewColumn("test2", 10, "foo", false, false, nil),
-		NewColumn("test3", 10, "foo", false, false, nil),
-		NewColumn("test4", 10, "foo", false, false, nil),
+		NewColumn("test1", 10, "foo", false, nil),
+		NewColumn("test2", 10, "foo", false, nil),
+		NewColumn("test3", 10, "foo", false, nil),
+		NewColumn("test4", 10, "foo", false, nil),
 	}
 	hypertable := NewHypertable(1, "", "", "", "", "", nil, 0, false, nil, nil)
 	hypertable.ApplyTableSchema(oldColumns)
@@ -35,14 +35,14 @@ func TestSchemaDifferences_Added_Column(t *testing.T) {
 func TestSchemaDifferences_Renamed_Column(t *testing.T) {
 	expected := "name:test2=>test4"
 	oldColumns := []Column{
-		NewColumn("test1", 10, "foo", false, false, nil),
-		NewColumn("test2", 10, "foo", false, false, nil),
-		NewColumn("test3", 10, "foo", false, false, nil),
+		NewColumn("test1", 10, "foo", false, nil),
+		NewColumn("test2", 10, "foo", false, nil),
+		NewColumn("test3", 10, "foo", false, nil),
 	}
 	newColumns := []Column{
-		NewColumn("test1", 10, "foo", false, false, nil),
-		NewColumn("test4", 10, "foo", false, false, nil),
-		NewColumn("test3", 10, "foo", false, false, nil),
+		NewColumn("test1", 10, "foo", false, nil),
+		NewColumn("test4", 10, "foo", false, nil),
+		NewColumn("test3", 10, "foo", false, nil),
 	}
 	hypertable := NewHypertable(1, "", "", "", "", "", nil, 0, false, nil, nil)
 	hypertable.ApplyTableSchema(oldColumns)
@@ -64,14 +64,14 @@ func TestSchemaDifferences_Renamed_Column(t *testing.T) {
 func TestSchemaDifferences_Renamed_Last_Column(t *testing.T) {
 	expected := "name:test3=>test4"
 	oldColumns := []Column{
-		NewColumn("test1", 10, "foo", false, false, nil),
-		NewColumn("test2", 10, "foo", false, false, nil),
-		NewColumn("test3", 10, "foo", false, false, nil),
+		NewColumn("test1", 10, "foo", false, nil),
+		NewColumn("test2", 10, "foo", false, nil),
+		NewColumn("test3", 10, "foo", false, nil),
 	}
 	newColumns := []Column{
-		NewColumn("test1", 10, "foo", false, false, nil),
-		NewColumn("test2", 10, "foo", false, false, nil),
-		NewColumn("test4", 10, "foo", false, false, nil),
+		NewColumn("test1", 10, "foo", false, nil),
+		NewColumn("test2", 10, "foo", false, nil),
+		NewColumn("test4", 10, "foo", false, nil),
 	}
 	hypertable := NewHypertable(1, "", "", "", "", "", nil, 0, false, nil, nil)
 	hypertable.ApplyTableSchema(oldColumns)
@@ -91,15 +91,15 @@ func TestSchemaDifferences_Renamed_Last_Column(t *testing.T) {
 }
 
 func TestSchemaDifferences_Dropped_Column(t *testing.T) {
-	expected := "dropped: {name:test2 dataType:11 typeName:foo nullable:false primaryKey:false defaultValue:<nil>}"
+	expected := "dropped: {name:test2 dataType:11 typeName:foo nullable:false primaryKey:false primaryKeySeq:<nil> defaultValue:<nil> isReplicaIdent:false indexName:<nil>}"
 	oldColumns := []Column{
-		NewColumn("test1", 10, "foo", false, false, nil),
-		NewColumn("test2", 11, "foo", false, false, nil),
-		NewColumn("test3", 12, "foo", false, false, nil),
+		NewColumn("test1", 10, "foo", false, nil),
+		NewColumn("test2", 11, "foo", false, nil),
+		NewColumn("test3", 12, "foo", false, nil),
 	}
 	newColumns := []Column{
-		NewColumn("test1", 10, "foo", false, false, nil),
-		NewColumn("test3", 12, "foo", false, false, nil),
+		NewColumn("test1", 10, "foo", false, nil),
+		NewColumn("test3", 12, "foo", false, nil),
 	}
 	hypertable := NewHypertable(1, "", "", "", "", "", nil, 0, false, nil, nil)
 	hypertable.ApplyTableSchema(oldColumns)
@@ -119,15 +119,15 @@ func TestSchemaDifferences_Dropped_Column(t *testing.T) {
 }
 
 func TestSchemaDifferences_Dropped_Last_Column(t *testing.T) {
-	expected := "dropped: {name:test3 dataType:10 typeName:foo nullable:false primaryKey:false defaultValue:<nil>}"
+	expected := "dropped: {name:test3 dataType:10 typeName:foo nullable:false primaryKey:false primaryKeySeq:<nil> defaultValue:<nil> isReplicaIdent:false indexName:<nil>}"
 	oldColumns := []Column{
-		NewColumn("test1", 10, "foo", false, false, nil),
-		NewColumn("test2", 10, "foo", false, false, nil),
-		NewColumn("test3", 10, "foo", false, false, nil),
+		NewColumn("test1", 10, "foo", false, nil),
+		NewColumn("test2", 10, "foo", false, nil),
+		NewColumn("test3", 10, "foo", false, nil),
 	}
 	newColumns := []Column{
-		NewColumn("test1", 10, "foo", false, false, nil),
-		NewColumn("test2", 10, "foo", false, false, nil),
+		NewColumn("test1", 10, "foo", false, nil),
+		NewColumn("test2", 10, "foo", false, nil),
 	}
 	hypertable := NewHypertable(1, "", "", "", "", "", nil, 0, false, nil, nil)
 	hypertable.ApplyTableSchema(oldColumns)

@@ -1,24 +1,66 @@
 package systemcatalog
 
-import "fmt"
+import (
+	"fmt"
+	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
+)
 
-type Column struct {
-	name         string
-	dataType     uint32
-	typeName     string
-	nullable     bool
-	primaryKey   bool
-	defaultValue *string
+type Columns []*Column
+
+func (c Columns) HasPrimaryKey() bool {
+	return supporting.ContainsWithMatcher(c, func(other *Column) bool {
+		return other.IsPrimaryKey()
+	})
 }
 
-func NewColumn(name string, dataType uint32, typeName string, nullable, primaryKey bool, defaultValue *string) Column {
+func (c Columns) PrimaryKeyIndex() (index *Index, present bool) {
+	if !c.HasPrimaryKey() {
+		return nil, false
+	}
+
+	primaryKeyColumns := supporting.Filter(c, func(item *Column) bool {
+		return item.IsPrimaryKey()
+	})
+
+	supporting.Sort(primaryKeyColumns, func(this, other *Column) bool {
+		return *this.primaryKeySeq < *other.primaryKeySeq
+	})
+
+	firstColumn := primaryKeyColumns[0]
+	return newIndex(
+		*firstColumn.indexName, primaryKeyColumns, firstColumn.primaryKey, firstColumn.isReplicaIdent,
+	), true
+}
+
+type Column struct {
+	name           string
+	dataType       uint32
+	typeName       string
+	nullable       bool
+	primaryKey     bool
+	primaryKeySeq  *int
+	defaultValue   *string
+	isReplicaIdent bool
+	indexName      *string
+}
+
+func NewColumn(name string, dataType uint32, typeName string, nullable bool, defaultValue *string) Column {
+	return NewIndexColumn(name, dataType, typeName, nullable, false, nil, defaultValue, false, nil)
+}
+
+func NewIndexColumn(name string, dataType uint32, typeName string, nullable, primaryKey bool,
+	primaryKeySeq *int, defaultValue *string, isReplicaIdent bool, indexName *string) Column {
+
 	return Column{
-		name:         name,
-		dataType:     dataType,
-		typeName:     typeName,
-		nullable:     nullable,
-		primaryKey:   primaryKey,
-		defaultValue: defaultValue,
+		name:           name,
+		dataType:       dataType,
+		typeName:       typeName,
+		nullable:       nullable,
+		primaryKey:     primaryKey,
+		primaryKeySeq:  primaryKeySeq,
+		defaultValue:   defaultValue,
+		isReplicaIdent: isReplicaIdent,
+		indexName:      indexName,
 	}
 }
 

@@ -28,16 +28,7 @@ func (s *systemCatalogReplicationEventHandler) OnRelationEvent(
 				return nil
 			}
 
-			columns := make([]systemcatalog.Column, len(msg.Columns))
-			for i, c := range msg.Columns {
-				dataType, err := systemcatalog.DataTypeByOID(c.DataType)
-				if err != nil {
-					return err
-				}
-
-				columns[i] = systemcatalog.NewColumn(c.Name, c.DataType, string(dataType), false, false, nil)
-			}
-			s.systemCatalog.ApplySchemaUpdate(hypertable, columns)
+			return s.systemCatalog.replicationContext.ReadHypertableSchema(s.systemCatalog.ApplySchemaUpdate)
 		}
 	}
 	return nil

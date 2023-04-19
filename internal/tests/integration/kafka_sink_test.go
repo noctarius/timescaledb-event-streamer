@@ -79,8 +79,8 @@ func (kits *KafkaIntegrationTestSuite) Test_Kafka_Sink() {
 
 		testrunner.WithSetup(func(setupContext testrunner.SetupContext) error {
 			sn, tn, err := setupContext.CreateHypertable("ts", time.Hour*24,
-				systemcatalog.NewColumn("ts", pgtype.TimestamptzOID, "timestamptz", false, false, nil),
-				systemcatalog.NewColumn("val", pgtype.Int4OID, "integer", false, false, nil),
+				systemcatalog.NewColumn("ts", pgtype.TimestamptzOID, "timestamptz", false, nil),
+				systemcatalog.NewColumn("val", pgtype.Int4OID, "integer", false, nil),
 			)
 			if err != nil {
 				return err
