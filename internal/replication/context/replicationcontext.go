@@ -17,6 +17,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/topic/namingstrategy"
 	"github.com/noctarius/timescaledb-event-streamer/spi/version"
 	"github.com/urfave/cli"
+	"sync"
 )
 
 type ReplicationContext struct {
@@ -41,6 +42,7 @@ type ReplicationContext struct {
 	systemId     string
 	databaseName string
 	walLevel     string
+	lsnMutex     sync.Mutex
 	receivedLSN  pgtypes.LSN
 	processedLSN pgtypes.LSN
 
@@ -163,10 +165,16 @@ func (rp *ReplicationContext) Offset() (*statestorage.Offset, error) {
 }
 
 func (rp *ReplicationContext) AcknowledgeReceived(xld pglogrepl.XLogData) {
+	rp.lsnMutex.Lock()
+	defer rp.lsnMutex.Unlock()
+
 	rp.receivedLSN = pgtypes.LSN(xld.WALStart + pglogrepl.LSN(len(xld.WALData)))
 }
 
 func (rp *ReplicationContext) AcknowledgeProcessed(xld pglogrepl.XLogData) error {
+	rp.lsnMutex.Lock()
+	defer rp.lsnMutex.Unlock()
+
 	rp.processedLSN = pgtypes.LSN(xld.WALStart + pglogrepl.LSN(len(xld.WALData)))
 
 	o, err := rp.Offset()
@@ -401,4 +409,19 @@ func (rp *ReplicationContext) newReplicationChannelConnection(ctx context.Contex
 
 func (rp *ReplicationContext) newSideChannelConnection(ctx context.Context) (*pgx.Conn, error) {
 	return pgx.ConnectConfig(ctx, rp.pgxConfig)
+}
+
+func (rp *ReplicationContext) setPositionLSNs(receivedLSN, processedLSN pgtypes.LSN) {
+	rp.lsnMutex.Lock()
+	defer rp.lsnMutex.Unlock()
+
+	rp.receivedLSN = receivedLSN
+	rp.processedLSN = processedLSN
+}
+
+func (rp *ReplicationContext) positionLSNs() (receivedLSN, processedLSN pgtypes.LSN) {
+	rp.lsnMutex.Lock()
+	defer rp.lsnMutex.Unlock()
+
+	return rp.receivedLSN, rp.processedLSN
 }

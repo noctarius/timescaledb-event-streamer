@@ -66,10 +66,11 @@ func (rc *ReplicationConnection) ReceiveMessage(deadline time.Time) (pgproto3.Ba
 }
 
 func (rc *ReplicationConnection) SendStatusUpdate() error {
+	receivedLSN, processedLSN := rc.replicationContext.positionLSNs()
 	if err := pglogrepl.SendStandbyStatusUpdate(context.Background(), rc.conn,
 		pglogrepl.StandbyStatusUpdate{
-			WALWritePosition: pglogrepl.LSN(rc.replicationContext.receivedLSN),
-			WALFlushPosition: pglogrepl.LSN(rc.replicationContext.processedLSN),
+			WALWritePosition: pglogrepl.LSN(receivedLSN),
+			WALFlushPosition: pglogrepl.LSN(processedLSN),
 		},
 	); err != nil {
 		rc.logger.Fatalln("SendStandbyStatusUpdate failed:", err)
@@ -85,8 +86,7 @@ func (rc *ReplicationConnection) StartReplication(pluginArguments []string) erro
 
 	// Configure initial LSN in case there isn't anything immediate to handle
 	// we don't want to send LSN 0 to the server
-	rc.replicationContext.receivedLSN = restartLSN
-	rc.replicationContext.processedLSN = restartLSN
+	rc.replicationContext.setPositionLSNs(restartLSN, restartLSN)
 
 	return pglogrepl.StartReplication(context.Background(), rc.conn,
 		rc.replicationContext.ReplicationSlotName(), pglogrepl.LSN(restartLSN),
