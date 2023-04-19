@@ -55,7 +55,7 @@ SELECT
    t.oid::int,
    CASE WHEN c.is_nullable = 'YES' THEN true ELSE false END AS nullable,
    coalesce(p.indisprimary, false) AS is_primary_key,
-   p.primary_key_seq,
+   p.key_seq,
    c.column_default,
    coalesce(p.indisreplident, false) AS is_replica_ident,
    p.index_name
@@ -65,8 +65,7 @@ LEFT JOIN (
         cl.relname,
         n.nspname,
         a.attname,
-        (information_schema._pg_expandarray(i.indkey)).n AS primary_key_seq,
-        (information_schema._pg_expandarray(i.indkey)).n AS replia_ident_seq,
+        (information_schema._pg_expandarray(i.indkey)).n AS key_seq,
         (information_schema._pg_expandarray(i.indkey)) AS keys,
         a.attnum,
         i.indisreplident,
@@ -533,11 +532,11 @@ func (sc *sideChannelImpl) readHypertableSchema0(
 	if err := session.queryFunc(func(row pgx.Row) error {
 		var name string
 		var oid uint32
-		var primaryKeySeq *int
+		var keySeq *int
 		var nullable, primaryKey, isReplicaIdent bool
 		var defaultValue, indexName *string
 
-		if err := row.Scan(&name, &oid, &nullable, &primaryKey, &primaryKeySeq,
+		if err := row.Scan(&name, &oid, &nullable, &primaryKey, &keySeq,
 			&defaultValue, &isReplicaIdent, &indexName); err != nil {
 
 			return errors.Wrap(err, 0)
@@ -549,7 +548,7 @@ func (sc *sideChannelImpl) readHypertableSchema0(
 		}
 
 		column := systemcatalog.NewIndexColumn(
-			name, oid, string(dataType), nullable, primaryKey, primaryKeySeq, defaultValue, isReplicaIdent, indexName,
+			name, oid, string(dataType), nullable, primaryKey, keySeq, defaultValue, isReplicaIdent, indexName,
 		)
 		columns = append(columns, column)
 		return nil

@@ -23,25 +23,25 @@ func (c Columns) PrimaryKeyIndex() (index *Index, present bool) {
 	})
 
 	supporting.Sort(primaryKeyColumns, func(this, other *Column) bool {
-		return *this.primaryKeySeq < *other.primaryKeySeq
+		return *this.keySeq < *other.keySeq
 	})
 
 	firstColumn := primaryKeyColumns[0]
 	return newIndex(
-		*firstColumn.indexName, primaryKeyColumns, firstColumn.primaryKey, firstColumn.isReplicaIdent,
+		*firstColumn.indexName, primaryKeyColumns, firstColumn.primaryKey, firstColumn.replicaIdent,
 	), true
 }
 
 type Column struct {
-	name           string
-	dataType       uint32
-	typeName       string
-	nullable       bool
-	primaryKey     bool
-	primaryKeySeq  *int
-	defaultValue   *string
-	isReplicaIdent bool
-	indexName      *string
+	name         string
+	dataType     uint32
+	typeName     string
+	nullable     bool
+	primaryKey   bool
+	keySeq       *int
+	defaultValue *string
+	replicaIdent bool
+	indexName    *string
 }
 
 func NewColumn(name string, dataType uint32, typeName string, nullable bool, defaultValue *string) Column {
@@ -49,18 +49,18 @@ func NewColumn(name string, dataType uint32, typeName string, nullable bool, def
 }
 
 func NewIndexColumn(name string, dataType uint32, typeName string, nullable, primaryKey bool,
-	primaryKeySeq *int, defaultValue *string, isReplicaIdent bool, indexName *string) Column {
+	keySeq *int, defaultValue *string, isReplicaIdent bool, indexName *string) Column {
 
 	return Column{
-		name:           name,
-		dataType:       dataType,
-		typeName:       typeName,
-		nullable:       nullable,
-		primaryKey:     primaryKey,
-		primaryKeySeq:  primaryKeySeq,
-		defaultValue:   defaultValue,
-		isReplicaIdent: isReplicaIdent,
-		indexName:      indexName,
+		name:         name,
+		dataType:     dataType,
+		typeName:     typeName,
+		nullable:     nullable,
+		primaryKey:   primaryKey,
+		keySeq:       keySeq,
+		defaultValue: defaultValue,
+		replicaIdent: isReplicaIdent,
+		indexName:    indexName,
 	}
 }
 
@@ -84,6 +84,10 @@ func (c Column) IsPrimaryKey() bool {
 	return c.primaryKey
 }
 
+func (c Column) IsReplicaIdent() bool {
+	return c.replicaIdent
+}
+
 func (c Column) DefaultValue() *string {
 	return c.defaultValue
 }
@@ -94,8 +98,13 @@ func (c Column) equals(other Column) bool {
 		c.dataType == other.dataType &&
 		c.nullable == other.nullable &&
 		c.primaryKey == other.primaryKey &&
+		c.replicaIdent == other.replicaIdent &&
+		((c.keySeq == nil && other.keySeq == nil) ||
+			(c.keySeq != nil && other.keySeq != nil && *c.keySeq == *other.keySeq)) &&
 		((c.defaultValue == nil && other.defaultValue == nil) ||
-			(c.defaultValue != nil && other.defaultValue != nil && *c.defaultValue == *other.defaultValue))
+			(c.defaultValue != nil && other.defaultValue != nil && *c.defaultValue == *other.defaultValue)) &&
+		((c.indexName == nil && other.indexName == nil) ||
+			(c.indexName != nil && other.indexName != nil && *c.indexName == *other.indexName))
 }
 
 func (c Column) equalsExceptName(other Column) bool {
@@ -103,8 +112,13 @@ func (c Column) equalsExceptName(other Column) bool {
 		c.dataType == other.dataType &&
 		c.nullable == other.nullable &&
 		c.primaryKey == other.primaryKey &&
+		c.replicaIdent == other.replicaIdent &&
+		((c.keySeq == nil && other.keySeq == nil) ||
+			(c.keySeq != nil && other.keySeq != nil && *c.keySeq == *other.keySeq)) &&
 		((c.defaultValue == nil && other.defaultValue == nil) ||
-			(c.defaultValue != nil && other.defaultValue != nil && *c.defaultValue == *other.defaultValue))
+			(c.defaultValue != nil && other.defaultValue != nil && *c.defaultValue == *other.defaultValue)) &&
+		((c.indexName == nil && other.indexName == nil) ||
+			(c.indexName != nil && other.indexName != nil && *c.indexName == *other.indexName))
 }
 
 func (c Column) differences(new Column) map[string]string {
@@ -123,6 +137,33 @@ func (c Column) differences(new Column) map[string]string {
 	}
 	if c.primaryKey != new.primaryKey {
 		differences["primaryKey"] = fmt.Sprintf("%t=>%t", c.primaryKey, new.primaryKey)
+	}
+	if (c.keySeq == nil && new.keySeq != nil) ||
+		(c.keySeq != nil && new.keySeq == nil) {
+		o := "<nil>"
+		if c.keySeq != nil {
+			o = fmt.Sprintf("%d", *c.keySeq)
+		}
+		n := "<nil>"
+		if new.keySeq != nil {
+			n = fmt.Sprintf("%d", *new.keySeq)
+		}
+		differences["keySeq"] = fmt.Sprintf("%s=>%s", o, n)
+	}
+	if (c.indexName == nil && new.indexName != nil) ||
+		(c.indexName != nil && new.indexName == nil) {
+		o := "<nil>"
+		if c.indexName != nil {
+			o = *c.indexName
+		}
+		n := "<nil>"
+		if new.indexName != nil {
+			n = *new.indexName
+		}
+		differences["indexName"] = fmt.Sprintf("%s=>%s", o, n)
+	}
+	if c.replicaIdent != new.replicaIdent {
+		differences["replicaIdent"] = fmt.Sprintf("%t=>%t", c.replicaIdent, new.replicaIdent)
 	}
 	if (c.defaultValue == nil && new.defaultValue != nil) ||
 		(c.defaultValue != nil && new.defaultValue == nil) {
