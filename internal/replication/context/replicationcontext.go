@@ -38,13 +38,16 @@ type ReplicationContext struct {
 	replicationSlotCreate   bool
 	replicationSlotAutoDrop bool
 
-	timeline     int32
-	systemId     string
-	databaseName string
-	walLevel     string
-	lsnMutex     sync.Mutex
-	receivedLSN  pgtypes.LSN
-	processedLSN pgtypes.LSN
+	timeline          int32
+	systemId          string
+	databaseName      string
+	walLevel          string
+	lsnMutex          sync.Mutex
+	lastBeginLSN      pgtypes.LSN
+	lastCommitLSN     pgtypes.LSN
+	lastReceivedLSN   pgtypes.LSN
+	lastProcessedLSN  pgtypes.LSN
+	lastTransactionId uint32
 
 	pgVersion   version.PostgresVersion
 	tsdbVersion version.TimescaleVersion
@@ -164,18 +167,74 @@ func (rp *ReplicationContext) Offset() (*statestorage.Offset, error) {
 	return nil, nil
 }
 
-func (rp *ReplicationContext) AcknowledgeReceived(xld pglogrepl.XLogData) {
+func (rp *ReplicationContext) SetLastTransactionId(xid uint32) {
 	rp.lsnMutex.Lock()
 	defer rp.lsnMutex.Unlock()
 
-	rp.receivedLSN = pgtypes.LSN(xld.WALStart + pglogrepl.LSN(len(xld.WALData)))
+	rp.lastTransactionId = xid
 }
 
-func (rp *ReplicationContext) AcknowledgeProcessed(xld pglogrepl.XLogData) error {
+func (rp *ReplicationContext) LastTransactionId() uint32 {
 	rp.lsnMutex.Lock()
 	defer rp.lsnMutex.Unlock()
 
-	rp.processedLSN = pgtypes.LSN(xld.WALStart + pglogrepl.LSN(len(xld.WALData)))
+	return rp.lastTransactionId
+}
+
+func (rp *ReplicationContext) SetLastBeginLSN(lsn pgtypes.LSN) {
+	rp.lsnMutex.Lock()
+	defer rp.lsnMutex.Unlock()
+
+	rp.lastBeginLSN = lsn
+}
+
+func (rp *ReplicationContext) LastBeginLSN() pgtypes.LSN {
+	rp.lsnMutex.Lock()
+	defer rp.lsnMutex.Unlock()
+
+	return rp.lastBeginLSN
+}
+
+func (rp *ReplicationContext) SetLastCommitLSN(lsn pgtypes.LSN) {
+	rp.lsnMutex.Lock()
+	defer rp.lsnMutex.Unlock()
+
+	rp.lastCommitLSN = lsn
+}
+
+func (rp *ReplicationContext) LastCommitLSN() pgtypes.LSN {
+	rp.lsnMutex.Lock()
+	defer rp.lsnMutex.Unlock()
+
+	return rp.lastCommitLSN
+}
+
+func (rp *ReplicationContext) LastReceivedLSN() pgtypes.LSN {
+	rp.lsnMutex.Lock()
+	defer rp.lsnMutex.Unlock()
+
+	return rp.lastReceivedLSN
+}
+
+func (rp *ReplicationContext) LastProcessedLSN() pgtypes.LSN {
+	rp.lsnMutex.Lock()
+	defer rp.lsnMutex.Unlock()
+
+	return rp.lastProcessedLSN
+}
+
+func (rp *ReplicationContext) AcknowledgeReceived(xld pgtypes.XLogData) {
+	rp.lsnMutex.Lock()
+	defer rp.lsnMutex.Unlock()
+
+	rp.lastReceivedLSN = pgtypes.LSN(xld.WALStart + pglogrepl.LSN(len(xld.WALData)))
+}
+
+func (rp *ReplicationContext) AcknowledgeProcessed(xld pgtypes.XLogData) error {
+	rp.lsnMutex.Lock()
+	defer rp.lsnMutex.Unlock()
+
+	rp.lastProcessedLSN = pgtypes.LSN(xld.WALStart + pglogrepl.LSN(len(xld.WALData)))
 
 	o, err := rp.Offset()
 	if err != nil {
@@ -184,7 +243,7 @@ func (rp *ReplicationContext) AcknowledgeProcessed(xld pglogrepl.XLogData) error
 
 	if o == nil {
 		o = &statestorage.Offset{
-			LSN:       rp.processedLSN,
+			LSN:       rp.lastProcessedLSN,
 			Timestamp: xld.ServerTime,
 		}
 	}
@@ -308,8 +367,8 @@ func (rp *ReplicationContext) DetachTablesFromPublication(entities ...systemcata
 	return rp.sideChannel.detachTablesFromPublication(rp.publicationName, entities...)
 }
 
-func (rp *ReplicationContext) SnapshotTable(canonicalName string, startingLSN *pglogrepl.LSN,
-	cb func(lsn pglogrepl.LSN, values map[string]any) error) (pglogrepl.LSN, error) {
+func (rp *ReplicationContext) SnapshotTable(canonicalName string, startingLSN *pgtypes.LSN,
+	cb func(lsn pgtypes.LSN, values map[string]any) error) (pgtypes.LSN, error) {
 
 	return rp.sideChannel.snapshotTable(canonicalName, startingLSN, rp.snapshotBatchSize, cb)
 }
@@ -415,13 +474,13 @@ func (rp *ReplicationContext) setPositionLSNs(receivedLSN, processedLSN pgtypes.
 	rp.lsnMutex.Lock()
 	defer rp.lsnMutex.Unlock()
 
-	rp.receivedLSN = receivedLSN
-	rp.processedLSN = processedLSN
+	rp.lastReceivedLSN = receivedLSN
+	rp.lastProcessedLSN = processedLSN
 }
 
 func (rp *ReplicationContext) positionLSNs() (receivedLSN, processedLSN pgtypes.LSN) {
 	rp.lsnMutex.Lock()
 	defer rp.lsnMutex.Unlock()
 
-	return rp.receivedLSN, rp.processedLSN
+	return rp.lastReceivedLSN, rp.lastProcessedLSN
 }

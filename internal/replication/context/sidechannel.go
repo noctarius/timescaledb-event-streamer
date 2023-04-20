@@ -358,8 +358,8 @@ func (sc *sideChannelImpl) detachTablesFromPublication(
 	})
 }
 
-func (sc *sideChannelImpl) snapshotTable(canonicalName string, startingLSN *pglogrepl.LSN, snapshotBatchSize int,
-	cb func(lsn pglogrepl.LSN, values map[string]any) error) (pglogrepl.LSN, error) {
+func (sc *sideChannelImpl) snapshotTable(canonicalName string, startingLSN *pgtypes.LSN, snapshotBatchSize int,
+	cb func(lsn pgtypes.LSN, values map[string]any) error) (pgtypes.LSN, error) {
 
 	var currentLSN pglogrepl.LSN
 
@@ -403,7 +403,7 @@ func (sc *sideChannelImpl) snapshotTable(canonicalName string, startingLSN *pglo
 
 				return rowDecoder.DecodeMapAndSink(rows.RawValues(), func(values map[string]any) error {
 					count++
-					return cb(currentLSN, values)
+					return cb(pgtypes.LSN(currentLSN), values)
 				})
 			}, fmt.Sprintf("FETCH FORWARD %d FROM %s", snapshotBatchSize, cursorName)); err != nil {
 				return errors.Wrap(err, 0)
@@ -429,7 +429,7 @@ func (sc *sideChannelImpl) snapshotTable(canonicalName string, startingLSN *pglo
 		return 0, errors.Wrap(err, 0)
 	}
 
-	return currentLSN, nil
+	return pgtypes.LSN(currentLSN), nil
 }
 
 func (sc *sideChannelImpl) readReplicaIdentity(schemaName, tableName string) (pgtypes.ReplicaIdentity, error) {

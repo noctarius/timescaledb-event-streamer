@@ -2,11 +2,11 @@ package snapshotting
 
 import (
 	"github.com/go-errors/errors"
-	"github.com/jackc/pglogrepl"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
+	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"hash/fnv"
 	"time"
@@ -115,7 +115,7 @@ func (s *Snapshotter) snapshotChunk(task SnapshotTask) error {
 
 	lsn, err := s.replicationContext.SnapshotTable(
 		task.Chunk.CanonicalName(), nil,
-		func(lsn pglogrepl.LSN, values map[string]any) error {
+		func(lsn pgtypes.LSN, values map[string]any) error {
 			return s.replicationContext.EnqueueTask(func(notificator context.Notificator) {
 				notificator.NotifyHypertableReplicationEventHandler(
 					func(handler eventhandlers.HypertableReplicationEventHandler) error {

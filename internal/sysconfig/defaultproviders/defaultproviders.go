@@ -4,7 +4,6 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/eventing/eventemitting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/eventing/eventfiltering"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
-	"github.com/noctarius/timescaledb-event-streamer/internal/replication/transactional"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/sink"
 	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
@@ -13,7 +12,7 @@ import (
 
 type EventEmitterProvider = func(
 	config *spiconfig.Config, replicationContext *context.ReplicationContext, sink sink.Sink,
-	transactionMonitor *transactional.TransactionMonitor) (*eventemitting.EventEmitter, error)
+) (*eventemitting.EventEmitter, error)
 
 func DefaultSinkProvider(config *spiconfig.Config) (sink.Sink, error) {
 	name := spiconfig.GetOrDefault(config, spiconfig.PropertySink, spiconfig.Stdout)
@@ -27,14 +26,14 @@ func DefaultNamingStrategyProvider(config *spiconfig.Config) (namingstrategy.Nam
 
 func DefaultEventEmitterProvider(
 	config *spiconfig.Config, replicationContext *context.ReplicationContext, sink sink.Sink,
-	transactionMonitor *transactional.TransactionMonitor) (*eventemitting.EventEmitter, error) {
+) (*eventemitting.EventEmitter, error) {
 
 	filters, err := eventfiltering.NewEventFilter(config.Sink.Filters)
 	if err != nil {
 		return nil, err
 	}
 
-	return eventemitting.NewEventEmitter(replicationContext, transactionMonitor, sink, filters), nil
+	return eventemitting.NewEventEmitter(replicationContext, sink, filters), nil
 }
 
 func DefaultStateStorageProvider(config *spiconfig.Config) (statestorage.Storage, error) {

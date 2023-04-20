@@ -5,7 +5,6 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
 	logrepresolver "github.com/noctarius/timescaledb-event-streamer/internal/replication/logicalreplicationresolver"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationchannel"
-	"github.com/noctarius/timescaledb-event-streamer/internal/replication/transactional"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
@@ -90,9 +89,6 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 		return supporting.AdaptError(err, 19)
 	}
 
-	// Instantiate the transaction monitor, keeping track of transaction boundaries
-	transactionMonitor := transactional.NewTransactionMonitor()
-
 	// Instantiate the sink type
 	sink, err := r.config.SinkProvider(r.config.Config)
 	if err != nil {
@@ -100,7 +96,7 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 	}
 
 	// Instantiate the change event emitter
-	eventEmitter, err := r.config.EventEmitterProvider(r.config.Config, replicationContext, sink, transactionMonitor)
+	eventEmitter, err := r.config.EventEmitterProvider(r.config.Config, replicationContext, sink)
 	if err != nil {
 		return supporting.AdaptError(err, 14)
 	}
@@ -118,7 +114,6 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 	}
 
 	// Register event handlers
-	replicationContext.RegisterReplicationEventHandler(transactionMonitor)
 	replicationContext.RegisterReplicationEventHandler(transactionResolver)
 	replicationContext.RegisterReplicationEventHandler(systemCatalog.NewEventHandler())
 	replicationContext.RegisterReplicationEventHandler(eventEmitter.NewEventHandler())

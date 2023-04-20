@@ -1,58 +1,57 @@
 package eventhandlers
 
 import (
-	"github.com/jackc/pglogrepl"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 )
 
 type BaseReplicationEventHandler interface {
-	OnRelationEvent(xld pglogrepl.XLogData, msg *pgtypes.RelationMessage) error
+	OnRelationEvent(xld pgtypes.XLogData, msg *pgtypes.RelationMessage) error
 }
 
 type LogicalReplicationEventHandler interface {
 	BaseReplicationEventHandler
-	OnBeginEvent(xld pglogrepl.XLogData, msg *pgtypes.BeginMessage) error
-	OnCommitEvent(xld pglogrepl.XLogData, msg *pgtypes.CommitMessage) error
-	OnInsertEvent(xld pglogrepl.XLogData, msg *pgtypes.InsertMessage) error
-	OnUpdateEvent(xld pglogrepl.XLogData, msg *pgtypes.UpdateMessage) error
-	OnDeleteEvent(xld pglogrepl.XLogData, msg *pgtypes.DeleteMessage) error
-	OnTruncateEvent(xld pglogrepl.XLogData, msg *pgtypes.TruncateMessage) error
-	OnTypeEvent(xld pglogrepl.XLogData, msg *pgtypes.TypeMessage) error
-	OnOriginEvent(xld pglogrepl.XLogData, msg *pgtypes.OriginMessage) error
-	OnMessageEvent(xld pglogrepl.XLogData, msg *pgtypes.LogicalReplicationMessage) error
+	OnBeginEvent(xld pgtypes.XLogData, msg *pgtypes.BeginMessage) error
+	OnCommitEvent(xld pgtypes.XLogData, msg *pgtypes.CommitMessage) error
+	OnInsertEvent(xld pgtypes.XLogData, msg *pgtypes.InsertMessage) error
+	OnUpdateEvent(xld pgtypes.XLogData, msg *pgtypes.UpdateMessage) error
+	OnDeleteEvent(xld pgtypes.XLogData, msg *pgtypes.DeleteMessage) error
+	OnTruncateEvent(xld pgtypes.XLogData, msg *pgtypes.TruncateMessage) error
+	OnTypeEvent(xld pgtypes.XLogData, msg *pgtypes.TypeMessage) error
+	OnOriginEvent(xld pgtypes.XLogData, msg *pgtypes.OriginMessage) error
+	OnMessageEvent(xld pgtypes.XLogData, msg *pgtypes.LogicalReplicationMessage) error
 }
 
 type HypertableReplicationEventHandler interface {
 	BaseReplicationEventHandler
-	OnReadEvent(lsn pglogrepl.LSN, hypertable *systemcatalog.Hypertable,
+	OnReadEvent(lsn pgtypes.LSN, hypertable *systemcatalog.Hypertable,
 		chunk *systemcatalog.Chunk, newValues map[string]any) error
-	OnBeginEvent(xld pglogrepl.XLogData, msg *pgtypes.BeginMessage) error
-	OnCommitEvent(xld pglogrepl.XLogData, msg *pgtypes.CommitMessage) error
-	OnInsertEvent(xld pglogrepl.XLogData, hypertable *systemcatalog.Hypertable, chunk *systemcatalog.Chunk,
+	OnBeginEvent(xld pgtypes.XLogData, msg *pgtypes.BeginMessage) error
+	OnCommitEvent(xld pgtypes.XLogData, msg *pgtypes.CommitMessage) error
+	OnInsertEvent(xld pgtypes.XLogData, hypertable *systemcatalog.Hypertable, chunk *systemcatalog.Chunk,
 		newValues map[string]any) error
-	OnUpdateEvent(xld pglogrepl.XLogData, hypertable *systemcatalog.Hypertable, chunk *systemcatalog.Chunk,
+	OnUpdateEvent(xld pgtypes.XLogData, hypertable *systemcatalog.Hypertable, chunk *systemcatalog.Chunk,
 		oldValues, newValues map[string]any) error
-	OnDeleteEvent(xld pglogrepl.XLogData, hypertable *systemcatalog.Hypertable, chunk *systemcatalog.Chunk,
+	OnDeleteEvent(xld pgtypes.XLogData, hypertable *systemcatalog.Hypertable, chunk *systemcatalog.Chunk,
 		oldValues map[string]any, tombstone bool) error
-	OnTruncateEvent(xld pglogrepl.XLogData, hypertable *systemcatalog.Hypertable) error
-	OnTypeEvent(xld pglogrepl.XLogData, msg *pgtypes.TypeMessage) error
-	OnOriginEvent(xld pglogrepl.XLogData, msg *pgtypes.OriginMessage) error
-	OnMessageEvent(xld pglogrepl.XLogData, msg *pgtypes.LogicalReplicationMessage) error
+	OnTruncateEvent(xld pgtypes.XLogData, hypertable *systemcatalog.Hypertable) error
+	OnTypeEvent(xld pgtypes.XLogData, msg *pgtypes.TypeMessage) error
+	OnOriginEvent(xld pgtypes.XLogData, msg *pgtypes.OriginMessage) error
+	OnMessageEvent(xld pgtypes.XLogData, msg *pgtypes.LogicalReplicationMessage) error
 }
 
 type ChunkSnapshotEventHandler interface {
 	BaseReplicationEventHandler
 	OnChunkSnapshotStartedEvent(hypertable *systemcatalog.Hypertable, chunk *systemcatalog.Chunk) error
 	OnChunkSnapshotFinishedEvent(hypertable *systemcatalog.Hypertable,
-		chunk *systemcatalog.Chunk, snapshot pglogrepl.LSN) error
+		chunk *systemcatalog.Chunk, snapshot pgtypes.LSN) error
 }
 
 type CompressionReplicationEventHandler interface {
 	BaseReplicationEventHandler
-	OnChunkCompressedEvent(xld pglogrepl.XLogData,
+	OnChunkCompressedEvent(xld pgtypes.XLogData,
 		hypertable *systemcatalog.Hypertable, chunk *systemcatalog.Chunk) error
-	OnChunkDecompressedEvent(xld pglogrepl.XLogData,
+	OnChunkDecompressedEvent(xld pgtypes.XLogData,
 		hypertable *systemcatalog.Hypertable, chunk *systemcatalog.Chunk) error
 }
 

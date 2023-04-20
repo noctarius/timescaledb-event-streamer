@@ -3,7 +3,6 @@ package systemcatalog
 import (
 	"fmt"
 	"github.com/go-errors/errors"
-	"github.com/jackc/pglogrepl"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 )
@@ -20,7 +19,7 @@ type systemCatalogReplicationEventHandler struct {
 }
 
 func (s *systemCatalogReplicationEventHandler) OnRelationEvent(
-	_ pglogrepl.XLogData, msg *pgtypes.RelationMessage) error {
+	_ pgtypes.XLogData, msg *pgtypes.RelationMessage) error {
 
 	if msg.Namespace != "_timescaledb_catalog" {
 		if hypertable, present := s.systemCatalog.FindHypertableByName(msg.Namespace, msg.RelationName); present {

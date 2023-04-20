@@ -8,6 +8,14 @@ func (lsn LSN) String() string {
 	return pglogrepl.LSN(lsn).String()
 }
 
+type XLogData struct {
+	pglogrepl.XLogData
+
+	LastBegin  LSN
+	LastCommit LSN
+	Xid        uint32
+}
+
 type BeginMessage pglogrepl.BeginMessage
 
 type CommitMessage pglogrepl.CommitMessage
