@@ -222,8 +222,13 @@ func (rh *replicationHandler) handleDeleteMessage(xld pgtypes.XLogData, msg *pgl
 		rh.logger.Fatalf("unknown relation ID %d", msg.RelationID)
 	}
 
-	// Decode values and remove source
-	oldValues := rh.decodeValues(rel, msg.OldTuple)
+	// Decode tuples
+	oldValues, err := pgdecoding.DecodeTuples(rel, msg.OldTuple)
+	if err != nil {
+		return err
+	}
+
+	// Clean memory of the original tuple data
 	msg.OldTuple = nil
 
 	// Adapt the message object
@@ -247,9 +252,17 @@ func (rh *replicationHandler) handleUpdateMessage(xld pgtypes.XLogData, msg *pgl
 		rh.logger.Fatalf("unknown relation ID %d", msg.RelationID)
 	}
 
-	// Decode values and remove source
-	oldValues := rh.decodeValues(rel, msg.OldTuple)
-	newValues := rh.decodeValues(rel, msg.NewTuple)
+	// Decode tuples
+	oldValues, err := pgdecoding.DecodeTuples(rel, msg.OldTuple)
+	if err != nil {
+		return err
+	}
+	newValues, err := pgdecoding.DecodeTuples(rel, msg.NewTuple)
+	if err != nil {
+		return err
+	}
+
+	// Clean memory of the original tuple data
 	msg.OldTuple = nil
 	msg.NewTuple = nil
 
@@ -275,8 +288,13 @@ func (rh *replicationHandler) handleInsertMessage(xld pgtypes.XLogData, msg *pgl
 		rh.logger.Fatalf("unknown relation ID %d", msg.RelationID)
 	}
 
-	// Decode values and remove source
-	newValues := rh.decodeValues(rel, msg.Tuple)
+	// Decode tuples
+	newValues, err := pgdecoding.DecodeTuples(rel, msg.Tuple)
+	if err != nil {
+		return err
+	}
+
+	// Clean memory of the original tuple data
 	msg.Tuple = nil
 
 	// Adapt the message object
@@ -292,37 +310,4 @@ func (rh *replicationHandler) handleInsertMessage(xld pgtypes.XLogData, msg *pgl
 			},
 		)
 	})
-}
-
-func (rh *replicationHandler) decodeValues(relation *pglogrepl.RelationMessage,
-	tupleData *pglogrepl.TupleData) map[string]any {
-
-	values := map[string]any{}
-	if tupleData == nil {
-		return values
-	}
-
-	for idx, col := range tupleData.Columns {
-		colName := relation.Columns[idx].Name
-		switch col.DataType {
-		case 'n': // null
-			values[colName] = nil
-		case 'u': // unchanged toast
-			// This TOAST value was not changed. TOAST values are not stored in the tuple, and
-			// logical replication doesn't want to spend a disk read to fetch its value for you.
-		case 't': // text (basically anything other than the two above)
-			val, err := pgdecoding.DecodeTextColumn(col.Data, relation.Columns[idx].DataType)
-			if err != nil {
-				rh.logger.Fatalln("error decoding column data:", err)
-			}
-			values[colName] = val
-		case 'b': // binary data
-			val, err := pgdecoding.DecodeBinaryColumn(col.Data, relation.Columns[idx].DataType)
-			if err != nil {
-				rh.logger.Fatalln("error decoding column data:", err)
-			}
-			values[colName] = val
-		}
-	}
-	return values
 }
