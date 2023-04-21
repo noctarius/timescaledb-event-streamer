@@ -1,6 +1,7 @@
 package namingstrategies
 
 import (
+	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -8,7 +9,7 @@ import (
 
 func TestDebeziumNamingStrategy_EventTopicName(t *testing.T) {
 	topicPrefix := "foobar"
-	hypertable := systemcatalog.NewHypertable(1, "test", "schema", "hypertable", "", "", nil, 0, false, nil, nil)
+	hypertable := systemcatalog.NewHypertable(1, "test", "schema", "hypertable", "", "", nil, 0, false, nil, nil, pgtypes.DEFAULT)
 
 	strategy := DebeziumNamingStrategy{}
 	topicName := strategy.EventTopicName(topicPrefix, hypertable)
@@ -17,7 +18,7 @@ func TestDebeziumNamingStrategy_EventTopicName(t *testing.T) {
 
 func TestDebeziumNamingStrategy_SchemaTopicName(t *testing.T) {
 	topicPrefix := "foobar"
-	hypertable := systemcatalog.NewHypertable(1, "test", "schema", "hypertable", "", "", nil, 0, false, nil, nil)
+	hypertable := systemcatalog.NewHypertable(1, "test", "schema", "hypertable", "", "", nil, 0, false, nil, nil, pgtypes.DEFAULT)
 
 	strategy := DebeziumNamingStrategy{}
 	topicName := strategy.SchemaTopicName(topicPrefix, hypertable)

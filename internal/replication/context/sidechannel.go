@@ -29,13 +29,19 @@ const dropTableFromPublicationQuery = "ALTER PUBLICATION %s DROP TABLE %s"
 const initialHypertableQuery = `
 SELECT h1.id, h1.schema_name, h1.table_name, h1.associated_schema_name, h1.associated_table_prefix,
 	 h1.compression_state, h1.compressed_hypertable_id, coalesce(h2.is_distributed, false),
-	 ca.user_view_schema, ca.user_view_name
+	 ca.user_view_schema, ca.user_view_name, c.relreplident
 FROM _timescaledb_catalog.hypertable h1
 LEFT JOIN timescaledb_information.hypertables h2
 	 ON h2.hypertable_schema = h1.schema_name
 	AND h2.hypertable_name = h1.table_name
 LEFT JOIN _timescaledb_catalog.continuous_agg ca
-    ON h1.id = ca.mat_hypertable_id`
+    ON h1.id = ca.mat_hypertable_id
+LEFT JOIN pg_catalog.pg_namespace n
+    ON n.nspname = h1.schema_name
+LEFT JOIN pg_catalog.pg_class c
+    ON c.relname = h1.table_name
+   AND c.relnamespace = n.oid;
+`
 
 const initialChunkQuery = `
 SELECT c1.id, c1.hypertable_id, c1.schema_name, c1.table_name, c1.compressed_chunk_id, c1.dropped, c1.status
@@ -261,17 +267,18 @@ func (sc *sideChannelImpl) readHypertables(cb func(hypertable *systemcatalog.Hyp
 			var compressedHypertableId *int32
 			var distributed bool
 			var viewSchema, viewName *string
+			var replicaIdentity pgtypes.ReplicaIdentity
 
 			if err := row.Scan(&id, &schemaName, &hypertableName, &associatedSchemaName,
 				&associatedTablePrefix, &compressionState, &compressedHypertableId,
-				&distributed, &viewSchema, &viewName); err != nil {
+				&distributed, &viewSchema, &viewName, &replicaIdentity); err != nil {
 
 				return errors.Wrap(err, 0)
 			}
 
 			hypertable := systemcatalog.NewHypertable(id, sc.replicationContext.DatabaseName(), schemaName,
 				hypertableName, associatedSchemaName, associatedTablePrefix, compressedHypertableId,
-				compressionState, distributed, viewSchema, viewName)
+				compressionState, distributed, viewSchema, viewName, replicaIdentity)
 
 			return cb(hypertable)
 		}, initialHypertableQuery)

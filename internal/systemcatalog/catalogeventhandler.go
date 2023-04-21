@@ -48,9 +48,16 @@ func (s *systemCatalogReplicationEventHandler) OnHypertableAddedEvent(_ uint32, 
 				}
 			}
 
+			replicaIdentity, err := s.systemCatalog.replicationContext.ReadReplicaIdentity(
+				systemcatalog.NewSystemEntity(schemaName, hypertableName),
+			)
+			if err != nil {
+				return err
+			}
+
 			h := systemcatalog.NewHypertable(id, s.systemCatalog.replicationContext.DatabaseName(), schemaName,
 				hypertableName, associatedSchemaName, associatedTablePrefix, compressedHypertableId, compressionState,
-				distributed, viewSchema, viewName)
+				distributed, viewSchema, viewName, replicaIdentity)
 
 			if err := s.systemCatalog.RegisterHypertable(h); err != nil {
 				return fmt.Errorf("registering hypertable failed: %v", h)
@@ -67,8 +74,13 @@ func (s *systemCatalogReplicationEventHandler) OnHypertableUpdatedEvent(_ uint32
 			compressedHypertableId *int32, compressionState int16, distributed bool) error {
 
 			if hypertable, present := s.systemCatalog.FindHypertableById(id); present {
+				replicaIdentity, err := s.systemCatalog.replicationContext.ReadReplicaIdentity(hypertable)
+				if err != nil {
+					return err
+				}
+
 				h, differences := hypertable.ApplyChanges(schemaName, hypertableName, associatedSchemaName,
-					associatedTablePrefix, compressedHypertableId, compressionState)
+					associatedTablePrefix, compressedHypertableId, compressionState, replicaIdentity)
 
 				if err := s.systemCatalog.RegisterHypertable(h); err != nil {
 					return fmt.Errorf("registering hypertable failed: %v", h)

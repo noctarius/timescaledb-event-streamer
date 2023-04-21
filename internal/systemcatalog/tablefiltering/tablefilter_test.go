@@ -1,6 +1,7 @@
 package tablefiltering
 
 import (
+	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -341,5 +342,6 @@ func makeHypertable(id int32, schemaName, tableName string) *systemcatalog.Hyper
 		false,
 		nil,
 		nil,
+		pgtypes.DEFAULT,
 	)
 }

@@ -1,6 +1,9 @@
 package systemcatalog
 
-import "testing"
+import (
+	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
+	"testing"
+)
 
 func TestSchemaDifferences_Added_Column(t *testing.T) {
 	expected := "added: {name:test4 dataType:10 typeName:foo nullable:false primaryKey:false keySeq:<nil> defaultValue:<nil> replicaIdent:false indexName:<nil>}"
@@ -15,7 +18,7 @@ func TestSchemaDifferences_Added_Column(t *testing.T) {
 		NewColumn("test3", 10, "foo", false, nil),
 		NewColumn("test4", 10, "foo", false, nil),
 	}
-	hypertable := NewHypertable(1, "", "", "", "", "", nil, 0, false, nil, nil)
+	hypertable := NewHypertable(1, "", "", "", "", "", nil, 0, false, nil, nil, pgtypes.DEFAULT)
 	hypertable.ApplyTableSchema(oldColumns)
 	differences := hypertable.ApplyTableSchema(newColumns)
 
@@ -44,7 +47,7 @@ func TestSchemaDifferences_Renamed_Column(t *testing.T) {
 		NewColumn("test4", 10, "foo", false, nil),
 		NewColumn("test3", 10, "foo", false, nil),
 	}
-	hypertable := NewHypertable(1, "", "", "", "", "", nil, 0, false, nil, nil)
+	hypertable := NewHypertable(1, "", "", "", "", "", nil, 0, false, nil, nil, pgtypes.DEFAULT)
 	hypertable.ApplyTableSchema(oldColumns)
 	differences := hypertable.ApplyTableSchema(newColumns)
 
@@ -73,7 +76,7 @@ func TestSchemaDifferences_Renamed_Last_Column(t *testing.T) {
 		NewColumn("test2", 10, "foo", false, nil),
 		NewColumn("test4", 10, "foo", false, nil),
 	}
-	hypertable := NewHypertable(1, "", "", "", "", "", nil, 0, false, nil, nil)
+	hypertable := NewHypertable(1, "", "", "", "", "", nil, 0, false, nil, nil, pgtypes.DEFAULT)
 	hypertable.ApplyTableSchema(oldColumns)
 	differences := hypertable.ApplyTableSchema(newColumns)
 
@@ -101,7 +104,7 @@ func TestSchemaDifferences_Dropped_Column(t *testing.T) {
 		NewColumn("test1", 10, "foo", false, nil),
 		NewColumn("test3", 12, "foo", false, nil),
 	}
-	hypertable := NewHypertable(1, "", "", "", "", "", nil, 0, false, nil, nil)
+	hypertable := NewHypertable(1, "", "", "", "", "", nil, 0, false, nil, nil, pgtypes.DEFAULT)
 	hypertable.ApplyTableSchema(oldColumns)
 	differences := hypertable.ApplyTableSchema(newColumns)
 
@@ -129,7 +132,7 @@ func TestSchemaDifferences_Dropped_Last_Column(t *testing.T) {
 		NewColumn("test1", 10, "foo", false, nil),
 		NewColumn("test2", 10, "foo", false, nil),
 	}
-	hypertable := NewHypertable(1, "", "", "", "", "", nil, 0, false, nil, nil)
+	hypertable := NewHypertable(1, "", "", "", "", "", nil, 0, false, nil, nil, pgtypes.DEFAULT)
 	hypertable.ApplyTableSchema(oldColumns)
 	differences := hypertable.ApplyTableSchema(newColumns)
 

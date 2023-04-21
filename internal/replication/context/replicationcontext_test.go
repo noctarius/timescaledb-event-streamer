@@ -2,6 +2,7 @@ package context
 
 import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/eventing/namingstrategies"
+	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -9,7 +10,7 @@ import (
 
 func TestReplicationContext_EventTopicName(t *testing.T) {
 	topicPrefix := "foobar"
-	hypertable := systemcatalog.NewHypertable(1, "test", "schema", "hypertable", "", "", nil, 0, false, nil, nil)
+	hypertable := systemcatalog.NewHypertable(1, "test", "schema", "hypertable", "", "", nil, 0, false, nil, nil, pgtypes.DEFAULT)
 
 	replicationContext := &ReplicationContext{
 		topicPrefix:    topicPrefix,
@@ -22,7 +23,7 @@ func TestReplicationContext_EventTopicName(t *testing.T) {
 }
 func TestReplicationContext_SchemaTopicName(t *testing.T) {
 	topicPrefix := "foobar"
-	hypertable := systemcatalog.NewHypertable(1, "test", "schema", "hypertable", "", "", nil, 0, false, nil, nil)
+	hypertable := systemcatalog.NewHypertable(1, "test", "schema", "hypertable", "", "", nil, 0, false, nil, nil, pgtypes.DEFAULT)
 
 	replicationContext := &ReplicationContext{
 		topicPrefix:    topicPrefix,

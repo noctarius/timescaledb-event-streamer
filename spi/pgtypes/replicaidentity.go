@@ -1,6 +1,16 @@
 package pgtypes
 
+import "fmt"
+
 type ReplicaIdentity string
+
+func (ri *ReplicaIdentity) Scan(src interface{}) error {
+	if c, ok := src.(string); ok {
+		*ri = ReplicaIdentity(c)
+		return nil
+	}
+	return fmt.Errorf("can not scan %T to ReplicaIdentity", src)
+}
 
 const (
 	NOTHING ReplicaIdentity = "n"
