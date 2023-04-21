@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/BurntSushi/toml"
 	"github.com/noctarius/timescaledb-event-streamer/internal"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
@@ -14,6 +13,8 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"strings"
 	"syscall"
 )
 
@@ -80,7 +81,8 @@ func start(*cli.Context) error {
 			return cli.NewExitError(fmt.Sprintf("Configuration file couldn't be read: %v\n", err), 4)
 		}
 
-		if err := toml.Unmarshal(b, &config); err != nil {
+		tomlConfig := filepath.Ext(strings.ToLower(configurationFile)) == ".toml"
+		if err := spiconfig.Unmarshall(b, config, tomlConfig); err != nil {
 			return cli.NewExitError(fmt.Sprintf("Configuration file couldn't be decoded: %v\n", err), 5)
 		}
 	}

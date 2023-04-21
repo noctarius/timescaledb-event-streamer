@@ -12,8 +12,8 @@ postgresql.password = '...'
 #postgresql.transaction.window.timeout = 60
 #postgresql.transaction.window.maxsize = 100000
 
-offsetstorage.type = 'file'
-offsetstorage.file.path = '/tmp/offsetstorage.dat'
+statestorage.type = 'file'
+statestorage.file.path = '/tmp/statestorage.dat'
 
 sink.tombstone = false
 
@@ -39,7 +39,7 @@ sink.nats.userinfo.password = '...'
 
 #sink.redis.network = 'tcp'
 #sink.redis.address = 'localhost:6379'
-#sink.redis.password = ''
+#sink.redis.password = '...'
 #sink.redis.database = 0
 #sink.redis.poolsize = 0
 #sink.redis.retries.maxattempts = 0
@@ -53,6 +53,16 @@ sink.nats.userinfo.password = '...'
 #sink.redis.tls.enabled = false
 #sink.redis.tls.skipverify = false
 #sink.redis.tls.clientauth = 0
+
+sink.kinesis.stream.name = 'stream_name'
+sink.kinesis.stream.create = true
+sink.kinesis.stream.shardcount = 10
+sink.kinesis.stream.mode = '...'
+sink.kinesis.aws.region = '...'
+sink.kinesis.aws.endpoint = '...'
+sink.kinesis.aws.accesskeyid = '...'
+sink.kinesis.aws.secretaccesskey = '...'
+sink.kinesis.aws.sessiontoken = '...'
 
 topic.namingstrategy.type = 'debezium'
 topic.prefix = 'timescaledb'
@@ -70,5 +80,11 @@ timescaledb.events.decompression = false
 
 logging.level = 'info'
 logging.outputs.console.enabled = true
+logging.outputs.file.enabled = false
+logging.outputs.file.path = '/path/to/logfile'
+logging.outputs.file.rotate = true
+logging.outputs.file.maxsize = '5MB'
+logging.outputs.file.maxduration = 600 #seconds
+logging.outputs.file.compress = true
 logging.loggers.LogicalReplicationResolver.level = 'debug'
 logging.loggers.LogicalReplicationResolver.outputs.console.enabled = false

@@ -11,6 +11,7 @@ require (
 	github.com/docker/docker v23.0.2+incompatible
 	github.com/go-errors/errors v1.3.0
 	github.com/go-redis/redis v6.15.9+incompatible
+	github.com/go-yaml/yaml v2.1.0+incompatible
 	github.com/gookit/color v1.5.3
 	github.com/gookit/slog v0.5.1
 	github.com/hashicorp/go-uuid v1.0.3

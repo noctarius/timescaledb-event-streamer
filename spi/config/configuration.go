@@ -23,7 +23,7 @@ const (
 	NATS       SinkType = "nats"
 	Kafka      SinkType = "kafka"
 	Redis      SinkType = "redis"
-	AwsKinesis SinkType = "awskinesis"
+	AwsKinesis SinkType = "kinesis"
 )
 
 type NamingStrategyType string
@@ -41,218 +41,224 @@ const (
 )
 
 type PostgreSQLConfig struct {
-	Connection      string                `toml:"connection"`
-	Password        string                `toml:"password"`
-	Publication     PublicationConfig     `toml:"publication"`
-	ReplicationSlot ReplicationSlotConfig `toml:"replicationslot"`
-	Transaction     TransactionConfig     `toml:"transaction"`
+	Connection      string                `toml:"connection" yaml:"connection"`
+	Password        string                `toml:"password" yaml:"password"`
+	Publication     PublicationConfig     `toml:"publication" yaml:"publication"`
+	ReplicationSlot ReplicationSlotConfig `toml:"replicationslot" yaml:"replicationSlot"`
+	Transaction     TransactionConfig     `toml:"transaction" yaml:"transaction"`
+	Snapshot        SnapshotConfig        `toml:"snapshot" yaml:"snapshot"`
+}
+
+type SnapshotConfig struct {
+	BatchSize uint   `toml:"batchsize" yaml:"batchSize"`
+	Initial   string `toml:"initial" yaml:"initial"`
 }
 
 type PublicationConfig struct {
-	Name     string `toml:"name"`
-	Create   *bool  `toml:"create"`
-	AutoDrop *bool  `toml:"autodrop"`
+	Name     string `toml:"name" yaml:"name"`
+	Create   *bool  `toml:"create" yaml:"create"`
+	AutoDrop *bool  `toml:"autodrop" yaml:"autoDrop"`
 }
 
 type ReplicationSlotConfig struct {
-	Name     string `toml:"name"`
-	Create   *bool  `toml:"create"`
-	AutoDrop *bool  `toml:"autodrop"`
+	Name     string `toml:"name" yaml:"name"`
+	Create   *bool  `toml:"create" yaml:"create"`
+	AutoDrop *bool  `toml:"autodrop" yaml:"autoDrop"`
 }
 
 type TransactionConfig struct {
-	Window TransactionWindowConfig `toml:"window"`
+	Window TransactionWindowConfig `toml:"window" yaml:"window"`
 }
 
 type TransactionWindowConfig struct {
-	Enabled *bool         `toml:"enabled"`
-	Timeout time.Duration `toml:"timeout"`
-	MaxSize uint          `toml:"maxsize"`
+	Enabled *bool         `toml:"enabled" yaml:"enabled"`
+	Timeout time.Duration `toml:"timeout" yaml:"timeout"`
+	MaxSize uint          `toml:"maxsize" yaml:"maxSize"`
 }
 
 type SinkConfig struct {
-	Type       SinkType                     `toml:"type"`
-	Tombstone  bool                         `toml:"tombstone"`
-	Filters    map[string]EventFilterConfig `toml:"filters"`
-	Nats       NatsConfig                   `toml:"nats"`
-	Kafka      KafkaConfig                  `toml:"kafka"`
-	Redis      RedisConfig                  `toml:"redis"`
-	AwsKinesis AwsKinesisConfig             `toml:"kinesis"`
+	Type       SinkType                     `toml:"type" yaml:"type"`
+	Tombstone  bool                         `toml:"tombstone" yaml:"tombstone"`
+	Filters    map[string]EventFilterConfig `toml:"filters" yaml:"filters"`
+	Nats       NatsConfig                   `toml:"nats" yaml:"nats"`
+	Kafka      KafkaConfig                  `toml:"kafka" yaml:"kafka"`
+	Redis      RedisConfig                  `toml:"redis" yaml:"redis"`
+	AwsKinesis AwsKinesisConfig             `toml:"kinesis" yaml:"kinesis"`
 }
 
 type EventFilterConfig struct {
-	Hypertables  *HypertablesConfig `toml:"hypertables"`
-	DefaultValue *bool              `toml:"default"`
-	Condition    string             `toml:"condition"`
+	Hypertables  *HypertablesConfig `toml:"hypertables" yaml:"hypertables"`
+	DefaultValue *bool              `toml:"default" yaml:"default"`
+	Condition    string             `toml:"condition" yaml:"condition"`
 }
 
 type TopicConfig struct {
-	NamingStrategy TopicNamingStrategyConfig `toml:"namingstrategy"`
-	Prefix         string                    `toml:"prefix"`
+	NamingStrategy TopicNamingStrategyConfig `toml:"namingstrategy" yaml:"namingStrategy"`
+	Prefix         string                    `toml:"prefix" yaml:"prefix"`
 }
 
 type TimescaleDBConfig struct {
-	Hypertables HypertablesConfig     `toml:"hypertables"`
-	Events      TimescaleEventsConfig `toml:"events"`
+	Hypertables HypertablesConfig     `toml:"hypertables" yaml:"hypertables"`
+	Events      TimescaleEventsConfig `toml:"events" yaml:"events"`
 }
 
 type NatsUserInfoConfig struct {
-	Username string `toml:"username"`
-	Password string `toml:"password"`
+	Username string `toml:"username" yaml:"username"`
+	Password string `toml:"password" yaml:"password"`
 }
 
 type NatsCredentialsConfig struct {
-	Certificate string   `toml:"certificate"`
-	Seeds       []string `toml:"seeds"`
+	Certificate string   `toml:"certificate" yaml:"certificate"`
+	Seeds       []string `toml:"seeds" yaml:"seeds"`
 }
 
 type NatsJWTConfig struct {
-	JWT  string `toml:"jwt"`
-	Seed string `toml:"seed"`
+	JWT  string `toml:"jwt" yaml:"jwt"`
+	Seed string `toml:"seed" yaml:"Seed"`
 }
 
 type NatsConfig struct {
-	Address       string                `toml:"address"`
-	Authorization NatsAuthorizationType `toml:"authorization"`
-	UserInfo      NatsUserInfoConfig    `toml:"userinfo"`
-	Credentials   NatsCredentialsConfig `toml:"credentials"`
-	JWT           NatsJWTConfig         `toml:"jwt"`
+	Address       string                `toml:"address" yaml:"address"`
+	Authorization NatsAuthorizationType `toml:"authorization" yaml:"authorization"`
+	UserInfo      NatsUserInfoConfig    `toml:"userinfo" yaml:"userInfo"`
+	Credentials   NatsCredentialsConfig `toml:"credentials" yaml:"credentials"`
+	JWT           NatsJWTConfig         `toml:"jwt" yaml:"jwt"`
 }
 
 type KafkaSaslConfig struct {
-	Enabled   bool                 `toml:"user"`
-	User      string               `toml:"user"`
-	Password  string               `toml:"password"`
-	Mechanism sarama.SASLMechanism `toml:"mechanism"`
+	Enabled   bool                 `toml:"user" yaml:"enabled"`
+	User      string               `toml:"user" yaml:"user"`
+	Password  string               `toml:"password" yaml:"password"`
+	Mechanism sarama.SASLMechanism `toml:"mechanism" yaml:"mechanism"`
 }
 
 type KafkaConfig struct {
-	Brokers    []string        `toml:"brokers"`
-	Idempotent bool            `toml:"idempotent"`
-	Sasl       KafkaSaslConfig `toml:"sasl"`
-	TLS        TLSConfig       `toml:"tls"`
+	Brokers    []string        `toml:"brokers" yaml:"brokers"`
+	Idempotent bool            `toml:"idempotent" yaml:"idempotent"`
+	Sasl       KafkaSaslConfig `toml:"sasl" yaml:"sasl"`
+	TLS        TLSConfig       `toml:"tls" yaml:"tls"`
 }
 
 type RedisConfig struct {
-	Network  string             `toml:"network"`
-	Address  string             `toml:"address"`
-	Password string             `toml:"password"`
-	Database int                `toml:"database"`
-	Retries  RedisRetryConfig   `toml:"retries"`
-	Timeouts RedisTimeoutConfig `toml:"timeouts"`
-	PoolSize int                `toml:"poolsize"`
-	TLS      TLSConfig          `toml:"tls"`
+	Network  string             `toml:"network" yaml:"network"`
+	Address  string             `toml:"address" yaml:"address"`
+	Password string             `toml:"password" yaml:"password"`
+	Database int                `toml:"database" yaml:"database"`
+	Retries  RedisRetryConfig   `toml:"retries" yaml:"retries"`
+	Timeouts RedisTimeoutConfig `toml:"timeouts" yaml:"timeouts"`
+	PoolSize int                `toml:"poolsize" yaml:"poolSize"`
+	TLS      TLSConfig          `toml:"tls" yaml:"tls"`
 }
 
 type RedisRetryConfig struct {
-	MaxAttempts int                     `toml:"maxattempts"`
-	Backoff     RedisRetryBackoffConfig `toml:"backoff"`
+	MaxAttempts int                     `toml:"maxattempts" yaml:"maxAttempts"`
+	Backoff     RedisRetryBackoffConfig `toml:"backoff" yaml:"backoff"`
 }
 
 type RedisRetryBackoffConfig struct {
-	Min int `toml:"min"`
-	Max int `toml:"max"`
+	Min int `toml:"min" yaml:"min"`
+	Max int `toml:"max" yaml:"max"`
 }
 
 type RedisTimeoutConfig struct {
-	Dial  int `toml:"dial"`
-	Read  int `toml:"read"`
-	Write int `toml:"write"`
-	Pool  int `toml:"pool"`
-	Idle  int `toml:"idle"`
+	Dial  int `toml:"dial" yaml:"dial"`
+	Read  int `toml:"read" yaml:"read"`
+	Write int `toml:"write" yaml:"write"`
+	Pool  int `toml:"pool" yaml:"pool"`
+	Idle  int `toml:"idle" yaml:"idle"`
 }
 
 type TopicNamingStrategyConfig struct {
-	Type NamingStrategyType `toml:"type"`
+	Type NamingStrategyType `toml:"type" yaml:"type"`
 }
 
 type TLSConfig struct {
-	Enabled    bool               `toml:"enabled"`
-	SkipVerify bool               `toml:"skipverify"`
-	ClientAuth tls.ClientAuthType `toml:"clientauth"`
+	Enabled    bool               `toml:"enabled" yaml:"enabled"`
+	SkipVerify bool               `toml:"skipverify" yaml:"skipVerify"`
+	ClientAuth tls.ClientAuthType `toml:"clientauth" yaml:"clientAuth"`
 }
 
 type HypertablesConfig struct {
-	Excludes []string `toml:"excludes"`
-	Includes []string `toml:"includes"`
+	Excludes []string `toml:"excludes" yaml:"excludes"`
+	Includes []string `toml:"includes" yaml:"includes"`
 }
 
 type TimescaleEventsConfig struct {
-	Read          bool `toml:"read"`
-	Insert        bool `toml:"insert"`
-	Update        bool `toml:"update"`
-	Delete        bool `toml:"delete"`
-	Truncate      bool `toml:"truncate"`
-	Message       bool `toml:"message"`
-	Compression   bool `toml:"compression"`
-	Decompression bool `toml:"decompression"`
+	Read          bool `toml:"read" yaml:"read"`
+	Insert        bool `toml:"insert" yaml:"insert"`
+	Update        bool `toml:"update" yaml:"update"`
+	Delete        bool `toml:"delete" yaml:"delete"`
+	Truncate      bool `toml:"truncate" yaml:"truncate"`
+	Message       bool `toml:"message" yaml:"message"`
+	Compression   bool `toml:"compression" yaml:"compression"`
+	Decompression bool `toml:"decompression" yaml:"decompression"`
 }
 
 type AwsKinesisConfig struct {
-	Stream AwsKinesisStreamConfig `toml:"stream"`
-	Aws    AwsConnectionConfig    `toml:"aws"`
+	Stream AwsKinesisStreamConfig `toml:"stream" yaml:"stream"`
+	Aws    AwsConnectionConfig    `toml:"aws" yaml:"aws"`
 }
 
 type AwsKinesisStreamConfig struct {
-	Name       *string `toml:"stream"`
-	Create     *bool   `toml:"create"`
-	ShardCount *int64  `toml:"shardcount"`
-	Mode       *string `toml:"mode"`
+	Name       *string `toml:"stream" yaml:"name"`
+	Create     *bool   `toml:"create" yaml:"create"`
+	ShardCount *int64  `toml:"shardcount" yaml:"shardCount"`
+	Mode       *string `toml:"mode" yaml:"mode"`
 }
 
 type AwsConnectionConfig struct {
-	Region          *string `toml:"region"`
-	Endpoint        string  `toml:"endpoint"`
-	AccessKeyId     string  `toml:"accesskeyid"`
-	SecretAccessKey string  `toml:"secretaccesskey"`
-	SessionToken    string  `toml:"sessiontoken"`
+	Region          *string `toml:"region" yaml:"region"`
+	Endpoint        string  `toml:"endpoint" yaml:"endpoint"`
+	AccessKeyId     string  `toml:"accesskeyid" yaml:"accessKeyId"`
+	SecretAccessKey string  `toml:"secretaccesskey" yaml:"secretAccessKey"`
+	SessionToken    string  `toml:"sessiontoken" yaml:"sessionToken"`
 }
 
 type Config struct {
-	PostgreSQL   PostgreSQLConfig   `toml:"postgresql"`
-	Sink         SinkConfig         `toml:"sink"`
-	Topic        TopicConfig        `toml:"topic"`
-	TimescaleDB  TimescaleDBConfig  `toml:"timescaledb"`
-	Logging      LoggerConfig       `toml:"logging"`
-	StateStorage StateStorageConfig `toml:"statestorage"`
+	PostgreSQL   PostgreSQLConfig   `toml:"postgresql" yaml:"postgresql"`
+	Sink         SinkConfig         `toml:"sink" yaml:"sink"`
+	Topic        TopicConfig        `toml:"topic" yaml:"topic"`
+	TimescaleDB  TimescaleDBConfig  `toml:"timescaledb" yaml:"timescaledb"`
+	Logging      LoggerConfig       `toml:"logging" yaml:"logging"`
+	StateStorage StateStorageConfig `toml:"statestorage" yaml:"stateStorage"`
 }
 
 type StateStorageConfig struct {
-	Type        StateStorageType  `toml:"type"`
-	FileStorage FileStorageConfig `toml:"file"`
+	Type        StateStorageType  `toml:"type" yaml:"type"`
+	FileStorage FileStorageConfig `toml:"file" yaml:"file"`
 }
 
 type FileStorageConfig struct {
-	Path string `toml:"path"`
+	Path string `toml:"path" yaml:"path"`
 }
 
 type LoggerConfig struct {
-	Level   string                     `toml:"level"`
-	Outputs LoggerOutputConfig         `toml:"output"`
-	Loggers map[string]SubLoggerConfig `toml:"loggers"`
+	Level   string                     `toml:"level" yaml:"level"`
+	Outputs LoggerOutputConfig         `toml:"outputs" yaml:"outputs"`
+	Loggers map[string]SubLoggerConfig `toml:"loggers" yaml:"loggers"`
 }
 
 type LoggerOutputConfig struct {
-	Console LoggerConsoleConfig `toml:"console"`
-	File    LoggerFileConfig    `toml:"file"`
+	Console LoggerConsoleConfig `toml:"console" yaml:"console"`
+	File    LoggerFileConfig    `toml:"file" yaml:"file"`
 }
 
 type SubLoggerConfig struct {
-	Level   *string            `toml:"level"`
-	Outputs LoggerOutputConfig `toml:"output"`
+	Level   *string            `toml:"level" yaml:"level"`
+	Outputs LoggerOutputConfig `toml:"outputs" yaml:"outputs"`
 }
 
 type LoggerConsoleConfig struct {
-	Enabled *bool `toml:"enabled"`
+	Enabled *bool `toml:"enabled" yaml:"enabled"`
 }
 
 type LoggerFileConfig struct {
-	Enabled     *bool          `toml:"enabled"`
-	Path        string         `toml:"path"`
-	Rotate      *bool          `toml:"rotate"`
-	MaxSize     *string        `toml:"maxsize"`
-	MaxDuration *time.Duration `toml:"maxduration"`
-	Compress    bool           `toml:"compress"`
+	Enabled     *bool          `toml:"enabled" yaml:"enabled"`
+	Path        string         `toml:"path" yaml:"path"`
+	Rotate      *bool          `toml:"rotate" yaml:"rotate"`
+	MaxSize     *string        `toml:"maxsize" yaml:"maxSize"`
+	MaxDuration *time.Duration `toml:"maxduration" yaml:"maxDuration"`
+	Compress    bool           `toml:"compress" yaml:"compress"`
 }
 
 func GetOrDefault[V any](config *Config, canonicalProperty string, defaultValue V) V {

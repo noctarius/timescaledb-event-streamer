@@ -1,0 +1,126 @@
+postgresql:
+  connection: 'postgres://repl_user@localhost:5432/postgres'
+  password: '...'
+  publication:
+    name: 'replication_name'
+    create: false
+    autoDrop: true
+  replicationSlot:
+    name: 'slot_name'
+    create: true
+    autoDrop: true
+  snapshot:
+    batchSize: 1000
+    initial: 'always'
+  transaction:
+    window:
+      enabled: true
+      timeout: 60
+      maxsize: 100000
+
+stateStorage:
+  type: file
+  file:
+    path: '/tmp/statestorage.dat'
+
+sink:
+  type: 'stdout'
+  #type: 'nats'
+  #nats:
+    #address: 'nats://localhost:4222'
+    #authorization: 'userinfo'
+    #userInfo:
+      #username: 'publisher'
+      #password: '...'
+  #type: 'kafka'
+  #kafka:
+    #brokers:
+      #- 'address:1'
+      #- 'address:2'
+    #sasl:
+      #enabled: true
+      #user: '$ConnectionString'
+      #mechanism: 'PLAIN'
+    #tls:
+      #enabled: true
+      #skipVerify: true
+      #clientAuth: 0
+  #type: 'redis'
+  #redis:
+    #network: 'tcp'
+    #address: 'localhost:6379'
+    #password: '...'
+    #database: 0
+    #poolSize: 0
+    #retries:
+      #maxAttempts: 0
+      #backoff:
+        #min: 8
+        #max: 512
+      #timeouts:
+        #dial: 0
+        #read: 0
+        #write: 0
+        #pool: 0
+        #idle: 0
+      #tls:
+        #enabled: false
+        #skipVerify: false
+        #clientAuth: 0
+  #type: 'kinesis'
+  #kinesis:
+    #stream:
+      #name: 'stream_name'
+      #create: true
+      #shardCount: 10
+      #mode: '...'
+    #aws:
+      #region: '...'
+      #endpoint: '...'
+      #accessKeyId: '...'
+      #secretAccessKey: '...'
+      #sessionToken: '...'
+  filters:
+    filterName:
+      condition: 'value.op == "u" && value.before.id == 2'
+      default: true
+
+topic:
+  namingStrategy:
+    type: 'debezium'
+  prefix: 'timescaledb'
+
+timescaledb:
+  hypertables:
+    excludes:
+      - 'pg_catalog.*'
+    includes:
+      - 'public.test'
+  events:
+    read: true
+    insert: true
+    update: true
+    delete: true
+    truncate: true
+    message: true
+    compression: false
+    decompression: false
+
+logging:
+  level: 'info'
+  outputs:
+    console:
+      enabled: true
+    file:
+      enabled: false
+      path: '/path/to/logfile'
+      rotate: true
+      maxSize: '5MB'
+      maxDuration: 600 #seconds
+      compress: true
+  loggers:
+    LogicalReplicationResolver:
+      level: 'debug'
+      outputs:
+        console:
+          enabled: false
