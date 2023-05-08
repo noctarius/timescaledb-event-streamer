@@ -21,7 +21,6 @@ type SystemCatalog struct {
 	chunks                map[int32]*systemcatalog.Chunk
 	hypertableNameIndex   map[string]int32
 	chunkNameIndex        map[string]int32
-	chunkTablePrefixIndex map[string]int32
 	chunk2Hypertable      map[int32]int32
 	hypertable2chunks     map[int32][]int32
 	hypertable2compressed map[int32]int32
@@ -52,7 +51,6 @@ func NewSystemCatalog(config *config.Config, replicationContext *context.Replica
 		chunks:                make(map[int32]*systemcatalog.Chunk, 0),
 		hypertableNameIndex:   make(map[string]int32),
 		chunkNameIndex:        make(map[string]int32),
-		chunkTablePrefixIndex: make(map[string]int32),
 		chunk2Hypertable:      make(map[int32]int32),
 		hypertable2chunks:     make(map[int32][]int32),
 		hypertable2compressed: make(map[int32]int32),
@@ -67,26 +65,6 @@ func NewSystemCatalog(config *config.Config, replicationContext *context.Replica
 
 func (sc *SystemCatalog) FindHypertableById(hypertableId int32) (hypertable *systemcatalog.Hypertable, present bool) {
 	hypertable, present = sc.hypertables[hypertableId]
-	return
-}
-
-func (sc *SystemCatalog) FindHypertableByAssociatedPrefix(
-	schemaName, prefix string) (hypertable *systemcatalog.Hypertable, present bool) {
-
-	if hypertableId, ok := sc.chunkTablePrefixIndex[systemcatalog.MakeRelationKey(schemaName, prefix)]; ok {
-		return sc.FindHypertableById(hypertableId)
-	}
-	return
-}
-
-func (sc *SystemCatalog) FindHypertableByChunkName(
-	schemaName, tableName string) (hypertable *systemcatalog.Hypertable, present bool) {
-
-	token := prefixExtractor.FindStringSubmatch(tableName)
-	prefix := token[3]
-	if hypertableId, ok := sc.chunkTablePrefixIndex[systemcatalog.MakeRelationKey(schemaName, prefix)]; ok {
-		return sc.FindHypertableById(hypertableId)
-	}
 	return
 }
 
@@ -169,7 +147,6 @@ func (sc *SystemCatalog) IsHypertableSelectedForReplication(hypertableId int32) 
 
 func (sc *SystemCatalog) RegisterHypertable(hypertable *systemcatalog.Hypertable) error {
 	sc.hypertables[hypertable.Id()] = hypertable
-	sc.chunkTablePrefixIndex[hypertable.CanonicalChunkTablePrefix()] = hypertable.Id()
 	sc.hypertableNameIndex[hypertable.CanonicalName()] = hypertable.Id()
 	sc.hypertable2chunks[hypertable.Id()] = make([]int32, 0)
 	if compressedHypertableId, ok := hypertable.CompressedHypertableId(); ok {
@@ -182,7 +159,6 @@ func (sc *SystemCatalog) RegisterHypertable(hypertable *systemcatalog.Hypertable
 
 func (sc *SystemCatalog) UnregisterHypertable(hypertable *systemcatalog.Hypertable) error {
 	delete(sc.hypertables, hypertable.Id())
-	delete(sc.chunkTablePrefixIndex, hypertable.CanonicalChunkTablePrefix())
 	delete(sc.hypertableNameIndex, hypertable.CanonicalName())
 	delete(sc.hypertable2compressed, hypertable.Id())
 	delete(sc.compressed2hypertable, hypertable.Id())
