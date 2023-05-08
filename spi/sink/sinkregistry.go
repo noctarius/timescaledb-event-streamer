@@ -6,20 +6,22 @@ import (
 	"sync"
 )
 
-var sinkRegistry *Registry
+var sinkRegistry *registry
 
 func init() {
-	sinkRegistry = &Registry{
+	sinkRegistry = &registry{
 		mutex:     sync.Mutex{},
 		providers: make(map[config.SinkType]Provider),
 	}
 }
 
-type Registry struct {
+type registry struct {
 	mutex     sync.Mutex
 	providers map[config.SinkType]Provider
 }
 
+// RegisterSink registers a config.SinkType to a Provider
+// implementation which creates the Sink when requested
 func RegisterSink(name config.SinkType, provider Provider) bool {
 	sinkRegistry.mutex.Lock()
 	defer sinkRegistry.mutex.Unlock()
@@ -30,6 +32,8 @@ func RegisterSink(name config.SinkType, provider Provider) bool {
 	return false
 }
 
+// NewSink instantiates a new instance of the requested
+// Sink when available, otherwise returns an error.
 func NewSink(name config.SinkType, config *config.Config) (Sink, error) {
 	sinkRegistry.mutex.Lock()
 	defer sinkRegistry.mutex.Unlock()

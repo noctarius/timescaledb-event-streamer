@@ -5,6 +5,8 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 )
 
+// Hypertable represents a TimescaleDB hypertable definition
+// in the system catalog
 type Hypertable struct {
 	*baseSystemEntity
 	id                     int32
@@ -21,6 +23,7 @@ type Hypertable struct {
 	replicaIdentity        pgtypes.ReplicaIdentity
 }
 
+// NewHypertable instantiates a new Hypertable entity
 func NewHypertable(id int32,
 	databaseName, schemaName, tableName, associatedSchemaName, associatedTablePrefix string,
 	compressedHypertableId *int32, compressionState int16, distributed bool,
@@ -46,75 +49,97 @@ func NewHypertable(id int32,
 	}
 }
 
+// Id returns the hypertable id
 func (h *Hypertable) Id() int32 {
 	return h.id
 }
 
+// DatabaseName returns the database name
 func (h *Hypertable) DatabaseName() string {
 	return h.databaseName
 }
 
-func (h *Hypertable) ViewSchema() (string, bool) {
+// ViewSchema returns the view schema name and true if the
+// hypertable is a backing hypertable for a continuous aggregate,
+// otherwise the present will be false
+func (h *Hypertable) ViewSchema() (viewSchemaName string, present bool) {
 	if h.viewSchema != nil {
 		return *h.viewSchema, true
 	}
 	return "", false
 }
 
-func (h *Hypertable) ViewName() (string, bool) {
+// ViewName returns the view name and true if the hypertable
+// is a backing hypertable for a continuous aggregate,
+// otherwise the present will be false
+func (h *Hypertable) ViewName() (viewName string, present bool) {
 	if h.viewName != nil {
 		return *h.viewName, true
 	}
 	return "", false
 }
 
-func (h *Hypertable) AssociatedSchemaName() string {
-	return h.associatedSchemaName
-}
-
-func (h *Hypertable) AssociatedTablePrefix() string {
-	return h.associatedTablePrefix
-}
-
-func (h *Hypertable) CompressedHypertableId() (int32, bool) {
+// CompressedHypertableId returns the id of a hypertable which
+// is used to represent the compressed chunks and true, otherwise
+// present will be false
+func (h *Hypertable) CompressedHypertableId() (compressedHypertableId int32, present bool) {
 	if h.compressedHypertableId != nil {
 		return *h.compressedHypertableId, true
 	}
 	return 0, false
 }
 
+// IsCompressionEnabled returns true if the hypertable has
+// compression enabled (not if the hypertable is a compressed
+// hypertable), otherwise false
 func (h *Hypertable) IsCompressionEnabled() bool {
 	return h.compressionState == 1
 }
 
+// IsCompressedTable returns true if the hypertable is a
+// compressed hypertable (not if the hypertable has compression
+// enabled), otherwise false
 func (h *Hypertable) IsCompressedTable() bool {
 	return h.compressionState == 2
 }
 
+// IsDistributed returns true if the hypertable is a
+// distributed hypertable, otherwise false
 func (h *Hypertable) IsDistributed() bool {
 	return h.distributed
 }
 
+// IsContinuousAggregate returns true if the hypertable
+// is a backing hypertable for a continues aggregate,
+// otherwise false
 func (h *Hypertable) IsContinuousAggregate() bool {
 	return h.continuousAggregate
 }
 
+// Columns returns a slice with the column definitions
+// of the hypertable
 func (h *Hypertable) Columns() []Column {
 	return h.columns
 }
 
+// CanonicalContinuousAggregateName returns the canonical
+// continuous aggregate name of the hypertable in the form
+// of <<schema.view>>. This method panics if the hypertable
+// doesn't back a continuous aggregate. A check using
+// IsContinuousAggregate before calling this method is adviced.
 func (h *Hypertable) CanonicalContinuousAggregateName() string {
 	return canonicalContinuousAggregateName(h)
 }
 
-func (h *Hypertable) CanonicalChunkTablePrefix() string {
-	return canonicalChunkTablePrefix(h)
-}
-
+// ReplicaIdentity returns the replica identity (if available),
+// otherwise a pgtypes.UNKNOWN is returned
 func (h *Hypertable) ReplicaIdentity() pgtypes.ReplicaIdentity {
 	return h.replicaIdentity
 }
 
+// ApplyTableSchema applies a new hypertable schema to this
+// hypertable instance and returns changes to the previously
+// known schema layout.
 func (h *Hypertable) ApplyTableSchema(newColumns []Column) (changes map[string]string) {
 	oldColumns := h.columns
 	h.columns = newColumns
@@ -176,6 +201,10 @@ func (h *Hypertable) ApplyTableSchema(newColumns []Column) (changes map[string]s
 	return differences
 }
 
+// ApplyChanges applies catalog changes to a copy of the
+// hypertable instance (not updating the current one) and
+// returns the new instance and a collection of applied
+// changes.
 func (h *Hypertable) ApplyChanges(
 	schemaName, tableName, associatedSchemaName, associatedTablePrefix string,
 	compressedHypertableId *int32, compressionState int16,
@@ -198,6 +227,7 @@ func (h *Hypertable) ApplyChanges(
 	}
 	return h2, h.differences(h2)
 }
+
 func (h *Hypertable) differences(new *Hypertable) map[string]string {
 	differences := make(map[string]string, 0)
 	if h.id != new.id {

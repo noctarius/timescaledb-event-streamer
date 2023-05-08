@@ -6,20 +6,23 @@ import (
 	"sync"
 )
 
-var namingStrategyRegistry *Registry
+var namingStrategyRegistry *registry
 
 func init() {
-	namingStrategyRegistry = &Registry{
+	namingStrategyRegistry = &registry{
 		mutex:     sync.Mutex{},
 		providers: make(map[config.NamingStrategyType]Provider),
 	}
 }
 
-type Registry struct {
+type registry struct {
 	mutex     sync.Mutex
 	providers map[config.NamingStrategyType]Provider
 }
 
+// RegisterNamingStrategy registers a NamingRegistryType to a
+// Provider implementation which creates the NamingStrategy
+// when requested
 func RegisterNamingStrategy(name config.NamingStrategyType, provider Provider) bool {
 	namingStrategyRegistry.mutex.Lock()
 	defer namingStrategyRegistry.mutex.Unlock()
@@ -30,6 +33,8 @@ func RegisterNamingStrategy(name config.NamingStrategyType, provider Provider) b
 	return false
 }
 
+// NewNamingStrategy instantiates a new instance of the requested
+// NamingStrategy when available, otherwise returns an error.
 func NewNamingStrategy(name config.NamingStrategyType, config *config.Config) (NamingStrategy, error) {
 	namingStrategyRegistry.mutex.Lock()
 	defer namingStrategyRegistry.mutex.Unlock()

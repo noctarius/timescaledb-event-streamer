@@ -12,20 +12,29 @@ var (
 	timescaledbVersionRegex = regexp.MustCompile(`([0-9]+)\.([0-9]+)(\.([0-9]+))?`)
 )
 
+// PostgresVersion represents the parsed and comparable
+// version number of the connected PostgreSQL server
 type PostgresVersion uint
 
+// Major returns the major version
 func (pv PostgresVersion) Major() uint {
 	return uint(pv) / 10000
 }
 
+// Minor returns the minor version
 func (pv PostgresVersion) Minor() uint {
 	return uint(pv) % (100)
 }
 
+// String returns the string representation of the PostgreSQL
+// server version as in >>major.minor<<
 func (pv PostgresVersion) String() string {
 	return fmt.Sprintf("%d.%d", pv.Major(), pv.Minor())
 }
 
+// Compare returns a negative value if the current version
+// is lower than other, returns 0 if the versions match,
+// otherwise it returns a value larger than 0.
 func (pv PostgresVersion) Compare(other PostgresVersion) int {
 	if pv < other {
 		return -1
@@ -36,6 +45,8 @@ func (pv PostgresVersion) Compare(other PostgresVersion) int {
 	return 0
 }
 
+// ParsePostgresVersion parses a version string retrieved from
+// a PostgreSQL server and returns a PostgresVersion instance
 func ParsePostgresVersion(version string) (PostgresVersion, error) {
 	matches := postgresqlVersionRegex.FindStringSubmatch(version)
 	if len(matches) < 3 {
@@ -57,24 +68,35 @@ func ParsePostgresVersion(version string) (PostgresVersion, error) {
 	return PostgresVersion((major * 10000) + minor), nil
 }
 
+// TimescaleVersion represents the parsed and comparable
+// version number of the TimescaleDB extension loaded in
+// the connected PostgreSQL server
 type TimescaleVersion uint
 
+// Major returns the major version
 func (tv TimescaleVersion) Major() uint {
 	return uint(tv) / 10000
 }
 
+// Minor returns the minor version
 func (tv TimescaleVersion) Minor() uint {
 	return (uint(tv) / 100) % 100
 }
 
+// Release returns the release version
 func (tv TimescaleVersion) Release() uint {
 	return uint(tv) % (100)
 }
 
+// String returns the string representation of the TimescaleDB
+// extension version as in >>major.minor.release<<
 func (tv TimescaleVersion) String() string {
 	return fmt.Sprintf("%d.%d.%d", tv.Major(), tv.Minor(), tv.Release())
 }
 
+// Compare returns a negative value if the current version
+// is lower than other, returns 0 if the versions match,
+// otherwise it returns a value larger than 0.
 func (tv TimescaleVersion) Compare(other TimescaleVersion) int {
 	if tv < other {
 		return -1
@@ -85,6 +107,9 @@ func (tv TimescaleVersion) Compare(other TimescaleVersion) int {
 	return 0
 }
 
+// ParseTimescaleVersion parses a TimescaleDB extension version
+// string retrieved from a PostgreSQL server and returns a
+// TimescaleVersion instance
 func ParseTimescaleVersion(version string) (TimescaleVersion, error) {
 	matches := timescaledbVersionRegex.FindStringSubmatch(version)
 	if len(matches) < 3 {

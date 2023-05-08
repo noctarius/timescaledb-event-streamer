@@ -5,14 +5,22 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 )
 
+// Columns represents a collection of columns which
+// may or may not represent an index
 type Columns []*Column
 
+// HasPrimaryKey returns true if the collection of columns contains
+// one or more primary key column(s)
 func (c Columns) HasPrimaryKey() bool {
 	return supporting.ContainsWithMatcher(c, func(other *Column) bool {
 		return other.IsPrimaryKey()
 	})
 }
 
+// PrimaryKeyIndex returns an Index instance which represents the
+// primary key definition of the collection of columns and true,
+// otherwise present will be false, meaning, that there isn't a
+// primary key available in this collection
 func (c Columns) PrimaryKeyIndex() (index *Index, present bool) {
 	if !c.HasPrimaryKey() {
 		return nil, false
@@ -28,10 +36,42 @@ func (c Columns) PrimaryKeyIndex() (index *Index, present bool) {
 
 	firstColumn := primaryKeyColumns[0]
 	return newIndex(
-		*firstColumn.indexName, primaryKeyColumns, firstColumn.primaryKey, firstColumn.replicaIdent,
+		*firstColumn.indexName, primaryKeyColumns, true, false,
 	), true
 }
 
+// HasReplicaIdentity returns true if the collection of columns contains
+// one or more replica identity column(s)
+func (c Columns) HasReplicaIdentity() bool {
+	return supporting.ContainsWithMatcher(c, func(other *Column) bool {
+		return other.IsReplicaIdent()
+	})
+}
+
+// ReplicaIdentityIndex returns an Index instance which represents the
+// primary key definition of the collection of columns and true,
+// otherwise present will be false, meaning, that there isn't a
+// primary key available in this collection
+func (c Columns) ReplicaIdentityIndex() (index *Index, present bool) {
+	if !c.HasReplicaIdentity() {
+		return nil, false
+	}
+
+	replicaIdentityColumns := supporting.Filter(c, func(item *Column) bool {
+		return item.IsReplicaIdent()
+	})
+
+	supporting.Sort(replicaIdentityColumns, func(this, other *Column) bool {
+		return *this.keySeq < *other.keySeq
+	})
+
+	firstColumn := replicaIdentityColumns[0]
+	return newIndex(
+		*firstColumn.indexName, replicaIdentityColumns, false, true,
+	), true
+}
+
+// Column represents a column from a hypertable or index
 type Column struct {
 	name         string
 	dataType     uint32
@@ -44,10 +84,14 @@ type Column struct {
 	indexName    *string
 }
 
+// NewColumn instantiates a new Column instance which isn't
+// part of any index. This method is a shorthand version of
+// NewIndexColumn
 func NewColumn(name string, dataType uint32, typeName string, nullable bool, defaultValue *string) Column {
 	return NewIndexColumn(name, dataType, typeName, nullable, false, nil, defaultValue, false, nil)
 }
 
+// NewIndexColumn instantiates a new Column instance
 func NewIndexColumn(name string, dataType uint32, typeName string, nullable, primaryKey bool,
 	keySeq *int, defaultValue *string, isReplicaIdent bool, indexName *string) Column {
 
@@ -64,30 +108,41 @@ func NewIndexColumn(name string, dataType uint32, typeName string, nullable, pri
 	}
 }
 
+// Name returns the column name
 func (c Column) Name() string {
 	return c.name
 }
 
+// DataType returns the PostgreSQL OID of the column
 func (c Column) DataType() uint32 {
 	return c.dataType
 }
 
+// TypeName returns the data type name of the column
 func (c Column) TypeName() string {
 	return c.typeName
 }
 
+// IsNullable returns true if the column is nullable
 func (c Column) IsNullable() bool {
 	return c.nullable
 }
 
+// IsPrimaryKey returns true if the columns is
+// part of a primary key index
 func (c Column) IsPrimaryKey() bool {
 	return c.primaryKey
 }
 
+// IsReplicaIdent returns true if the columns is
+// part of a replica identity index
 func (c Column) IsReplicaIdent() bool {
 	return c.replicaIdent
 }
 
+// DefaultValue returns the default value of the
+// column, otherwise nil if no default value is
+// defined
 func (c Column) DefaultValue() *string {
 	return c.defaultValue
 }

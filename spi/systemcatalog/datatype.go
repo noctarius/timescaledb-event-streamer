@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+// DataType is a string like definition of the available
+// event stream data types
 type DataType string
 
 const (
@@ -75,10 +77,17 @@ var converters = map[uint32]Converter{
 	516272:                nil, // ltree, FIXME
 }
 
+// ErrIllegalValue represents an illegal type conversion request
+// for the given value
 var ErrIllegalValue = fmt.Errorf("illegal value for data type conversion")
 
+// Converter represents a conversion function to convert from
+// a PostgreSQL internal OID number and value to a value according
+// to the stream definition
 type Converter func(oid uint32, value any) (any, error)
 
+// DataTypeByOID returns the DataType for a given OID, if
+// no valid mapping is available, it will return an error
 func DataTypeByOID(oid uint32) (DataType, error) {
 	if v, ok := mapping[oid]; ok {
 		return v, nil
@@ -86,6 +95,8 @@ func DataTypeByOID(oid uint32) (DataType, error) {
 	return "", fmt.Errorf("unsupported OID: %d", oid)
 }
 
+// ConverterByOID returns the Converter for a given OID, if
+// no valid mapping is available, it will return an error
 func ConverterByOID(oid uint32) (Converter, error) {
 	if v, ok := converters[oid]; ok {
 		return v, nil
