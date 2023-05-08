@@ -82,18 +82,24 @@ type Column struct {
 	defaultValue *string
 	replicaIdent bool
 	indexName    *string
+	sortOrder    IndexSortOrder
+	nullsOrder   IndexNullsOrder
 }
 
 // NewColumn instantiates a new Column instance which isn't
 // part of any index. This method is a shorthand version of
 // NewIndexColumn
 func NewColumn(name string, dataType uint32, typeName string, nullable bool, defaultValue *string) Column {
-	return NewIndexColumn(name, dataType, typeName, nullable, false, nil, defaultValue, false, nil)
+	return NewIndexColumn(
+		name, dataType, typeName, nullable, false, nil,
+		defaultValue, false, nil, ASC, NULLS_LAST,
+	)
 }
 
 // NewIndexColumn instantiates a new Column instance
 func NewIndexColumn(name string, dataType uint32, typeName string, nullable, primaryKey bool,
-	keySeq *int, defaultValue *string, isReplicaIdent bool, indexName *string) Column {
+	keySeq *int, defaultValue *string, isReplicaIdent bool, indexName *string,
+	sortOrder IndexSortOrder, nullsOrder IndexNullsOrder) Column {
 
 	return Column{
 		name:         name,
@@ -105,6 +111,8 @@ func NewIndexColumn(name string, dataType uint32, typeName string, nullable, pri
 		defaultValue: defaultValue,
 		replicaIdent: isReplicaIdent,
 		indexName:    indexName,
+		sortOrder:    sortOrder,
+		nullsOrder:   nullsOrder,
 	}
 }
 

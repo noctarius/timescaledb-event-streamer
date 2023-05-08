@@ -312,6 +312,7 @@ func (its *IntegrationTestSuite) TestUpdateEvents() {
 				systemcatalog.NewIndexColumn(
 					"ts", pgtype.TimestamptzOID, "timestamptz", false, true,
 					supporting.AddrOf(1), nil, false, supporting.AddrOf("primary"),
+					systemcatalog.ASC, systemcatalog.NULLS_LAST,
 				),
 				systemcatalog.NewColumn("val", pgtype.Int4OID, "integer", false, nil),
 			)
@@ -402,6 +403,7 @@ func (its *IntegrationTestSuite) TestDeleteEvents() {
 				systemcatalog.NewIndexColumn(
 					"ts", pgtype.TimestamptzOID, "timestamptz", false, true,
 					supporting.AddrOf(1), nil, false, supporting.AddrOf("primary"),
+					systemcatalog.ASC, systemcatalog.NULLS_LAST,
 				),
 				systemcatalog.NewColumn("val", pgtype.Int4OID, "integer", false, nil),
 			)

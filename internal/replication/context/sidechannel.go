@@ -64,7 +64,9 @@ SELECT
    p.key_seq,
    c.column_default,
    coalesce(p.indisreplident, false) AS is_replica_ident,
-   p.index_name
+   p.index_name,
+   CASE o.option & 1 WHEN 1 THEN 'DESC' ELSE 'ASC' END AS index_column_order,
+   CASE o.option & 2 WHEN 2 THEN 'NULLS FIRST' ELSE 'NULLS LAST' END AS index_nulls_order
 FROM information_schema.columns c
 LEFT JOIN (
     SELECT
@@ -76,7 +78,8 @@ LEFT JOIN (
         a.attnum,
         i.indisreplident,
         i.indisprimary,
-        cl2.relname AS index_name
+        cl2.relname AS index_name,
+        i.indoption
     FROM pg_index i, pg_attribute a, pg_class cl, pg_namespace n, pg_class cl2
     WHERE cl.relnamespace = n.oid
       AND a.attrelid = cl.oid
@@ -86,6 +89,7 @@ LEFT JOIN (
 ) p ON p.attname = c.column_name AND p.nspname = c.table_schema AND p.relname = c.table_name AND p.attnum = (p.keys).x
 LEFT JOIN pg_catalog.pg_namespace n ON n.nspname = c.udt_schema
 LEFT JOIN pg_catalog.pg_type t ON t.typnamespace = n.oid AND t.typname = c.udt_name
+LEFT JOIN unnest (p.indoption) WITH ORDINALITY o (option, ordinality) ON p.attnum = o.ordinality
 WHERE c.table_schema = $1
   AND c.table_name = $2
 ORDER BY c.ordinal_position`
@@ -537,14 +541,14 @@ func (sc *sideChannelImpl) readHypertableSchema0(
 
 	columns := make([]systemcatalog.Column, 0)
 	if err := session.queryFunc(func(row pgx.Row) error {
-		var name string
+		var name, sortOrder, nullsOrder string
 		var oid uint32
 		var keySeq *int
 		var nullable, primaryKey, isReplicaIdent bool
 		var defaultValue, indexName *string
 
 		if err := row.Scan(&name, &oid, &nullable, &primaryKey, &keySeq,
-			&defaultValue, &isReplicaIdent, &indexName); err != nil {
+			&defaultValue, &isReplicaIdent, &indexName, &sortOrder, &nullsOrder); err != nil {
 
 			return errors.Wrap(err, 0)
 		}
@@ -556,6 +560,7 @@ func (sc *sideChannelImpl) readHypertableSchema0(
 
 		column := systemcatalog.NewIndexColumn(
 			name, oid, string(dataType), nullable, primaryKey, keySeq, defaultValue, isReplicaIdent, indexName,
+			systemcatalog.IndexSortOrder(sortOrder), systemcatalog.IndexNullsOrder(nullsOrder),
 		)
 		columns = append(columns, column)
 		return nil

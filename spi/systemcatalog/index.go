@@ -1,5 +1,19 @@
 package systemcatalog
 
+type IndexSortOrder string
+
+const (
+	ASC  IndexSortOrder = "ASC"
+	DESC IndexSortOrder = "DESC"
+)
+
+type IndexNullsOrder string
+
+const (
+	NULLS_FIRST IndexNullsOrder = "NULLS FIRST"
+	NULLS_LAST  IndexNullsOrder = "NULLS LAST"
+)
+
 // Index represents either a (compound) primary key index
 // or replica identity index in the database and attached
 // to a hypertable (and its chunks)
