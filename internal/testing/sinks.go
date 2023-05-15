@@ -41,6 +41,14 @@ type EventCollectorSink struct {
 	postHook func(sink *EventCollectorSink)
 }
 
+func (t *EventCollectorSink) Start() error {
+	return nil
+}
+
+func (t *EventCollectorSink) Stop() error {
+	return nil
+}
+
 type EventCollectorSinkOption = func(eventCollectorSink *EventCollectorSink)
 
 func WithFilter(filter func(timestamp time.Time, topicName string, envelope Envelope) bool) EventCollectorSinkOption {

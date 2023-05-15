@@ -95,6 +95,14 @@ func newAwsKinesisSink(config *spiconfig.Config) (sink.Sink, error) {
 	}, nil
 }
 
+func (a *awsKinesisSink) Start() error {
+	return nil
+}
+
+func (a *awsKinesisSink) Stop() error {
+	return nil
+}
+
 func (a *awsKinesisSink) Emit(context sink.Context, _ time.Time, topicName string, _, envelope schema.Struct) error {
 	var sequenceNumberForOrdering *string
 	if prevSequenceNumber, present := context.Attribute("PrevSequenceNumber"); present {

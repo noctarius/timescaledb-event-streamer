@@ -39,11 +39,11 @@ func (ee *EventEmitter) Start() error {
 		return ee.sinkContext.UnmarshalBinary(encodedSinkContextState)
 	}
 	ee.replicationContext.RegisterStateEncoder("SinkContextState", ee.sinkContext.MarshalBinary)
-	return nil
+	return ee.sink.Start()
 }
 
 func (ee *EventEmitter) Stop() error {
-	return nil
+	return ee.sink.Stop()
 }
 
 func (ee *EventEmitter) NewEventHandler() eventhandlers.BaseReplicationEventHandler {

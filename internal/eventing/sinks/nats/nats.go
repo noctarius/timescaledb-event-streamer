@@ -16,6 +16,7 @@ func init() {
 }
 
 type natsSink struct {
+	client           *nats.Conn
 	jetStreamContext nats.JetStreamContext
 }
 
@@ -72,8 +73,18 @@ func connectJetStreamContext(address string, options ...nats.Option) (sink.Sink,
 	}
 
 	return &natsSink{
+		client:           client,
 		jetStreamContext: jetStreamContext,
 	}, nil
+}
+
+func (n *natsSink) Start() error {
+	return nil
+}
+
+func (n *natsSink) Stop() error {
+	n.client.Close()
+	return nil
 }
 
 func (n *natsSink) Emit(_ sink.Context, _ time.Time, topicName string, key, envelope schema.Struct) error {
