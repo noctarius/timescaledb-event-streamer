@@ -1,6 +1,3 @@
-# This workflow will build a golang project
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
-
 name: Go
 
 on:
@@ -12,6 +9,8 @@ on:
 env:
   golang-version: 1.20.2
   golangci-lint-version: v1.51.2
+  docker-registry: ghcr.io
+  docker-image-name: ${{ github.repository }}.${{ github.run_number }}
 
 defaults:
   run:
@@ -43,7 +42,24 @@ jobs:
       run: make build
 
     - name: Docker Build
-      run: docker build . --file Dockerfile --tag timescaledb-event-streamer:$(echo github.run_number)
+      run: docker build . --file Dockerfile --tag noctarius2k/timescaledb-event-streamer:$(echo github.run_number)
+
+    - name: Log into registry ${{ env.docker-registry }}
+      if: github.event_name != 'pull_request'
+      uses: docker/login-action
+      with:
+        registry: ${{ env.docker-registry }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract Docker metadata
+      id: meta
+      uses: docker/metadata-action
+      with:
+        images: ${{ env.docker-registry }}/${{ env.IMAGE_NAME }}
+
+    - name: Docker Hub Push
+      run: docker push noctarius2k/timescaledb-event-streamer:$(echo github.run_number)
 
   test:
     name: unit
