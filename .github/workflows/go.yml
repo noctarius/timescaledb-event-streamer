@@ -42,7 +42,7 @@ jobs:
       run: make build
 
     - name: Docker Build
-      run: docker build . --file Dockerfile --tag noctarius2k/${{ env.docker-image-name }}:${{ github.run_number }}
+      run: docker build . --file Dockerfile --tag ${{ env.docker-registry }}/${{ env.docker-image-name }}:${{ github.run_number }}
 
     - name: Log into registry ${{ env.docker-registry }}
       if: github.event_name != 'pull_request'
@@ -53,7 +53,7 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Docker Hub Push
-      run: docker push noctarius2k/${{ env.docker-image-name }}:${{ github.run_number }}
+      run: docker push ${{ env.docker-registry }}/${{ env.docker-image-name }}:${{ github.run_number }}
 
   test:
     name: unit
