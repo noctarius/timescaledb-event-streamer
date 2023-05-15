@@ -10,7 +10,7 @@ env:
   golang-version: 1.20.2
   golangci-lint-version: v1.51.2
   docker-registry: ghcr.io
-  docker-image-name: ${{ github.repository }}.${{ github.run_number }}
+  docker-image-name: ${{ github.repository }}
 
 defaults:
   run:
@@ -42,7 +42,7 @@ jobs:
       run: make build
 
     - name: Docker Build
-      run: docker build . --file Dockerfile --tag noctarius2k/timescaledb-event-streamer:$(echo github.run_number)
+      run: docker build . --file Dockerfile --tag noctarius2k/${{ env.docker-image-name }}:${{ github.run_number }}
 
     - name: Log into registry ${{ env.docker-registry }}
       if: github.event_name != 'pull_request'
@@ -52,14 +52,8 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Extract Docker metadata
-      id: meta
-      uses: docker/metadata-action@98669ae865ea3cffbcbaa878cf57c20bbf1c6c38
-      with:
-        images: ${{ env.docker-registry }}/${{ env.IMAGE_NAME }}
-
     - name: Docker Hub Push
-      run: docker push noctarius2k/timescaledb-event-streamer:$(echo github.run_number)
+      run: docker push noctarius2k/${{ env.docker-image-name }}:${{ github.run_number }}
 
   test:
     name: unit
