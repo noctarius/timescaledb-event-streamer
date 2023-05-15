@@ -92,7 +92,7 @@ jobs:
 
   docker:
     name: docker
-    needs: [build, unit]
+    needs: [build, test]
     runs-on: ubuntu-latest
 
     permissions:
