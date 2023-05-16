@@ -18,6 +18,18 @@ import (
 	"time"
 )
 
+type Grant string
+
+const (
+	Select     Grant = "select"
+	Insert     Grant = "insert"
+	Update     Grant = "update"
+	Delete     Grant = "delete"
+	Truncate   Grant = "truncate"
+	References Grant = "references"
+	Trigger    Grant = "trigger"
+)
+
 const getSystemInformationQuery = `
 SELECT current_database(), pcs.system_identifier, pcc.timeline_id 
 FROM pg_control_system() pcs, pg_control_checkpoint() pcc`
@@ -143,6 +155,8 @@ const postgresqlVersionQuery = `SHOW SERVER_VERSION`
 
 const walLevelQuery = `SHOW WAL_LEVEL`
 
+const checkTablePrivilegeByUser = `SELECT HAS_TABLE_PRIVILEGE($1, $2, $3)`
+
 type sideChannelImpl struct {
 	logger             *logging.Logger
 	replicationContext *ReplicationContext
@@ -158,6 +172,20 @@ func newSideChannel(replicationContext *ReplicationContext) (*sideChannelImpl, e
 		logger:             logger,
 		replicationContext: replicationContext,
 	}, nil
+}
+
+func (sc *sideChannelImpl) hasTablePrivilege(username string,
+	entity systemcatalog.SystemEntity, grant Grant) (access bool, err error) {
+
+	err = sc.newSession(time.Second*10, func(session *session) error {
+		return session.queryRow(
+			checkTablePrivilegeByUser,
+			username,
+			entity.CanonicalName(),
+			string(grant),
+		).Scan(&access)
+	})
+	return
 }
 
 func (sc *sideChannelImpl) createPublication(publicationName string) (success bool, err error) {

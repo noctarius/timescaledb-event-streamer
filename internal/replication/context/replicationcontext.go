@@ -340,6 +340,12 @@ func (rp *ReplicationContext) IsLogicalReplicationEnabled() bool {
 
 // ----> SideChannel functions
 
+func (rp *ReplicationContext) HasTablePrivilege(
+	entity systemcatalog.SystemEntity, grant Grant) (access bool, err error) {
+
+	return rp.sideChannel.hasTablePrivilege(rp.pgxConfig.User, entity, grant)
+}
+
 func (rp *ReplicationContext) LoadHypertables(cb func(hypertable *systemcatalog.Hypertable) error) error {
 	return rp.sideChannel.readHypertables(cb)
 }

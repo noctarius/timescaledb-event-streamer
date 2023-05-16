@@ -240,9 +240,20 @@ func indexOf[T comparable](slice []T, item T) int {
 
 func initializeSystemCatalog(sc *SystemCatalog) (*SystemCatalog, error) {
 	if err := sc.replicationContext.LoadHypertables(func(hypertable *systemcatalog.Hypertable) error {
+		// Check if we want to replicate that hypertable
 		if !sc.replicationFilter.Enabled(hypertable) {
 			return nil
 		}
+
+		// Run basic access check based on user permissions
+		access, err := sc.replicationContext.HasTablePrivilege(hypertable, context.Select)
+		if err != nil {
+			return err
+		}
+		if !access {
+			return errors.Errorf("Hypertable %s not accessible", hypertable.CanonicalName())
+		}
+
 		return sc.RegisterHypertable(hypertable)
 	}); err != nil {
 		return nil, errors.Wrap(err, 0)
