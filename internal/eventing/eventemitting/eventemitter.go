@@ -7,6 +7,7 @@ import (
 	"github.com/jackc/pglogrepl"
 	"github.com/noctarius/timescaledb-event-streamer/internal/eventing/eventfiltering"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
+	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
@@ -21,17 +22,25 @@ type EventEmitter struct {
 	sink               sink.Sink
 	sinkContext        *sinkContextImpl
 	backOff            backoff.BackOff
+	logger             *logging.Logger
 }
 
 func NewEventEmitter(
-	replicationContext *context.ReplicationContext, sink sink.Sink, filter eventfiltering.EventFilter) *EventEmitter {
+	replicationContext *context.ReplicationContext, sink sink.Sink, filter eventfiltering.EventFilter) (*EventEmitter, error) {
+
+	logger, err := logging.NewLogger("EventEmitter")
+	if err != nil {
+		return nil, err
+	}
+
 	return &EventEmitter{
 		replicationContext: replicationContext,
 		filter:             filter,
 		sink:               sink,
+		logger:             logger,
 		sinkContext:        newSinkContextImpl(),
 		backOff:            backoff.WithMaxRetries(backoff.NewExponentialBackOff(), 8),
-	}
+	}, nil
 }
 
 func (ee *EventEmitter) Start() error {
@@ -76,6 +85,7 @@ func (ee *EventEmitter) keySchema(hypertable *systemcatalog.Hypertable) schema.S
 func (ee *EventEmitter) emit(xld pgtypes.XLogData, eventTopicName string, key, envelope schema.Struct) error {
 	// Retryable operation
 	operation := func() error {
+		ee.logger.Verbosef("Publishing event: %+v", envelope)
 		return ee.sink.Emit(ee.sinkContext, xld.ServerTime, eventTopicName, key, envelope)
 	}
 

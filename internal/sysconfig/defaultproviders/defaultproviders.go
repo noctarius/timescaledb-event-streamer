@@ -33,7 +33,7 @@ func DefaultEventEmitterProvider(
 		return nil, err
 	}
 
-	return eventemitting.NewEventEmitter(replicationContext, sink, filters), nil
+	return eventemitting.NewEventEmitter(replicationContext, sink, filters)
 }
 
 func DefaultStateStorageProvider(config *spiconfig.Config) (statestorage.Storage, error) {
