@@ -1,3 +1,4 @@
 config.chris.toml
 dist/
 .idea/
+.DS_Store
