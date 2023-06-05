@@ -2,6 +2,7 @@ package context
 
 import (
 	"fmt"
+	"github.com/go-errors/errors"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"os"
@@ -273,5 +274,10 @@ func (n *notificatorImpl) NotifyChunkSnapshotEventHandler(
 }
 
 func (n *notificatorImpl) handleError(err error) {
-	fmt.Fprintf(os.Stderr, "Error while dispatching event: %v\n", err)
+	errMsg := err.Error()
+	if e, ok := err.(*errors.Error); ok {
+		errMsg = e.ErrorStack()
+	}
+
+	fmt.Fprintf(os.Stderr, "Error while dispatching event: %s\n", errMsg)
 }
