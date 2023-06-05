@@ -220,9 +220,10 @@ func (sc *SystemCatalog) GetAllChunks() []systemcatalog.SystemEntity {
 	return chunkTables
 }
 
+/* TODO: Commented out for now
 func (sc *SystemCatalog) snapshotChunk(chunk *systemcatalog.Chunk) error {
 	return sc.snapshotChunkWithXld(nil, chunk)
-}
+}*/
 
 func (sc *SystemCatalog) snapshotChunkWithXld(xld *pgtypes.XLogData, chunk *systemcatalog.Chunk) error {
 	if hypertable, present := sc.FindHypertableById(chunk.HypertableId()); present {
