@@ -107,7 +107,7 @@ WHERE c.table_schema = $1
 ORDER BY c.ordinal_position`
 
 const replicaIdentityQuery = `
-SELECT c.relreplident
+SELECT c.relreplident::text
 FROM pg_catalog.pg_class c
 LEFT JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
 WHERE n.nspname=$1 and c.relname=$2
@@ -478,7 +478,7 @@ func (sc *sideChannelImpl) readReplicaIdentity(schemaName, tableName string) (pg
 
 		var val string
 		if err := row.Scan(&val); err != nil {
-			return err
+			return errors.Wrap(err, 0)
 		}
 		replicaIdentity = pgtypes.AsReplicaIdentity(val)
 		return nil
