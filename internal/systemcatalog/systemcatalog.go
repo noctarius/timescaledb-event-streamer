@@ -9,6 +9,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/tablefiltering"
 	"github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
+	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 )
@@ -220,10 +221,15 @@ func (sc *SystemCatalog) GetAllChunks() []systemcatalog.SystemEntity {
 }
 
 func (sc *SystemCatalog) snapshotChunk(chunk *systemcatalog.Chunk) error {
+	return sc.snapshotChunkWithXld(nil, chunk)
+}
+
+func (sc *SystemCatalog) snapshotChunkWithXld(xld *pgtypes.XLogData, chunk *systemcatalog.Chunk) error {
 	if hypertable, present := sc.FindHypertableById(chunk.HypertableId()); present {
 		return sc.snapshotter.EnqueueSnapshot(snapshotting.SnapshotTask{
 			Hypertable: hypertable,
 			Chunk:      chunk,
+			Xld:        xld,
 		})
 	}
 	return nil

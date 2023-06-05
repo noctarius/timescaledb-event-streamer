@@ -33,7 +33,9 @@ func (s *systemCatalogReplicationEventHandler) OnRelationEvent(
 	return nil
 }
 
-func (s *systemCatalogReplicationEventHandler) OnHypertableAddedEvent(_ uint32, newValues map[string]any) error {
+func (s *systemCatalogReplicationEventHandler) OnHypertableAddedEvent(
+	_ pgtypes.XLogData, _ uint32, newValues map[string]any) error {
+
 	return s.decomposeHypertable(newValues,
 		func(id int32, schemaName, hypertableName, associatedSchemaName, associatedTablePrefix string,
 			compressedHypertableId *int32, compressionState int16, distributed bool) error {
@@ -68,7 +70,9 @@ func (s *systemCatalogReplicationEventHandler) OnHypertableAddedEvent(_ uint32, 
 	)
 }
 
-func (s *systemCatalogReplicationEventHandler) OnHypertableUpdatedEvent(_ uint32, _, newValues map[string]any) error {
+func (s *systemCatalogReplicationEventHandler) OnHypertableUpdatedEvent(
+	_ pgtypes.XLogData, _ uint32, _, newValues map[string]any) error {
+
 	return s.decomposeHypertable(newValues,
 		func(id int32, schemaName, hypertableName, associatedSchemaName, associatedTablePrefix string,
 			compressedHypertableId *int32, compressionState int16, distributed bool) error {
@@ -92,7 +96,9 @@ func (s *systemCatalogReplicationEventHandler) OnHypertableUpdatedEvent(_ uint32
 	)
 }
 
-func (s *systemCatalogReplicationEventHandler) OnHypertableDeletedEvent(_ uint32, oldValues map[string]any) error {
+func (s *systemCatalogReplicationEventHandler) OnHypertableDeletedEvent(
+	_ pgtypes.XLogData, _ uint32, oldValues map[string]any) error {
+
 	hypertableId := oldValues["id"].(int32)
 	if hypertable, present := s.systemCatalog.FindHypertableById(hypertableId); present {
 		if err := s.systemCatalog.UnregisterHypertable(hypertable); err != nil {
@@ -102,7 +108,9 @@ func (s *systemCatalogReplicationEventHandler) OnHypertableDeletedEvent(_ uint32
 	return nil
 }
 
-func (s *systemCatalogReplicationEventHandler) OnChunkAddedEvent(_ uint32, newValues map[string]any) error {
+func (s *systemCatalogReplicationEventHandler) OnChunkAddedEvent(
+	xld pgtypes.XLogData, _ uint32, newValues map[string]any) error {
+
 	return s.decomposeChunk(newValues,
 		func(id, hypertableId int32, schemaName, tableName string, dropped bool,
 			status int32, compressedChunkId *int32) error {
@@ -124,7 +132,7 @@ func (s *systemCatalogReplicationEventHandler) OnChunkAddedEvent(_ uint32, newVa
 					)
 					return nil
 				}
-				if err := s.systemCatalog.snapshotChunk(c); err != nil {
+				if err := s.systemCatalog.snapshotChunkWithXld(&xld, c); err != nil {
 					s.systemCatalog.logger.Fatalf("failed to snapshot chunk %s", c.CanonicalName())
 				}
 			}
@@ -134,7 +142,9 @@ func (s *systemCatalogReplicationEventHandler) OnChunkAddedEvent(_ uint32, newVa
 	)
 }
 
-func (s *systemCatalogReplicationEventHandler) OnChunkUpdatedEvent(_ uint32, _, newValues map[string]any) error {
+func (s *systemCatalogReplicationEventHandler) OnChunkUpdatedEvent(
+	_ pgtypes.XLogData, _ uint32, _, newValues map[string]any) error {
+
 	return s.decomposeChunk(newValues,
 		func(id, hypertableId int32, schemaName, tableName string, dropped bool,
 			status int32, compressedChunkId *int32) error {
@@ -168,7 +178,9 @@ func (s *systemCatalogReplicationEventHandler) OnChunkUpdatedEvent(_ uint32, _, 
 	)
 }
 
-func (s *systemCatalogReplicationEventHandler) OnChunkDeletedEvent(_ uint32, oldValues map[string]any) error {
+func (s *systemCatalogReplicationEventHandler) OnChunkDeletedEvent(
+	_ pgtypes.XLogData, _ uint32, oldValues map[string]any) error {
+
 	chunkId := oldValues["id"].(int32)
 	if chunk, present := s.systemCatalog.FindChunkById(chunkId); present {
 		hypertableName := "unknown"

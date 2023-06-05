@@ -57,10 +57,10 @@ type CompressionReplicationEventHandler interface {
 
 type SystemCatalogReplicationEventHandler interface {
 	BaseReplicationEventHandler
-	OnHypertableAddedEvent(relationId uint32, newValues map[string]any) error
-	OnHypertableUpdatedEvent(relationId uint32, oldValues, newValues map[string]any) error
-	OnHypertableDeletedEvent(relationId uint32, oldValues map[string]any) error
-	OnChunkAddedEvent(relationId uint32, newValues map[string]any) error
-	OnChunkUpdatedEvent(relationId uint32, oldValues, newValues map[string]any) error
-	OnChunkDeletedEvent(relationId uint32, oldValues map[string]any) error
+	OnHypertableAddedEvent(xld pgtypes.XLogData, relationId uint32, newValues map[string]any) error
+	OnHypertableUpdatedEvent(xld pgtypes.XLogData, relationId uint32, oldValues, newValues map[string]any) error
+	OnHypertableDeletedEvent(xld pgtypes.XLogData, relationId uint32, oldValues map[string]any) error
+	OnChunkAddedEvent(xld pgtypes.XLogData, relationId uint32, newValues map[string]any) error
+	OnChunkUpdatedEvent(xld pgtypes.XLogData, relationId uint32, oldValues, newValues map[string]any) error
+	OnChunkDeletedEvent(xld pgtypes.XLogData, relationId uint32, oldValues map[string]any) error
 }

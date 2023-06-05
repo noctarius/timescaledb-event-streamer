@@ -87,7 +87,7 @@ func (tt *transactionTracker) OnCommitEvent(xld pgtypes.XLogData, msg *pgtypes.C
 			if err := tt.resolver.onChunkCompressionEvent(xld, chunk); err != nil {
 				return err
 			}
-			if err := tt.resolver.onChunkUpdateEvent(message.msg.(*pgtypes.UpdateMessage)); err != nil {
+			if err := tt.resolver.onChunkUpdateEvent(xld, message.msg.(*pgtypes.UpdateMessage)); err != nil {
 				return err
 			}
 		}
@@ -105,7 +105,7 @@ func (tt *transactionTracker) OnCommitEvent(xld pgtypes.XLogData, msg *pgtypes.C
 			if err := tt.resolver.onChunkDecompressionEvent(xld, chunk); err != nil {
 				return err
 			}
-			return tt.resolver.onChunkUpdateEvent(message.msg.(*pgtypes.UpdateMessage))
+			return tt.resolver.onChunkUpdateEvent(xld, message.msg.(*pgtypes.UpdateMessage))
 		}
 	}
 

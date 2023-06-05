@@ -28,7 +28,7 @@ func (its *IntegrationTestSuite) TestInitialSnapshot_Single_Chunk() {
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
-				return envelope.Payload.Op == schema.OP_READ
+				return envelope.Payload.Op == schema.OP_CREATE
 			},
 		),
 		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
@@ -84,7 +84,7 @@ func (its *IntegrationTestSuite) TestInitialSnapshot_Multi_Chunk() {
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
-				return envelope.Payload.Op == schema.OP_READ
+				return envelope.Payload.Op == schema.OP_CREATE
 			},
 		),
 		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
@@ -142,7 +142,7 @@ func (its *IntegrationTestSuite) TestCreateEvents() {
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
-				return envelope.Payload.Op == schema.OP_READ || envelope.Payload.Op == schema.OP_CREATE
+				return envelope.Payload.Op == schema.OP_CREATE
 			},
 		),
 		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
@@ -190,7 +190,7 @@ func (its *IntegrationTestSuite) TestCreateEvents() {
 					its.T().Errorf("event order inconsistent %d != %d", expected, val)
 					return nil
 				}
-				if event.Envelope.Payload.Op != schema.OP_READ {
+				if event.Envelope.Payload.Op != schema.OP_CREATE {
 					its.T().Errorf("event should be of type 'r' but was %s", event.Envelope.Payload.Op)
 					return nil
 				}
@@ -235,7 +235,7 @@ func (its *IntegrationTestSuite) TestUpdateEvents() {
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
-				return envelope.Payload.Op == schema.OP_READ || envelope.Payload.Op == schema.OP_UPDATE
+				return envelope.Payload.Op == schema.OP_CREATE || envelope.Payload.Op == schema.OP_UPDATE
 			},
 		),
 		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
@@ -283,7 +283,7 @@ func (its *IntegrationTestSuite) TestUpdateEvents() {
 					its.T().Errorf("event order inconsistent %d != %d", expected, val)
 					return nil
 				}
-				if event.Envelope.Payload.Op != schema.OP_READ {
+				if event.Envelope.Payload.Op != schema.OP_CREATE {
 					its.T().Errorf("event should be of type 'r' but was %s", event.Envelope.Payload.Op)
 					return nil
 				}
@@ -332,7 +332,7 @@ func (its *IntegrationTestSuite) TestDeleteEvents() {
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
-				return envelope.Payload.Op == schema.OP_READ || envelope.Payload.Op == schema.OP_DELETE
+				return envelope.Payload.Op == schema.OP_CREATE || envelope.Payload.Op == schema.OP_DELETE
 			},
 		),
 		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
@@ -380,7 +380,7 @@ func (its *IntegrationTestSuite) TestDeleteEvents() {
 					its.T().Errorf("event order inconsistent %d != %d", expected, val)
 					return nil
 				}
-				if event.Envelope.Payload.Op != schema.OP_READ {
+				if event.Envelope.Payload.Op != schema.OP_CREATE {
 					its.T().Errorf("event should be of type 'r' but was %s", event.Envelope.Payload.Op)
 					return nil
 				}
@@ -423,7 +423,7 @@ func (its *IntegrationTestSuite) TestTruncateEvents() {
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
-				return envelope.Payload.Op == schema.OP_READ || envelope.Payload.Op == schema.OP_TRUNCATE
+				return envelope.Payload.Op == schema.OP_CREATE || envelope.Payload.Op == schema.OP_TRUNCATE
 			},
 		),
 		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
@@ -474,7 +474,7 @@ func (its *IntegrationTestSuite) TestTruncateEvents() {
 					its.T().Errorf("event order inconsistent %d != %d", expected, val)
 					return nil
 				}
-				if event.Envelope.Payload.Op != schema.OP_READ {
+				if event.Envelope.Payload.Op != schema.OP_CREATE {
 					its.T().Errorf("event should be of type 'r' but was %s", event.Envelope.Payload.Op)
 					return nil
 				}
@@ -511,7 +511,7 @@ func (its *IntegrationTestSuite) TestCompressionEvents() {
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
-				return envelope.Payload.Op == schema.OP_READ || envelope.Payload.Op == schema.OP_TIMESCALE
+				return envelope.Payload.Op == schema.OP_CREATE || envelope.Payload.Op == schema.OP_TIMESCALE
 			},
 		),
 		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
@@ -570,7 +570,7 @@ func (its *IntegrationTestSuite) TestCompressionEvents() {
 					its.T().Errorf("event order inconsistent %d != %d", expected, val)
 					return nil
 				}
-				if event.Envelope.Payload.Op != schema.OP_READ {
+				if event.Envelope.Payload.Op != schema.OP_CREATE {
 					its.T().Errorf("event should be of type 'r' but was %s", event.Envelope.Payload.Op)
 					return nil
 				}
@@ -691,7 +691,7 @@ func (its *IntegrationTestSuite) TestCompressionPartialInsertEvents() {
 					its.T().Errorf("event order inconsistent %d != %d", expected, val)
 					return nil
 				}
-				if event.Envelope.Payload.Op != schema.OP_READ {
+				if event.Envelope.Payload.Op != schema.OP_CREATE {
 					its.T().Errorf("event should be of type 'r' but was %s", event.Envelope.Payload.Op)
 					return nil
 				}
@@ -736,7 +736,7 @@ func (its *IntegrationTestSuite) TestDecompressionEvents() {
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
-				return envelope.Payload.Op == schema.OP_READ || envelope.Payload.Op == schema.OP_TIMESCALE
+				return envelope.Payload.Op == schema.OP_CREATE || envelope.Payload.Op == schema.OP_TIMESCALE
 			},
 		),
 		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
@@ -815,7 +815,7 @@ func (its *IntegrationTestSuite) TestDecompressionEvents() {
 					its.T().Errorf("event order inconsistent %d != %d", expected, val)
 					return nil
 				}
-				if event.Envelope.Payload.Op != schema.OP_READ {
+				if event.Envelope.Payload.Op != schema.OP_CREATE {
 					its.T().Errorf("event should be of type 'r' but was %s", event.Envelope.Payload.Op)
 					return nil
 				}
@@ -860,7 +860,7 @@ func (its *IntegrationTestSuite) TestCompression_Decompression_SingleTransaction
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
-				return envelope.Payload.Op == schema.OP_READ || envelope.Payload.Op == schema.OP_TIMESCALE
+				return envelope.Payload.Op == schema.OP_CREATE || envelope.Payload.Op == schema.OP_TIMESCALE
 			},
 		),
 		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
@@ -939,7 +939,7 @@ func (its *IntegrationTestSuite) TestCompression_Decompression_SingleTransaction
 					its.T().Errorf("event order inconsistent %d != %d", expected, val)
 					return nil
 				}
-				if event.Envelope.Payload.Op != schema.OP_READ {
+				if event.Envelope.Payload.Op != schema.OP_CREATE {
 					its.T().Errorf("event should be of type 'r' but was %s", event.Envelope.Payload.Op)
 					return nil
 				}
@@ -984,7 +984,7 @@ func (its *IntegrationTestSuite) TestContinuousAggregateCreateEvents() {
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
-				return envelope.Payload.Op == schema.OP_READ || envelope.Payload.Op == schema.OP_CREATE
+				return envelope.Payload.Op == schema.OP_CREATE
 			},
 		),
 		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
@@ -1026,7 +1026,7 @@ func (its *IntegrationTestSuite) TestContinuousAggregateCreateEvents() {
 					its.T().Errorf("event order inconsistent %d != %d", expected, val)
 					return nil
 				}
-				if event.Envelope.Payload.Op != schema.OP_READ {
+				if event.Envelope.Payload.Op != schema.OP_CREATE {
 					its.T().Errorf("event should be of type 'r' but was %s", event.Envelope.Payload.Op)
 					return nil
 				}

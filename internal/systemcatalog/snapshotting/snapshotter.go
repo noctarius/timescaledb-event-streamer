@@ -15,6 +15,7 @@ import (
 type SnapshotTask struct {
 	Hypertable *systemcatalog.Hypertable
 	Chunk      *systemcatalog.Chunk
+	Xld        *pgtypes.XLogData
 }
 
 type Snapshotter struct {
@@ -117,11 +118,15 @@ func (s *Snapshotter) snapshotChunk(task SnapshotTask) error {
 		task.Chunk.CanonicalName(), nil,
 		func(lsn pgtypes.LSN, values map[string]any) error {
 			return s.replicationContext.EnqueueTask(func(notificator context.Notificator) {
-				notificator.NotifyHypertableReplicationEventHandler(
-					func(handler eventhandlers.HypertableReplicationEventHandler) error {
-						return handler.OnReadEvent(lsn, task.Hypertable, task.Chunk, values)
-					},
-				)
+				callback := func(handler eventhandlers.HypertableReplicationEventHandler) error {
+					return handler.OnReadEvent(lsn, task.Hypertable, task.Chunk, values)
+				}
+				if task.Xld != nil {
+					callback = func(handler eventhandlers.HypertableReplicationEventHandler) error {
+						return handler.OnInsertEvent(*task.Xld, task.Hypertable, task.Chunk, values)
+					}
+				}
+				notificator.NotifyHypertableReplicationEventHandler(callback)
 			})
 		},
 	)
