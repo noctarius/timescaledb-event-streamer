@@ -373,10 +373,10 @@ func (rp *ReplicationContext) DetachTablesFromPublication(entities ...systemcata
 	return rp.sideChannel.detachTablesFromPublication(rp.publicationName, entities...)
 }
 
-func (rp *ReplicationContext) SnapshotTable(canonicalName string, startingLSN *pgtypes.LSN,
+func (rp *ReplicationContext) SnapshotTable(canonicalName string, snapshotId *string,
 	cb func(lsn pgtypes.LSN, values map[string]any) error) (pgtypes.LSN, error) {
 
-	return rp.sideChannel.snapshotTable(canonicalName, startingLSN, rp.snapshotBatchSize, cb)
+	return rp.sideChannel.snapshotTable(canonicalName, snapshotId, rp.snapshotBatchSize, cb)
 }
 
 func (rp *ReplicationContext) ReadReplicaIdentity(entity systemcatalog.SystemEntity) (pgtypes.ReplicaIdentity, error) {

@@ -397,7 +397,7 @@ func (sc *sideChannelImpl) detachTablesFromPublication(
 	})
 }
 
-func (sc *sideChannelImpl) snapshotTable(canonicalName string, startingLSN *pgtypes.LSN, snapshotBatchSize int,
+func (sc *sideChannelImpl) snapshotTable(canonicalName string, snapshotId *string, snapshotBatchSize int,
 	cb func(lsn pgtypes.LSN, values map[string]any) error) (pgtypes.LSN, error) {
 
 	var currentLSN pglogrepl.LSN
@@ -407,16 +407,16 @@ func (sc *sideChannelImpl) snapshotTable(canonicalName string, startingLSN *pgty
 			return err
 		}
 
-		if err := session.queryRow("SELECT pg_current_wal_lsn()").Scan(&currentLSN); err != nil {
-			return err
+		if snapshotId != nil {
+			if _, err := session.exec(
+				fmt.Sprintf("SET TRANSACTION SNAPSHOT '%s'", *snapshotId),
+			); err != nil {
+				return errors.Wrap(err, 0)
+			}
 		}
 
-		if startingLSN != nil {
-			if _, err := session.exec(
-				fmt.Sprintf("SET TRANSACTION SNAPSHOT '%s'", startingLSN.String()),
-			); err != nil {
-				return err
-			}
+		if err := session.queryRow("SELECT pg_current_wal_lsn()").Scan(&currentLSN); err != nil {
+			return errors.Wrap(err, 0)
 		}
 
 		cursorName := supporting.RandomTextString(15)
@@ -435,7 +435,7 @@ func (sc *sideChannelImpl) snapshotTable(canonicalName string, startingLSN *pgty
 				if rowDecoder == nil {
 					rd, err := pgdecoding.NewRowDecoder(rows.FieldDescriptions())
 					if err != nil {
-						return err
+						return errors.Wrap(err, 0)
 					}
 					rowDecoder = rd
 				}
