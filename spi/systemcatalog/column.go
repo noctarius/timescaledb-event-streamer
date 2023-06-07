@@ -7,12 +7,12 @@ import (
 
 // Columns represents a collection of columns which
 // may or may not represent an index
-type Columns []*Column
+type Columns []Column
 
 // HasPrimaryKey returns true if the collection of columns contains
 // one or more primary key column(s)
 func (c Columns) HasPrimaryKey() bool {
-	return supporting.ContainsWithMatcher(c, func(other *Column) bool {
+	return supporting.ContainsWithMatcher(c, func(other Column) bool {
 		return other.IsPrimaryKey()
 	})
 }
@@ -26,11 +26,11 @@ func (c Columns) PrimaryKeyIndex() (index *Index, present bool) {
 		return nil, false
 	}
 
-	primaryKeyColumns := supporting.Filter(c, func(item *Column) bool {
+	primaryKeyColumns := supporting.Filter(c, func(item Column) bool {
 		return item.IsPrimaryKey()
 	})
 
-	supporting.Sort(primaryKeyColumns, func(this, other *Column) bool {
+	supporting.Sort(primaryKeyColumns, func(this, other Column) bool {
 		return *this.keySeq < *other.keySeq
 	})
 
@@ -43,7 +43,7 @@ func (c Columns) PrimaryKeyIndex() (index *Index, present bool) {
 // HasReplicaIdentity returns true if the collection of columns contains
 // one or more replica identity column(s)
 func (c Columns) HasReplicaIdentity() bool {
-	return supporting.ContainsWithMatcher(c, func(other *Column) bool {
+	return supporting.ContainsWithMatcher(c, func(other Column) bool {
 		return other.IsReplicaIdent()
 	})
 }
@@ -57,11 +57,11 @@ func (c Columns) ReplicaIdentityIndex() (index *Index, present bool) {
 		return nil, false
 	}
 
-	replicaIdentityColumns := supporting.Filter(c, func(item *Column) bool {
+	replicaIdentityColumns := supporting.Filter(c, func(item Column) bool {
 		return item.IsReplicaIdent()
 	})
 
-	supporting.Sort(replicaIdentityColumns, func(this, other *Column) bool {
+	supporting.Sort(replicaIdentityColumns, func(this, other Column) bool {
 		return *this.keySeq < *other.keySeq
 	})
 

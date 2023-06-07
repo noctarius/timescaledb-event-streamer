@@ -6,6 +6,8 @@ import (
 	repcontext "github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
+	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/snapshotting"
+	"github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 )
 
@@ -86,9 +88,10 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 		)
 	}
 
-	if slotName, _, created, err := replicationConnection.CreateReplicationSlot(); err != nil {
+	slotName, snapshotName, createdReplicationSlot, err := replicationConnection.CreateReplicationSlot()
+	if err != nil {
 		return fmt.Errorf("CreateReplicationSlot failed: %s", err)
-	} else if created {
+	} else if createdReplicationSlot {
 		rc.logger.Println("Created replication slot:", slotName)
 
 		// If slot was newly created we immediately try to add as many chunks to the publication
@@ -103,28 +106,94 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 		rc.logger.Println("Reused replication slot:", slotName)
 	}
 
-	if err := replicationConnection.StartReplication(pluginArguments); err != nil {
-		return fmt.Errorf("StartReplication failed: %s", err)
+	offset, err := rc.replicationContext.Offset()
+	if err != nil {
+		return errors.Wrap(err, 0)
 	}
 
-	go func() {
-		err := replicationHandler.startReplicationHandler(replicationConnection)
-		if err != nil {
-			rc.logger.Fatalf("Issue handling WAL stream: %s", err)
+	stopReplication := func() {
+	}
+
+	startReplication := func() error {
+		if err := replicationConnection.StartReplication(pluginArguments); err != nil {
+			return errors.Errorf("StartReplication failed: %s", err)
 		}
-		rc.shutdownAwaiter.SignalShutdown()
-	}()
+
+		go func() {
+			err := replicationHandler.startReplicationHandler(replicationConnection)
+			if err != nil {
+				rc.logger.Fatalf("Issue handling WAL stream: %s", err)
+			}
+			rc.shutdownAwaiter.SignalShutdown()
+		}()
+
+		stopReplication = func() {
+			if err := replicationHandler.stopReplicationHandler(); err != nil {
+				rc.logger.Errorf("shutdown failed (stop replication handler): %+v", err)
+			}
+			if err := replicationConnection.StopReplication(); err != nil {
+				rc.logger.Errorf("shutdown failed (send copy done): %+v", err)
+			}
+		}
+
+		return nil
+	}
+
+	initialSnapshotMode := rc.replicationContext.InitialSnapshotMode()
+	if initialSnapshotMode == config.Always {
+		// We always want to do a full snapshot on startup. Do we need a snapshot name here?
+		if !createdReplicationSlot {
+			return errors.Errorf("Snapshot mode 'always' must create a replication slot!")
+		}
+
+		// TODO: Kick off snapshotting
+
+	} else if initialSnapshotMode == config.InitialOnly &&
+		(offset == nil || (offset.Snapshot && offset.SnapshotName != nil)) {
+
+		// We need an initial snapshot and we either haven't started any or need
+		// to resume a previously started one.
+
+		// Let's do some sanity checking and setup
+		if offset != nil && offset.Snapshot {
+			if createdReplicationSlot {
+				return errors.Errorf(
+					"Snapshot mode 'initial_only' found an existing " +
+						"offset state with a newly created replication slot!",
+				)
+			}
+
+			if offset.SnapshotName != nil {
+				snapshotName = *offset.SnapshotName
+			}
+		}
+
+		watermarks := &snapshotting.Watermarks{}
+		present, err := rc.replicationContext.StateDecoder("watermarks", watermarks)
+		if err != nil {
+			return err
+		}
+
+
+
+		snapshotName
+		rc.replicationContext.
+
+
+	} else {
+		if err := startReplication(); err != nil {
+			return err
+		}
+	}
 
 	go func() {
 		if err := rc.shutdownAwaiter.AwaitShutdown(); err != nil {
 			rc.logger.Errorf("shutdown failed: %+v", err)
 		}
-		if err := replicationHandler.stopReplicationHandler(); err != nil {
-			rc.logger.Errorf("shutdown failed (stop replication handler): %+v", err)
-		}
-		if err := replicationConnection.StopReplication(); err != nil {
-			rc.logger.Errorf("shutdown failed (send copy done): %+v", err)
-		}
+
+		// Stop potentially started replication before going on
+		stopReplication()
+
 		if err := replicationConnection.DropReplicationSlot(); err != nil {
 			rc.logger.Errorf("shutdown failed (drop replication slot): %+v", err)
 		}

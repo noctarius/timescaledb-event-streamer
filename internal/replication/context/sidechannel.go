@@ -106,12 +106,17 @@ WHERE c.table_schema = $1
   AND c.table_name = $2
 ORDER BY c.ordinal_position`
 
+const snapshotHighWatermark = `
+SELECT %s
+FROM %s
+ORDER BY %s
+LIMIT 1`
+
 const replicaIdentityQuery = `
 SELECT c.relreplident::text
 FROM pg_catalog.pg_class c
 LEFT JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
-WHERE n.nspname=$1 and c.relname=$2
-`
+WHERE n.nspname=$1 and c.relname=$2`
 
 const hypertableContinuousAggregateQuery = `
 SELECT ca.user_view_schema, ca.user_view_name
@@ -397,7 +402,7 @@ func (sc *sideChannelImpl) detachTablesFromPublication(
 	})
 }
 
-func (sc *sideChannelImpl) snapshotTable(canonicalName string, snapshotId *string, snapshotBatchSize int,
+func (sc *sideChannelImpl) snapshotTable(canonicalName string, snapshotName *string, snapshotBatchSize int,
 	cb func(lsn pgtypes.LSN, values map[string]any) error) (pgtypes.LSN, error) {
 
 	var currentLSN pglogrepl.LSN
@@ -407,9 +412,9 @@ func (sc *sideChannelImpl) snapshotTable(canonicalName string, snapshotId *strin
 			return err
 		}
 
-		if snapshotId != nil {
+		if snapshotName != nil {
 			if _, err := session.exec(
-				fmt.Sprintf("SET TRANSACTION SNAPSHOT '%s'", *snapshotId),
+				fmt.Sprintf("SET TRANSACTION SNAPSHOT '%s'", *snapshotName),
 			); err != nil {
 				return errors.Wrap(err, 0)
 			}
@@ -469,6 +474,42 @@ func (sc *sideChannelImpl) snapshotTable(canonicalName string, snapshotId *strin
 	}
 
 	return pgtypes.LSN(currentLSN), nil
+}
+
+func (sc *sideChannelImpl) getSnapshotHighWatermark(
+	hypertable *systemcatalog.Hypertable) (values map[string]any, err error) {
+
+	index, present := hypertable.Columns().PrimaryKeyIndex()
+	if !present {
+		return nil, nil
+	}
+
+	columns := strings.Join(supporting.Map(index.Columns(), func(element systemcatalog.Column) string {
+		return element.Name()
+	}), ",")
+
+	query := fmt.Sprintf(snapshotHighWatermark, columns, hypertable.CanonicalName(), index.AsSqlOrderBy())
+	if err := sc.newSession(time.Second*10, func(session *session) error {
+		row := session.queryRow(query)
+		rows := row.(pgx.Rows)
+
+		if rows.Err() != nil {
+			return errors.Wrap(rows.Err(), 0)
+		}
+
+		rowDecoder, err := pgdecoding.NewRowDecoder(rows.FieldDescriptions())
+		if err != nil {
+			return errors.Wrap(err, 0)
+		}
+
+		return rowDecoder.DecodeMapAndSink(rows.RawValues(), func(decoded map[string]any) error {
+			values = decoded
+			return nil
+		})
+	}); err != nil {
+		return nil, err
+	}
+	return
 }
 
 func (sc *sideChannelImpl) readReplicaIdentity(schemaName, tableName string) (pgtypes.ReplicaIdentity, error) {

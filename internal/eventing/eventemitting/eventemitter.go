@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"github.com/cenkalti/backoff/v4"
+	"github.com/go-errors/errors"
 	"github.com/jackc/pglogrepl"
 	"github.com/noctarius/timescaledb-event-streamer/internal/eventing/eventfiltering"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
@@ -12,6 +13,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/sink"
+	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"time"
 )
@@ -47,7 +49,11 @@ func (ee *EventEmitter) Start() error {
 	if encodedSinkContextState, present := ee.replicationContext.EncodedState("SinkContextState"); present {
 		return ee.sinkContext.UnmarshalBinary(encodedSinkContextState)
 	}
-	ee.replicationContext.RegisterStateEncoder("SinkContextState", ee.sinkContext.MarshalBinary)
+	if err := ee.replicationContext.StateEncoder(
+		"SinkContextState", statestorage.StateEncoderFunc(ee.sinkContext.MarshalBinary),
+	); err != nil {
+		return errors.Wrap(err, 0)
+	}
 	return ee.sink.Start()
 }
 

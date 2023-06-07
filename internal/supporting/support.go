@@ -14,6 +14,28 @@ var validCharacters = []string{
 	"n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z",
 }
 
+type Iterator[E any] func() (E, bool)
+
+func MapWithIterator[E, R any](iterator Iterator[E], mapper func(element E) R) []R {
+	result := make([]R, 0)
+	for {
+		if e, present := iterator(); !present {
+			break
+		} else {
+			result = append(result, mapper(e))
+		}
+	}
+	return result
+}
+
+func Map[E, R any](elements []E, mapper func(element E) R) []R {
+	result := make([]R, len(elements))
+	for _, e := range elements {
+		result = append(result, mapper(e))
+	}
+	return result
+}
+
 func AddrOf[T any](value T) *T {
 	return &value
 }

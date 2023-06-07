@@ -13,9 +13,10 @@ import (
 )
 
 type SnapshotTask struct {
-	Hypertable *systemcatalog.Hypertable
-	Chunk      *systemcatalog.Chunk
-	Xld        *pgtypes.XLogData
+	Hypertable   *systemcatalog.Hypertable
+	Chunk        *systemcatalog.Chunk
+	Xld          *pgtypes.XLogData
+	snapshotName *string
 }
 
 type Snapshotter struct {
@@ -142,5 +143,22 @@ func (s *Snapshotter) snapshotChunk(task SnapshotTask) error {
 }
 
 func (s *Snapshotter) snapshotHypertable(task SnapshotTask) error {
+	if index, present := task.Hypertable.Columns().PrimaryKeyIndex(); present {
+		for _, column := range index.Columns() {
+			column.Name()
+		}
+	}
+
+	// tableSnapshotState
+	watermarks := &Watermarks{}
+	present, err := s.replicationContext.StateDecoder("watermarks", watermarks)
+	if err != nil {
+		return err
+	}
+
+	if !present {
+		s.replicationContext.GetSnapshotHighWatermark(task.Hypertable)
+	}
+
 	return nil // TODO
 }

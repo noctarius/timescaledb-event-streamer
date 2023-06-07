@@ -1,6 +1,7 @@
 package file
 
 import (
+	"encoding"
 	"encoding/binary"
 	"github.com/docker/docker/pkg/ioutils"
 	"github.com/go-errors/errors"
@@ -24,7 +25,6 @@ type fileStateStorage struct {
 	logger  *logging.Logger
 	offsets map[string]*statestorage.Offset
 
-	stateEncoders map[string]statestorage.StateEncoder
 	encodedStates map[string][]byte
 
 	ticker         *time.Ticker
@@ -79,7 +79,6 @@ func NewFileStateStorage(path string) (statestorage.Storage, error) {
 		logger:         logger,
 		shutdownWaiter: supporting.NewShutdownAwaiter(),
 		offsets:        make(map[string]*statestorage.Offset),
-		stateEncoders:  make(map[string]statestorage.StateEncoder),
 		encodedStates:  make(map[string][]byte),
 	}, nil
 }
@@ -135,13 +134,6 @@ func (f *fileStateStorage) Save() error {
 
 	encodedStates := make(map[string][]byte)
 	for name, encodedState := range f.encodedStates {
-		encodedStates[name] = encodedState
-	}
-	for name, encoder := range f.stateEncoders {
-		encodedState, err := encoder()
-		if err != nil {
-			return err
-		}
 		encodedStates[name] = encodedState
 	}
 
@@ -262,8 +254,23 @@ func (f *fileStateStorage) Set(key string, value *statestorage.Offset) error {
 	return nil
 }
 
-func (f *fileStateStorage) RegisterStateEncoder(name string, encoder statestorage.StateEncoder) {
-	f.stateEncoders[name] = encoder
+func (f *fileStateStorage) StateEncoder(name string, encoder encoding.BinaryMarshaler) error {
+	data, err := encoder.MarshalBinary()
+	if err != nil {
+		return err
+	}
+	f.encodedStates[name] = data
+	return nil
+}
+
+func (f *fileStateStorage) StateDecoder(name string, decoder encoding.BinaryUnmarshaler) (bool, error) {
+	if data, present := f.encodedStates[name]; present {
+		if err := decoder.UnmarshalBinary(data); err != nil {
+			return true, errors.Wrap(err, 0)
+		}
+		return true, nil
+	}
+	return false, nil
 }
 
 func (f *fileStateStorage) EncodedState(key string) (encodedState []byte, present bool) {

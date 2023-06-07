@@ -2,6 +2,7 @@ package context
 
 import (
 	"context"
+	"encoding"
 	"github.com/jackc/pglogrepl"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -29,6 +30,7 @@ type ReplicationContext struct {
 	namingStrategy namingstrategy.NamingStrategy
 	stateStorage   statestorage.Storage
 
+	snapshotInitialMode     spiconfig.InitialSnapshotMode
 	snapshotBatchSize       int
 	publicationName         string
 	publicationCreate       bool
@@ -65,6 +67,9 @@ func NewReplicationContext(config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
 	publicationAutoDrop := spiconfig.GetOrDefault(
 		config, spiconfig.PropertyPostgresqlPublicationAutoDrop, true,
 	)
+	snapshotInitialMode := spiconfig.GetOrDefault(
+		config, spiconfig.PropertyPostgresqlSnapshotInitialMode, spiconfig.Never,
+	)
 	snapshotBatchSize := spiconfig.GetOrDefault(
 		config, spiconfig.PropertyPostgresqlSnapshotBatchsize, 1000,
 	)
@@ -87,6 +92,7 @@ func NewReplicationContext(config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
 		dispatcher:     newDispatcher(),
 		stateStorage:   stateStorage,
 
+		snapshotInitialMode:     snapshotInitialMode,
 		snapshotBatchSize:       snapshotBatchSize,
 		publicationName:         publicationName,
 		publicationCreate:       publicationCreate,
@@ -141,330 +147,342 @@ func NewReplicationContext(config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
 	return replicationContext, nil
 }
 
-func (rp *ReplicationContext) StartReplicationContext() error {
-	rp.dispatcher.StartDispatcher()
-	return rp.stateStorage.Start()
+func (rc *ReplicationContext) StartReplicationContext() error {
+	rc.dispatcher.StartDispatcher()
+	return rc.stateStorage.Start()
 }
 
-func (rp *ReplicationContext) StopReplicationContext() error {
-	if err := rp.dispatcher.StopDispatcher(); err != nil {
+func (rc *ReplicationContext) StopReplicationContext() error {
+	if err := rc.dispatcher.StopDispatcher(); err != nil {
 		return err
 	}
-	return rp.stateStorage.Stop()
+	return rc.stateStorage.Stop()
 }
 
-func (rp *ReplicationContext) Offset() (*statestorage.Offset, error) {
-	offsets, err := rp.stateStorage.Get()
+func (rc *ReplicationContext) Offset() (*statestorage.Offset, error) {
+	offsets, err := rc.stateStorage.Get()
 	if err != nil {
 		return nil, err
 	}
 	if offsets == nil {
 		return nil, nil
 	}
-	if o, present := offsets[rp.replicationSlotName]; present {
+	if o, present := offsets[rc.replicationSlotName]; present {
 		return o, nil
 	}
 	return nil, nil
 }
 
-func (rp *ReplicationContext) SetLastTransactionId(xid uint32) {
-	rp.lsnMutex.Lock()
-	defer rp.lsnMutex.Unlock()
+func (rc *ReplicationContext) SetLastTransactionId(xid uint32) {
+	rc.lsnMutex.Lock()
+	defer rc.lsnMutex.Unlock()
 
-	rp.lastTransactionId = xid
+	rc.lastTransactionId = xid
 }
 
-func (rp *ReplicationContext) LastTransactionId() uint32 {
-	rp.lsnMutex.Lock()
-	defer rp.lsnMutex.Unlock()
+func (rc *ReplicationContext) LastTransactionId() uint32 {
+	rc.lsnMutex.Lock()
+	defer rc.lsnMutex.Unlock()
 
-	return rp.lastTransactionId
+	return rc.lastTransactionId
 }
 
-func (rp *ReplicationContext) SetLastBeginLSN(lsn pgtypes.LSN) {
-	rp.lsnMutex.Lock()
-	defer rp.lsnMutex.Unlock()
+func (rc *ReplicationContext) SetLastBeginLSN(lsn pgtypes.LSN) {
+	rc.lsnMutex.Lock()
+	defer rc.lsnMutex.Unlock()
 
-	rp.lastBeginLSN = lsn
+	rc.lastBeginLSN = lsn
 }
 
-func (rp *ReplicationContext) LastBeginLSN() pgtypes.LSN {
-	rp.lsnMutex.Lock()
-	defer rp.lsnMutex.Unlock()
+func (rc *ReplicationContext) LastBeginLSN() pgtypes.LSN {
+	rc.lsnMutex.Lock()
+	defer rc.lsnMutex.Unlock()
 
-	return rp.lastBeginLSN
+	return rc.lastBeginLSN
 }
 
-func (rp *ReplicationContext) SetLastCommitLSN(lsn pgtypes.LSN) {
-	rp.lsnMutex.Lock()
-	defer rp.lsnMutex.Unlock()
+func (rc *ReplicationContext) SetLastCommitLSN(lsn pgtypes.LSN) {
+	rc.lsnMutex.Lock()
+	defer rc.lsnMutex.Unlock()
 
-	rp.lastCommitLSN = lsn
+	rc.lastCommitLSN = lsn
 }
 
-func (rp *ReplicationContext) LastCommitLSN() pgtypes.LSN {
-	rp.lsnMutex.Lock()
-	defer rp.lsnMutex.Unlock()
+func (rc *ReplicationContext) LastCommitLSN() pgtypes.LSN {
+	rc.lsnMutex.Lock()
+	defer rc.lsnMutex.Unlock()
 
-	return rp.lastCommitLSN
+	return rc.lastCommitLSN
 }
 
-func (rp *ReplicationContext) LastReceivedLSN() pgtypes.LSN {
-	rp.lsnMutex.Lock()
-	defer rp.lsnMutex.Unlock()
+func (rc *ReplicationContext) LastReceivedLSN() pgtypes.LSN {
+	rc.lsnMutex.Lock()
+	defer rc.lsnMutex.Unlock()
 
-	return rp.lastReceivedLSN
+	return rc.lastReceivedLSN
 }
 
-func (rp *ReplicationContext) LastProcessedLSN() pgtypes.LSN {
-	rp.lsnMutex.Lock()
-	defer rp.lsnMutex.Unlock()
+func (rc *ReplicationContext) LastProcessedLSN() pgtypes.LSN {
+	rc.lsnMutex.Lock()
+	defer rc.lsnMutex.Unlock()
 
-	return rp.lastProcessedLSN
+	return rc.lastProcessedLSN
 }
 
-func (rp *ReplicationContext) AcknowledgeReceived(xld pgtypes.XLogData) {
-	rp.lsnMutex.Lock()
-	defer rp.lsnMutex.Unlock()
+func (rc *ReplicationContext) AcknowledgeReceived(xld pgtypes.XLogData) {
+	rc.lsnMutex.Lock()
+	defer rc.lsnMutex.Unlock()
 
-	rp.lastReceivedLSN = pgtypes.LSN(xld.WALStart + pglogrepl.LSN(len(xld.WALData)))
+	rc.lastReceivedLSN = pgtypes.LSN(xld.WALStart + pglogrepl.LSN(len(xld.WALData)))
 }
 
-func (rp *ReplicationContext) AcknowledgeProcessed(xld pgtypes.XLogData) error {
-	rp.lsnMutex.Lock()
-	defer rp.lsnMutex.Unlock()
+func (rc *ReplicationContext) AcknowledgeProcessed(xld pgtypes.XLogData) error {
+	rc.lsnMutex.Lock()
+	defer rc.lsnMutex.Unlock()
 
-	rp.lastProcessedLSN = pgtypes.LSN(xld.WALStart + pglogrepl.LSN(len(xld.WALData)))
+	rc.lastProcessedLSN = pgtypes.LSN(xld.WALStart + pglogrepl.LSN(len(xld.WALData)))
 
-	o, err := rp.Offset()
+	o, err := rc.Offset()
 	if err != nil {
 		return err
 	}
 
 	if o == nil {
 		o = &statestorage.Offset{
-			LSN:       rp.lastProcessedLSN,
+			LSN:       rc.lastProcessedLSN,
 			Timestamp: xld.ServerTime,
 		}
 	}
-	return rp.stateStorage.Set(rp.replicationSlotName, o)
+	return rc.stateStorage.Set(rc.replicationSlotName, o)
 }
 
-func (rp *ReplicationContext) RegisterStateEncoder(name string, encoder statestorage.StateEncoder) {
-	rp.stateStorage.RegisterStateEncoder(name, encoder)
+func (rc *ReplicationContext) StateEncoder(name string, encoder encoding.BinaryMarshaler) error {
+	return rc.stateStorage.StateEncoder(name, encoder)
 }
 
-func (rp *ReplicationContext) SetSinkContextAttribute(name string, encodedState []byte) {
-	rp.stateStorage.SetEncodedState(name, encodedState)
+func (rc *ReplicationContext) StateDecoder(name string, decoder encoding.BinaryUnmarshaler) (present bool, err error) {
+	return rc.stateStorage.StateDecoder(name, decoder)
 }
 
-func (rp *ReplicationContext) EncodedState(name string) (encodedState []byte, present bool) {
-	return rp.stateStorage.EncodedState(name)
+func (rc *ReplicationContext) SetEncodedState(name string, encodedState []byte) {
+	rc.stateStorage.SetEncodedState(name, encodedState)
 }
 
-func (rp *ReplicationContext) DatabaseUsername() string {
-	return rp.pgxConfig.User
+func (rc *ReplicationContext) EncodedState(name string) (encodedState []byte, present bool) {
+	return rc.stateStorage.EncodedState(name)
 }
 
-func (rp *ReplicationContext) PublicationName() string {
-	return rp.publicationName
+func (rc *ReplicationContext) InitialSnapshotMode() spiconfig.InitialSnapshotMode {
+	return rc.snapshotInitialMode
 }
 
-func (rp *ReplicationContext) PublicationCreate() bool {
-	return rp.publicationCreate
+func (rc *ReplicationContext) DatabaseUsername() string {
+	return rc.pgxConfig.User
 }
 
-func (rp *ReplicationContext) PublicationAutoDrop() bool {
-	return rp.publicationAutoDrop
+func (rc *ReplicationContext) PublicationName() string {
+	return rc.publicationName
 }
 
-func (rp *ReplicationContext) ReplicationSlotName() string {
-	return rp.replicationSlotName
+func (rc *ReplicationContext) PublicationCreate() bool {
+	return rc.publicationCreate
 }
 
-func (rp *ReplicationContext) ReplicationSlotCreate() bool {
-	return rp.replicationSlotCreate
+func (rc *ReplicationContext) PublicationAutoDrop() bool {
+	return rc.publicationAutoDrop
 }
 
-func (rp *ReplicationContext) ReplicationSlotAutoDrop() bool {
-	return rp.replicationSlotAutoDrop
+func (rc *ReplicationContext) ReplicationSlotName() string {
+	return rc.replicationSlotName
 }
 
-func (rp *ReplicationContext) WALLevel() string {
-	return rp.walLevel
+func (rc *ReplicationContext) ReplicationSlotCreate() bool {
+	return rc.replicationSlotCreate
 }
 
-func (rp *ReplicationContext) SystemId() string {
-	return rp.systemId
+func (rc *ReplicationContext) ReplicationSlotAutoDrop() bool {
+	return rc.replicationSlotAutoDrop
 }
 
-func (rp *ReplicationContext) Timeline() int32 {
-	return rp.timeline
+func (rc *ReplicationContext) WALLevel() string {
+	return rc.walLevel
 }
 
-func (rp *ReplicationContext) DatabaseName() string {
-	return rp.databaseName
+func (rc *ReplicationContext) SystemId() string {
+	return rc.systemId
 }
 
-func (rp *ReplicationContext) TopicPrefix() string {
-	return rp.topicPrefix
+func (rc *ReplicationContext) Timeline() int32 {
+	return rc.timeline
 }
 
-func (rp *ReplicationContext) PostgresVersion() version.PostgresVersion {
-	return rp.pgVersion
+func (rc *ReplicationContext) DatabaseName() string {
+	return rc.databaseName
 }
 
-func (rp *ReplicationContext) TimescaleVersion() version.TimescaleVersion {
-	return rp.tsdbVersion
+func (rc *ReplicationContext) TopicPrefix() string {
+	return rc.topicPrefix
 }
 
-func (rp *ReplicationContext) IsMinimumPostgresVersion() bool {
-	return rp.pgVersion >= intversion.PG_MIN_VERSION
+func (rc *ReplicationContext) PostgresVersion() version.PostgresVersion {
+	return rc.pgVersion
 }
 
-func (rp *ReplicationContext) IsPG14GE() bool {
-	return rp.pgVersion >= intversion.PG_14_VERSION
+func (rc *ReplicationContext) TimescaleVersion() version.TimescaleVersion {
+	return rc.tsdbVersion
 }
 
-func (rp *ReplicationContext) IsMinimumTimescaleVersion() bool {
-	return rp.tsdbVersion >= intversion.TSDB_MIN_VERSION
+func (rc *ReplicationContext) IsMinimumPostgresVersion() bool {
+	return rc.pgVersion >= intversion.PG_MIN_VERSION
 }
 
-func (rp *ReplicationContext) IsTSDB211GE() bool {
-	return rp.tsdbVersion >= intversion.TSDB_211_VERSION
+func (rc *ReplicationContext) IsPG14GE() bool {
+	return rc.pgVersion >= intversion.PG_14_VERSION
 }
 
-func (rp *ReplicationContext) IsLogicalReplicationEnabled() bool {
-	return rp.walLevel == "logical"
+func (rc *ReplicationContext) IsMinimumTimescaleVersion() bool {
+	return rc.tsdbVersion >= intversion.TSDB_MIN_VERSION
+}
+
+func (rc *ReplicationContext) IsTSDB211GE() bool {
+	return rc.tsdbVersion >= intversion.TSDB_211_VERSION
+}
+
+func (rc *ReplicationContext) IsLogicalReplicationEnabled() bool {
+	return rc.walLevel == "logical"
 }
 
 // ----> SideChannel functions
 
-func (rp *ReplicationContext) HasTablePrivilege(
+func (rc *ReplicationContext) HasTablePrivilege(
 	entity systemcatalog.SystemEntity, grant Grant) (access bool, err error) {
 
-	return rp.sideChannel.hasTablePrivilege(rp.pgxConfig.User, entity, grant)
+	return rc.sideChannel.hasTablePrivilege(rc.pgxConfig.User, entity, grant)
 }
 
-func (rp *ReplicationContext) LoadHypertables(cb func(hypertable *systemcatalog.Hypertable) error) error {
-	return rp.sideChannel.readHypertables(cb)
+func (rc *ReplicationContext) LoadHypertables(cb func(hypertable *systemcatalog.Hypertable) error) error {
+	return rc.sideChannel.readHypertables(cb)
 }
 
-func (rp *ReplicationContext) LoadChunks(cb func(chunk *systemcatalog.Chunk) error) error {
-	return rp.sideChannel.readChunks(cb)
+func (rc *ReplicationContext) LoadChunks(cb func(chunk *systemcatalog.Chunk) error) error {
+	return rc.sideChannel.readChunks(cb)
 }
 
-func (rp *ReplicationContext) ReadHypertableSchema(
+func (rc *ReplicationContext) ReadHypertableSchema(
 	cb func(hypertable *systemcatalog.Hypertable, columns []systemcatalog.Column) bool,
 	hypertables ...*systemcatalog.Hypertable) error {
 
-	return rp.sideChannel.readHypertableSchema(cb, hypertables...)
+	return rc.sideChannel.readHypertableSchema(cb, hypertables...)
 }
 
-func (rp *ReplicationContext) ExistsTableInPublication(entity systemcatalog.SystemEntity) (found bool, err error) {
-	return rp.sideChannel.existsTableInPublication(rp.publicationName, entity.SchemaName(), entity.TableName())
+func (rc *ReplicationContext) ExistsTableInPublication(entity systemcatalog.SystemEntity) (found bool, err error) {
+	return rc.sideChannel.existsTableInPublication(rc.publicationName, entity.SchemaName(), entity.TableName())
 }
 
-func (rp *ReplicationContext) AttachTablesToPublication(entities ...systemcatalog.SystemEntity) error {
-	return rp.sideChannel.attachTablesToPublication(rp.publicationName, entities...)
+func (rc *ReplicationContext) AttachTablesToPublication(entities ...systemcatalog.SystemEntity) error {
+	return rc.sideChannel.attachTablesToPublication(rc.publicationName, entities...)
 }
 
-func (rp *ReplicationContext) DetachTablesFromPublication(entities ...systemcatalog.SystemEntity) error {
-	return rp.sideChannel.detachTablesFromPublication(rp.publicationName, entities...)
+func (rc *ReplicationContext) DetachTablesFromPublication(entities ...systemcatalog.SystemEntity) error {
+	return rc.sideChannel.detachTablesFromPublication(rc.publicationName, entities...)
 }
 
-func (rp *ReplicationContext) SnapshotTable(canonicalName string, snapshotId *string,
+func (rc *ReplicationContext) SnapshotTable(canonicalName string, snapshotName *string,
 	cb func(lsn pgtypes.LSN, values map[string]any) error) (pgtypes.LSN, error) {
 
-	return rp.sideChannel.snapshotTable(canonicalName, snapshotId, rp.snapshotBatchSize, cb)
+	return rc.sideChannel.snapshotTable(canonicalName, snapshotName, rc.snapshotBatchSize, cb)
 }
 
-func (rp *ReplicationContext) ReadReplicaIdentity(entity systemcatalog.SystemEntity) (pgtypes.ReplicaIdentity, error) {
-	return rp.sideChannel.readReplicaIdentity(entity.SchemaName(), entity.TableName())
+func (rc *ReplicationContext) ReadReplicaIdentity(entity systemcatalog.SystemEntity) (pgtypes.ReplicaIdentity, error) {
+	return rc.sideChannel.readReplicaIdentity(entity.SchemaName(), entity.TableName())
 }
 
-func (rp *ReplicationContext) ReadContinuousAggregate(
+func (rc *ReplicationContext) ReadContinuousAggregate(
 	materializedHypertableId int32) (viewSchema, viewName string, found bool, err error) {
 
-	return rp.sideChannel.readContinuousAggregate(materializedHypertableId)
+	return rc.sideChannel.readContinuousAggregate(materializedHypertableId)
 }
 
-func (rp *ReplicationContext) ReadPublishedTables() ([]systemcatalog.SystemEntity, error) {
-	return rp.sideChannel.readPublishedTables(rp.publicationName)
+func (rc *ReplicationContext) ReadPublishedTables() ([]systemcatalog.SystemEntity, error) {
+	return rc.sideChannel.readPublishedTables(rc.publicationName)
 }
 
-func (rp *ReplicationContext) CreatePublication() (bool, error) {
-	return rp.sideChannel.createPublication(rp.publicationName)
+func (rc *ReplicationContext) CreatePublication() (bool, error) {
+	return rc.sideChannel.createPublication(rc.publicationName)
 }
 
-func (rp *ReplicationContext) ExistsPublication() (bool, error) {
-	return rp.sideChannel.existsPublication(rp.publicationName)
+func (rc *ReplicationContext) ExistsPublication() (bool, error) {
+	return rc.sideChannel.existsPublication(rc.publicationName)
 }
 
-func (rp *ReplicationContext) DropPublication() error {
-	return rp.sideChannel.dropPublication(rp.publicationName)
+func (rc *ReplicationContext) DropPublication() error {
+	return rc.sideChannel.dropPublication(rc.publicationName)
+}
+
+func (rc *ReplicationContext) GetSnapshotHighWatermark(hypertable *systemcatalog.Hypertable) (map[string]any, error) {
+	return rc.sideChannel.getSnapshotHighWatermark(hypertable)
 }
 
 // ----> Dispatcher functions
 
-func (rp *ReplicationContext) RegisterReplicationEventHandler(handler eventhandlers.BaseReplicationEventHandler) {
-	rp.dispatcher.RegisterReplicationEventHandler(handler)
+func (rc *ReplicationContext) RegisterReplicationEventHandler(handler eventhandlers.BaseReplicationEventHandler) {
+	rc.dispatcher.RegisterReplicationEventHandler(handler)
 }
 
-func (rp *ReplicationContext) EnqueueTask(task Task) error {
-	return rp.dispatcher.EnqueueTask(task)
+func (rc *ReplicationContext) EnqueueTask(task Task) error {
+	return rc.dispatcher.EnqueueTask(task)
 }
 
-func (rp *ReplicationContext) EnqueueTaskAndWait(task Task) error {
-	return rp.dispatcher.EnqueueTaskAndWait(task)
-}
-
-// ----> Name Generator functions
-
-func (rp *ReplicationContext) EventTopicName(hypertable *systemcatalog.Hypertable) string {
-	return rp.namingStrategy.EventTopicName(rp.topicPrefix, hypertable)
-}
-
-func (rp *ReplicationContext) SchemaTopicName(hypertable *systemcatalog.Hypertable) string {
-	return rp.namingStrategy.SchemaTopicName(rp.topicPrefix, hypertable)
-}
-
-func (rp *ReplicationContext) MessageTopicName() string {
-	return rp.namingStrategy.MessageTopicName(rp.topicPrefix)
+func (rc *ReplicationContext) EnqueueTaskAndWait(task Task) error {
+	return rc.dispatcher.EnqueueTaskAndWait(task)
 }
 
 // ----> Name Generator functions
 
-func (rp *ReplicationContext) RegisterSchema(schemaName string, schema schema.Struct) {
-	rp.schemaRegistry.RegisterSchema(schemaName, schema)
+func (rc *ReplicationContext) EventTopicName(hypertable *systemcatalog.Hypertable) string {
+	return rc.namingStrategy.EventTopicName(rc.topicPrefix, hypertable)
 }
 
-func (rp *ReplicationContext) GetSchema(schemaName string) schema.Struct {
-	return rp.schemaRegistry.GetSchema(schemaName)
+func (rc *ReplicationContext) SchemaTopicName(hypertable *systemcatalog.Hypertable) string {
+	return rc.namingStrategy.SchemaTopicName(rc.topicPrefix, hypertable)
 }
 
-func (rp *ReplicationContext) GetSchemaOrCreate(schemaName string, creator func() schema.Struct) schema.Struct {
-	return rp.schemaRegistry.GetSchemaOrCreate(schemaName, creator)
+func (rc *ReplicationContext) MessageTopicName() string {
+	return rc.namingStrategy.MessageTopicName(rc.topicPrefix)
 }
 
-func (rp *ReplicationContext) HypertableEnvelopeSchemaName(hypertable *systemcatalog.Hypertable) string {
-	return rp.schemaRegistry.HypertableEnvelopeSchemaName(hypertable)
+// ----> Name Generator functions
+
+func (rc *ReplicationContext) RegisterSchema(schemaName string, schema schema.Struct) {
+	rc.schemaRegistry.RegisterSchema(schemaName, schema)
 }
 
-func (rp *ReplicationContext) HypertableKeySchemaName(hypertable *systemcatalog.Hypertable) string {
-	return rp.schemaRegistry.HypertableKeySchemaName(hypertable)
+func (rc *ReplicationContext) GetSchema(schemaName string) schema.Struct {
+	return rc.schemaRegistry.GetSchema(schemaName)
 }
 
-func (rp *ReplicationContext) MessageEnvelopeSchemaName() string {
-	return rp.schemaRegistry.MessageEnvelopeSchemaName()
+func (rc *ReplicationContext) GetSchemaOrCreate(schemaName string, creator func() schema.Struct) schema.Struct {
+	return rc.schemaRegistry.GetSchemaOrCreate(schemaName, creator)
 }
 
-func (rp *ReplicationContext) NewReplicationConnection() (*ReplicationConnection, error) {
-	return newReplicationConnection(rp)
+func (rc *ReplicationContext) HypertableEnvelopeSchemaName(hypertable *systemcatalog.Hypertable) string {
+	return rc.schemaRegistry.HypertableEnvelopeSchemaName(hypertable)
 }
 
-func (rp *ReplicationContext) newReplicationChannelConnection(ctx context.Context) (*pgconn.PgConn, error) {
-	connConfig := rp.pgxConfig.Config.Copy()
+func (rc *ReplicationContext) HypertableKeySchemaName(hypertable *systemcatalog.Hypertable) string {
+	return rc.schemaRegistry.HypertableKeySchemaName(hypertable)
+}
+
+func (rc *ReplicationContext) MessageEnvelopeSchemaName() string {
+	return rc.schemaRegistry.MessageEnvelopeSchemaName()
+}
+
+func (rc *ReplicationContext) NewReplicationConnection() (*ReplicationConnection, error) {
+	return newReplicationConnection(rc)
+}
+
+func (rc *ReplicationContext) newReplicationChannelConnection(ctx context.Context) (*pgconn.PgConn, error) {
+	connConfig := rc.pgxConfig.Config.Copy()
 	if connConfig.RuntimeParams == nil {
 		connConfig.RuntimeParams = make(map[string]string)
 	}
@@ -472,21 +490,21 @@ func (rp *ReplicationContext) newReplicationChannelConnection(ctx context.Contex
 	return pgconn.ConnectConfig(ctx, connConfig)
 }
 
-func (rp *ReplicationContext) newSideChannelConnection(ctx context.Context) (*pgx.Conn, error) {
-	return pgx.ConnectConfig(ctx, rp.pgxConfig)
+func (rc *ReplicationContext) newSideChannelConnection(ctx context.Context) (*pgx.Conn, error) {
+	return pgx.ConnectConfig(ctx, rc.pgxConfig)
 }
 
-func (rp *ReplicationContext) setPositionLSNs(receivedLSN, processedLSN pgtypes.LSN) {
-	rp.lsnMutex.Lock()
-	defer rp.lsnMutex.Unlock()
+func (rc *ReplicationContext) setPositionLSNs(receivedLSN, processedLSN pgtypes.LSN) {
+	rc.lsnMutex.Lock()
+	defer rc.lsnMutex.Unlock()
 
-	rp.lastReceivedLSN = receivedLSN
-	rp.lastProcessedLSN = processedLSN
+	rc.lastReceivedLSN = receivedLSN
+	rc.lastProcessedLSN = processedLSN
 }
 
-func (rp *ReplicationContext) positionLSNs() (receivedLSN, processedLSN pgtypes.LSN) {
-	rp.lsnMutex.Lock()
-	defer rp.lsnMutex.Unlock()
+func (rc *ReplicationContext) positionLSNs() (receivedLSN, processedLSN pgtypes.LSN) {
+	rc.lsnMutex.Lock()
+	defer rc.lsnMutex.Unlock()
 
-	return rp.lastReceivedLSN, rp.lastProcessedLSN
+	return rc.lastReceivedLSN, rc.lastProcessedLSN
 }
