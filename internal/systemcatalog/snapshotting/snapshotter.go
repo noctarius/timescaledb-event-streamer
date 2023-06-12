@@ -166,7 +166,7 @@ func (s *Snapshotter) snapshotHypertable(task SnapshotTask) error {
 		}
 
 		snapshotContext.SetHighWatermark(task.Hypertable, highWatermark)
-		watermark, present = snapshotContext.GetWatermark(task.Hypertable)
+		watermark, _ = snapshotContext.GetWatermark(task.Hypertable)
 	}
 
 	watermark.dataTypes = dataTypes

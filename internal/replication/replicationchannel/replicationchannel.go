@@ -116,14 +116,6 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 	}
 
 	startReplication := func() error {
-		if err := replicationConnection.Close(); err != nil {
-			// ignore explicitly
-		}
-		replicationConnection, err = replicationContext.NewReplicationConnection()
-		if err != nil {
-			return errors.Wrap(err, 0)
-		}
-
 		if err := replicationConnection.StartReplication(pluginArguments); err != nil {
 			return errors.Errorf("StartReplication failed: %s", err)
 		}

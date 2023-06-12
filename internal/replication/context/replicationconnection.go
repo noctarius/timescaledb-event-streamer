@@ -88,12 +88,24 @@ func (rc *ReplicationConnection) StartReplication(pluginArguments []string) erro
 	// we don't want to send LSN 0 to the server
 	rc.replicationContext.setPositionLSNs(restartLSN, restartLSN)
 
-	return pglogrepl.StartReplication(context.Background(), rc.conn,
+	if err := pglogrepl.StartReplication(context.Background(), rc.conn,
 		rc.replicationContext.ReplicationSlotName(), pglogrepl.LSN(restartLSN),
 		pglogrepl.StartReplicationOptions{
 			PluginArgs: pluginArguments,
 		},
-	)
+	); err != nil {
+		if err := rc.reconnect(); err != nil {
+			return errors.Wrap(err, 0)
+		}
+
+		return pglogrepl.StartReplication(context.Background(), rc.conn,
+			rc.replicationContext.ReplicationSlotName(), pglogrepl.LSN(restartLSN),
+			pglogrepl.StartReplicationOptions{
+				PluginArgs: pluginArguments,
+			},
+		)
+	}
+	return nil
 }
 
 func (rc *ReplicationConnection) StopReplication() error {

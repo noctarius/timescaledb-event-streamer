@@ -6,7 +6,7 @@ import (
 )
 
 func TestSchemaDifferences_Added_Column(t *testing.T) {
-	expected := "added: {name:test4 dataType:10 typeName:foo nullable:false primaryKey:false keySeq:<nil> defaultValue:<nil> replicaIdent:false indexName:<nil> sortOrder:ASC nullsOrder:NULLS LAST}"
+	expected := "added: {name:test4 dataType:10 typeName:foo nullable:false primaryKey:false keySeq:<nil> defaultValue:<nil> replicaIdent:false indexName:<nil> sortOrder:ASC nullsOrder:NULLS LAST dimension:false dimAligned:false dimType:<nil> dimSeq:<nil>}"
 	oldColumns := []Column{
 		NewColumn("test1", 10, "foo", false, nil),
 		NewColumn("test2", 10, "foo", false, nil),
@@ -94,7 +94,7 @@ func TestSchemaDifferences_Renamed_Last_Column(t *testing.T) {
 }
 
 func TestSchemaDifferences_Dropped_Column(t *testing.T) {
-	expected := "dropped: {name:test2 dataType:11 typeName:foo nullable:false primaryKey:false keySeq:<nil> defaultValue:<nil> replicaIdent:false indexName:<nil> sortOrder:ASC nullsOrder:NULLS LAST}"
+	expected := "dropped: {name:test2 dataType:11 typeName:foo nullable:false primaryKey:false keySeq:<nil> defaultValue:<nil> replicaIdent:false indexName:<nil> sortOrder:ASC nullsOrder:NULLS LAST dimension:false dimAligned:false dimType:<nil> dimSeq:<nil>}"
 	oldColumns := []Column{
 		NewColumn("test1", 10, "foo", false, nil),
 		NewColumn("test2", 11, "foo", false, nil),
@@ -122,7 +122,7 @@ func TestSchemaDifferences_Dropped_Column(t *testing.T) {
 }
 
 func TestSchemaDifferences_Dropped_Last_Column(t *testing.T) {
-	expected := "dropped: {name:test3 dataType:10 typeName:foo nullable:false primaryKey:false keySeq:<nil> defaultValue:<nil> replicaIdent:false indexName:<nil> sortOrder:ASC nullsOrder:NULLS LAST}"
+	expected := "dropped: {name:test3 dataType:10 typeName:foo nullable:false primaryKey:false keySeq:<nil> defaultValue:<nil> replicaIdent:false indexName:<nil> sortOrder:ASC nullsOrder:NULLS LAST dimension:false dimAligned:false dimType:<nil> dimSeq:<nil>}"
 	oldColumns := []Column{
 		NewColumn("test1", 10, "foo", false, nil),
 		NewColumn("test2", 10, "foo", false, nil),
