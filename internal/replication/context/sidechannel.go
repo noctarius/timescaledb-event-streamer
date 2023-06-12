@@ -78,7 +78,11 @@ SELECT
    coalesce(p.indisreplident, false) AS is_replica_ident,
    p.index_name,
    CASE o.option & 1 WHEN 1 THEN 'DESC' ELSE 'ASC' END AS index_column_order,
-   CASE o.option & 2 WHEN 2 THEN 'NULLS FIRST' ELSE 'NULLS LAST' END AS index_nulls_order
+   CASE o.option & 2 WHEN 2 THEN 'NULLS FIRST' ELSE 'NULLS LAST' END AS index_nulls_order,
+   d.column_name IS NOT NULL AS is_dimension,
+   coalesce(d.aligned, false) AS dim_aligned,
+   CASE WHEN d.interval_length IS NULL THEN 'space' ELSE 'time' END AS dim_type,
+   CASE WHEN d.column_name IS NOT NULL THEN rank() over (order by d.id) END
 FROM information_schema.columns c
 LEFT JOIN (
     SELECT
@@ -102,6 +106,8 @@ LEFT JOIN (
 LEFT JOIN pg_catalog.pg_namespace n ON n.nspname = c.udt_schema
 LEFT JOIN pg_catalog.pg_type t ON t.typnamespace = n.oid AND t.typname = c.udt_name
 LEFT JOIN unnest (p.indoption) WITH ORDINALITY o (option, ordinality) ON p.attnum = o.ordinality
+LEFT JOIN _timescaledb_catalog.hypertable h ON h.schema_name = c.table_schema AND h.table_name = c.table_name
+LEFT JOIN _timescaledb_catalog.dimension d ON d.hypertable_id = h.id AND d.column_name = c.column_name
 WHERE c.table_schema = $1
   AND c.table_name = $2
 ORDER BY c.ordinal_position`
@@ -476,36 +482,38 @@ func (sc *sideChannelImpl) snapshotTable(canonicalName string, snapshotName *str
 	return pgtypes.LSN(currentLSN), nil
 }
 
-func (sc *sideChannelImpl) getSnapshotHighWatermark(
-	hypertable *systemcatalog.Hypertable) (values map[string]any, err error) {
+func (sc *sideChannelImpl) readSnapshotHighWatermark(
+	hypertable *systemcatalog.Hypertable, snapshotName string) (values map[string]any, err error) {
 
-	index, present := hypertable.Columns().PrimaryKeyIndex()
+	index, present := hypertable.Columns().SnapshotIndex()
 	if !present {
 		return nil, nil
 	}
 
-	columns := strings.Join(supporting.Map(index.Columns(), func(element systemcatalog.Column) string {
-		return element.Name()
-	}), ",")
-
-	query := fmt.Sprintf(snapshotHighWatermark, columns, hypertable.CanonicalName(), index.AsSqlOrderBy())
+	query := fmt.Sprintf(snapshotHighWatermark, index.AsSqlTuple(), hypertable.CanonicalName(), index.AsSqlOrderBy())
 	if err := sc.newSession(time.Second*10, func(session *session) error {
-		row := session.queryRow(query)
-		rows := row.(pgx.Rows)
-
-		if rows.Err() != nil {
-			return errors.Wrap(rows.Err(), 0)
+		if _, err := session.exec("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ"); err != nil {
+			return err
 		}
 
-		rowDecoder, err := pgdecoding.NewRowDecoder(rows.FieldDescriptions())
-		if err != nil {
+		if _, err := session.exec(fmt.Sprintf("SET TRANSACTION SNAPSHOT '%s'", snapshotName)); err != nil {
 			return errors.Wrap(err, 0)
 		}
 
-		return rowDecoder.DecodeMapAndSink(rows.RawValues(), func(decoded map[string]any) error {
-			values = decoded
-			return nil
-		})
+		return session.queryFunc(func(row pgx.Row) error {
+			rows := row.(pgx.Rows)
+
+			rowDecoder, err := pgdecoding.NewRowDecoder(rows.FieldDescriptions())
+			if err != nil {
+				return errors.Wrap(err, 0)
+			}
+
+			return rowDecoder.DecodeMapAndSink(rows.RawValues(), func(decoded map[string]any) error {
+				values = decoded
+				return nil
+			})
+		}, query)
+
 	}); err != nil {
 		return nil, err
 	}
@@ -612,12 +620,13 @@ func (sc *sideChannelImpl) readHypertableSchema0(
 	if err := session.queryFunc(func(row pgx.Row) error {
 		var name, sortOrder, nullsOrder string
 		var oid uint32
-		var keySeq *int
-		var nullable, primaryKey, isReplicaIdent bool
-		var defaultValue, indexName *string
+		var keySeq, dimSeq *int
+		var nullable, primaryKey, isReplicaIdent, dimension, dimAligned bool
+		var defaultValue, indexName, dimType *string
 
 		if err := row.Scan(&name, &oid, &nullable, &primaryKey, &keySeq,
-			&defaultValue, &isReplicaIdent, &indexName, &sortOrder, &nullsOrder); err != nil {
+			&defaultValue, &isReplicaIdent, &indexName, &sortOrder, &nullsOrder,
+			&dimension, &dimAligned, &dimType, &dimSeq); err != nil {
 
 			return errors.Wrap(err, 0)
 		}
@@ -630,6 +639,7 @@ func (sc *sideChannelImpl) readHypertableSchema0(
 		column := systemcatalog.NewIndexColumn(
 			name, oid, string(dataType), nullable, primaryKey, keySeq, defaultValue, isReplicaIdent, indexName,
 			systemcatalog.IndexSortOrder(sortOrder), systemcatalog.IndexNullsOrder(nullsOrder),
+			dimension, dimAligned, dimType, dimSeq,
 		)
 		columns = append(columns, column)
 		return nil

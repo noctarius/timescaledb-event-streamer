@@ -9,6 +9,27 @@ import (
 // may or may not represent an index
 type Columns []Column
 
+// SnapshotIndex returns the index used for snapshot watermarks. This
+// can either be an actual index, such as a primary key, or a virtual
+// index based on the dimensions of the hypertable.
+func (c Columns) SnapshotIndex() (index *Index, present bool) {
+	if index, present := c.PrimaryKeyIndex(); present {
+		return index, true
+	}
+
+	dimensionColumns := supporting.Filter(c, func(item Column) bool {
+		return item.IsDimension()
+	})
+
+	supporting.Sort(dimensionColumns, func(this, other Column) bool {
+		return *this.dimSeq < *other.dimSeq
+	})
+
+	return newIndex(
+		"dimensions", dimensionColumns, false, false,
+	), true
+}
+
 // HasPrimaryKey returns true if the collection of columns contains
 // one or more primary key column(s)
 func (c Columns) HasPrimaryKey() bool {
@@ -84,6 +105,10 @@ type Column struct {
 	indexName    *string
 	sortOrder    IndexSortOrder
 	nullsOrder   IndexNullsOrder
+	dimension    bool
+	dimAligned   bool
+	dimType      *string
+	dimSeq       *int
 }
 
 // NewColumn instantiates a new Column instance which isn't
@@ -93,13 +118,15 @@ func NewColumn(name string, dataType uint32, typeName string, nullable bool, def
 	return NewIndexColumn(
 		name, dataType, typeName, nullable, false, nil,
 		defaultValue, false, nil, ASC, NULLS_LAST,
+		false, false, nil, nil,
 	)
 }
 
 // NewIndexColumn instantiates a new Column instance
 func NewIndexColumn(name string, dataType uint32, typeName string, nullable, primaryKey bool,
 	keySeq *int, defaultValue *string, isReplicaIdent bool, indexName *string,
-	sortOrder IndexSortOrder, nullsOrder IndexNullsOrder) Column {
+	sortOrder IndexSortOrder, nullsOrder IndexNullsOrder,
+	dimension bool, dimAligned bool, dimType *string, dimSeq *int) Column {
 
 	return Column{
 		name:         name,
@@ -113,6 +140,10 @@ func NewIndexColumn(name string, dataType uint32, typeName string, nullable, pri
 		indexName:    indexName,
 		sortOrder:    sortOrder,
 		nullsOrder:   nullsOrder,
+		dimension:    dimension,
+		dimAligned:   dimAligned,
+		dimType:      dimType,
+		dimSeq:       dimSeq,
 	}
 }
 
@@ -155,6 +186,25 @@ func (c Column) DefaultValue() *string {
 	return c.defaultValue
 }
 
+// IsDimension returns true if the column is used
+// as a dimension of the hypertable
+func (c Column) IsDimension() bool {
+	return c.dimension
+}
+
+// IsDimensionAligned returns true if the range of
+// the dimension is aligned
+func (c Column) IsDimensionAligned() bool {
+	return c.dimAligned
+}
+
+// DimensionType returns the type (`space` or `time`)
+// of the dimension. If not a dimension, this function
+// returns nil.
+func (c Column) DimensionType() *string {
+	return c.dimType
+}
+
 func (c Column) equals(other Column) bool {
 	return c.name == other.name &&
 		c.typeName == other.typeName &&
@@ -167,7 +217,13 @@ func (c Column) equals(other Column) bool {
 		((c.defaultValue == nil && other.defaultValue == nil) ||
 			(c.defaultValue != nil && other.defaultValue != nil && *c.defaultValue == *other.defaultValue)) &&
 		((c.indexName == nil && other.indexName == nil) ||
-			(c.indexName != nil && other.indexName != nil && *c.indexName == *other.indexName))
+			(c.indexName != nil && other.indexName != nil && *c.indexName == *other.indexName)) &&
+		c.dimension == other.dimension &&
+		c.dimAligned == other.dimAligned &&
+		((c.dimType == nil && other.dimType == nil) ||
+			(c.dimType != nil && other.dimType != nil && *c.dimType == *other.dimType)) &&
+		((c.dimSeq == nil && other.dimSeq == nil) ||
+			(c.dimSeq != nil && other.dimSeq != nil && *c.dimSeq == *other.dimSeq))
 }
 
 func (c Column) equalsExceptName(other Column) bool {
@@ -181,7 +237,13 @@ func (c Column) equalsExceptName(other Column) bool {
 		((c.defaultValue == nil && other.defaultValue == nil) ||
 			(c.defaultValue != nil && other.defaultValue != nil && *c.defaultValue == *other.defaultValue)) &&
 		((c.indexName == nil && other.indexName == nil) ||
-			(c.indexName != nil && other.indexName != nil && *c.indexName == *other.indexName))
+			(c.indexName != nil && other.indexName != nil && *c.indexName == *other.indexName)) &&
+		c.dimension == other.dimension &&
+		c.dimAligned == other.dimAligned &&
+		((c.dimType == nil && other.dimType == nil) ||
+			(c.dimType != nil && other.dimType != nil && *c.dimType == *other.dimType)) &&
+		((c.dimSeq == nil && other.dimSeq == nil) ||
+			(c.dimSeq != nil && other.dimSeq != nil && *c.dimSeq == *other.dimSeq))
 }
 
 func (c Column) differences(new Column) map[string]string {
@@ -239,6 +301,36 @@ func (c Column) differences(new Column) map[string]string {
 			n = *new.defaultValue
 		}
 		differences["defaultValue"] = fmt.Sprintf("%s=>%s", o, n)
+	}
+	if c.dimension != new.dimension {
+		differences["dimension"] = fmt.Sprintf("%t=>%t", c.dimension, new.dimension)
+	}
+	if c.dimAligned != new.dimAligned {
+		differences["dimAligned"] = fmt.Sprintf("%t=>%t", c.dimAligned, new.dimAligned)
+	}
+	if (c.dimType == nil && new.dimType != nil) ||
+		(c.dimType != nil && new.dimType == nil) {
+		o := "<nil>"
+		if c.dimType != nil {
+			o = *c.dimType
+		}
+		n := "<nil>"
+		if new.dimType != nil {
+			n = *new.dimType
+		}
+		differences["dimType"] = fmt.Sprintf("%s=>%s", o, n)
+	}
+	if (c.dimSeq == nil && new.dimSeq != nil) ||
+		(c.dimSeq != nil && new.dimSeq == nil) {
+		o := "<nil>"
+		if c.dimSeq != nil {
+			o = fmt.Sprintf("%d", *c.dimSeq)
+		}
+		n := "<nil>"
+		if new.dimSeq != nil {
+			o = fmt.Sprintf("%d", *new.dimSeq)
+		}
+		differences["dimSeq"] = fmt.Sprintf("%s=>%s", o, n)
 	}
 	return differences
 }

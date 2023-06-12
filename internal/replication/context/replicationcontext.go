@@ -393,6 +393,12 @@ func (rc *ReplicationContext) SnapshotTable(canonicalName string, snapshotName *
 	return rc.sideChannel.snapshotTable(canonicalName, snapshotName, rc.snapshotBatchSize, cb)
 }
 
+func (rc *ReplicationContext) ReadSnapshotHighWatermark(
+	hypertable *systemcatalog.Hypertable, snapshotName string) (map[string]any, error) {
+
+	return rc.sideChannel.readSnapshotHighWatermark(hypertable, snapshotName)
+}
+
 func (rc *ReplicationContext) ReadReplicaIdentity(entity systemcatalog.SystemEntity) (pgtypes.ReplicaIdentity, error) {
 	return rc.sideChannel.readReplicaIdentity(entity.SchemaName(), entity.TableName())
 }
@@ -417,10 +423,6 @@ func (rc *ReplicationContext) ExistsPublication() (bool, error) {
 
 func (rc *ReplicationContext) DropPublication() error {
 	return rc.sideChannel.dropPublication(rc.publicationName)
-}
-
-func (rc *ReplicationContext) GetSnapshotHighWatermark(hypertable *systemcatalog.Hypertable) (map[string]any, error) {
-	return rc.sideChannel.getSnapshotHighWatermark(hypertable)
 }
 
 // ----> Dispatcher functions

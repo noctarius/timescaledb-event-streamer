@@ -17,7 +17,7 @@ type Notificator interface {
 	NotifyCompressionReplicationEventHandler(fn func(handler eventhandlers.CompressionReplicationEventHandler) error)
 	NotifyHypertableReplicationEventHandler(fn func(handler eventhandlers.HypertableReplicationEventHandler) error)
 	NotifyLogicalReplicationEventHandler(fn func(handler eventhandlers.LogicalReplicationEventHandler) error)
-	NotifyChunkSnapshotEventHandler(fn func(handler eventhandlers.ChunkSnapshotEventHandler) error)
+	NotifySnapshottingEventHandler(fn func(handler eventhandlers.SnapshottingEventHandler) error)
 }
 
 type dispatcher struct {
@@ -27,7 +27,7 @@ type dispatcher struct {
 	compressionHandlers []eventhandlers.CompressionReplicationEventHandler
 	hypertableHandlers  []eventhandlers.HypertableReplicationEventHandler
 	logicalHandlers     []eventhandlers.LogicalReplicationEventHandler
-	snapshotHandlers    []eventhandlers.ChunkSnapshotEventHandler
+	snapshotHandlers    []eventhandlers.SnapshottingEventHandler
 	shutdownAwaiter     *supporting.ShutdownAwaiter
 	shutdownActive      bool
 }
@@ -40,7 +40,7 @@ func newDispatcher() *dispatcher {
 		compressionHandlers: make([]eventhandlers.CompressionReplicationEventHandler, 0),
 		hypertableHandlers:  make([]eventhandlers.HypertableReplicationEventHandler, 0),
 		logicalHandlers:     make([]eventhandlers.LogicalReplicationEventHandler, 0),
-		snapshotHandlers:    make([]eventhandlers.ChunkSnapshotEventHandler, 0),
+		snapshotHandlers:    make([]eventhandlers.SnapshottingEventHandler, 0),
 		shutdownAwaiter:     supporting.NewShutdownAwaiter(),
 	}
 	return d
@@ -90,7 +90,7 @@ func (d *dispatcher) RegisterReplicationEventHandler(handler eventhandlers.BaseR
 		d.logicalHandlers = append(d.logicalHandlers, h)
 	}
 
-	if h, ok := handler.(eventhandlers.ChunkSnapshotEventHandler); ok {
+	if h, ok := handler.(eventhandlers.SnapshottingEventHandler); ok {
 		for _, candidate := range d.snapshotHandlers {
 			if candidate == h {
 				return
@@ -149,7 +149,7 @@ func (d *dispatcher) UnregisterReplicationEventHandler(handler eventhandlers.Bas
 		}
 	}
 
-	if h, ok := handler.(eventhandlers.ChunkSnapshotEventHandler); ok {
+	if h, ok := handler.(eventhandlers.SnapshottingEventHandler); ok {
 		for index, candidate := range d.snapshotHandlers {
 			if candidate == h {
 				// Erase element (zero value) to prevent memory leak
@@ -263,8 +263,8 @@ func (n *notificatorImpl) NotifyLogicalReplicationEventHandler(
 	}
 }
 
-func (n *notificatorImpl) NotifyChunkSnapshotEventHandler(
-	fn func(handler eventhandlers.ChunkSnapshotEventHandler) error) {
+func (n *notificatorImpl) NotifySnapshottingEventHandler(
+	fn func(handler eventhandlers.SnapshottingEventHandler) error) {
 
 	for _, handler := range n.dispatcher.snapshotHandlers {
 		if err := fn(handler); err != nil {

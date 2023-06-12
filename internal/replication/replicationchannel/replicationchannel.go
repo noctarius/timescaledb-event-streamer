@@ -6,8 +6,9 @@ import (
 	repcontext "github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
-	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/snapshotting"
 	"github.com/noctarius/timescaledb-event-streamer/spi/config"
+	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
+	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 )
 
@@ -115,6 +116,14 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 	}
 
 	startReplication := func() error {
+		if err := replicationConnection.Close(); err != nil {
+			// ignore explicitly
+		}
+		replicationConnection, err = replicationContext.NewReplicationConnection()
+		if err != nil {
+			return errors.Wrap(err, 0)
+		}
+
 		if err := replicationConnection.StartReplication(pluginArguments); err != nil {
 			return errors.Errorf("StartReplication failed: %s", err)
 		}
@@ -145,9 +154,6 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 		if !createdReplicationSlot {
 			return errors.Errorf("Snapshot mode 'always' must create a replication slot!")
 		}
-
-		// TODO: Kick off snapshotting
-
 	} else if initialSnapshotMode == config.InitialOnly &&
 		(offset == nil || (offset.Snapshot && offset.SnapshotName != nil)) {
 
@@ -167,20 +173,28 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 				snapshotName = *offset.SnapshotName
 			}
 		}
+	} else {
+		snapshotName = ""
+	}
 
-		watermarks := &snapshotting.Watermarks{}
-		present, err := rc.replicationContext.StateDecoder("watermarks", watermarks)
-		if err != nil {
+	// Start snapshotting
+	if snapshotName != "" {
+		rc.replicationContext.RegisterReplicationEventHandler(
+			&snapshottingEventHandler{
+				startReplication: startReplication,
+			},
+		)
+
+		// Kick of the actual snapshotting
+		if err := rc.replicationContext.EnqueueTask(func(notificator repcontext.Notificator) {
+			notificator.NotifySnapshottingEventHandler(func(handler eventhandlers.SnapshottingEventHandler) error {
+				return handler.OnSnapshottingStartedEvent(snapshotName)
+			})
+		}); err != nil {
 			return err
 		}
-
-
-
-		snapshotName
-		rc.replicationContext.
-
-
 	} else {
+		// No snapshotting necessary, start replicator immediately
 		if err := startReplication(); err != nil {
 			return err
 		}
@@ -209,4 +223,40 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 	}()
 
 	return nil
+}
+
+type snapshottingEventHandler struct {
+	startReplication func() error
+}
+
+func (s *snapshottingEventHandler) OnRelationEvent(_ pgtypes.XLogData, _ *pgtypes.RelationMessage) error {
+	return nil
+}
+
+func (s *snapshottingEventHandler) OnChunkSnapshotStartedEvent(
+	_ *systemcatalog.Hypertable, _ *systemcatalog.Chunk) error {
+
+	return nil
+}
+
+func (s *snapshottingEventHandler) OnChunkSnapshotFinishedEvent(
+	_ *systemcatalog.Hypertable, _ *systemcatalog.Chunk, _ pgtypes.LSN) error {
+
+	return nil
+}
+
+func (s *snapshottingEventHandler) OnHypertableSnapshotStartedEvent(_ string, _ *systemcatalog.Hypertable) error {
+	return nil
+}
+
+func (s *snapshottingEventHandler) OnHypertableSnapshotFinishedEvent(_ string, _ *systemcatalog.Hypertable) error {
+	return nil
+}
+
+func (s *snapshottingEventHandler) OnSnapshottingStartedEvent(_ string) error {
+	return nil
+}
+
+func (s *snapshottingEventHandler) OnSnapshottingFinishedEvent() error {
+	return s.startReplication()
 }

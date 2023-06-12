@@ -134,7 +134,7 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 	// Get initial list of chunks to add to publication
 	initialChunkTables := systemCatalog.GetAllChunks()
 
-	// Filter chunks by already published tables
+	// Filter published chunks to only add new chunks
 	alreadyPublished, err := replicationContext.ReadPublishedTables()
 	if err != nil {
 		return supporting.AdaptError(err, 250)

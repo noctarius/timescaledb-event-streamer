@@ -2,11 +2,9 @@ package logicalreplicationresolver
 
 import (
 	"github.com/jackc/pglogrepl"
-	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog"
-	"github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	spicatalog "github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
@@ -28,16 +26,11 @@ type transactionTracker struct {
 	logger             *logging.Logger
 }
 
-func newTransactionTracker(timeout time.Duration, maxSize uint, config *config.Config,
-	replicationContext *context.ReplicationContext, systemCatalog *systemcatalog.SystemCatalog,
+func newTransactionTracker(timeout time.Duration, maxSize uint,
+	systemCatalog *systemcatalog.SystemCatalog, resolver *logicalReplicationResolver,
 ) (eventhandlers.LogicalReplicationEventHandler, error) {
 
 	logger, err := logging.NewLogger("TransactionTracker")
-	if err != nil {
-		return nil, err
-	}
-
-	resolver, err := newLogicalReplicationResolver(config, replicationContext, systemCatalog)
 	if err != nil {
 		return nil, err
 	}
@@ -50,6 +43,22 @@ func newTransactionTracker(timeout time.Duration, maxSize uint, config *config.C
 		logger:        logger,
 		resolver:      resolver,
 	}, nil
+}
+
+func (tt *transactionTracker) OnHypertableSnapshotStartedEvent(hypertable *spicatalog.Hypertable) error {
+	return tt.resolver.OnHypertableSnapshotStartedEvent(hypertable)
+}
+
+func (tt *transactionTracker) OnHypertableSnapshotFinishedEvent(hypertable *spicatalog.Hypertable) error {
+	return tt.resolver.OnHypertableSnapshotFinishedEvent(hypertable)
+}
+
+func (tt *transactionTracker) OnSnapshottingStartedEvent(snapshotName string) error {
+	return tt.resolver.OnSnapshottingStartedEvent(snapshotName)
+}
+
+func (tt *transactionTracker) OnSnapshottingFinishedEvent() error {
+	return tt.resolver.OnSnapshottingFinishedEvent()
 }
 
 func (tt *transactionTracker) OnChunkSnapshotStartedEvent(

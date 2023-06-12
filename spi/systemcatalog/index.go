@@ -79,7 +79,7 @@ func (i *Index) AsSqlOrderBy() string {
 	columnList := supporting.Map(i.columns, func(t Column) string {
 		return fmt.Sprintf("%s DESC", t.Name())
 	})
-	return fmt.Sprintf("%s", strings.Join(columnList, ","))
+	return strings.Join(columnList, ",")
 }
 
 // WhereTupleGE creates a WHERE-clause string which selects all values

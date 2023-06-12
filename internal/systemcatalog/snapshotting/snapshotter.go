@@ -16,7 +16,7 @@ type SnapshotTask struct {
 	Hypertable   *systemcatalog.Hypertable
 	Chunk        *systemcatalog.Chunk
 	Xld          *pgtypes.XLogData
-	snapshotName *string
+	SnapshotName *string
 }
 
 type Snapshotter struct {
@@ -61,7 +61,7 @@ func (s *Snapshotter) EnqueueSnapshot(task SnapshotTask) error {
 	// Notify of snapshotting to save incoming events
 	if task.Chunk != nil {
 		err := s.replicationContext.EnqueueTask(func(notificator context.Notificator) {
-			notificator.NotifyChunkSnapshotEventHandler(func(handler eventhandlers.ChunkSnapshotEventHandler) error {
+			notificator.NotifySnapshottingEventHandler(func(handler eventhandlers.SnapshottingEventHandler) error {
 				return handler.OnChunkSnapshotStartedEvent(task.Hypertable, task.Chunk)
 			})
 			enqueueSnapshotTask()
@@ -136,29 +136,51 @@ func (s *Snapshotter) snapshotChunk(task SnapshotTask) error {
 	}
 
 	return s.replicationContext.EnqueueTaskAndWait(func(notificator context.Notificator) {
-		notificator.NotifyChunkSnapshotEventHandler(func(handler eventhandlers.ChunkSnapshotEventHandler) error {
+		notificator.NotifySnapshottingEventHandler(func(handler eventhandlers.SnapshottingEventHandler) error {
 			return handler.OnChunkSnapshotFinishedEvent(task.Hypertable, task.Chunk, lsn)
 		})
 	})
 }
 
 func (s *Snapshotter) snapshotHypertable(task SnapshotTask) error {
-	if index, present := task.Hypertable.Columns().PrimaryKeyIndex(); present {
+	dataTypes := make(map[string]uint32)
+	if index, present := task.Hypertable.Columns().SnapshotIndex(); present {
 		for _, column := range index.Columns() {
-			column.Name()
+			dataTypes[column.Name()] = column.DataType()
 		}
 	}
 
 	// tableSnapshotState
-	watermarks := &Watermarks{}
-	present, err := s.replicationContext.StateDecoder("watermarks", watermarks)
+	snapshotContext, err := getOrCreateSnapshotContext(s.replicationContext, *task.SnapshotName)
 	if err != nil {
+		return errors.Wrap(err, 0)
+	}
+
+	watermark, present := snapshotContext.GetWatermark(task.Hypertable)
+
+	// Initialize the watermark
+	if !present {
+		highWatermark, err := s.replicationContext.ReadSnapshotHighWatermark(task.Hypertable, *task.SnapshotName)
+		if err != nil {
+			return errors.Wrap(err, 0)
+		}
+
+		snapshotContext.SetHighWatermark(task.Hypertable, highWatermark)
+		watermark, present = snapshotContext.GetWatermark(task.Hypertable)
+	}
+
+	watermark.dataTypes = dataTypes
+
+	// Save snapshot context
+	if err := SetSnapshotContext(s.replicationContext, snapshotContext); err != nil {
 		return err
 	}
 
-	if !present {
-		s.replicationContext.GetSnapshotHighWatermark(task.Hypertable)
-	}
+	return s.replicationContext.EnqueueTask(func(notificator context.Notificator) {
+		notificator.NotifySnapshottingEventHandler(func(handler eventhandlers.SnapshottingEventHandler) error {
+			return handler.OnHypertableSnapshotFinishedEvent(*task.SnapshotName, task.Hypertable)
+		})
+	})
 
-	return nil // TODO
+	// FIXME return nil
 }

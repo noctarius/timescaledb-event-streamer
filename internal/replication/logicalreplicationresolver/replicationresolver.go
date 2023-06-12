@@ -58,6 +58,23 @@ func newLogicalReplicationResolver(config *spiconfig.Config, replicationContext 
 	}, nil
 }
 
+func (l *logicalReplicationResolver) OnHypertableSnapshotStartedEvent(_ *spicatalog.Hypertable) error {
+	return nil
+}
+
+func (l *logicalReplicationResolver) OnHypertableSnapshotFinishedEvent(_ *spicatalog.Hypertable) error {
+	return nil
+}
+
+func (l *logicalReplicationResolver) OnSnapshottingStartedEvent(_ string) error {
+	return nil
+}
+
+func (l *logicalReplicationResolver) OnSnapshottingFinishedEvent() error {
+	// FIXME: Kick off the actual replication loop
+	return nil
+}
+
 func (l *logicalReplicationResolver) OnChunkSnapshotStartedEvent(
 	_ *spicatalog.Hypertable, chunk *spicatalog.Chunk) error {
 
