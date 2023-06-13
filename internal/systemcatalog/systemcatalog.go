@@ -360,24 +360,23 @@ func (s *snapshottingEventHandler) OnHypertableSnapshotStartedEvent(
 func (s *snapshottingEventHandler) OnHypertableSnapshotFinishedEvent(
 	snapshotName string, hypertable *systemcatalog.Hypertable) error {
 
-	snapshotContext, err := snapshotting.GetSnapshotContext(s.systemCatalog.replicationContext)
-	if err != nil {
-		return err
-	}
+	if err := snapshotting.SnapshotContextTransaction(
+		s.systemCatalog.replicationContext,
+		snapshotName,
+		false,
+		func(snapshotContext *snapshotting.SnapshotContext) error {
+			s.handledHypertables = append(s.handledHypertables, hypertable.CanonicalName())
 
-	if snapshotContext == nil {
-		// If for some reason we do not have a snapshot context yet, fail hard
-		return errors.Errorf("illegal snapshot context state after snapshotting hypertable")
-	}
+			watermark, _ := snapshotContext.GetOrCreateWatermark(hypertable)
+			watermark.MarkComplete()
 
-	s.handledHypertables = append(s.handledHypertables, hypertable.CanonicalName())
-	snapshotContext.MarkWatermarkComplete(hypertable)
-	if err := snapshotting.SetSnapshotContext(s.systemCatalog.replicationContext, snapshotContext); err != nil {
-		return err
+			return nil
+		},
+	); err != nil {
+		return errors.WrapPrefix(err, "illegal snapshot context state after snapshotting hypertable", 0)
 	}
 
 	s.systemCatalog.logger.Infof("Finished snapshotting for hypertable '%s'", hypertable.CanonicalName())
-
 	return s.scheduleNextSnapshotHypertableOrFinish(snapshotName)
 }
 

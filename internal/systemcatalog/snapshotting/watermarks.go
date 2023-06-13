@@ -13,46 +13,23 @@ type SnapshotContext struct {
 	watermarks   map[string]*Watermark
 }
 
-func (sc *SnapshotContext) GetWatermark(hypertable *systemcatalog.Hypertable) (watermark Watermark, present bool) {
+func (sc *SnapshotContext) GetWatermark(hypertable *systemcatalog.Hypertable) (watermark *Watermark, present bool) {
 	w, present := sc.watermarks[hypertable.CanonicalName()]
 	if !present {
-		return Watermark{}, false
+		return nil, false
 	}
-	return *w, true
+	return w, true
 }
 
-func (sc *SnapshotContext) MarkWatermarkComplete(hypertable *systemcatalog.Hypertable) {
-	watermark, present := sc.watermarks[hypertable.CanonicalName()]
+func (sc *SnapshotContext) GetOrCreateWatermark(
+	hypertable *systemcatalog.Hypertable) (watermark *Watermark, created bool) {
+
+	w, present := sc.watermarks[hypertable.CanonicalName()]
 	if !present {
-		watermark = newWatermark()
-		sc.watermarks[hypertable.CanonicalName()] = watermark
+		w = newWatermark(hypertable)
+		sc.watermarks[hypertable.CanonicalName()] = w
 	}
-	watermark.complete = true
-}
-
-func (sc *SnapshotContext) SetHighWatermark(hypertable *systemcatalog.Hypertable, values map[string]any) {
-	watermark, present := sc.watermarks[hypertable.CanonicalName()]
-	if !present {
-		watermark = newWatermark()
-		sc.watermarks[hypertable.CanonicalName()] = watermark
-	}
-	watermark.high = values
-}
-
-func (sc *SnapshotContext) SetLowWatermark(hypertable *systemcatalog.Hypertable, values map[string]any) {
-	watermark, present := sc.watermarks[hypertable.CanonicalName()]
-	if !present {
-		watermark = newWatermark()
-
-		if index, ok := hypertable.Columns().PrimaryKeyIndex(); ok {
-			for _, column := range index.Columns() {
-				watermark.dataTypes[column.Name()] = column.DataType()
-			}
-		}
-
-		sc.watermarks[hypertable.CanonicalName()] = watermark
-	}
-	watermark.low = values
+	return w, !present
 }
 
 func (sc *SnapshotContext) MarshalBinary() (data []byte, err error) {
@@ -247,10 +224,17 @@ type Watermark struct {
 	low       map[string]any
 }
 
-func newWatermark() *Watermark {
+func newWatermark(hypertable *systemcatalog.Hypertable) *Watermark {
+	dataTypes := make(map[string]uint32)
+	if index, ok := hypertable.Columns().SnapshotIndex(); ok {
+		for _, column := range index.Columns() {
+			dataTypes[column.Name()] = column.DataType()
+		}
+	}
+
 	return &Watermark{
 		complete:  false,
-		dataTypes: make(map[string]uint32),
+		dataTypes: dataTypes,
 		high:      make(map[string]any),
 		low:       make(map[string]any),
 	}
@@ -258,4 +242,28 @@ func newWatermark() *Watermark {
 
 func (w *Watermark) Complete() bool {
 	return w.complete
+}
+
+func (w *Watermark) MarkComplete() {
+	w.complete = true
+}
+
+func (w *Watermark) HighWatermark() map[string]any {
+	return w.high
+}
+
+func (w *Watermark) SetHighWatermark(values map[string]any) {
+	w.high = values
+}
+
+func (w *Watermark) LowWatermark() map[string]any {
+	return w.low
+}
+
+func (w *Watermark) SetLowWatermark(values map[string]any) {
+	w.low = values
+}
+
+func (w *Watermark) DataTypes() map[string]uint32 {
+	return w.dataTypes
 }

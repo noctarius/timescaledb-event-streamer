@@ -19,6 +19,38 @@ func GetSnapshotContext(replicationContext *context.ReplicationContext) (*Snapsh
 	return snapshotContext, nil
 }
 
+func SnapshotContextTransaction(replicationContext *context.ReplicationContext, snapshotName string,
+	createIfNotExists bool, transaction func(snapshotContext *SnapshotContext) error) error {
+
+	retrieval := func() (*SnapshotContext, error) {
+		return GetSnapshotContext(replicationContext)
+	}
+
+	if createIfNotExists {
+		retrieval = func() (*SnapshotContext, error) {
+			return getOrCreateSnapshotContext(replicationContext, snapshotName)
+		}
+	}
+
+	snapshotContext, err := retrieval()
+	if err != nil {
+		return err
+	}
+
+	if snapshotContext == nil && !createIfNotExists {
+		return errors.Errorf("No such snapshot context found")
+	}
+
+	if err := transaction(snapshotContext); err != nil {
+		return err
+	}
+
+	if err := SetSnapshotContext(replicationContext, snapshotContext); err != nil {
+		return err
+	}
+	return nil
+}
+
 func SetSnapshotContext(replicationContext *context.ReplicationContext, snapshotContext *SnapshotContext) error {
 	return replicationContext.StateEncoder(stateContextName, snapshotContext)
 }

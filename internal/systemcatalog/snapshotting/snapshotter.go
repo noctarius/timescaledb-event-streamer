@@ -143,37 +143,28 @@ func (s *Snapshotter) snapshotChunk(task SnapshotTask) error {
 }
 
 func (s *Snapshotter) snapshotHypertable(task SnapshotTask) error {
-	dataTypes := make(map[string]uint32)
-	if index, present := task.Hypertable.Columns().SnapshotIndex(); present {
-		for _, column := range index.Columns() {
-			dataTypes[column.Name()] = column.DataType()
-		}
-	}
-
 	// tableSnapshotState
-	snapshotContext, err := getOrCreateSnapshotContext(s.replicationContext, *task.SnapshotName)
-	if err != nil {
+	if err := SnapshotContextTransaction(
+		s.replicationContext,
+		*task.SnapshotName,
+		true,
+		func(snapshotContext *SnapshotContext) error {
+			watermark, created := snapshotContext.GetOrCreateWatermark(task.Hypertable)
+
+			// Initialize the watermark
+			if created {
+				highWatermark, err := s.replicationContext.ReadSnapshotHighWatermark(task.Hypertable, *task.SnapshotName)
+				if err != nil {
+					return errors.Wrap(err, 0)
+				}
+
+				watermark.SetHighWatermark(highWatermark)
+			}
+
+			return nil
+		},
+	); err != nil {
 		return errors.Wrap(err, 0)
-	}
-
-	watermark, present := snapshotContext.GetWatermark(task.Hypertable)
-
-	// Initialize the watermark
-	if !present {
-		highWatermark, err := s.replicationContext.ReadSnapshotHighWatermark(task.Hypertable, *task.SnapshotName)
-		if err != nil {
-			return errors.Wrap(err, 0)
-		}
-
-		snapshotContext.SetHighWatermark(task.Hypertable, highWatermark)
-		watermark, _ = snapshotContext.GetWatermark(task.Hypertable)
-	}
-
-	watermark.dataTypes = dataTypes
-
-	// Save snapshot context
-	if err := SetSnapshotContext(s.replicationContext, snapshotContext); err != nil {
-		return err
 	}
 
 	return s.replicationContext.EnqueueTask(func(notificator context.Notificator) {
