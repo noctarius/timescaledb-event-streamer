@@ -178,7 +178,7 @@ func stringUnmarshaller(buffer encoding.ReadBuffer, _ uint32) (value any, err er
 
 func timestampMarshaller(buffer encoding.WriteBuffer, _ uint32, value any) error {
 	if t, ok := value.(time.Time); ok {
-		if data, err := t.MarshalBinary(); err != nil {
+		if data, err := t.MarshalBinary(); err == nil {
 			return buffer.PutBytes(data)
 		} else {
 			return errors.Wrap(err, 0)

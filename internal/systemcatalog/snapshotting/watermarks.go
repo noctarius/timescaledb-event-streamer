@@ -84,10 +84,10 @@ func (sc *SnapshotContext) MarshalBinary() (data []byte, err error) {
 			}
 		}
 
-		if err := buffer.PutBool(watermark.low != nil); err != nil {
+		if err := buffer.PutBool(watermark.low != nil && len(watermark.low) > 0); err != nil {
 			return nil, err
 		}
-		if watermark.low != nil {
+		if watermark.low != nil && len(watermark.low) > 0 {
 			for column, value := range watermark.low {
 				if err := buffer.PutString(column); err != nil {
 					return nil, err
