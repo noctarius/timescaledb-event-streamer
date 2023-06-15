@@ -10,6 +10,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
+	"sync/atomic"
 )
 
 // ReplicationChannel represents the database connection and handler loop
@@ -19,6 +20,7 @@ type ReplicationChannel struct {
 	createdPublication bool
 	shutdownAwaiter    *supporting.ShutdownAwaiter
 	logger             *logging.Logger
+	shutdownRequested  atomic.Bool
 }
 
 // NewReplicationChannel instantiates a new instance of the ReplicationChannel.
@@ -39,6 +41,7 @@ func NewReplicationChannel(replicationContext *repcontext.ReplicationContext) (*
 // and logical replication handler loop. This call will block until the loop is
 // cleanly shut down.
 func (rc *ReplicationChannel) StopReplicationChannel() error {
+	rc.shutdownRequested.Store(true)
 	rc.shutdownAwaiter.SignalShutdown()
 	return rc.shutdownAwaiter.AwaitDone()
 }
@@ -116,7 +119,17 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 	}
 
 	startReplication := func() error {
+		if rc.shutdownRequested.Load() {
+			// If already shutting down, ignore the request
+			return nil
+		}
+
 		if err := replicationConnection.StartReplication(pluginArguments); err != nil {
+			if rc.shutdownRequested.Load() {
+				// If we tried to start replication before the shutdown was initiated,
+				// we totally expect that to fail, and we can just ignore the error
+				return nil
+			}
 			return errors.Errorf("StartReplication failed: %s", err)
 		}
 

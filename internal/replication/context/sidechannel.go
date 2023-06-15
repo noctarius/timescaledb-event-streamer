@@ -14,6 +14,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/version"
+	"github.com/noctarius/timescaledb-event-streamer/spi/watermark"
 	"strings"
 	"time"
 )
@@ -408,12 +409,106 @@ func (sc *sideChannelImpl) detachTablesFromPublication(
 	})
 }
 
-func (sc *sideChannelImpl) snapshotTable(canonicalName string, snapshotName *string, snapshotBatchSize int,
+func (sc *sideChannelImpl) snapshotChunkTable(chunk *systemcatalog.Chunk, snapshotBatchSize int,
 	cb func(lsn pgtypes.LSN, values map[string]any) error) (pgtypes.LSN, error) {
 
-	var currentLSN pglogrepl.LSN
+	var currentLSN pgtypes.LSN = 0
 
-	err := sc.newSession(time.Minute*60, func(session *session) error {
+	cursorName := supporting.RandomTextString(15)
+	cursorQuery := fmt.Sprintf(
+		"DECLARE %s SCROLL CURSOR FOR SELECT * FROM %s", cursorName, chunk.CanonicalName(),
+	)
+
+	if err := sc.snapshotTableWithCursor(
+		cursorQuery, cursorName, nil, snapshotBatchSize,
+		func(lsn pgtypes.LSN, values map[string]any) error {
+			if currentLSN == 0 {
+				currentLSN = lsn
+			}
+			return cb(lsn, values)
+		},
+	); err != nil {
+		return 0, errors.Wrap(err, 0)
+	}
+
+	return currentLSN, nil
+}
+
+func (sc *sideChannelImpl) fetchHypertableSnapshotBatch(
+	hypertable *systemcatalog.Hypertable, snapshotName string, snapshotBatchSize int,
+	cb func(lsn pgtypes.LSN, values map[string]any) error) error {
+
+	index, present := hypertable.Columns().SnapshotIndex()
+	if !present {
+		return errors.Errorf("missing snapshotting index for hypertable '%s'", hypertable.CanonicalName())
+	}
+
+	return sc.replicationContext.SnapshotContextTransaction(
+		snapshotName, false,
+		func(snapshotContext *watermark.SnapshotContext) error {
+			watermark, present := snapshotContext.GetWatermark(hypertable)
+			if !present {
+				return errors.Errorf("illegal watermark state for hypertable '%s'", hypertable.CanonicalName())
+			}
+
+			comparison, success := index.WhereTupleLE(watermark.HighWatermark())
+			if !success {
+				return errors.Errorf("failed encoding watermark: %+v", watermark.HighWatermark())
+			}
+
+			if watermark.HasValidLowWatermark() {
+				lowWatermarkComparison, success := index.WhereTupleGT(watermark.LowWatermark())
+				if !success {
+					return errors.Errorf("failed encoding watermark: %+v", watermark.LowWatermark())
+				}
+
+				sc.logger.Debugf(
+					"Resuming snapshotting of hypertable '%s' at <<%s>> up to <<%s>>",
+					hypertable.CanonicalName(), lowWatermarkComparison, comparison,
+				)
+
+				comparison = fmt.Sprintf("%s AND %s",
+					lowWatermarkComparison,
+					comparison,
+				)
+			} else {
+				sc.logger.Debugf(
+					"Starting snapshotting of hypertable '%s' up to <<%s>>",
+					hypertable.CanonicalName(), comparison,
+				)
+			}
+
+			cursorName := supporting.RandomTextString(15)
+			cursorQuery := fmt.Sprintf(
+				`DECLARE %s SCROLL CURSOR FOR SELECT * FROM %s WHERE %s ORDER BY %s LIMIT %d`,
+				cursorName, hypertable.CanonicalName(), comparison,
+				index.AsSqlOrderBy(false), snapshotBatchSize*10,
+			)
+
+			hook := func(lsn pgtypes.LSN, values map[string]any) error {
+				indexValues := supporting.FilterMap(values, func(key string, _ any) bool {
+					for _, column := range index.Columns() {
+						if column.Name() == key {
+							return true
+						}
+					}
+					return false
+				})
+
+				watermark.SetLowWatermark(indexValues)
+				return cb(lsn, values)
+			}
+
+			return sc.snapshotTableWithCursor(cursorQuery, cursorName, &snapshotName, snapshotBatchSize, hook)
+		},
+	)
+}
+
+func (sc *sideChannelImpl) snapshotTableWithCursor(
+	cursorQuery, cursorName string, snapshotName *string, snapshotBatchSize int,
+	cb func(lsn pgtypes.LSN, values map[string]any) error) error {
+
+	return sc.newSession(time.Minute*60, func(session *session) error {
 		if _, err := session.exec("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ"); err != nil {
 			return err
 		}
@@ -426,14 +521,13 @@ func (sc *sideChannelImpl) snapshotTable(canonicalName string, snapshotName *str
 			}
 		}
 
+		var currentLSN pglogrepl.LSN
 		if err := session.queryRow("SELECT pg_current_wal_lsn()").Scan(&currentLSN); err != nil {
 			return errors.Wrap(err, 0)
 		}
 
-		cursorName := supporting.RandomTextString(15)
-		if _, err := session.exec(
-			fmt.Sprintf("DECLARE %s SCROLL CURSOR FOR SELECT * FROM %s", cursorName, canonicalName),
-		); err != nil {
+		// Declare cursor for fetch iterations
+		if _, err := session.exec(cursorQuery); err != nil {
 			return errors.Wrap(err, 0)
 		}
 
@@ -444,6 +538,7 @@ func (sc *sideChannelImpl) snapshotTable(canonicalName string, snapshotName *str
 				rows := row.(pgx.Rows)
 
 				if rowDecoder == nil {
+					// Initialize the row decoder based on the returned field descriptions
 					rd, err := pgdecoding.NewRowDecoder(rows.FieldDescriptions())
 					if err != nil {
 						return errors.Wrap(err, 0)
@@ -475,11 +570,6 @@ func (sc *sideChannelImpl) snapshotTable(canonicalName string, snapshotName *str
 		}
 		return nil
 	})
-	if err != nil {
-		return 0, errors.Wrap(err, 0)
-	}
-
-	return pgtypes.LSN(currentLSN), nil
 }
 
 func (sc *sideChannelImpl) readSnapshotHighWatermark(
@@ -487,10 +577,14 @@ func (sc *sideChannelImpl) readSnapshotHighWatermark(
 
 	index, present := hypertable.Columns().SnapshotIndex()
 	if !present {
-		return nil, nil
+		return nil, errors.Errorf(
+			"missing snapshotting index for hypertable '%s'", hypertable.CanonicalName(),
+		)
 	}
 
-	query := fmt.Sprintf(snapshotHighWatermark, index.AsSqlTuple(), hypertable.CanonicalName(), index.AsSqlOrderBy())
+	query := fmt.Sprintf(
+		snapshotHighWatermark, index.AsSqlTuple(), hypertable.CanonicalName(), index.AsSqlOrderBy(true),
+	)
 	if err := sc.newSession(time.Second*10, func(session *session) error {
 		if _, err := session.exec("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ"); err != nil {
 			return err

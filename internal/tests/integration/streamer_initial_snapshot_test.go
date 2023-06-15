@@ -43,6 +43,12 @@ func (its *IntegrationSnapshotTestSuite) TestInitialSnapshot_Hypertable() {
 		func(context testrunner.Context) error {
 			waiter.Await()
 
+			if len(testSink.Events()) < 8640 {
+				its.T().Errorf(
+					"not enough events received, expected: %d, received: %d", 8640, len(testSink.Events()),
+				)
+			}
+
 			for i, event := range testSink.Events() {
 				expected := i + 1
 				val := int(event.Envelope.Payload.After["val"].(float64))
@@ -77,6 +83,7 @@ func (its *IntegrationSnapshotTestSuite) TestInitialSnapshot_Hypertable() {
 			context.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
 			context.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
 				config.PostgreSQL.Snapshot.Initial = supporting.AddrOf(spiconfig.InitialOnly)
+				config.PostgreSQL.Snapshot.BatchSize = 100
 			})
 			return nil
 		}),

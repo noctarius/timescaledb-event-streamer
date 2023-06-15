@@ -1,4 +1,4 @@
-package snapshotting
+package watermark
 
 import (
 	"bytes"
@@ -11,6 +11,14 @@ type SnapshotContext struct {
 	snapshotName string
 	complete     bool
 	watermarks   map[string]*Watermark
+}
+
+func NewSnapshotContext(snapshotName string) *SnapshotContext {
+	return &SnapshotContext{
+		snapshotName: snapshotName,
+		complete:     false,
+		watermarks:   make(map[string]*Watermark),
+	}
 }
 
 func (sc *SnapshotContext) GetWatermark(hypertable *systemcatalog.Hypertable) (watermark *Watermark, present bool) {
@@ -84,10 +92,10 @@ func (sc *SnapshotContext) MarshalBinary() (data []byte, err error) {
 			}
 		}
 
-		if err := buffer.PutBool(watermark.low != nil && len(watermark.low) > 0); err != nil {
+		if err := buffer.PutBool(watermark.HasValidLowWatermark()); err != nil {
 			return nil, err
 		}
-		if watermark.low != nil && len(watermark.low) > 0 {
+		if watermark.HasValidLowWatermark() {
 			for column, value := range watermark.low {
 				if err := buffer.PutString(column); err != nil {
 					return nil, err
@@ -248,6 +256,10 @@ func (w *Watermark) MarkComplete() {
 	w.complete = true
 }
 
+func (w *Watermark) MarkIncomplete() {
+	w.complete = false
+}
+
 func (w *Watermark) HighWatermark() map[string]any {
 	return w.high
 }
@@ -262,8 +274,30 @@ func (w *Watermark) LowWatermark() map[string]any {
 
 func (w *Watermark) SetLowWatermark(values map[string]any) {
 	w.low = values
+	w.checkComplete()
+}
+
+func (w *Watermark) HasValidLowWatermark() bool {
+	return w.low != nil && len(w.low) > 0
 }
 
 func (w *Watermark) DataTypes() map[string]uint32 {
 	return w.dataTypes
+}
+
+func (w *Watermark) checkComplete() {
+	complete := true
+	for key, value := range w.high {
+		value2, present := w.low[key]
+		if !present {
+			complete = false
+			break
+		}
+
+		if value != value2 {
+			complete = false
+			break
+		}
+	}
+	w.complete = complete
 }

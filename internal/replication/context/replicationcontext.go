@@ -3,6 +3,7 @@ package context
 import (
 	"context"
 	"encoding"
+	"github.com/go-errors/errors"
 	"github.com/jackc/pglogrepl"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -17,9 +18,12 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/topic/namingstrategy"
 	"github.com/noctarius/timescaledb-event-streamer/spi/version"
+	"github.com/noctarius/timescaledb-event-streamer/spi/watermark"
 	"github.com/urfave/cli"
 	"sync"
 )
+
+const stateContextName = "snapshotContext"
 
 type ReplicationContext struct {
 	pgxConfig *pgx.ConnConfig
@@ -157,6 +161,54 @@ func (rc *ReplicationContext) StopReplicationContext() error {
 		return err
 	}
 	return rc.stateStorage.Stop()
+}
+
+func (rc *ReplicationContext) GetSnapshotContext() (*watermark.SnapshotContext, error) {
+	snapshotContext := &watermark.SnapshotContext{}
+	present, err := rc.StateDecoder(stateContextName, snapshotContext)
+	if err != nil {
+		return nil, errors.Wrap(err, 0)
+	}
+	if !present {
+		return nil, nil
+	}
+	return snapshotContext, nil
+}
+
+func (rc *ReplicationContext) SnapshotContextTransaction(snapshotName string,
+	createIfNotExists bool, transaction func(snapshotContext *watermark.SnapshotContext) error) error {
+
+	retrieval := func() (*watermark.SnapshotContext, error) {
+		return rc.GetSnapshotContext()
+	}
+
+	if createIfNotExists {
+		retrieval = func() (*watermark.SnapshotContext, error) {
+			return rc.getOrCreateSnapshotContext(snapshotName)
+		}
+	}
+
+	snapshotContext, err := retrieval()
+	if err != nil {
+		return err
+	}
+
+	if snapshotContext == nil && !createIfNotExists {
+		return errors.Errorf("No such snapshot context found")
+	}
+
+	if err := transaction(snapshotContext); err != nil {
+		return err
+	}
+
+	if err := rc.SetSnapshotContext(snapshotContext); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (rc *ReplicationContext) SetSnapshotContext(snapshotContext *watermark.SnapshotContext) error {
+	return rc.StateEncoder(stateContextName, snapshotContext)
 }
 
 func (rc *ReplicationContext) Offset() (*statestorage.Offset, error) {
@@ -387,10 +439,16 @@ func (rc *ReplicationContext) DetachTablesFromPublication(entities ...systemcata
 	return rc.sideChannel.detachTablesFromPublication(rc.publicationName, entities...)
 }
 
-func (rc *ReplicationContext) SnapshotTable(canonicalName string, snapshotName *string,
+func (rc *ReplicationContext) SnapshotChunkTable(chunk *systemcatalog.Chunk,
 	cb func(lsn pgtypes.LSN, values map[string]any) error) (pgtypes.LSN, error) {
 
-	return rc.sideChannel.snapshotTable(canonicalName, snapshotName, rc.snapshotBatchSize, cb)
+	return rc.sideChannel.snapshotChunkTable(chunk, rc.snapshotBatchSize, cb)
+}
+
+func (rc *ReplicationContext) FetchHypertableSnapshotBatch(hypertable *systemcatalog.Hypertable, snapshotName string,
+	cb func(lsn pgtypes.LSN, values map[string]any) error) error {
+
+	return rc.sideChannel.fetchHypertableSnapshotBatch(hypertable, snapshotName, rc.snapshotBatchSize, cb)
 }
 
 func (rc *ReplicationContext) ReadSnapshotHighWatermark(
@@ -509,4 +567,27 @@ func (rc *ReplicationContext) positionLSNs() (receivedLSN, processedLSN pgtypes.
 	defer rc.lsnMutex.Unlock()
 
 	return rc.lastReceivedLSN, rc.lastProcessedLSN
+}
+func (rc *ReplicationContext) getOrCreateSnapshotContext(
+	snapshotName string) (*watermark.SnapshotContext, error) {
+
+	snapshotContext, err := rc.GetSnapshotContext()
+	if err != nil {
+		return nil, err
+	}
+
+	// Exists -> done
+	if snapshotContext != nil {
+		return snapshotContext, nil
+	}
+
+	// New snapshot context
+	snapshotContext = watermark.NewSnapshotContext(snapshotName)
+
+	// Register new snapshot context
+	if err := rc.SetSnapshotContext(snapshotContext); err != nil {
+		return nil, err
+	}
+
+	return snapshotContext, nil
 }

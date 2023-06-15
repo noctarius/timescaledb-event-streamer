@@ -82,6 +82,16 @@ func Filter[I comparable](collection []I, filter func(item I) bool) []I {
 	return result
 }
 
+func FilterMap[K, V comparable](source map[K]V, filter func(key K, value V) bool) map[K]V {
+	result := make(map[K]V)
+	for key, value := range source {
+		if filter(key, value) {
+			result[key] = value
+		}
+	}
+	return result
+}
+
 func RandomTextString(length int) string {
 	builder := strings.Builder{}
 	for i := 0; i < length; i++ {

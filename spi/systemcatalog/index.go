@@ -2,9 +2,11 @@ package systemcatalog
 
 import (
 	"fmt"
+	"github.com/go-errors/errors"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"reflect"
 	"strings"
+	"time"
 )
 
 type IndexSortOrder string
@@ -75,9 +77,14 @@ func (i *Index) AsSqlTuple() string {
 
 // AsSqlOrderBy creates a string for ORDER BY clauses with all parts
 // of the index being ordered in descending direction
-func (i *Index) AsSqlOrderBy() string {
+func (i *Index) AsSqlOrderBy(desc bool) string {
+	order := "ASC"
+	if desc {
+		order = "DESC"
+	}
+
 	columnList := supporting.Map(i.columns, func(t Column) string {
-		return fmt.Sprintf("%s DESC", t.Name())
+		return fmt.Sprintf("%s %s", t.Name(), order)
 	})
 	return strings.Join(columnList, ",")
 }
@@ -129,7 +136,7 @@ func (i *Index) whereClause(comparison string, params map[string]any) (string, b
 		return "", false
 	}
 
-	return fmt.Sprintf("%s %s %s", tupleList, comparison, strings.Join(comparisonList, ",")), true
+	return fmt.Sprintf("%s %s (%s)", tupleList, comparison, strings.Join(comparisonList, ",")), true
 }
 
 func param2value(param any, dataType uint32) string {
@@ -156,7 +163,17 @@ func param2value(param any, dataType uint32) string {
 		}
 		return "FALSE"
 	case STRING:
-		return fmt.Sprintf("'%s'", sanitizeString(pv.String()))
+		val := pv.String()
+		if pt.Kind() != reflect.String {
+			switch v := pv.Interface().(type) {
+			case time.Time:
+				val = v.Format(time.RFC3339Nano)
+			default:
+				panic(errors.Errorf("unhandled string value: %v", pt.String()))
+			}
+		}
+		return fmt.Sprintf("'%s'", sanitizeString(val))
+
 	case BYTES:
 		bytes := pv.Interface().([]byte)
 		return fmt.Sprintf("bytea '\\x%X'", bytes)

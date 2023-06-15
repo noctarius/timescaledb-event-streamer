@@ -12,6 +12,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
+	"github.com/noctarius/timescaledb-event-streamer/spi/watermark"
 )
 
 type SystemCatalog struct {
@@ -329,7 +330,7 @@ func (s *snapshottingEventHandler) OnChunkSnapshotFinishedEvent(
 func (s *snapshottingEventHandler) OnHypertableSnapshotStartedEvent(
 	snapshotName string, hypertable *systemcatalog.Hypertable) error {
 
-	snapshotContext, err := snapshotting.GetSnapshotContext(s.systemCatalog.replicationContext)
+	snapshotContext, err := s.systemCatalog.replicationContext.GetSnapshotContext()
 	if err != nil {
 		return err
 	}
@@ -360,11 +361,9 @@ func (s *snapshottingEventHandler) OnHypertableSnapshotStartedEvent(
 func (s *snapshottingEventHandler) OnHypertableSnapshotFinishedEvent(
 	snapshotName string, hypertable *systemcatalog.Hypertable) error {
 
-	if err := snapshotting.SnapshotContextTransaction(
-		s.systemCatalog.replicationContext,
-		snapshotName,
-		false,
-		func(snapshotContext *snapshotting.SnapshotContext) error {
+	if err := s.systemCatalog.replicationContext.SnapshotContextTransaction(
+		snapshotName, false,
+		func(snapshotContext *watermark.SnapshotContext) error {
 			s.handledHypertables = append(s.handledHypertables, hypertable.CanonicalName())
 
 			watermark, _ := snapshotContext.GetOrCreateWatermark(hypertable)
