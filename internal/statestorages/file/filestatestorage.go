@@ -259,12 +259,12 @@ func (f *fileStateStorage) StateEncoder(name string, encoder encoding.BinaryMars
 	if err != nil {
 		return err
 	}
-	f.encodedStates[name] = data
+	f.SetEncodedState(name, data)
 	return nil
 }
 
 func (f *fileStateStorage) StateDecoder(name string, decoder encoding.BinaryUnmarshaler) (bool, error) {
-	if data, present := f.encodedStates[name]; present {
+	if data, present := f.EncodedState(name); present {
 		if err := decoder.UnmarshalBinary(data); err != nil {
 			return true, errors.Wrap(err, 0)
 		}
@@ -274,11 +274,15 @@ func (f *fileStateStorage) StateDecoder(name string, decoder encoding.BinaryUnma
 }
 
 func (f *fileStateStorage) EncodedState(key string) (encodedState []byte, present bool) {
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
 	encodedState, present = f.encodedStates[key]
 	return
 }
 
 func (f *fileStateStorage) SetEncodedState(key string, encodedState []byte) {
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
 	f.encodedStates[key] = encodedState
 }
 
