@@ -84,7 +84,7 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 	}
 
 	// Instantiate the snapshotter
-	snapshotter, err := snapshotting.NewSnapshotter(32, replicationContext)
+	snapshotter, err := snapshotting.NewSnapshotter(5, replicationContext)
 	if err != nil {
 		return supporting.AdaptError(err, 19)
 	}
