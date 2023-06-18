@@ -24,6 +24,7 @@ const (
 	Kafka      SinkType = "kafka"
 	Redis      SinkType = "redis"
 	AwsKinesis SinkType = "kinesis"
+	AwsSQS     SinkType = "sqs"
 )
 
 type NamingStrategyType string

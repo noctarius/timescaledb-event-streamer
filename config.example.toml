@@ -54,15 +54,22 @@ sink.nats.userinfo.password = '...'
 #sink.redis.tls.skipverify = false
 #sink.redis.tls.clientauth = 0
 
-sink.kinesis.stream.name = 'stream_name'
-sink.kinesis.stream.create = true
-sink.kinesis.stream.shardcount = 10
-sink.kinesis.stream.mode = '...'
-sink.kinesis.aws.region = '...'
-sink.kinesis.aws.endpoint = '...'
-sink.kinesis.aws.accesskeyid = '...'
-sink.kinesis.aws.secretaccesskey = '...'
-sink.kinesis.aws.sessiontoken = '...'
+#sink.kinesis.stream.name = 'stream_name'
+#sink.kinesis.stream.create = true
+#sink.kinesis.stream.shardcount = 10
+#sink.kinesis.stream.mode = '...'
+#sink.kinesis.aws.region = '...'
+#sink.kinesis.aws.endpoint = '...'
+#sink.kinesis.aws.accesskeyid = '...'
+#sink.kinesis.aws.secretaccesskey = '...'
+#sink.kinesis.aws.sessiontoken = '...'
+
+#sink.sqs.queue.url = 'queue_url'
+#sink.sqs.aws.region = '...'
+#sink.sqs.aws.endpoint = '...'
+#sink.sqs.aws.accesskeyid = '...'
+#sink.sqs.aws.secretaccesskey = '...'
+#sink.sqs.aws.sessiontoken = '...'
 
 topic.namingstrategy.type = 'debezium'
 topic.prefix = 'timescaledb'

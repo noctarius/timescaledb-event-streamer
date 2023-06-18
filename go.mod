@@ -6,7 +6,7 @@ require (
 	github.com/BurntSushi/toml v1.2.1
 	github.com/Shopify/sarama v1.38.1
 	github.com/antonmedv/expr v1.12.5
-	github.com/aws/aws-sdk-go v1.44.245
+	github.com/aws/aws-sdk-go v1.44.284
 	github.com/cenkalti/backoff/v4 v4.2.0
 	github.com/docker/docker v23.0.2+incompatible
 	github.com/go-errors/errors v1.3.0

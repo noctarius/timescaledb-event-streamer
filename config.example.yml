@@ -80,6 +80,16 @@ sink:
       #accessKeyId: '...'
       #secretAccessKey: '...'
       #sessionToken: '...'
+  #type: 'sqs'
+  #sqs:
+    #queue:
+      #url: 'queue_url'
+    #aws:
+      #region: '...'
+      #endpoint: '...'
+      #accessKeyId: '...'
+      #secretAccessKey: '...'
+      #sessionToken: '...'
   filters:
     filterName:
       condition: 'value.op == "u" && value.before.id == 2'
