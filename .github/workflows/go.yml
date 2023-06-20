@@ -89,29 +89,3 @@ jobs:
         name: unit-run.log
         path: unit-run.log
         retention-days: 5
-
-  docker:
-    name: docker
-    needs: [build, test]
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
-      packages: write
-      id-token: write
-
-    steps:
-      - uses: actions/checkout@v3
-      - name: Docker Build
-        run: docker build . --file Dockerfile --tag ${{ env.docker-registry }}/${{ env.docker-image-name }}:${{ github.run_number }}
-
-      - name: Log into registry ${{ env.docker-registry }}
-        if: github.event_name != 'pull_request'
-        uses: docker/login-action@v2
-        with:
-          registry: ${{ env.docker-registry }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Docker Hub Push
-        run: docker push ${{ env.docker-registry }}/${{ env.docker-image-name }}:${{ github.run_number }}
