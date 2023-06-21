@@ -6,6 +6,7 @@ const (
 	PropertyPostgresqlPublicationName         = "postgresql.publication.name"
 	PropertyPostgresqlPublicationCreate       = "postgresql.publication.create"
 	PropertyPostgresqlPublicationAutoDrop     = "postgresql.publication.autodrop"
+	PropertyPostgresqlSnapshotInitialMode     = "postgresql.snapshot.initial"
 	PropertyPostgresqlSnapshotBatchsize       = "postgresql.snapshot.batchsize"
 	PropertyPostgresqlReplicationSlotName     = "postgresql.replicationslot.name"
 	PropertyPostgresqlReplicationSlotCreate   = "postgresql.replicationslot.create"

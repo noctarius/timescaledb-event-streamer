@@ -41,6 +41,14 @@ const (
 	Jwt         NatsAuthorizationType = "jwt"
 )
 
+type InitialSnapshotMode string
+
+const (
+	Always      InitialSnapshotMode = "always"
+	Never       InitialSnapshotMode = "never"
+	InitialOnly InitialSnapshotMode = "initial_only"
+)
+
 type PostgreSQLConfig struct {
 	Connection      string                `toml:"connection" yaml:"connection"`
 	Password        string                `toml:"password" yaml:"password"`
@@ -51,8 +59,8 @@ type PostgreSQLConfig struct {
 }
 
 type SnapshotConfig struct {
-	BatchSize uint   `toml:"batchsize" yaml:"batchSize"`
-	Initial   string `toml:"initial" yaml:"initial"`
+	BatchSize uint                 `toml:"batchsize" yaml:"batchSize"`
+	Initial   *InitialSnapshotMode `toml:"initial" yaml:"initial"`
 }
 
 type PublicationConfig struct {

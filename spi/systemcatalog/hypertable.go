@@ -118,7 +118,7 @@ func (h *Hypertable) IsContinuousAggregate() bool {
 
 // Columns returns a slice with the column definitions
 // of the hypertable
-func (h *Hypertable) Columns() []Column {
+func (h *Hypertable) Columns() Columns {
 	return h.columns
 }
 

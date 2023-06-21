@@ -21,8 +21,13 @@ func NewResolver(config *spiconfig.Config, replicationContext *context.Replicati
 		config, spiconfig.PropertyPostgresqlTxwindowMaxsize, uint(10000),
 	)
 
-	if enabled && maxSize > 0 {
-		return newTransactionTracker(timeout, maxSize, config, replicationContext, systemCatalog)
+	resolver, err := newLogicalReplicationResolver(config, replicationContext, systemCatalog)
+	if err != nil {
+		return nil, err
 	}
-	return newLogicalReplicationResolver(config, replicationContext, systemCatalog)
+
+	if enabled && maxSize > 0 {
+		return newTransactionTracker(timeout, maxSize, systemCatalog, resolver)
+	}
+	return resolver, nil
 }

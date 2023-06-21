@@ -14,6 +14,28 @@ var validCharacters = []string{
 	"n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z",
 }
 
+type Iterator[E any] func() (E, bool)
+
+func MapWithIterator[E, R any](iterator Iterator[E], mapper func(element E) R) []R {
+	result := make([]R, 0)
+	for {
+		if e, present := iterator(); !present {
+			break
+		} else {
+			result = append(result, mapper(e))
+		}
+	}
+	return result
+}
+
+func Map[E, R any](elements []E, mapper func(element E) R) []R {
+	result := make([]R, 0, len(elements))
+	for _, e := range elements {
+		result = append(result, mapper(e))
+	}
+	return result
+}
+
 func AddrOf[T any](value T) *T {
 	return &value
 }
@@ -55,6 +77,16 @@ func Filter[I comparable](collection []I, filter func(item I) bool) []I {
 	for _, candidate := range collection {
 		if filter(candidate) {
 			result = append(result, candidate)
+		}
+	}
+	return result
+}
+
+func FilterMap[K, V comparable](source map[K]V, filter func(key K, value V) bool) map[K]V {
+	result := make(map[K]V)
+	for key, value := range source {
+		if filter(key, value) {
+			result[key] = value
 		}
 	}
 	return result

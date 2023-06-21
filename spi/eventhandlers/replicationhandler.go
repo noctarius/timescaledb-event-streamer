@@ -40,11 +40,15 @@ type HypertableReplicationEventHandler interface {
 	OnMessageEvent(xld pgtypes.XLogData, msg *pgtypes.LogicalReplicationMessage) error
 }
 
-type ChunkSnapshotEventHandler interface {
+type SnapshottingEventHandler interface {
 	BaseReplicationEventHandler
 	OnChunkSnapshotStartedEvent(hypertable *systemcatalog.Hypertable, chunk *systemcatalog.Chunk) error
 	OnChunkSnapshotFinishedEvent(hypertable *systemcatalog.Hypertable,
 		chunk *systemcatalog.Chunk, snapshot pgtypes.LSN) error
+	OnHypertableSnapshotStartedEvent(snapshotName string, hypertable *systemcatalog.Hypertable) error
+	OnHypertableSnapshotFinishedEvent(snapshotName string, hypertable *systemcatalog.Hypertable) error
+	OnSnapshottingStartedEvent(snapshotName string) error
+	OnSnapshottingFinishedEvent() error
 }
 
 type CompressionReplicationEventHandler interface {

@@ -8,14 +8,17 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
+	"github.com/noctarius/timescaledb-event-streamer/spi/watermark"
 	"hash/fnv"
 	"time"
 )
 
 type SnapshotTask struct {
-	Hypertable *systemcatalog.Hypertable
-	Chunk      *systemcatalog.Chunk
-	Xld        *pgtypes.XLogData
+	Hypertable        *systemcatalog.Hypertable
+	Chunk             *systemcatalog.Chunk
+	Xld               *pgtypes.XLogData
+	SnapshotName      *string
+	nextSnapshotFetch bool
 }
 
 type Snapshotter struct {
@@ -60,7 +63,7 @@ func (s *Snapshotter) EnqueueSnapshot(task SnapshotTask) error {
 	// Notify of snapshotting to save incoming events
 	if task.Chunk != nil {
 		err := s.replicationContext.EnqueueTask(func(notificator context.Notificator) {
-			notificator.NotifyChunkSnapshotEventHandler(func(handler eventhandlers.ChunkSnapshotEventHandler) error {
+			notificator.NotifySnapshottingEventHandler(func(handler eventhandlers.SnapshottingEventHandler) error {
 				return handler.OnChunkSnapshotStartedEvent(task.Hypertable, task.Chunk)
 			})
 			enqueueSnapshotTask()
@@ -114,9 +117,8 @@ func (s *Snapshotter) snapshotChunk(task SnapshotTask) error {
 		return errors.Wrap(err, 0)
 	}
 
-	lsn, err := s.replicationContext.SnapshotTable(
-		task.Chunk.CanonicalName(), nil,
-		func(lsn pgtypes.LSN, values map[string]any) error {
+	lsn, err := s.replicationContext.SnapshotChunkTable(
+		task.Chunk, func(lsn pgtypes.LSN, values map[string]any) error {
 			return s.replicationContext.EnqueueTask(func(notificator context.Notificator) {
 				callback := func(handler eventhandlers.HypertableReplicationEventHandler) error {
 					return handler.OnReadEvent(lsn, task.Hypertable, task.Chunk, values)
@@ -135,12 +137,78 @@ func (s *Snapshotter) snapshotChunk(task SnapshotTask) error {
 	}
 
 	return s.replicationContext.EnqueueTaskAndWait(func(notificator context.Notificator) {
-		notificator.NotifyChunkSnapshotEventHandler(func(handler eventhandlers.ChunkSnapshotEventHandler) error {
+		notificator.NotifySnapshottingEventHandler(func(handler eventhandlers.SnapshottingEventHandler) error {
 			return handler.OnChunkSnapshotFinishedEvent(task.Hypertable, task.Chunk, lsn)
 		})
 	})
 }
 
 func (s *Snapshotter) snapshotHypertable(task SnapshotTask) error {
-	return nil // TODO
+	// tableSnapshotState
+	if err := s.replicationContext.SnapshotContextTransaction(
+		*task.SnapshotName, true,
+		func(snapshotContext *watermark.SnapshotContext) error {
+			watermark, created := snapshotContext.GetOrCreateWatermark(task.Hypertable)
+
+			// Initialize the watermark or update the high watermark after a restart
+			if created || task.nextSnapshotFetch {
+				highWatermark, err := s.replicationContext.ReadSnapshotHighWatermark(task.Hypertable, *task.SnapshotName)
+				if err != nil {
+					return errors.Wrap(err, 0)
+				}
+
+				watermark.SetHighWatermark(highWatermark)
+			}
+
+			return nil
+		},
+	); err != nil {
+		return errors.Wrap(err, 0)
+	}
+
+	// Kick off snapshot fetching
+	if err := s.runSnapshotFetchBatch(task); err != nil {
+		return err
+	}
+
+	return s.replicationContext.SnapshotContextTransaction(
+		*task.SnapshotName, false,
+		func(snapshotContext *watermark.SnapshotContext) error {
+			watermark, present := snapshotContext.GetWatermark(task.Hypertable)
+			if !present {
+				return errors.Errorf(
+					"illegal watermark state for hypertable '%s'", task.Hypertable.CanonicalName(),
+				)
+			}
+
+			if watermark.Complete() {
+				return s.replicationContext.EnqueueTaskAndWait(func(notificator context.Notificator) {
+					notificator.NotifySnapshottingEventHandler(func(handler eventhandlers.SnapshottingEventHandler) error {
+						return handler.OnHypertableSnapshotFinishedEvent(*task.SnapshotName, task.Hypertable)
+					})
+				})
+			}
+
+			return s.EnqueueSnapshot(SnapshotTask{
+				Hypertable:        task.Hypertable,
+				SnapshotName:      task.SnapshotName,
+				nextSnapshotFetch: true,
+			})
+		},
+	)
+}
+
+func (s *Snapshotter) runSnapshotFetchBatch(task SnapshotTask) error {
+	return s.replicationContext.FetchHypertableSnapshotBatch(
+		task.Hypertable, *task.SnapshotName,
+		func(lsn pgtypes.LSN, values map[string]any) error {
+			return s.replicationContext.EnqueueTask(func(notificator context.Notificator) {
+				notificator.NotifyHypertableReplicationEventHandler(
+					func(handler eventhandlers.HypertableReplicationEventHandler) error {
+						return handler.OnReadEvent(lsn, task.Hypertable, task.Chunk, values)
+					},
+				)
+			})
+		},
+	)
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
+	"github.com/noctarius/timescaledb-event-streamer/spi/watermark"
 )
 
 type SystemCatalog struct {
@@ -236,6 +237,13 @@ func (sc *SystemCatalog) snapshotChunkWithXld(xld *pgtypes.XLogData, chunk *syst
 	return nil
 }
 
+func (sc *SystemCatalog) snapshotHypertable(snapshotName string, hypertable *systemcatalog.Hypertable) error {
+	return sc.snapshotter.EnqueueSnapshot(snapshotting.SnapshotTask{
+		Hypertable:   hypertable,
+		SnapshotName: &snapshotName,
+	})
+}
+
 func indexOf[T comparable](slice []T, item T) int {
 	for i, x := range slice {
 		if x == item {
@@ -292,5 +300,148 @@ func initializeSystemCatalog(sc *SystemCatalog) (*SystemCatalog, error) {
 		}
 	}
 
+	// Register the snapshot event handler
+	sc.replicationContext.RegisterReplicationEventHandler(&snapshottingEventHandler{systemCatalog: sc})
+
 	return sc, nil
+}
+
+type snapshottingEventHandler struct {
+	systemCatalog      *SystemCatalog
+	handledHypertables []string
+}
+
+func (s *snapshottingEventHandler) OnRelationEvent(_ pgtypes.XLogData, _ *pgtypes.RelationMessage) error {
+	return nil
+}
+
+func (s *snapshottingEventHandler) OnChunkSnapshotStartedEvent(
+	_ *systemcatalog.Hypertable, _ *systemcatalog.Chunk) error {
+
+	return nil
+}
+
+func (s *snapshottingEventHandler) OnChunkSnapshotFinishedEvent(
+	_ *systemcatalog.Hypertable, _ *systemcatalog.Chunk, _ pgtypes.LSN) error {
+
+	return nil
+}
+
+func (s *snapshottingEventHandler) OnHypertableSnapshotStartedEvent(
+	snapshotName string, hypertable *systemcatalog.Hypertable) error {
+
+	snapshotContext, err := s.systemCatalog.replicationContext.GetSnapshotContext()
+	if err != nil {
+		return err
+	}
+
+	if snapshotContext != nil {
+		watermark, present := snapshotContext.GetWatermark(hypertable)
+		if !present {
+			s.systemCatalog.logger.Infof("Start snapshotting of hypertable '%s'", hypertable.CanonicalName())
+		} else if watermark.Complete() {
+			s.systemCatalog.logger.Infof(
+				"Snapshotting for hypertable '%s' already completed, skipping", hypertable.CanonicalName(),
+			)
+			return s.scheduleNextSnapshotHypertableOrFinish(snapshotName)
+		} else {
+			s.systemCatalog.logger.Infof("Resuming snapshotting of hypertable '%s'", hypertable.CanonicalName())
+		}
+	} else {
+		s.systemCatalog.logger.Infof("Start snapshotting of hypertable '%s'", hypertable.CanonicalName())
+	}
+
+	if err := s.systemCatalog.snapshotHypertable(snapshotName, hypertable); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *snapshottingEventHandler) OnHypertableSnapshotFinishedEvent(
+	snapshotName string, hypertable *systemcatalog.Hypertable) error {
+
+	if err := s.systemCatalog.replicationContext.SnapshotContextTransaction(
+		snapshotName, false,
+		func(snapshotContext *watermark.SnapshotContext) error {
+			s.handledHypertables = append(s.handledHypertables, hypertable.CanonicalName())
+
+			watermark, _ := snapshotContext.GetOrCreateWatermark(hypertable)
+			watermark.MarkComplete()
+
+			return nil
+		},
+	); err != nil {
+		return errors.WrapPrefix(err, "illegal snapshot context state after snapshotting hypertable", 0)
+	}
+
+	s.systemCatalog.logger.Infof("Finished snapshotting for hypertable '%s'", hypertable.CanonicalName())
+	return s.scheduleNextSnapshotHypertableOrFinish(snapshotName)
+}
+
+func (s *snapshottingEventHandler) OnSnapshottingStartedEvent(snapshotName string) error {
+	s.systemCatalog.logger.Infoln("Start snapshotting hypertables")
+
+	// No hypertables? Just start the replicator
+	if len(s.systemCatalog.hypertables) == 0 {
+		return s.systemCatalog.replicationContext.EnqueueTask(func(notificator context.Notificator) {
+			notificator.NotifySnapshottingEventHandler(func(handler eventhandlers.SnapshottingEventHandler) error {
+				return handler.OnSnapshottingFinishedEvent()
+			})
+		})
+	}
+
+	// We are just starting out, get the first hypertable to start snapshotting
+	var hypertable *systemcatalog.Hypertable
+	for _, ht := range s.systemCatalog.hypertables {
+		hypertable = ht
+		break
+	}
+
+	return s.systemCatalog.replicationContext.EnqueueTask(func(notificator context.Notificator) {
+		notificator.NotifySnapshottingEventHandler(func(handler eventhandlers.SnapshottingEventHandler) error {
+			return handler.OnHypertableSnapshotStartedEvent(snapshotName, hypertable)
+		})
+	})
+}
+
+func (s *snapshottingEventHandler) OnSnapshottingFinishedEvent() error {
+	s.systemCatalog.logger.Infoln("Finished snapshotting hypertables")
+	return nil
+}
+
+func (s *snapshottingEventHandler) nextSnapshotHypertable() *systemcatalog.Hypertable {
+	for _, ht := range s.systemCatalog.hypertables {
+		alreadyHandled := false
+		for _, h := range s.handledHypertables {
+			if ht.CanonicalName() == h {
+				alreadyHandled = true
+				break
+			}
+		}
+
+		if alreadyHandled {
+			continue
+		}
+
+		return ht
+	}
+	return nil
+}
+
+func (s *snapshottingEventHandler) scheduleNextSnapshotHypertableOrFinish(snapshotName string) error {
+	if nextHypertable := s.nextSnapshotHypertable(); nextHypertable != nil {
+		return s.systemCatalog.replicationContext.EnqueueTask(func(notificator context.Notificator) {
+			notificator.NotifySnapshottingEventHandler(func(handler eventhandlers.SnapshottingEventHandler) error {
+				return handler.OnHypertableSnapshotStartedEvent(snapshotName, nextHypertable)
+			})
+		})
+	}
+
+	// Seems like all hypertables are handles successfully, let's finish up and start the replicator
+	return s.systemCatalog.replicationContext.EnqueueTask(func(notificator context.Notificator) {
+		notificator.NotifySnapshottingEventHandler(func(handler eventhandlers.SnapshottingEventHandler) error {
+			return handler.OnSnapshottingFinishedEvent()
+		})
+	})
 }

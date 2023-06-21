@@ -162,6 +162,14 @@ func NewLogger(name string) (*Logger, error) {
 	}, nil
 }
 
+func (l *Logger) Tracef(format string, args ...interface{}) {
+	l.logf(slog.TraceLevel, format, args)
+}
+
+func (l *Logger) Traceln(args ...interface{}) {
+	l.log(slog.TraceLevel, args)
+}
+
 func (l *Logger) Debugf(format string, args ...interface{}) {
 	l.logf(slog.DebugLevel, format, args)
 }
