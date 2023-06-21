@@ -91,7 +91,7 @@ func (ee *EventEmitter) keySchema(hypertable *systemcatalog.Hypertable) schema.S
 func (ee *EventEmitter) emit(xld pgtypes.XLogData, eventTopicName string, key, envelope schema.Struct) error {
 	// Retryable operation
 	operation := func() error {
-		ee.logger.Verbosef("Publishing event: %+v", envelope)
+		ee.logger.Tracef("Publishing event: %+v", envelope)
 		return ee.sink.Emit(ee.sinkContext, xld.ServerTime, eventTopicName, key, envelope)
 	}
 

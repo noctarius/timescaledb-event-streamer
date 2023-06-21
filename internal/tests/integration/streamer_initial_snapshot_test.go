@@ -41,7 +41,9 @@ func (its *IntegrationSnapshotTestSuite) TestInitialSnapshot_Hypertable() {
 
 	its.RunTest(
 		func(context testrunner.Context) error {
-			waiter.Await()
+			if err := waiter.Await(); err != nil {
+				return err
+			}
 
 			if len(testSink.Events()) < 8640 {
 				its.T().Errorf(
