@@ -116,6 +116,7 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 	}
 
 	stopReplication := func() {
+		rc.shutdownRequested.Store(true)
 	}
 
 	startReplication := func() error {
@@ -206,6 +207,9 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 	}
 
 	go func() {
+		// Mark the current replication channel as shutting down
+		rc.shutdownRequested.Store(true)
+
 		if err := rc.shutdownAwaiter.AwaitShutdown(); err != nil {
 			rc.logger.Errorf("shutdown failed: %+v", err)
 		}
