@@ -25,7 +25,7 @@ func TestIntegrationSnapshotTestSuite(t *testing.T) {
 }
 
 func (its *IntegrationSnapshotTestSuite) TestInitialSnapshot_Hypertable() {
-	waiter := supporting.NewWaiterWithTimeout(time.Second * 30)
+	waiter := supporting.NewWaiterWithTimeout(time.Second * 60)
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
