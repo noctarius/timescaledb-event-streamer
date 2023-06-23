@@ -33,6 +33,40 @@ has been found and fixed.
 
 # Getting Started
 
+## Installing prebuilt Packages
+
+To automatically download the latest version into the current directory, the repository
+provides a bash script. This script supports downloading on Linux, MacOS, and FreeBSD.
+
+When you want to use Windows, please download the zip file manually from the repository's
+download page at https://github.com/noctarius/timescaledb-event-streamer/releases/latest
+which automatically redirects to the latest available download.
+
+```bash
+curl -L https://raw.github.com/noctarius/timescaledb-event-streamer/master/get.sh | bash
+```
+
+## Using Docker
+
+To run `timescaledb-event-streamer` via Docker, access the latest version of the Docker image
+using `ghcr.io/noctarius/timescaledb-event-streamer:latest`.
+
+The environment variable `TIMESCALEDB_EVENT_STREAMER_CONFIG` provides the location of the
+configuration file to the tool. This file must be mounted into the running container at the
+given location.
+
+The following command shows an example on how to run it.
+
+```bash
+docker run \
+  --name timescaledb-event-streamer \
+  -v config.tml:/etc/config.toml \
+  -e TIMESCALEDB_EVENT_STREAMER_CONFIG='/etc/config.toml' \
+  ghcr.io/noctarius/timescaledb-event-streamer:latest
+```
+
+## Installation from Source
+
 `timescaledb-event-streamer` requires the [Go runtime (version 1.20+)](https://go.dev/doc/install)
 to be installed. With this requirement satisfied, the installation can be
 kicked off using:
@@ -40,6 +74,8 @@ kicked off using:
 ```bash
 $ go install github.com/noctarius/timescaledb-event-streamer/cmd/timescaledb-event-streamer@latest
 ```
+
+## Before you start
 
 Before using the program, a configuration file needs to be created. An example
 configuration can be
