@@ -70,6 +70,13 @@ func start(*cli.Context) error {
 
 	config := &spiconfig.Config{}
 
+	// No configuration file set? Try env variable!
+	if configurationFile == "" {
+		if cf, present := os.LookupEnv("TIMESCALEDB_EVENT_STREAMER_CONFIG"); present {
+			configurationFile = cf
+		}
+	}
+
 	if configurationFile != "" {
 		f, err := os.Open(configurationFile)
 		if err != nil {
