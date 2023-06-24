@@ -40,6 +40,9 @@ jobs:
       - name: Docker Hub Push (versioned)
         run: docker push ${{ env.docker-registry }}/${{ env.docker-image-name }}:${{ github.ref_name }}
 
+      - name: Docker Hub Push (re-tag as latest)
+        run: docker tag ${{ env.docker-registry }}/${{ env.docker-image-name }}:${{ github.ref_name }} ${{ env.docker-registry }}/${{ env.docker-image-name }}:latest
+
       - name: Docker Hub Push (latest)
         run: docker push ${{ env.docker-registry }}/${{ env.docker-image-name }}:latest
 
