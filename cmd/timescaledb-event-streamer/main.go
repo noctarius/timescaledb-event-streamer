@@ -23,6 +23,7 @@ var (
 	verbose           bool
 	withCaller        bool
 	logToStdErr       bool
+	versionOnly       bool
 )
 
 func main() {
@@ -51,6 +52,11 @@ func main() {
 				Usage:       "Redirects logging output to stderr, necessary when using StdOut as the sink",
 				Destination: &logToStdErr,
 			},
+			&cli.BoolFlag{
+				Name:        "version",
+				Usage:       "Prints the version and exits",
+				Destination: &versionOnly,
+			},
 		},
 		Action: start,
 	}
@@ -65,6 +71,10 @@ func start(*cli.Context) error {
 		version.BinName, version.Version, version.CommitHash, version.Branch,
 	)
 
+	if versionOnly {
+		return nil
+	}
+
 	logging.WithCaller = withCaller
 	logging.WithVerbose = verbose
 
@@ -73,11 +83,13 @@ func start(*cli.Context) error {
 	// No configuration file set? Try env variable!
 	if configurationFile == "" {
 		if cf, present := os.LookupEnv("TIMESCALEDB_EVENT_STREAMER_CONFIG"); present {
+			fmt.Fprintf(os.Stderr, "Using configuration file from environment variable\n")
 			configurationFile = cf
 		}
 	}
 
 	if configurationFile != "" {
+		fmt.Fprintf(os.Stderr, "Loading configuration file: %s\n", configurationFile)
 		f, err := os.Open(configurationFile)
 		if err != nil {
 			return cli.NewExitError(fmt.Sprintf("Configuration file couldn't be opened: %v\n", err), 3)
