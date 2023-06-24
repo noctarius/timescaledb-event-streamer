@@ -60,7 +60,7 @@ The following command shows an example on how to run it.
 ```bash
 docker run \
   --name timescaledb-event-streamer \
-  -v config.tml:/etc/config.toml \
+  -v ./config.tml:/etc/config.toml \
   -e TIMESCALEDB_EVENT_STREAMER_CONFIG='/etc/config.toml' \
   ghcr.io/noctarius/timescaledb-event-streamer:latest
 ```
@@ -128,7 +128,7 @@ configuration file format due to its simplicity.
 
 The actual configuration values are designed as canonical name (dotted keys).
 
-In addition to the configuration file, all values can be provided as envrionment
+In addition to the configuration file, all values can be provided as environment
 variables. In this case, the property name uses underscore (_) characters instead
 of dots (.) characters and all characters are used as uppercase. That means,
 `postgresql.connection` becomes `POSTGRESQL_CONNECTION`. In case the standard
