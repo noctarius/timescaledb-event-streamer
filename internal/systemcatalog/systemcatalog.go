@@ -152,7 +152,6 @@ func (sc *SystemCatalog) RegisterHypertable(hypertable *systemcatalog.Hypertable
 		sc.hypertable2compressed[hypertable.Id()] = compressedHypertableId
 		sc.compressed2hypertable[compressedHypertableId] = hypertable.Id()
 	}
-	sc.logger.Verbosef("ADDED CATALOG ENTRY: HYPERTABLE %d => %+v", hypertable.Id(), hypertable)
 	return nil
 }
 
@@ -167,13 +166,11 @@ func (sc *SystemCatalog) UnregisterHypertable(hypertable *systemcatalog.Hypertab
 }
 
 func (sc *SystemCatalog) RegisterChunk(chunk *systemcatalog.Chunk) error {
-	sc.chunks[chunk.Id()] = chunk
 	if hypertable, present := sc.FindHypertableById(chunk.HypertableId()); present {
+		sc.chunks[chunk.Id()] = chunk
 		sc.chunkNameIndex[chunk.CanonicalName()] = chunk.Id()
 		sc.chunk2Hypertable[chunk.Id()] = chunk.HypertableId()
 		sc.hypertable2chunks[hypertable.Id()] = append(sc.hypertable2chunks[hypertable.Id()], chunk.Id())
-		sc.logger.Verbosef("ADDED CATALOG ENTRY: CHUNK %d FOR HYPERTABLE %s => %+v",
-			chunk.Id(), hypertable.CanonicalName(), *chunk)
 	}
 	return nil
 }
@@ -269,7 +266,11 @@ func initializeSystemCatalog(sc *SystemCatalog) (*SystemCatalog, error) {
 			return errors.Errorf("Hypertable %s not accessible", hypertable.CanonicalName())
 		}
 
-		return sc.RegisterHypertable(hypertable)
+		if err := sc.RegisterHypertable(hypertable); err != nil {
+			return errors.Errorf("registering hypertable failed: %v (error: %+v)", hypertable, err)
+		}
+		sc.logger.Verbosef("ADDED CATALOG ENTRY: HYPERTABLE %d => %+v", hypertable.Id(), hypertable)
+		return nil
 	}); err != nil {
 		return nil, errors.Wrap(err, 0)
 	}

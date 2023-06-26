@@ -1,6 +1,7 @@
 package context
 
 import (
+	stderrors "errors"
 	"fmt"
 	"github.com/go-errors/errors"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
@@ -161,8 +162,8 @@ func (d *dispatcher) UnregisterReplicationEventHandler(handler eventhandlers.Bas
 }
 
 func (d *dispatcher) StartDispatcher() {
-	notificator := &notificatorImpl{dispatcher: d}
 	go func() {
+		notificator := &notificatorImpl{dispatcher: d}
 		for {
 			select {
 			case <-d.shutdownAwaiter.AwaitShutdownChan():
@@ -207,6 +208,15 @@ func (d *dispatcher) EnqueueTaskAndWait(task Task) error {
 		done.Signal()
 	})
 	return done.Await()
+}
+
+func (d *dispatcher) RunTask(task Task) error {
+	notificator := &immediateNotificatorImpl{dispatcher: d}
+	task(notificator)
+	if notificator.errors == nil || len(notificator.errors) == 0 {
+		return nil
+	}
+	return stderrors.Join(notificator.errors...)
 }
 
 type notificatorImpl struct {
@@ -280,4 +290,76 @@ func (n *notificatorImpl) handleError(err error) {
 	}
 
 	fmt.Fprintf(os.Stderr, "Error while dispatching event: %s\n", errMsg)
+}
+
+type immediateNotificatorImpl struct {
+	dispatcher *dispatcher
+	errors     []error
+}
+
+func (n *immediateNotificatorImpl) NotifyBaseReplicationEventHandler(
+	fn func(handler eventhandlers.BaseReplicationEventHandler) error) {
+
+	for _, handler := range n.dispatcher.baseHandlers {
+		if err := fn(handler); err != nil {
+			n.handleError(err)
+		}
+	}
+}
+
+func (n *immediateNotificatorImpl) NotifySystemCatalogReplicationEventHandler(
+	fn func(handler eventhandlers.SystemCatalogReplicationEventHandler) error) {
+
+	for _, handler := range n.dispatcher.catalogHandlers {
+		if err := fn(handler); err != nil {
+			n.handleError(err)
+		}
+	}
+}
+
+func (n *immediateNotificatorImpl) NotifyCompressionReplicationEventHandler(fn func(
+	handler eventhandlers.CompressionReplicationEventHandler) error) {
+
+	for _, handler := range n.dispatcher.compressionHandlers {
+		if err := fn(handler); err != nil {
+			n.handleError(err)
+		}
+	}
+}
+
+func (n *immediateNotificatorImpl) NotifyHypertableReplicationEventHandler(
+	fn func(handler eventhandlers.HypertableReplicationEventHandler) error) {
+
+	for _, handler := range n.dispatcher.hypertableHandlers {
+		if err := fn(handler); err != nil {
+			n.handleError(err)
+		}
+	}
+}
+
+func (n *immediateNotificatorImpl) NotifyLogicalReplicationEventHandler(
+	fn func(handler eventhandlers.LogicalReplicationEventHandler) error) {
+
+	for _, handler := range n.dispatcher.logicalHandlers {
+		if err := fn(handler); err != nil {
+			n.handleError(err)
+		}
+	}
+}
+
+func (n *immediateNotificatorImpl) NotifySnapshottingEventHandler(
+	fn func(handler eventhandlers.SnapshottingEventHandler) error) {
+
+	for _, handler := range n.dispatcher.snapshotHandlers {
+		if err := fn(handler); err != nil {
+			n.handleError(err)
+		}
+	}
+}
+
+func (n *immediateNotificatorImpl) handleError(err error) {
+	if e, ok := err.(*errors.Error); !ok {
+		err = errors.Wrap(e, 0)
+	}
+	n.errors = append(n.errors, err)
 }

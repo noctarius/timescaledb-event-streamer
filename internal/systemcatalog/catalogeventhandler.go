@@ -62,8 +62,9 @@ func (s *systemCatalogReplicationEventHandler) OnHypertableAddedEvent(
 				distributed, viewSchema, viewName, replicaIdentity)
 
 			if err := s.systemCatalog.RegisterHypertable(h); err != nil {
-				return fmt.Errorf("registering hypertable failed: %v", h)
+				return errors.Errorf("registering hypertable failed: %v (error: %+v)", h, err)
 			}
+			s.systemCatalog.logger.Verbosef("ADDED CATALOG ENTRY: HYPERTABLE %d => %+v", h.Id(), h)
 
 			return s.systemCatalog.replicationContext.ReadHypertableSchema(s.systemCatalog.ApplySchemaUpdate, h)
 		},
@@ -87,7 +88,7 @@ func (s *systemCatalogReplicationEventHandler) OnHypertableUpdatedEvent(
 					associatedTablePrefix, compressedHypertableId, compressionState, replicaIdentity)
 
 				if err := s.systemCatalog.RegisterHypertable(h); err != nil {
-					return fmt.Errorf("registering hypertable failed: %v", h)
+					return errors.Errorf("registering hypertable failed: %v (error: %+v)", h, err)
 				}
 				s.systemCatalog.logger.Verbosef("UPDATED CATALOG ENTRY: HYPERTABLE %d => %v", id, differences)
 			}
@@ -117,23 +118,30 @@ func (s *systemCatalogReplicationEventHandler) OnChunkAddedEvent(
 
 			c := systemcatalog.NewChunk(id, hypertableId, schemaName, tableName, dropped, status, compressedChunkId)
 			if err := s.systemCatalog.RegisterChunk(c); err != nil {
-				return fmt.Errorf("registering chunk failed: %v", c)
+				return errors.Errorf("registering chunk failed: %v (error: %+v)", c, err)
 			}
 
-			if !c.IsCompressed() &&
-				s.systemCatalog.IsHypertableSelectedForReplication(hypertableId) {
+			if h, present := s.systemCatalog.FindHypertableById(hypertableId); present {
+				s.systemCatalog.logger.Verbosef(
+					"ADDED CATALOG ENTRY: CHUNK %d FOR HYPERTABLE %s => %+v",
+					c.Id(), h.CanonicalName(), *c,
+				)
 
-				if found, err := s.systemCatalog.replicationContext.ExistsTableInPublication(c); err != nil {
-					return err
-				} else if found {
-					s.systemCatalog.logger.Infof(
-						"Chunk %s already in publication %s, skipping snapshotting",
-						c.CanonicalName(), s.systemCatalog.replicationContext.PublicationName(),
-					)
-					return nil
-				}
-				if err := s.systemCatalog.snapshotChunkWithXld(&xld, c); err != nil {
-					s.systemCatalog.logger.Fatalf("failed to snapshot chunk %s", c.CanonicalName())
+				if !c.IsCompressed() &&
+					s.systemCatalog.IsHypertableSelectedForReplication(hypertableId) {
+
+					if found, err := s.systemCatalog.replicationContext.ExistsTableInPublication(c); err != nil {
+						return err
+					} else if found {
+						s.systemCatalog.logger.Infof(
+							"Chunk %s already in publication %s, skipping snapshotting",
+							c.CanonicalName(), s.systemCatalog.replicationContext.PublicationName(),
+						)
+						return nil
+					}
+					if err := s.systemCatalog.snapshotChunkWithXld(&xld, c); err != nil {
+						s.systemCatalog.logger.Fatalf("failed to snapshot chunk %s", c.CanonicalName())
+					}
 				}
 			}
 
@@ -162,7 +170,7 @@ func (s *systemCatalogReplicationEventHandler) OnChunkUpdatedEvent(
 				}
 
 				if err := s.systemCatalog.RegisterChunk(c); err != nil {
-					return fmt.Errorf("registering chunk failed: %v", c)
+					return errors.Errorf("registering chunk failed: %v (error: %+v)", c, err)
 				}
 				if c.Dropped() && !chunk.Dropped() {
 					s.systemCatalog.logger.Verbosef("UPDATED CATALOG ENTRY: CHUNK %d DROPPED FOR HYPERTABLE %s => %v",
