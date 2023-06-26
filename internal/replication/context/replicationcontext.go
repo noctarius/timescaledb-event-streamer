@@ -493,6 +493,10 @@ func (rc *ReplicationContext) EnqueueTask(task Task) error {
 	return rc.dispatcher.EnqueueTask(task)
 }
 
+func (rc *ReplicationContext) RunTask(task Task) error {
+	return rc.dispatcher.RunTask(task)
+}
+
 func (rc *ReplicationContext) EnqueueTaskAndWait(task Task) error {
 	return rc.dispatcher.EnqueueTaskAndWait(task)
 }

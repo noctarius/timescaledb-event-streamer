@@ -352,7 +352,7 @@ func (l *logicalReplicationResolver) onHypertableUpdateEvent(xld pgtypes.XLogDat
 }
 
 func (l *logicalReplicationResolver) onChunkUpdateEvent(xld pgtypes.XLogData, msg *pgtypes.UpdateMessage) error {
-	return l.replicationContext.EnqueueTask(func(notificator context.Notificator) {
+	return l.replicationContext.RunTask(func(notificator context.Notificator) {
 		notificator.NotifySystemCatalogReplicationEventHandler(
 			func(handler eventhandlers.SystemCatalogReplicationEventHandler) error {
 				return handler.OnChunkUpdatedEvent(xld, msg.RelationID, msg.OldValues, msg.NewValues)
