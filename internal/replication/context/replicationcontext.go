@@ -396,8 +396,8 @@ func (rc *ReplicationContext) IsMinimumTimescaleVersion() bool {
 	return rc.tsdbVersion >= intversion.TSDB_MIN_VERSION
 }
 
-func (rc *ReplicationContext) IsTSDB211GE() bool {
-	return rc.tsdbVersion >= intversion.TSDB_211_VERSION
+func (rc *ReplicationContext) IsTSDB212GE() bool {
+	return rc.tsdbVersion >= intversion.TSDB_212_VERSION
 }
 
 func (rc *ReplicationContext) IsLogicalReplicationEnabled() bool {

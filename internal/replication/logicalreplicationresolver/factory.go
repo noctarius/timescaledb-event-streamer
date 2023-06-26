@@ -27,7 +27,7 @@ func NewResolver(config *spiconfig.Config, replicationContext *context.Replicati
 	}
 
 	if enabled && maxSize > 0 {
-		return newTransactionTracker(timeout, maxSize, systemCatalog, resolver)
+		return newTransactionTracker(timeout, maxSize, replicationContext, systemCatalog, resolver)
 	}
 	return resolver, nil
 }

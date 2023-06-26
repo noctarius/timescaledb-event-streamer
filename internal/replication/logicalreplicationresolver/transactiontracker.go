@@ -2,6 +2,7 @@ package logicalreplicationresolver
 
 import (
 	"github.com/jackc/pglogrepl"
+	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog"
@@ -17,16 +18,17 @@ const (
 )
 
 type transactionTracker struct {
-	timeout            time.Duration
-	maxSize            uint
-	relations          map[uint32]*pgtypes.RelationMessage
-	resolver           *logicalReplicationResolver
-	systemCatalog      *systemcatalog.SystemCatalog
-	currentTransaction *transaction
-	logger             *logging.Logger
+	timeout                      time.Duration
+	maxSize                      uint
+	relations                    map[uint32]*pgtypes.RelationMessage
+	resolver                     *logicalReplicationResolver
+	systemCatalog                *systemcatalog.SystemCatalog
+	currentTransaction           *transaction
+	logger                       *logging.Logger
+	supportsDecompressionMarkers bool
 }
 
-func newTransactionTracker(timeout time.Duration, maxSize uint,
+func newTransactionTracker(timeout time.Duration, maxSize uint, replicationContext *context.ReplicationContext,
 	systemCatalog *systemcatalog.SystemCatalog, resolver *logicalReplicationResolver,
 ) (eventhandlers.LogicalReplicationEventHandler, error) {
 
@@ -36,12 +38,13 @@ func newTransactionTracker(timeout time.Duration, maxSize uint,
 	}
 
 	return &transactionTracker{
-		timeout:       timeout,
-		maxSize:       maxSize,
-		systemCatalog: systemCatalog,
-		relations:     make(map[uint32]*pgtypes.RelationMessage),
-		logger:        logger,
-		resolver:      resolver,
+		timeout:                      timeout,
+		maxSize:                      maxSize,
+		systemCatalog:                systemCatalog,
+		relations:                    make(map[uint32]*pgtypes.RelationMessage),
+		logger:                       logger,
+		resolver:                     resolver,
+		supportsDecompressionMarkers: replicationContext.IsTSDB212GE(),
 	}, nil
 }
 
@@ -80,12 +83,19 @@ func (tt *transactionTracker) OnRelationEvent(xld pgtypes.XLogData, msg *pgtypes
 
 func (tt *transactionTracker) OnBeginEvent(xld pgtypes.XLogData, msg *pgtypes.BeginMessage) error {
 	tt.currentTransaction = tt.newTransaction(msg.Xid, msg.CommitTime, pgtypes.LSN(msg.FinalLSN))
+	if tt.supportsDecompressionMarkers {
+		return tt.resolver.OnBeginEvent(xld, msg)
+	}
 	return nil
 }
 
 func (tt *transactionTracker) OnCommitEvent(xld pgtypes.XLogData, msg *pgtypes.CommitMessage) error {
 	currentTransaction := tt.currentTransaction
 	tt.currentTransaction = nil
+
+	if tt.supportsDecompressionMarkers {
+		return tt.resolver.OnCommitEvent(xld, msg)
+	}
 
 	currentTransaction.queue.Lock()
 
@@ -150,14 +160,16 @@ func (tt *transactionTracker) OnInsertEvent(xld pgtypes.XLogData, msg *pgtypes.I
 			return nil
 		}
 
-		handled, err := tt.currentTransaction.pushTransactionEntry(&transactionEntry{
-			xld: xld,
-			msg: msg,
-		})
-		if err != nil {
-			return err
-		} else if handled {
-			return nil
+		if !tt.supportsDecompressionMarkers {
+			handled, err := tt.currentTransaction.pushTransactionEntry(&transactionEntry{
+				xld: xld,
+				msg: msg,
+			})
+			if err != nil {
+				return err
+			} else if handled {
+				return nil
+			}
 		}
 	}
 
@@ -165,6 +177,10 @@ func (tt *transactionTracker) OnInsertEvent(xld pgtypes.XLogData, msg *pgtypes.I
 }
 
 func (tt *transactionTracker) OnUpdateEvent(xld pgtypes.XLogData, msg *pgtypes.UpdateMessage) error {
+	if tt.supportsDecompressionMarkers {
+		return tt.resolver.OnUpdateEvent(xld, msg)
+	}
+
 	updateEntry := &transactionEntry{
 		xld: xld,
 		msg: msg,
@@ -222,6 +238,10 @@ func (tt *transactionTracker) OnUpdateEvent(xld pgtypes.XLogData, msg *pgtypes.U
 }
 
 func (tt *transactionTracker) OnDeleteEvent(xld pgtypes.XLogData, msg *pgtypes.DeleteMessage) error {
+	if tt.supportsDecompressionMarkers {
+		return tt.resolver.OnDeleteEvent(xld, msg)
+	}
+
 	if relation, ok := tt.relations[msg.RelationID]; ok {
 		// If no delete events are going to be generated, and we don't need to update the catalog,
 		// we can already ignore the event here and prevent it from hogging memory while we wait
@@ -258,7 +278,7 @@ func (tt *transactionTracker) OnTruncateEvent(xld pgtypes.XLogData, msg *pgtypes
 		return nil
 	}
 
-	if tt.currentTransaction != nil {
+	if !tt.supportsDecompressionMarkers && tt.currentTransaction != nil {
 		handled, err := tt.currentTransaction.pushTransactionEntry(&transactionEntry{
 			xld: xld,
 			msg: msg,
@@ -300,15 +320,17 @@ func (tt *transactionTracker) OnMessageEvent(xld pgtypes.XLogData, msg *pgtypes.
 			return nil
 		}
 
-		if tt.currentTransaction != nil {
-			handled, err := tt.currentTransaction.pushTransactionEntry(&transactionEntry{
-				xld: xld,
-				msg: msg,
-			})
-			if err != nil {
-				return err
-			} else if handled {
-				return nil
+		if !tt.supportsDecompressionMarkers {
+			if tt.currentTransaction != nil {
+				handled, err := tt.currentTransaction.pushTransactionEntry(&transactionEntry{
+					xld: xld,
+					msg: msg,
+				})
+				if err != nil {
+					return err
+				} else if handled {
+					return nil
+				}
 			}
 		}
 	}

@@ -275,7 +275,18 @@ func initializeSystemCatalog(sc *SystemCatalog) (*SystemCatalog, error) {
 		return nil, errors.Wrap(err, 0)
 	}
 
-	if err := sc.replicationContext.LoadChunks(sc.RegisterChunk); err != nil {
+	if err := sc.replicationContext.LoadChunks(func(chunk *systemcatalog.Chunk) error {
+		if err := sc.RegisterChunk(chunk); err != nil {
+			return errors.Errorf("registering chunk failed: %v (error: %+v)", chunk, err)
+		}
+		if h, present := sc.FindHypertableById(chunk.HypertableId()); present {
+			sc.logger.Verbosef(
+				"ADDED CATALOG ENTRY: CHUNK %d FOR HYPERTABLE %s => %+v",
+				chunk.Id(), h.CanonicalName(), *chunk,
+			)
+		}
+		return nil
+	}); err != nil {
 		return nil, errors.Wrap(err, 0)
 	}
 
