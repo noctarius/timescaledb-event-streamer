@@ -46,7 +46,6 @@ func NewTableFilter(excludes, includes []string, acceptedByDefault bool) (*Table
 func (rf *TableFilter) Enabled(hypertable *systemcatalog.Hypertable) bool {
 	// already tested?
 	canonicalName := hypertable.CanonicalName()
-	// _timescaledb_internal._compressed_hypertable_246
 	if v, present := rf.filterCache[canonicalName]; present {
 		return v
 	}
