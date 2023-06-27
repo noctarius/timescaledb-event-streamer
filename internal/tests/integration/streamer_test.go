@@ -49,7 +49,9 @@ func (its *IntegrationTestSuite) TestInitialSnapshot_Single_Chunk() {
 				return err
 			}
 
-			waiter.Await()
+			if err := waiter.Await(); err != nil {
+				return err
+			}
 
 			for i, event := range testSink.Events() {
 				expected := i + 1

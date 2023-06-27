@@ -79,9 +79,9 @@ func (rc *ReplicationConnection) SendStatusUpdate() error {
 }
 
 func (rc *ReplicationConnection) StartReplication(pluginArguments []string) error {
-	restartLSN, err := rc.locateRestartLSN()
+	restartLSN, err := rc.locateRestartLSN(rc.replicationContext.sideChannel.readReplicationSlot)
 	if err != nil {
-		return err
+		return errors.Wrap(err, 0)
 	}
 
 	// Configure initial LSN in case there isn't anything immediate to handle
@@ -115,7 +115,7 @@ func (rc *ReplicationConnection) StopReplication() error {
 			return nil
 		}
 	}
-	return err
+	return errors.Wrap(err, 0)
 }
 
 func (rc *ReplicationConnection) CreateReplicationSlot() (slotName, snapshotName string, created bool, err error) {
@@ -126,7 +126,7 @@ func (rc *ReplicationConnection) CreateReplicationSlot() (slotName, snapshotName
 	replicationSlotName := rc.replicationContext.ReplicationSlotName()
 	found, err := rc.replicationContext.sideChannel.existsReplicationSlot(replicationSlotName)
 	if err != nil {
-		return "", "", false, err
+		return "", "", false, errors.Wrap(err, 0)
 	}
 
 	if found {
@@ -139,11 +139,11 @@ func (rc *ReplicationConnection) CreateReplicationSlot() (slotName, snapshotName
 		},
 	)
 	if err != nil {
-		return "", "", false, err
+		return "", "", false, errors.Wrap(err, 0)
 	}
 
 	rc.replicationSlotCreated = true
-	return slot.SlotName, slot.SnapshotName, true, err
+	return slot.SlotName, slot.SnapshotName, true, errors.Wrap(err, 0)
 }
 
 func (rc *ReplicationConnection) DropReplicationSlot() error {
@@ -155,7 +155,7 @@ func (rc *ReplicationConnection) DropReplicationSlot() error {
 			Wait: true,
 		},
 	); err != nil {
-		return err
+		return errors.Wrap(err, 0)
 	}
 	rc.logger.Infoln("Dropped replication slot")
 	return nil
@@ -168,7 +168,7 @@ func (rc *ReplicationConnection) Close() error {
 func (rc *ReplicationConnection) reconnect() error {
 	conn, err := rc.replicationContext.newReplicationChannelConnection(context.Background())
 	if err != nil {
-		return err
+		return errors.Wrap(err, 0)
 	}
 	rc.conn = conn
 	return nil
@@ -178,19 +178,17 @@ func (rc *ReplicationConnection) identifySystem() (pglogrepl.IdentifySystemResul
 	return pglogrepl.IdentifySystem(context.Background(), rc.conn)
 }
 
-func (rc *ReplicationConnection) locateRestartLSN() (pgtypes.LSN, error) {
+func (rc *ReplicationConnection) locateRestartLSN(readReplicationSlot readReplicationSlotFunc) (pgtypes.LSN, error) {
 	replicationSlotName := rc.replicationContext.replicationSlotName
 
 	offset, err := rc.replicationContext.Offset()
 	if err != nil {
-		return 0, err
+		return 0, errors.Wrap(err, 0)
 	}
 
-	pluginName, slotType, _, confirmedFlushLSN, err :=
-		rc.replicationContext.sideChannel.readReplicationSlot(replicationSlotName)
-
+	pluginName, slotType, _, confirmedFlushLSN, err := readReplicationSlot(replicationSlotName)
 	if err != nil {
-		return 0, err
+		return 0, errors.Wrap(err, 0)
 	}
 
 	restartLSN := confirmedFlushLSN

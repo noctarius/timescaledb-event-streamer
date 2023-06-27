@@ -9,16 +9,20 @@ import (
 
 func init() {
 	statestorage.RegisterStateStorage(spiconfig.NoneStorage, func(_ *spiconfig.Config) (statestorage.Storage, error) {
-		return &DummyStateStorage{
-			offsets:       make(map[string]*statestorage.Offset),
-			encodedStates: make(map[string][]byte),
-		}, nil
+		return NewDummyStateStorage(), nil
 	})
 }
 
 type DummyStateStorage struct {
 	offsets       map[string]*statestorage.Offset
 	encodedStates map[string][]byte
+}
+
+func NewDummyStateStorage() *DummyStateStorage {
+	return &DummyStateStorage{
+		offsets:       make(map[string]*statestorage.Offset),
+		encodedStates: make(map[string][]byte),
+	}
 }
 
 func (d *DummyStateStorage) Start() error {
@@ -38,10 +42,11 @@ func (d *DummyStateStorage) Load() error {
 }
 
 func (d *DummyStateStorage) Get() (map[string]*statestorage.Offset, error) {
-	return nil, nil
+	return d.offsets, nil
 }
 
 func (d *DummyStateStorage) Set(key string, value *statestorage.Offset) error {
+	d.offsets[key] = value
 	return nil
 }
 

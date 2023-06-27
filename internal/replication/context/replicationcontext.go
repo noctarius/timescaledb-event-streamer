@@ -87,13 +87,18 @@ func NewReplicationContext(config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
 		config, spiconfig.PropertyPostgresqlReplicationSlotAutoDrop, true,
 	)
 
+	taskDispatcher, err := newDispatcher()
+	if err != nil {
+		return nil, errors.Wrap(err, 0)
+	}
+
 	// Build the replication context to be passed along in terms of
 	// potential interface implementations to break up internal dependencies
 	replicationContext := &ReplicationContext{
 		pgxConfig: pgxConfig,
 
 		namingStrategy: namingStrategy,
-		dispatcher:     newDispatcher(),
+		dispatcher:     taskDispatcher,
 		stateStorage:   stateStorage,
 
 		snapshotInitialMode:     snapshotInitialMode,

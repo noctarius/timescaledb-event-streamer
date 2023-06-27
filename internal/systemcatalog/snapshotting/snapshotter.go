@@ -53,7 +53,10 @@ func (s *Snapshotter) EnqueueSnapshot(task SnapshotTask) error {
 	enqueueSnapshotTask := func() {
 		// Partition calculation
 		hasher := fnv.New64a()
-		hasher.Write([]byte(task.Hypertable.CanonicalName()))
+		if _, err := hasher.Write([]byte(task.Hypertable.CanonicalName())); err != nil {
+			// If we cannot hash, the system will break. That means, we harshly kill the process.
+			panic(err)
+		}
 		partition := int(hasher.Sum64() % s.partitionCount)
 
 		// Enqueue the actual task
@@ -69,7 +72,7 @@ func (s *Snapshotter) EnqueueSnapshot(task SnapshotTask) error {
 			enqueueSnapshotTask()
 		})
 		if err != nil {
-			return err
+			return errors.Wrap(err, 0)
 		}
 	} else {
 		enqueueSnapshotTask()
@@ -148,7 +151,7 @@ func (s *Snapshotter) snapshotHypertable(task SnapshotTask) error {
 	if err := s.replicationContext.SnapshotContextTransaction(
 		*task.SnapshotName, true,
 		func(snapshotContext *watermark.SnapshotContext) error {
-			watermark, created := snapshotContext.GetOrCreateWatermark(task.Hypertable)
+			hypertableWatermark, created := snapshotContext.GetOrCreateWatermark(task.Hypertable)
 
 			// Initialize the watermark or update the high watermark after a restart
 			if created || task.nextSnapshotFetch {
@@ -157,7 +160,7 @@ func (s *Snapshotter) snapshotHypertable(task SnapshotTask) error {
 					return errors.Wrap(err, 0)
 				}
 
-				watermark.SetHighWatermark(highWatermark)
+				hypertableWatermark.SetHighWatermark(highWatermark)
 			}
 
 			return nil
@@ -168,20 +171,20 @@ func (s *Snapshotter) snapshotHypertable(task SnapshotTask) error {
 
 	// Kick off snapshot fetching
 	if err := s.runSnapshotFetchBatch(task); err != nil {
-		return err
+		return errors.Wrap(err, 0)
 	}
 
 	return s.replicationContext.SnapshotContextTransaction(
 		*task.SnapshotName, false,
 		func(snapshotContext *watermark.SnapshotContext) error {
-			watermark, present := snapshotContext.GetWatermark(task.Hypertable)
+			hypertableWatermark, present := snapshotContext.GetWatermark(task.Hypertable)
 			if !present {
 				return errors.Errorf(
 					"illegal watermark state for hypertable '%s'", task.Hypertable.CanonicalName(),
 				)
 			}
 
-			if watermark.Complete() {
+			if hypertableWatermark.Complete() {
 				return s.replicationContext.EnqueueTaskAndWait(func(notificator context.Notificator) {
 					notificator.NotifySnapshottingEventHandler(func(handler eventhandlers.SnapshottingEventHandler) error {
 						return handler.OnHypertableSnapshotFinishedEvent(*task.SnapshotName, task.Hypertable)

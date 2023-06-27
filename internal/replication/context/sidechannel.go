@@ -31,6 +31,10 @@ const (
 	Trigger    Grant = "trigger"
 )
 
+type readReplicationSlotFunc = func(slotName string) (
+	pluginName, slotType string, restartLsn, confirmedFlushLsn pgtypes.LSN, err error,
+)
+
 const getSystemInformationQuery = `
 SELECT current_database(), pcs.system_identifier, pcc.timeline_id 
 FROM pg_control_system() pcs, pg_control_checkpoint() pcc`
@@ -113,7 +117,7 @@ WHERE c.table_schema = $1
   AND c.table_name = $2
 ORDER BY c.ordinal_position`
 
-const snapshotHighWatermark = `
+const snapshotHighWatermarkQuery = `
 SELECT %s
 FROM %s
 ORDER BY %s
@@ -130,28 +134,28 @@ SELECT ca.user_view_schema, ca.user_view_name
 FROM _timescaledb_catalog.continuous_agg ca 
 WHERE ca.mat_hypertable_id = $1`
 
-const readReplicationSlot = `
+const readReplicationSlotQuery = `
 SELECT plugin, slot_type, restart_lsn, confirmed_flush_lsn
 FROM pg_catalog.pg_replication_slots prs
 WHERE slot_name = $1`
 
-const checkExistingReplicationSlot = `
+const checkExistingReplicationSlotQuery = `
 SELECT true
 FROM pg_catalog.pg_replication_slots prs
 WHERE slot_name = $1`
 
-const createPublication = "SELECT create_timescaledb_catalog_publication($1, $2)"
+const createPublicationQuery = "SELECT create_timescaledb_catalog_publication($1, $2)"
 
-const checkExistingPublication = "SELECT true FROM pg_publication WHERE pubname = $1"
+const checkExistingPublicationQuery = "SELECT true FROM pg_publication WHERE pubname = $1"
 
-const dropPublication = "DROP PUBLICATION IF EXISTS %s"
+const dropPublicationQuery = "DROP PUBLICATION IF EXISTS %s"
 
 const checkExistingPublicationPublishedTablesQuery = `
 SELECT pt.schemaname, pt.tablename
 FROM pg_catalog.pg_publication_tables pt
 WHERE pt.pubname = $1`
 
-const checkExistingTableInPublication = `
+const checkExistingTableInPublicationQuery = `
 SELECT true
 FROM pg_catalog.pg_publication_tables pt
 WHERE pt.pubname = $1
@@ -167,7 +171,7 @@ const postgresqlVersionQuery = `SHOW SERVER_VERSION`
 
 const walLevelQuery = `SHOW WAL_LEVEL`
 
-const checkTablePrivilegeByUser = `SELECT HAS_TABLE_PRIVILEGE($1, $2, $3)`
+const checkTablePrivilegeByUserQuery = `SELECT HAS_TABLE_PRIVILEGE($1, $2, $3)`
 
 type sideChannelImpl struct {
 	logger             *logging.Logger
@@ -191,7 +195,7 @@ func (sc *sideChannelImpl) hasTablePrivilege(username string,
 
 	err = sc.newSession(time.Second*10, func(session *session) error {
 		return session.queryRow(
-			checkTablePrivilegeByUser,
+			checkTablePrivilegeByUserQuery,
 			username,
 			entity.CanonicalName(),
 			string(grant),
@@ -203,7 +207,7 @@ func (sc *sideChannelImpl) hasTablePrivilege(username string,
 func (sc *sideChannelImpl) createPublication(publicationName string) (success bool, err error) {
 	err = sc.newSession(time.Second*10, func(session *session) error {
 		err = session.queryRow(
-			createPublication,
+			createPublicationQuery,
 			publicationName,
 			sc.replicationContext.DatabaseUsername(),
 		).Scan(&success)
@@ -218,7 +222,7 @@ func (sc *sideChannelImpl) createPublication(publicationName string) (success bo
 
 func (sc *sideChannelImpl) existsPublication(publicationName string) (found bool, err error) {
 	err = sc.newSession(time.Second*10, func(session *session) error {
-		return session.queryRow(checkExistingPublication, publicationName).Scan(&found)
+		return session.queryRow(checkExistingPublicationQuery, publicationName).Scan(&found)
 	})
 	if err == pgx.ErrNoRows {
 		err = nil
@@ -228,7 +232,7 @@ func (sc *sideChannelImpl) existsPublication(publicationName string) (found bool
 
 func (sc *sideChannelImpl) dropPublication(publicationName string) error {
 	return sc.newSession(time.Second*10, func(session *session) error {
-		_, err := session.exec(fmt.Sprintf(dropPublication, publicationName))
+		_, err := session.exec(fmt.Sprintf(dropPublicationQuery, publicationName))
 		if e, ok := err.(*pgconn.PgError); ok {
 			if e.Code == pgerrcode.UndefinedObject {
 				return nil
@@ -245,7 +249,7 @@ func (sc *sideChannelImpl) existsTableInPublication(
 	publicationName, schemaName, tableName string) (found bool, err error) {
 
 	err = sc.newSession(time.Second*10, func(session *session) error {
-		return session.queryRow(checkExistingTableInPublication, publicationName, schemaName, tableName).Scan(&found)
+		return session.queryRow(checkExistingTableInPublicationQuery, publicationName, schemaName, tableName).Scan(&found)
 	})
 	if err == pgx.ErrNoRows {
 		err = nil
@@ -583,7 +587,7 @@ func (sc *sideChannelImpl) readSnapshotHighWatermark(
 	}
 
 	query := fmt.Sprintf(
-		snapshotHighWatermark, index.AsSqlTuple(), hypertable.CanonicalName(), index.AsSqlOrderBy(true),
+		snapshotHighWatermarkQuery, index.AsSqlTuple(), hypertable.CanonicalName(), index.AsSqlOrderBy(true),
 	)
 	if err := sc.newSession(time.Second*10, func(session *session) error {
 		if _, err := session.exec("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ"); err != nil {
@@ -673,7 +677,7 @@ func (sc *sideChannelImpl) readReplicationSlot(
 ) (pluginName, slotType string, restartLsn, confirmedFlushLsn pgtypes.LSN, err error) {
 	err = sc.newSession(time.Second*10, func(session *session) error {
 		var restart, confirmed string
-		if err := session.queryRow(readReplicationSlot, slotName).Scan(
+		if err := session.queryRow(readReplicationSlotQuery, slotName).Scan(
 			&pluginName, &slotType, &restart, &confirmed,
 		); err != nil {
 			return err
@@ -698,7 +702,7 @@ func (sc *sideChannelImpl) readReplicationSlot(
 
 func (sc *sideChannelImpl) existsReplicationSlot(slotName string) (found bool, err error) {
 	err = sc.newSession(time.Second*10, func(session *session) error {
-		return session.queryRow(checkExistingReplicationSlot, slotName).Scan(&found)
+		return session.queryRow(checkExistingReplicationSlotQuery, slotName).Scan(&found)
 	})
 	if err == pgx.ErrNoRows {
 		err = nil

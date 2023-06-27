@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"github.com/go-errors/errors"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
+	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
-	"os"
 	"time"
 )
 
@@ -22,6 +22,7 @@ type Notificator interface {
 }
 
 type dispatcher struct {
+	logger              *logging.Logger
 	taskQueue           *supporting.Queue[Task]
 	baseHandlers        []eventhandlers.BaseReplicationEventHandler
 	catalogHandlers     []eventhandlers.SystemCatalogReplicationEventHandler
@@ -33,8 +34,14 @@ type dispatcher struct {
 	shutdownActive      bool
 }
 
-func newDispatcher() *dispatcher {
+func newDispatcher() (*dispatcher, error) {
+	logger, err := logging.NewLogger("Dispatcher")
+	if err != nil {
+		return nil, errors.Wrap(err, 0)
+	}
+
 	d := &dispatcher{
+		logger:              logger,
 		taskQueue:           supporting.NewQueue[Task](),
 		baseHandlers:        make([]eventhandlers.BaseReplicationEventHandler, 0),
 		catalogHandlers:     make([]eventhandlers.SystemCatalogReplicationEventHandler, 0),
@@ -44,7 +51,7 @@ func newDispatcher() *dispatcher {
 		snapshotHandlers:    make([]eventhandlers.SnapshottingEventHandler, 0),
 		shutdownAwaiter:     supporting.NewShutdownAwaiter(),
 	}
-	return d
+	return d, nil
 }
 
 func (d *dispatcher) RegisterReplicationEventHandler(handler eventhandlers.BaseReplicationEventHandler) {
@@ -289,7 +296,7 @@ func (n *notificatorImpl) handleError(err error) {
 		errMsg = e.ErrorStack()
 	}
 
-	fmt.Fprintf(os.Stderr, "Error while dispatching event: %s\n", errMsg)
+	n.dispatcher.logger.Warnf("Error while dispatching event: %s\n", errMsg)
 }
 
 type immediateNotificatorImpl struct {
