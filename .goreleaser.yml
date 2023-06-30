@@ -1,0 +1,44 @@
+project_name: timescaledb-event-streamer
+
+before:
+  hooks:
+    - go mod download
+
+builds:
+  - main: ./cmd/timescaledb-event-streamer
+    id: timescaledb-event-streamer-builder
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -X 'github.com/noctarius/timescaledb-event-streamer/internal/version.Branch={{.Branch}}' -X 'github.com/noctarius/timescaledb-event-streamer/internal/version.CommitHash={{.Commit}}'
+    goos:
+      - linux
+      - windows
+      - darwin
+      - freebsd
+    goarch:
+      - amd64
+      - arm
+      - arm64
+      - riscv64
+    ignore:
+      - goos: darwin
+        goarch: arm
+      - goos: windows
+        goarch: arm
+      - goos: windows
+        goarch: riscv64
+      - goos: darwin
+        goarch: riscv64
+
+archives:
+  - id: timescaledb-event-streamer-archiver
+    name_template: "{{.ProjectName}}-{{.Tag}}-{{.Os}}-{{.Arch}}"
+    builds:
+      - timescaledb-event-streamer-builder
+    format_overrides:
+      - goos: windows
+        format: zip
+
+checksum:
+  name_template: "{{.ProjectName}}-{{.Tag}}-checksums.txt"
