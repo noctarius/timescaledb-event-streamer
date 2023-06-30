@@ -46,40 +46,28 @@ jobs:
       - name: Docker Hub Push (latest)
         run: docker push ${{ env.docker-registry }}/${{ env.docker-image-name }}:latest
 
-  release:
-    name: release
+  goreleaser:
     runs-on: ubuntu-latest
 
     permissions:
       contents: write
       packages: write
-      id-token: write
-
-    strategy:
-      matrix:
-        goos: [linux, windows, darwin, freebsd]
-        goarch: [amd64, arm, arm64, riscv64]
-        exclude:
-          - goos: darwin
-            goarch: arm
-          - goos: windows
-            goarch: arm
-          - goos: windows
-            goarch: riscv64
-          - goos: darwin
-            goarch: riscv64
 
     steps:
       - uses: actions/checkout@v3
-      - uses: wangyoucao577/go-release-action@v1.38
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          goos: ${{ matrix.goos }}
-          goarch: ${{ matrix.goarch }}
-          goversion: ${{ env.golang-version }}
-          project_path: "./cmd/timescaledb-event-streamer"
-          binary_name: "timescaledb-event-streamer"
-          sha256sum: TRUE
-          pre_command: export GODEBUG=http2client=0
-          ldflags: >
-            -X 'github.com/noctarius/timescaledb-event-streamer/internal/version.Branch=${{ github.ref_name }}' -X 'github.com/noctarius/timescaledb-event-streamer/internal/version.CommitHash=${{ github.sha }}'
+          fetch-depth: 0
+
+      - run: git fetch --force --tags
+
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.golang-version }}
+
+      - uses: goreleaser/goreleaser-action@v4
+        with:
+          distribution: goreleaser
+          version: latest
+          args: release --clean -f .goreleaser.yml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
