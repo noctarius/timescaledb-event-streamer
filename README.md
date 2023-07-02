@@ -9,10 +9,7 @@ operations inside the database generate a corresponding set of events, which
 are commonly distributed through a messaging connector, such as Kafka, NATS,
 or similar.
 
-_**Attention:** This software is in prototyping / alpha stage and not meant for
-production usage. No guarantees on the functionality are given._
-
-_**Attention 2:** This is not an official Timescale project, but just developed
+_**Attention:** This is not an official Timescale project, but just developed
 by a person who works for Timescale. This may change at some point in the future
 but it is not a given._
 
