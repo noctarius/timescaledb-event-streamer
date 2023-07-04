@@ -94,7 +94,7 @@ const (
 	PropertyKinesisAwsSessionToken    = "sink.kinesis.aws.sessiontoken"
 
 	PropertySqsQueueUrl           = "sink.sqs.queue.url"
-	PropertySqsRegion             = "sink.sqs.region"
+	PropertySqsAwsRegion          = "sink.sqs.aws.region"
 	PropertySqsAwsEndpoint        = "sink.sqs.aws.endpoint"
 	PropertySqsAwsAccessKeyId     = "sink.sqs.aws.accesskeyid"
 	PropertySqsAwsSecretAccessKey = "sink.sqs.aws.secretaccesskey"

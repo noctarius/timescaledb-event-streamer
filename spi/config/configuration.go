@@ -110,6 +110,7 @@ type SinkConfig struct {
 	Kafka      KafkaConfig                  `toml:"kafka" yaml:"kafka"`
 	Redis      RedisConfig                  `toml:"redis" yaml:"redis"`
 	AwsKinesis AwsKinesisConfig             `toml:"kinesis" yaml:"kinesis"`
+	AwsSqs     AwsSqsConfig                 `toml:"sqs" yaml:"sqs"`
 }
 
 type EventFilterConfig struct {
@@ -230,6 +231,15 @@ type AwsKinesisStreamConfig struct {
 	Create     *bool   `toml:"create" yaml:"create"`
 	ShardCount *int64  `toml:"shardcount" yaml:"shardCount"`
 	Mode       *string `toml:"mode" yaml:"mode"`
+}
+
+type AwsSqsConfig struct {
+	Queue AwsSqsQueueConfig   `toml:"queue" yaml:"queue"`
+	Aws   AwsConnectionConfig `toml:"aws" yaml:"aws"`
+}
+
+type AwsSqsQueueConfig struct {
+	Name string `toml:"name" yaml:"name"`
 }
 
 type AwsConnectionConfig struct {

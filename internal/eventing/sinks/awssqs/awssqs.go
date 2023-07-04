@@ -46,15 +46,18 @@ func newAwsSqsSink(config *spiconfig.Config) (sink.Sink, error) {
 		return nil, errors.Errorf("AWS SQS sink needs the queue url to be configured")
 	}
 
-	awsRegion := spiconfig.GetOrDefault[*string](config, spiconfig.PropertySqsRegion, nil)
+	awsRegion := spiconfig.GetOrDefault[*string](config, spiconfig.PropertySqsAwsRegion, nil)
 	endpoint := spiconfig.GetOrDefault(config, spiconfig.PropertySqsAwsEndpoint, "")
 	accessKeyId := spiconfig.GetOrDefault(config, spiconfig.PropertySqsAwsAccessKeyId, "")
 	secretAccessKey := spiconfig.GetOrDefault(config, spiconfig.PropertySqsAwsSecretAccessKey, "")
 	sessionToken := spiconfig.GetOrDefault(config, spiconfig.PropertySqsAwsSessionToken, "")
 
-	awsConfig := aws.NewConfig().
-		WithEndpoint(endpoint).
-		WithCredentials(credentials.NewStaticCredentials(accessKeyId, secretAccessKey, sessionToken))
+	awsConfig := aws.NewConfig().WithEndpoint(endpoint)
+	if accessKeyId != "" && secretAccessKey != "" && sessionToken != "" {
+		awsConfig = awsConfig.WithCredentials(
+			credentials.NewStaticCredentials(accessKeyId, secretAccessKey, sessionToken),
+		)
+	}
 
 	if awsRegion != nil {
 		awsConfig = awsConfig.WithRegion(*awsRegion)
