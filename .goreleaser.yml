@@ -42,3 +42,9 @@ archives:
 
 checksum:
   name_template: "{{.ProjectName}}-{{.Tag}}-checksums.txt"
+
+changelog:
+  filters:
+    exclude:
+      - "Pre release version update"
+      - "Post release version update"
