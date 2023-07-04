@@ -52,14 +52,14 @@ func newAwsKinesisSink(config *spiconfig.Config) (sink.Sink, error) {
 
 	awsRegion := spiconfig.GetOrDefault[*string](config, spiconfig.PropertyKinesisRegion, nil)
 	endpoint := spiconfig.GetOrDefault(config, spiconfig.PropertyKinesisAwsEndpoint, "")
-	accessKeyId := spiconfig.GetOrDefault(config, spiconfig.PropertyKinesisAwsAccessKeyId, "")
-	secretAccessKey := spiconfig.GetOrDefault(config, spiconfig.PropertyKinesisAwsSecretAccessKey, "")
-	sessionToken := spiconfig.GetOrDefault(config, spiconfig.PropertyKinesisAwsSessionToken, "")
+	accessKeyId := spiconfig.GetOrDefault[*string](config, spiconfig.PropertyKinesisAwsAccessKeyId, nil)
+	secretAccessKey := spiconfig.GetOrDefault[*string](config, spiconfig.PropertyKinesisAwsSecretAccessKey, nil)
+	sessionToken := spiconfig.GetOrDefault[*string](config, spiconfig.PropertyKinesisAwsSessionToken, nil)
 
 	awsConfig := aws.NewConfig().WithEndpoint(endpoint)
-	if accessKeyId != "" && secretAccessKey != "" && sessionToken != "" {
+	if accessKeyId != nil && secretAccessKey != nil && sessionToken != nil {
 		awsConfig = awsConfig.WithCredentials(
-			credentials.NewStaticCredentials(accessKeyId, secretAccessKey, sessionToken),
+			credentials.NewStaticCredentials(*accessKeyId, *secretAccessKey, *sessionToken),
 		)
 	}
 

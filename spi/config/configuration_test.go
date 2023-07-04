@@ -18,6 +18,7 @@
 package config
 
 import (
+	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"reflect"
@@ -112,5 +113,58 @@ func Test_Config_Property_Reading(t *testing.T) {
 
 	v5 := GetOrDefault(config, PropertySink, "foo")
 	assert.Equal(t, "redis", v5)
+}
 
+func Test_Config_Read_String_Ptr_From_String_Ptr(t *testing.T) {
+	config := &Config{
+		Sink: SinkConfig{
+			Type: AwsSQS,
+			AwsSqs: AwsSqsConfig{
+				Queue: AwsSqsQueueConfig{
+					Url: supporting.AddrOf("test"),
+				},
+			},
+		},
+	}
+
+	v := GetOrDefault[*string](config, PropertySqsQueueUrl, nil)
+	assert.Equal(t, "test", *v)
+}
+
+func Test_Config_Read_String_From_String_Ptr(t *testing.T) {
+	config := &Config{
+		Sink: SinkConfig{
+			Type: AwsSQS,
+			AwsSqs: AwsSqsConfig{
+				Queue: AwsSqsQueueConfig{
+					Url: supporting.AddrOf("test"),
+				},
+			},
+		},
+	}
+
+	v := GetOrDefault[string](config, PropertySqsQueueUrl, "")
+	assert.Equal(t, "test", v)
+}
+
+func Test_Config_Read_String_Ptr_From_String(t *testing.T) {
+	config := &Config{
+		PostgreSQL: PostgreSQLConfig{
+			Connection: "test",
+		},
+	}
+
+	v := GetOrDefault[*string](config, PropertyPostgresqlConnection, nil)
+	assert.Equal(t, "test", *v)
+}
+
+func Test_Config_Read_String_From_String(t *testing.T) {
+	config := &Config{
+		PostgreSQL: PostgreSQLConfig{
+			Connection: "test",
+		},
+	}
+
+	v := GetOrDefault[string](config, PropertyPostgresqlConnection, "")
+	assert.Equal(t, "test", v)
 }

@@ -48,14 +48,14 @@ func newAwsSqsSink(config *spiconfig.Config) (sink.Sink, error) {
 
 	awsRegion := spiconfig.GetOrDefault[*string](config, spiconfig.PropertySqsAwsRegion, nil)
 	endpoint := spiconfig.GetOrDefault(config, spiconfig.PropertySqsAwsEndpoint, "")
-	accessKeyId := spiconfig.GetOrDefault(config, spiconfig.PropertySqsAwsAccessKeyId, "")
-	secretAccessKey := spiconfig.GetOrDefault(config, spiconfig.PropertySqsAwsSecretAccessKey, "")
-	sessionToken := spiconfig.GetOrDefault(config, spiconfig.PropertySqsAwsSessionToken, "")
+	accessKeyId := spiconfig.GetOrDefault[*string](config, spiconfig.PropertySqsAwsAccessKeyId, nil)
+	secretAccessKey := spiconfig.GetOrDefault[*string](config, spiconfig.PropertySqsAwsSecretAccessKey, nil)
+	sessionToken := spiconfig.GetOrDefault[*string](config, spiconfig.PropertySqsAwsSessionToken, nil)
 
 	awsConfig := aws.NewConfig().WithEndpoint(endpoint)
-	if accessKeyId != "" && secretAccessKey != "" && sessionToken != "" {
+	if accessKeyId != nil && secretAccessKey != nil && sessionToken != nil {
 		awsConfig = awsConfig.WithCredentials(
-			credentials.NewStaticCredentials(accessKeyId, secretAccessKey, sessionToken),
+			credentials.NewStaticCredentials(*accessKeyId, *secretAccessKey, *sessionToken),
 		)
 	}
 

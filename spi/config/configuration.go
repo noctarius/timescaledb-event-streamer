@@ -227,7 +227,7 @@ type AwsKinesisConfig struct {
 }
 
 type AwsKinesisStreamConfig struct {
-	Name       *string `toml:"stream" yaml:"name"`
+	Name       *string `toml:"name" yaml:"name"`
 	Create     *bool   `toml:"create" yaml:"create"`
 	ShardCount *int64  `toml:"shardcount" yaml:"shardCount"`
 	Mode       *string `toml:"mode" yaml:"mode"`
@@ -239,7 +239,7 @@ type AwsSqsConfig struct {
 }
 
 type AwsSqsQueueConfig struct {
-	Name string `toml:"name" yaml:"name"`
+	Url *string `toml:"url" yaml:"url"`
 }
 
 type AwsConnectionConfig struct {
@@ -313,14 +313,29 @@ func GetOrDefault[V any](config *Config, canonicalProperty string, defaultValue 
 		}
 	}
 
+	defaultValueType := reflect.TypeOf(defaultValue)
+	isPtr := defaultValueType.Kind() == reflect.Ptr
+
 	if !element.IsZero() &&
 		!(element.Kind() == reflect.Ptr && element.IsNil()) {
 
 		if element.Kind() == reflect.Ptr {
+			if isPtr {
+				return element.Convert(defaultValueType).Interface().(V)
+			}
+
 			element = element.Elem()
 		}
 
-		return element.Convert(reflect.TypeOf(defaultValue)).Interface().(V)
+		if isPtr {
+			// Some magic needs to be done here to get a
+			// pointer of a non-addressable value
+			newElement := reflect.New(defaultValueType.Elem())
+			newElement.Elem().Set(element)
+			element = newElement
+		}
+
+		return element.Convert(defaultValueType).Interface().(V)
 	}
 	return defaultValue
 }
