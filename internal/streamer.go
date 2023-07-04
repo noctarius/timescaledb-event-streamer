@@ -30,6 +30,8 @@ import (
 	_ "github.com/noctarius/timescaledb-event-streamer/internal/eventing/namingstrategies"
 
 	// Register built-in sinks
+	_ "github.com/noctarius/timescaledb-event-streamer/internal/eventing/sinks/awskinesis"
+	_ "github.com/noctarius/timescaledb-event-streamer/internal/eventing/sinks/awssqs"
 	_ "github.com/noctarius/timescaledb-event-streamer/internal/eventing/sinks/kafka"
 	_ "github.com/noctarius/timescaledb-event-streamer/internal/eventing/sinks/nats"
 	_ "github.com/noctarius/timescaledb-event-streamer/internal/eventing/sinks/redis"
