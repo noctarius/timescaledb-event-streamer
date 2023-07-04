@@ -84,6 +84,21 @@ function os() {
   echo "unknown"
 }
 
+function download() {
+  local url="$1"
+  local filename="$2"
+
+  if [[ ${cmd_curl} ]]; then
+    if ! curl -o "${filename}" --silent -L "${url}"; then
+      return 1
+    fi
+  elif [[ ${cmd_wget} ]]; then
+    if ! wget -o "${filename}" "${url}" 2>/dev/null; then
+      return 1
+    fi
+  fi
+}
+
 cmd_curl="$(available curl)"
 cmd_wget="$(available wget)"
 tar="$(available tar)"
@@ -152,9 +167,20 @@ echo
 
 # Filename of the latest version
 FILENAME="timescaledb-event-streamer-${VERSION}-${OS}-${ARCH}.tar.gz"
+CHECKSUM_FILENAME="timescaledb-event-streamer-${VERSION}-checksums.txt"
 
 # Download URL of the latest version
 URL="${BASE_URL}/download/${VERSION}/${FILENAME}"
+CHECKSUM_URL="${BASE_URL}/download/${VERSION}/${CHECKSUM_FILENAME}"
+
+function exit_trap() {
+  echo
+  echo -n "Cleanup... "
+  rm -f "${CHECKSUM_FILENAME}"
+  rm -f "${FILENAME}"
+  echo "done."
+}
+trap exit_trap EXIT
 
 if [ -f timescaledb-event-streamer ]; then
   read -p "Exising version found. Updating? (y/N) " yn
@@ -171,10 +197,25 @@ if [ -f timescaledb-event-streamer ]; then
 fi
 
 echo -n "Downloading... "
-if [[ ${cmd_curl} ]]; then
-  curl -o "${FILENAME}" --silent -L "${URL}"
-elif [[ ${cmd_wget} ]]; then
-  wget "${URL}" 2>/dev/null
+if ! download "${CHECKSUM_URL}" "${CHECKSUM_FILENAME}"; then
+  echo "failed."
+  exit 1
+fi
+
+if ! download "${URL}" "${FILENAME}"; then
+  echo "failed."
+  exit 1
+fi
+echo "done."
+
+echo -n "Testing checksum... "
+known_checksum=$(cat "${CHECKSUM_FILENAME}" | grep "${FILENAME}" | awk '{print $1}')
+echo -n "${known_checksum}... "
+checksum="$(shasum -a 256 "${FILENAME}" | awk '{print $1}')"
+echo -n "${checksum}... "
+if [[ "${checksum}" != "${known_checksum}" ]]; then
+  echo "failed."
+  exit 1
 fi
 echo "done."
 
@@ -184,8 +225,4 @@ echo "done."
 
 echo -n "Ensuring permissions... "
 chmod +x timescaledb-event-streamer
-echo "done."
-
-echo -n "Cleanup... "
-rm "${FILENAME}"
 echo "done."
