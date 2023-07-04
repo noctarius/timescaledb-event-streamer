@@ -87,7 +87,7 @@ const (
 	PropertyKinesisStreamCreate       = "sink.kinesis.stream.create"
 	PropertyKinesisStreamShardCount   = "sink.kinesis.stream.shardcount"
 	PropertyKinesisStreamMode         = "sink.kinesis.stream.mode"
-	PropertyKinesisRegion             = "sink.kinesis.region"
+	PropertyKinesisRegion             = "sink.kinesis.aws.region"
 	PropertyKinesisAwsEndpoint        = "sink.kinesis.aws.endpoint"
 	PropertyKinesisAwsAccessKeyId     = "sink.kinesis.aws.accesskeyid"
 	PropertyKinesisAwsSecretAccessKey = "sink.kinesis.aws.secretaccesskey"
