@@ -20,13 +20,13 @@ sink.tombstone = false
 #sink.filters.filterName.condition = '''value.op == "u" && value.before.id == 2'''
 #sink.filters.filterName.default = true
 
-#sink.type = 'stdout'
+sink.type = 'stdout'
 
-sink.type = 'nats'
-sink.nats.address = 'nats://localhost:4222'
-sink.nats.authorization = "userinfo"
-sink.nats.userinfo.username = 'publisher'
-sink.nats.userinfo.password = '...'
+#sink.type = 'nats'
+#sink.nats.address = 'nats://localhost:4222'
+#sink.nats.authorization = "userinfo"
+#sink.nats.userinfo.username = 'publisher'
+#sink.nats.userinfo.password = '...'
 
 #sink.type = 'kafka'
 #sink.kafka.brokers = ['']

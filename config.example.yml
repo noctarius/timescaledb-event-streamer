@@ -1,22 +1,22 @@
 postgresql:
   connection: 'postgres://repl_user@localhost:5432/postgres'
   password: '...'
-  publication:
-    name: 'replication_name'
-    create: false
-    autoDrop: true
-  replicationSlot:
-    name: 'slot_name'
-    create: true
-    autoDrop: true
-  snapshot:
-    batchSize: 1000
-    initial: 'always'
-  transaction:
-    window:
-      enabled: true
-      timeout: 60
-      maxsize: 100000
+#  publication:
+#    name: 'replication_name'
+#    create: false
+#    autoDrop: true
+#  replicationSlot:
+#    name: 'slot_name'
+#    create: true
+#    autoDrop: true
+#  snapshot:
+#    batchSize: 1000
+#    initial: 'always'
+#  transaction:
+#    window:
+#      enabled: true
+#      timeout: 60
+#      maxsize: 100000
 
 stateStorage:
   type: file
@@ -24,6 +24,11 @@ stateStorage:
     path: '/tmp/statestorage.dat'
 
 sink:
+  #filters:
+    #filterName:
+      #condition: 'value.op == "u" && value.before.id == 2'
+      #default: true
+  tombstone: false
   type: 'stdout'
   #type: 'nats'
   #nats:
@@ -90,10 +95,6 @@ sink:
       #accessKeyId: '...'
       #secretAccessKey: '...'
       #sessionToken: '...'
-  filters:
-    filterName:
-      condition: 'value.op == "u" && value.before.id == 2'
-      default: true
 
 topic:
   namingStrategy:
