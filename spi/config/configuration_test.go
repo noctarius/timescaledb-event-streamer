@@ -168,3 +168,89 @@ func Test_Config_Read_String_From_String(t *testing.T) {
 	v := GetOrDefault[string](config, PropertyPostgresqlConnection, "")
 	assert.Equal(t, "test", v)
 }
+
+func Test_Loading_YAML_Logging_Config_From_String(t *testing.T) {
+	yaml := `logging:
+  level: 'info'
+  outputs:
+    console:
+      enabled: true
+    file:
+      enabled: false
+      path: '/path/to/logfile'
+      rotate: true
+      maxSize: '5MB'
+      maxDuration: 600 #seconds
+      compress: true
+  loggers:
+    LogicalReplicationResolver:
+      level: 'debug'
+      outputs:
+        console:
+          enabled: false`
+
+	config := &Config{}
+	if err := Unmarshall([]byte(yaml), config, false); err != nil {
+		t.Error(err)
+	}
+
+	assert.Equal(t, "info", config.Logging.Level)
+
+	assert.Equal(t, true, *config.Logging.Outputs.Console.Enabled)
+	assert.Equal(t, false, *config.Logging.Outputs.File.Enabled)
+	assert.Equal(t, "/path/to/logfile", config.Logging.Outputs.File.Path)
+	assert.Equal(t, true, *config.Logging.Outputs.File.Rotate)
+	assert.Equal(t, "5MB", *config.Logging.Outputs.File.MaxSize)
+	assert.Equal(t, 600, *config.Logging.Outputs.File.MaxDuration)
+	assert.Equal(t, true, config.Logging.Outputs.File.Compress)
+
+	logger := config.Logging.Loggers["LogicalReplicationResolver"]
+	assert.NotNil(t, logger)
+	assert.Equal(t, "debug", *logger.Level)
+	assert.Equal(t, false, *logger.Outputs.Console.Enabled)
+}
+
+func Test_Loading_YAML_Postgresql_Config_From_String(t *testing.T) {
+	yaml := `postgresql:
+  connection: 'postgres://repl_user@localhost:5432/postgres'
+  password: '...'
+  publication:
+    name: 'replication_name'
+    create: false
+    autoDrop: true
+  replicationSlot:
+    name: 'slot_name'
+    create: true
+    autoDrop: true
+  snapshot:
+    batchSize: 1000
+    initial: 'always'
+  transaction:
+    window:
+      enabled: true
+      timeout: 60
+      maxSize: 100000`
+
+	config := &Config{}
+	if err := Unmarshall([]byte(yaml), config, false); err != nil {
+		t.Error(err)
+	}
+
+	assert.Equal(t, "postgres://repl_user@localhost:5432/postgres", config.PostgreSQL.Connection)
+	assert.Equal(t, "...", config.PostgreSQL.Password)
+
+	assert.Equal(t, "replication_name", config.PostgreSQL.Publication.Name)
+	assert.Equal(t, false, *config.PostgreSQL.Publication.Create)
+	assert.Equal(t, true, *config.PostgreSQL.Publication.AutoDrop)
+
+	assert.Equal(t, "slot_name", config.PostgreSQL.ReplicationSlot.Name)
+	assert.Equal(t, true, *config.PostgreSQL.ReplicationSlot.Create)
+	assert.Equal(t, true, *config.PostgreSQL.ReplicationSlot.AutoDrop)
+
+	assert.Equal(t, uint(1000), config.PostgreSQL.Snapshot.BatchSize)
+	assert.Equal(t, Always, *config.PostgreSQL.Snapshot.Initial)
+
+	assert.Equal(t, true, *config.PostgreSQL.Transaction.Window.Enabled)
+	assert.Equal(t, 60, config.PostgreSQL.Transaction.Window.Timeout)
+	assert.Equal(t, uint(100000), config.PostgreSQL.Transaction.Window.MaxSize)
+}
