@@ -342,5 +342,5 @@ func newFileHandler(config spiconfig.LoggerFileConfig) (bool, *handler.SyncClose
 	}
 
 	fileHandlers[config.Path] = fileHandler
-	return true, fileHandler, nil
+	return false, fileHandler, nil
 }
