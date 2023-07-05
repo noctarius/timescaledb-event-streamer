@@ -123,29 +123,20 @@ func (a *awsKinesisSink) Stop() error {
 	return nil
 }
 
-func (a *awsKinesisSink) Emit(context sink.Context, _ time.Time, topicName string, _, envelope schema.Struct) error {
-	var sequenceNumberForOrdering *string
-	if prevSequenceNumber, present := context.Attribute("PrevSequenceNumber"); present {
-		sequenceNumberForOrdering = &prevSequenceNumber
-	}
-
+func (a *awsKinesisSink) Emit(_ sink.Context, _ time.Time, topicName string, _, envelope schema.Struct) error {
 	envelopeData, err := json.Marshal(envelope)
 	if err != nil {
 		return err
 	}
 
-	output, err := a.awsKinesis.PutRecord(&kinesis.PutRecordInput{
-		StreamName:                a.streamName,
-		PartitionKey:              &topicName,
-		Data:                      envelopeData,
-		SequenceNumberForOrdering: sequenceNumberForOrdering,
+	_, err = a.awsKinesis.PutRecord(&kinesis.PutRecordInput{
+		StreamName:   a.streamName,
+		PartitionKey: aws.String(topicName),
+		Data:         envelopeData,
 	})
 	if err != nil {
 		return err
 	}
 
-	if output.SequenceNumber != nil {
-		context.SetAttribute("PrevSequenceNumber", *output.SequenceNumber)
-	}
 	return nil
 }

@@ -24,7 +24,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/sqs"
+	"github.com/aws/aws-sdk-go/service/kinesis"
 	"github.com/go-errors/errors"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
@@ -42,82 +42,94 @@ import (
 	"time"
 )
 
-type AwsSqsIntegrationTestSuite struct {
+type AwsKinesisIntegrationTestSuite struct {
 	testrunner.TestRunner
 }
 
-func TestAwsSqsIntegrationTestSuite(t *testing.T) {
-	suite.Run(t, new(AwsSqsIntegrationTestSuite))
+func TestAwsKinesisIntegrationTestSuite(t *testing.T) {
+	suite.Run(t, new(AwsKinesisIntegrationTestSuite))
 }
 
-func (asits *AwsSqsIntegrationTestSuite) Test_Aws_Sqs_Sink() {
+func (akits *AwsKinesisIntegrationTestSuite) Test_Aws_Kinesis_Sink() {
 	awsRegion := "us-east-1"
 	topicPrefix := supporting.RandomTextString(10)
-	queueName := fmt.Sprintf("%s.fifo", supporting.RandomTextString(10))
+	streamName := supporting.RandomTextString(10)
 
-	sqsLogger, err := logging.NewLogger("Test_Aws_Sqs_Sink")
+	kinesisLogger, err := logging.NewLogger("Test_Aws_Kinesis_Sink")
 	if err != nil {
-		asits.T().Error(err)
+		akits.T().Error(err)
 	}
 
-	var address, endpoint string
+	var endpoint string
 	var container testcontainers.Container
 
-	asits.RunTest(
+	akits.RunTest(
 		func(ctx testrunner.Context) error {
 			awsConfig := aws.NewConfig().
 				WithRegion(awsRegion).
 				WithEndpoint(endpoint).
-				WithCredentials(credentials.NewStaticCredentials("tesst", "test", "test"))
+				WithCredentials(credentials.NewStaticCredentials("test", "test", "test"))
 
 			awsSession, err := session.NewSession(awsConfig)
 			if err != nil {
 				return err
 			}
 
-			awsSqs := sqs.New(awsSession)
-			_, err = awsSqs.CreateQueue(&sqs.CreateQueueInput{
-				QueueName: aws.String(queueName),
-				Attributes: map[string]*string{
-					"FifoQueue": aws.String("true"),
-				},
-			})
-			if err != nil {
-				return errors.Wrap(err, 0)
-			}
+			awsKinesis := kinesis.New(awsSession)
 
 			collected := make(chan bool, 1)
 			envelopes := make([]inttest.Envelope, 0)
 			go func() {
+				shardsResult, err := awsKinesis.ListShards(&kinesis.ListShardsInput{
+					StreamName: aws.String(streamName),
+				})
+				if err != nil {
+					akits.T().Error(err)
+					collected <- true
+					return
+				}
+
+				var lastSequenceNumber *string
 				for {
-					msgResult, err := awsSqs.ReceiveMessage(&sqs.ReceiveMessageInput{
-						AttributeNames: []*string{
-							aws.String(sqs.MessageSystemAttributeNameSentTimestamp),
-						},
-						MessageAttributeNames: []*string{
-							aws.String(sqs.QueueAttributeNameAll),
-						},
-						QueueUrl:            aws.String(address),
-						MaxNumberOfMessages: aws.Int64(1),
-						VisibilityTimeout:   aws.Int64(60),
+					iteratorType := "TRIM_HORIZON"
+					if lastSequenceNumber != nil {
+						iteratorType = "AFTER_SEQUENCE_NUMBER"
+					}
+
+					iteratorResult, err := awsKinesis.GetShardIterator(&kinesis.GetShardIteratorInput{
+						ShardId:                shardsResult.Shards[0].ShardId,
+						ShardIteratorType:      aws.String(iteratorType),
+						StreamName:             aws.String(streamName),
+						StartingSequenceNumber: lastSequenceNumber,
 					})
 					if err != nil {
-						sqsLogger.Errorf("failed reading from sqs: %+v", err)
+						kinesisLogger.Errorf("failed reading from kinesis: %+v", err)
 						collected <- true
 						return
 					}
 
-					for _, message := range msgResult.Messages {
+					msgResult, err := awsKinesis.GetRecords(&kinesis.GetRecordsInput{
+						ShardIterator: iteratorResult.ShardIterator,
+					})
+					if err != nil {
+						kinesisLogger.Errorf("failed reading from kinesis: %+v", err)
+						collected <- true
+						return
+					}
+
+					for _, message := range msgResult.Records {
+						lastSequenceNumber = message.SequenceNumber
+
 						envelope := inttest.Envelope{}
-						if message.Body == nil {
+						if message.Data == nil {
 							continue
 						}
 
-						if err := json.Unmarshal([]byte(*message.Body), &envelope); err != nil {
-							asits.T().Error(err)
+						if err := json.Unmarshal(message.Data, &envelope); err != nil {
+							akits.T().Error(err)
 						}
 
-						sqsLogger.Debugf("EVENT: %+v", envelope)
+						kinesisLogger.Debugf("EVENT: %+v", envelope)
 						envelopes = append(envelopes, envelope)
 						if len(envelopes) >= 10 {
 							collected <- true
@@ -139,7 +151,7 @@ func (asits *AwsSqsIntegrationTestSuite) Test_Aws_Sqs_Sink() {
 			<-collected
 
 			for i, envelope := range envelopes {
-				assert.Equal(asits.T(), i+1, int(envelope.Payload.After["val"].(float64)))
+				assert.Equal(akits.T(), i+1, int(envelope.Payload.After["val"].(float64)))
 			}
 			return nil
 		},
@@ -155,17 +167,19 @@ func (asits *AwsSqsIntegrationTestSuite) Test_Aws_Sqs_Sink() {
 			testrunner.Attribute(setupContext, "schemaName", sn)
 			testrunner.Attribute(setupContext, "tableName", tn)
 
-			container, endpoint, address, err = containers.SetupLocalStackWithSQS(awsRegion, queueName)
+			container, endpoint, err = containers.SetupLocalStackWithKinesis()
 			if err != nil {
 				return errors.Wrap(err, 0)
 			}
 
 			setupContext.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
 				config.Topic.Prefix = topicPrefix
-				config.Sink.Type = spiconfig.AwsSQS
-				config.Sink.AwsSqs = spiconfig.AwsSqsConfig{
-					Queue: spiconfig.AwsSqsQueueConfig{
-						Url: aws.String(address),
+				config.Sink.Type = spiconfig.AwsKinesis
+				config.Sink.AwsKinesis = spiconfig.AwsKinesisConfig{
+					Stream: spiconfig.AwsKinesisStreamConfig{
+						Name:       aws.String(streamName),
+						Create:     aws.Bool(true),
+						ShardCount: aws.Int64(1),
 					},
 					Aws: spiconfig.AwsConnectionConfig{
 						Region:          aws.String(awsRegion),

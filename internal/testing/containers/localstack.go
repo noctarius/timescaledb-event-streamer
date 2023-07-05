@@ -48,3 +48,28 @@ func SetupLocalStackWithSQS(region, queueName string) (testcontainers.Container,
 		fmt.Sprintf("http://%s:%d/queue/%s/000000000000/%s", host, port.Int(), region, queueName),
 		nil
 }
+
+func SetupLocalStackWithKinesis() (testcontainers.Container, string, error) {
+	customizer := testcontainers.CustomizeRequestOption(func(req *testcontainers.GenericContainerRequest) {
+		req.Env["SERVICES"] = "kinesis"
+	})
+
+	container, err := setupLocalStack(customizer)
+	if err != nil {
+		return nil, "", err
+	}
+
+	host, err := container.Host(context.Background())
+	if err != nil {
+		return nil, "", err
+	}
+
+	port, err := container.MappedPort(context.Background(), "4566/tcp")
+	if err != nil {
+		return nil, "", err
+	}
+
+	return container,
+		fmt.Sprintf("http://%s:%d", host, port.Int()),
+		nil
+}
