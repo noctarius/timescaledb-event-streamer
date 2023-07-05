@@ -254,3 +254,75 @@ func Test_Loading_YAML_Postgresql_Config_From_String(t *testing.T) {
 	assert.Equal(t, 60, config.PostgreSQL.Transaction.Window.Timeout)
 	assert.Equal(t, uint(100000), config.PostgreSQL.Transaction.Window.MaxSize)
 }
+
+func Test_Loading_TOML_Logging_Config_From_String(t *testing.T) {
+	toml := `logging.level = 'info'
+logging.outputs.console.enabled = true
+logging.outputs.file.enabled = false
+logging.outputs.file.path = '/path/to/logfile'
+logging.outputs.file.rotate = true
+logging.outputs.file.maxsize = '5MB'
+logging.outputs.file.maxduration = 600 #seconds
+logging.outputs.file.compress = true
+logging.loggers.LogicalReplicationResolver.level = 'debug'
+logging.loggers.LogicalReplicationResolver.outputs.console.enabled = false`
+
+	config := &Config{}
+	if err := Unmarshall([]byte(toml), config, true); err != nil {
+		t.Error(err)
+	}
+
+	assert.Equal(t, "info", config.Logging.Level)
+
+	assert.Equal(t, true, *config.Logging.Outputs.Console.Enabled)
+	assert.Equal(t, false, *config.Logging.Outputs.File.Enabled)
+	assert.Equal(t, "/path/to/logfile", config.Logging.Outputs.File.Path)
+	assert.Equal(t, true, *config.Logging.Outputs.File.Rotate)
+	assert.Equal(t, "5MB", *config.Logging.Outputs.File.MaxSize)
+	assert.Equal(t, 600, *config.Logging.Outputs.File.MaxDuration)
+	assert.Equal(t, true, config.Logging.Outputs.File.Compress)
+
+	logger := config.Logging.Loggers["LogicalReplicationResolver"]
+	assert.NotNil(t, logger)
+	assert.Equal(t, "debug", *logger.Level)
+	assert.Equal(t, false, *logger.Outputs.Console.Enabled)
+}
+
+func Test_Loading_TOML_Postgresql_Config_From_String(t *testing.T) {
+	toml := `postgresql.connection = 'postgres://repl_user@localhost:5432/postgres'
+postgresql.password = '...'
+postgresql.publication.name = 'replication_name'
+postgresql.publication.create = false
+postgresql.publication.autodrop = true
+postgresql.replicationslot.name = 'slot_name'
+postgresql.replicationslot.create = true
+postgresql.replicationslot.autodrop = true
+postgresql.snapshot.batchsize = 1000
+postgresql.snapshot.initial = 'always'
+postgresql.transaction.window.enabled = true
+postgresql.transaction.window.timeout = 60
+postgresql.transaction.window.maxsize = 100000`
+
+	config := &Config{}
+	if err := Unmarshall([]byte(toml), config, true); err != nil {
+		t.Error(err)
+	}
+
+	assert.Equal(t, "postgres://repl_user@localhost:5432/postgres", config.PostgreSQL.Connection)
+	assert.Equal(t, "...", config.PostgreSQL.Password)
+
+	assert.Equal(t, "replication_name", config.PostgreSQL.Publication.Name)
+	assert.Equal(t, false, *config.PostgreSQL.Publication.Create)
+	assert.Equal(t, true, *config.PostgreSQL.Publication.AutoDrop)
+
+	assert.Equal(t, "slot_name", config.PostgreSQL.ReplicationSlot.Name)
+	assert.Equal(t, true, *config.PostgreSQL.ReplicationSlot.Create)
+	assert.Equal(t, true, *config.PostgreSQL.ReplicationSlot.AutoDrop)
+
+	assert.Equal(t, uint(1000), config.PostgreSQL.Snapshot.BatchSize)
+	assert.Equal(t, Always, *config.PostgreSQL.Snapshot.Initial)
+
+	assert.Equal(t, true, *config.PostgreSQL.Transaction.Window.Enabled)
+	assert.Equal(t, 60, config.PostgreSQL.Transaction.Window.Timeout)
+	assert.Equal(t, uint(100000), config.PostgreSQL.Transaction.Window.MaxSize)
+}
