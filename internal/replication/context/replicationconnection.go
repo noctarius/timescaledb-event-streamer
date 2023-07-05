@@ -132,7 +132,10 @@ func (rc *ReplicationConnection) StopReplication() error {
 			return nil
 		}
 	}
-	return errors.Wrap(err, 0)
+	if err != nil {
+		return errors.Wrap(err, 0)
+	}
+	return nil
 }
 
 func (rc *ReplicationConnection) CreateReplicationSlot() (slotName, snapshotName string, created bool, err error) {
