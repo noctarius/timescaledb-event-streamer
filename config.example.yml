@@ -2,11 +2,11 @@ postgresql:
   connection: 'postgres://repl_user@localhost:5432/postgres'
   password: '...'
 #  publication:
-#    name: 'replication_name'
+#    name: 'publication_name'
 #    create: false
 #    autoDrop: true
 #  replicationSlot:
-#    name: 'slot_name'
+#    name: 'replication_slot_name'
 #    create: true
 #    autoDrop: true
 #  snapshot:
