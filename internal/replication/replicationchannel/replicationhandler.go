@@ -66,6 +66,7 @@ func (rh *replicationHandler) startReplicationHandler(replicationConnection *rep
 	nextStandbyMessageDeadline := time.Now().Add(standbyMessageTimeout)
 
 	runtime.LockOSThread()
+	rh.logger.Infof("Starting replication handler loop")
 	for {
 		select {
 		case <-rh.shutdownAwaiter.AwaitShutdownChan():
