@@ -81,7 +81,7 @@ func (s *systemCatalogReplicationEventHandler) OnHypertableAddedEvent(
 			if err := s.systemCatalog.RegisterHypertable(h); err != nil {
 				return errors.Errorf("registering hypertable failed: %v (error: %+v)", h, err)
 			}
-			s.systemCatalog.logger.Verbosef("ADDED CATALOG ENTRY: HYPERTABLE %d => %+v", h.Id(), h)
+			s.systemCatalog.logger.Verbosef("ADDED CATALOG ENTRY: HYPERTABLE %d => %s", h.Id(), h.String())
 
 			return s.systemCatalog.replicationContext.ReadHypertableSchema(s.systemCatalog.ApplySchemaUpdate, h)
 		},
@@ -120,7 +120,7 @@ func (s *systemCatalogReplicationEventHandler) OnHypertableDeletedEvent(
 	hypertableId := oldValues["id"].(int32)
 	if hypertable, present := s.systemCatalog.FindHypertableById(hypertableId); present {
 		if err := s.systemCatalog.UnregisterHypertable(hypertable); err != nil {
-			s.systemCatalog.logger.Fatalf("unregistering hypertable failed: %v", hypertable)
+			s.systemCatalog.logger.Fatalf("unregistering hypertable failed: %s", hypertable.String())
 		}
 	}
 	return nil
@@ -140,8 +140,8 @@ func (s *systemCatalogReplicationEventHandler) OnChunkAddedEvent(
 
 			if h, present := s.systemCatalog.FindHypertableById(hypertableId); present {
 				s.systemCatalog.logger.Verbosef(
-					"ADDED CATALOG ENTRY: CHUNK %d FOR HYPERTABLE %s => %+v",
-					c.Id(), h.CanonicalName(), *c,
+					"ADDED CATALOG ENTRY: CHUNK %d FOR HYPERTABLE %s => %s",
+					c.Id(), h.CanonicalName(), c.String(),
 				)
 
 				if !c.IsCompressed() &&

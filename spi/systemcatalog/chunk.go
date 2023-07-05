@@ -77,6 +77,24 @@ func (c *Chunk) IsCompressed() bool {
 	return c.compressed
 }
 
+func (c *Chunk) String() string {
+	builder := strings.Builder{}
+	builder.WriteString("{")
+	builder.WriteString(fmt.Sprintf("id:%d ", c.id))
+	builder.WriteString(fmt.Sprintf("hypertableId:%d ", c.hypertableId))
+	builder.WriteString(fmt.Sprintf("schemaName:%s ", c.schemaName))
+	builder.WriteString(fmt.Sprintf("tableName:%s ", c.tableName))
+	if c.compressedChunkId == nil {
+		builder.WriteString("compressedChunkId:<nil> ")
+	} else {
+		builder.WriteString(fmt.Sprintf("compressedChunkId:%d ", *c.compressedChunkId))
+	}
+	builder.WriteString(fmt.Sprintf("dropped:%t ", c.dropped))
+	builder.WriteString(fmt.Sprintf("status:%d", c.status))
+	builder.WriteString("}")
+	return builder.String()
+}
+
 func (c *Chunk) ApplyChanges(schemaName, tableName string, dropped bool,
 	status int32, compressedChunkId *int32) (*Chunk, map[string]string) {
 

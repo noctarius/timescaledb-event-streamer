@@ -20,6 +20,7 @@ package systemcatalog
 import (
 	"fmt"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
+	"strings"
 )
 
 // Columns represents a collection of columns which
@@ -220,6 +221,46 @@ func (c Column) IsDimensionAligned() bool {
 // returns nil.
 func (c Column) DimensionType() *string {
 	return c.dimType
+}
+
+func (c Column) String() string {
+	builder := strings.Builder{}
+	builder.WriteString("{")
+	builder.WriteString(fmt.Sprintf("name:%s ", c.name))
+	builder.WriteString(fmt.Sprintf("dataType:%d ", c.dataType))
+	builder.WriteString(fmt.Sprintf("typeName:%s ", c.typeName))
+	builder.WriteString(fmt.Sprintf("nullable:%t ", c.nullable))
+	builder.WriteString(fmt.Sprintf("primaryKey:%t ", c.primaryKey))
+	if c.keySeq == nil {
+		builder.WriteString("keySeq:<nil> ")
+	} else {
+		builder.WriteString(fmt.Sprintf("keySeq:%d ", *c.keySeq))
+	}
+	if c.indexName == nil {
+		builder.WriteString("indexName:<nil> ")
+	} else {
+		builder.WriteString(fmt.Sprintf("indexName:%s ", *c.indexName))
+	}
+	builder.WriteString(fmt.Sprintf("replicaIdent:%t ", c.replicaIdent))
+	if c.defaultValue == nil {
+		builder.WriteString("defaultValue:<nil> ")
+	} else {
+		builder.WriteString(fmt.Sprintf("defaultValue:%s ", *c.defaultValue))
+	}
+	builder.WriteString(fmt.Sprintf("dimension:%t ", c.dimension))
+	builder.WriteString(fmt.Sprintf("dimAligned:%t ", c.dimAligned))
+	if c.dimType == nil {
+		builder.WriteString("dimType:<nil> ")
+	} else {
+		builder.WriteString(fmt.Sprintf("dimType:%s ", *c.dimType))
+	}
+	if c.dimSeq == nil {
+		builder.WriteString("dimSeq:<nil>")
+	} else {
+		builder.WriteString(fmt.Sprintf("dimSeq:%d", *c.dimSeq))
+	}
+	builder.WriteString("}")
+	return builder.String()
 }
 
 func (c Column) equals(other Column) bool {

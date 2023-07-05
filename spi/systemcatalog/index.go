@@ -82,6 +82,23 @@ func (i *Index) Columns() []Column {
 	return i.columns
 }
 
+func (i *Index) String() string {
+	builder := strings.Builder{}
+	builder.WriteString("{")
+	builder.WriteString(fmt.Sprintf("name:%s ", i.name))
+	builder.WriteString(fmt.Sprintf("primaryKey:%t ", i.primaryKey))
+	builder.WriteString(fmt.Sprintf("replicaIdentity:%t ", i.replicaIdentity))
+	builder.WriteString("columns:[")
+	for c, column := range i.columns {
+		builder.WriteString(column.String())
+		if c < len(i.columns)-1 {
+			builder.WriteString(" ")
+		}
+	}
+	builder.WriteString("]}")
+	return builder.String()
+}
+
 // AsSqlTuple creates a string to be used as a tuple definition
 // in a WHERE-clause:
 // (col1, col2, col3, ...)

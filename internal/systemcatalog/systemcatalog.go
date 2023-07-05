@@ -305,9 +305,9 @@ func initializeSystemCatalog(sc *SystemCatalog) (*SystemCatalog, error) {
 		}
 
 		if err := sc.RegisterHypertable(hypertable); err != nil {
-			return errors.Errorf("registering hypertable failed: %v (error: %+v)", hypertable, err)
+			return errors.Errorf("registering hypertable failed: %s (error: %+v)", hypertable, err)
 		}
-		sc.logger.Verbosef("ADDED CATALOG ENTRY: HYPERTABLE %d => %+v", hypertable.Id(), hypertable)
+		sc.logger.Verbosef("ADDED CATALOG ENTRY: HYPERTABLE %d => %s", hypertable.Id(), hypertable.String())
 		return nil
 	}); err != nil {
 		return nil, errors.Wrap(err, 0)
@@ -315,12 +315,12 @@ func initializeSystemCatalog(sc *SystemCatalog) (*SystemCatalog, error) {
 
 	if err := sc.replicationContext.LoadChunks(func(chunk *systemcatalog.Chunk) error {
 		if err := sc.RegisterChunk(chunk); err != nil {
-			return errors.Errorf("registering chunk failed: %v (error: %+v)", chunk, err)
+			return errors.Errorf("registering chunk failed: %s (error: %+v)", chunk, err)
 		}
 		if h, present := sc.FindHypertableById(chunk.HypertableId()); present {
 			sc.logger.Verbosef(
-				"ADDED CATALOG ENTRY: CHUNK %d FOR HYPERTABLE %s => %+v",
-				chunk.Id(), h.CanonicalName(), *chunk,
+				"ADDED CATALOG ENTRY: CHUNK %d FOR HYPERTABLE %s => %s",
+				chunk.Id(), h.CanonicalName(), chunk.String(),
 			)
 		}
 		return nil

@@ -20,6 +20,7 @@ package systemcatalog
 import (
 	"fmt"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
+	"strings"
 )
 
 // Hypertable represents a TimescaleDB hypertable definition
@@ -152,6 +153,42 @@ func (h *Hypertable) CanonicalContinuousAggregateName() string {
 // otherwise a pgtypes.UNKNOWN is returned
 func (h *Hypertable) ReplicaIdentity() pgtypes.ReplicaIdentity {
 	return h.replicaIdentity
+}
+
+func (h *Hypertable) String() string {
+	builder := strings.Builder{}
+	builder.WriteString("{")
+	builder.WriteString(fmt.Sprintf("id:%d ", h.id))
+	builder.WriteString(fmt.Sprintf("schemaName:%s ", h.schemaName))
+	builder.WriteString(fmt.Sprintf("tableName:%s ", h.tableName))
+	builder.WriteString(fmt.Sprintf("associatedSchemaName:%s ", h.associatedSchemaName))
+	builder.WriteString(fmt.Sprintf("associatedTablePrefix:%s ", h.associatedTablePrefix))
+	if h.compressedHypertableId == nil {
+		builder.WriteString("compressedHypertableId:<nil> ")
+	} else {
+		builder.WriteString(fmt.Sprintf("compressedHypertableId:%d ", *h.compressedHypertableId))
+	}
+	builder.WriteString(fmt.Sprintf("compressionState:%d ", h.compressionState))
+	builder.WriteString(fmt.Sprintf("replicaIdentity:%s", h.replicaIdentity))
+	if h.viewSchema == nil {
+		builder.WriteString("viewSchema:<nil> ")
+	} else {
+		builder.WriteString(fmt.Sprintf("viewSchema:%s ", *h.viewSchema))
+	}
+	if h.viewName == nil {
+		builder.WriteString("viewName:<nil> ")
+	} else {
+		builder.WriteString(fmt.Sprintf("viewName:%s ", *h.viewName))
+	}
+	builder.WriteString("columns:[")
+	for i, column := range h.columns {
+		builder.WriteString(column.String())
+		if i < len(h.columns)-1 {
+			builder.WriteString(" ")
+		}
+	}
+	builder.WriteString("]}")
+	return builder.String()
 }
 
 // ApplyTableSchema applies a new hypertable schema to this

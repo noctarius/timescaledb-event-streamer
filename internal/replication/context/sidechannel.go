@@ -467,23 +467,23 @@ func (sc *sideChannelImpl) fetchHypertableSnapshotBatch(
 	return sc.replicationContext.SnapshotContextTransaction(
 		snapshotName, false,
 		func(snapshotContext *watermark.SnapshotContext) error {
-			watermark, present := snapshotContext.GetWatermark(hypertable)
+			hypertableWatermark, present := snapshotContext.GetWatermark(hypertable)
 			if !present {
 				return errors.Errorf("illegal watermark state for hypertable '%s'", hypertable.CanonicalName())
 			}
 
-			comparison, success := index.WhereTupleLE(watermark.HighWatermark())
+			comparison, success := index.WhereTupleLE(hypertableWatermark.HighWatermark())
 			if !success {
-				return errors.Errorf("failed encoding watermark: %+v", watermark.HighWatermark())
+				return errors.Errorf("failed encoding watermark: %+v", hypertableWatermark.HighWatermark())
 			}
 
-			if watermark.HasValidLowWatermark() {
-				lowWatermarkComparison, success := index.WhereTupleGT(watermark.LowWatermark())
+			if hypertableWatermark.HasValidLowWatermark() {
+				lowWatermarkComparison, success := index.WhereTupleGT(hypertableWatermark.LowWatermark())
 				if !success {
-					return errors.Errorf("failed encoding watermark: %+v", watermark.LowWatermark())
+					return errors.Errorf("failed encoding watermark: %+v", hypertableWatermark.LowWatermark())
 				}
 
-				sc.logger.Debugf(
+				sc.logger.Verbosef(
 					"Resuming snapshotting of hypertable '%s' at <<%s>> up to <<%s>>",
 					hypertable.CanonicalName(), lowWatermarkComparison, comparison,
 				)
@@ -493,7 +493,7 @@ func (sc *sideChannelImpl) fetchHypertableSnapshotBatch(
 					comparison,
 				)
 			} else {
-				sc.logger.Debugf(
+				sc.logger.Verbosef(
 					"Starting snapshotting of hypertable '%s' up to <<%s>>",
 					hypertable.CanonicalName(), comparison,
 				)
@@ -516,7 +516,7 @@ func (sc *sideChannelImpl) fetchHypertableSnapshotBatch(
 					return false
 				})
 
-				watermark.SetLowWatermark(indexValues)
+				hypertableWatermark.SetLowWatermark(indexValues)
 				return cb(lsn, values)
 			}
 
