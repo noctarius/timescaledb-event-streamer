@@ -160,7 +160,7 @@ func (rc *ReplicationConnection) CreateReplicationSlot() (slotName, snapshotName
 	}
 
 	rc.replicationSlotCreated = true
-	return slot.SlotName, slot.SnapshotName, true, errors.Wrap(err, 0)
+	return slot.SlotName, slot.SnapshotName, true, nil
 }
 
 func (rc *ReplicationConnection) DropReplicationSlot() error {
