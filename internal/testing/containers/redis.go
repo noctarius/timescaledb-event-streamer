@@ -26,7 +26,7 @@ import (
 )
 
 func SetupRedisContainer() (testcontainers.Container, string, error) {
-	container, err := redis.StartContainer(context.Background())
+	container, err := redis.RunContainer(context.Background())
 	if err != nil {
 		return nil, "", err
 	}

@@ -19,7 +19,7 @@ package config
 
 import (
 	"github.com/BurntSushi/toml"
-	"github.com/go-yaml/yaml"
+	"gopkg.in/yaml.v3"
 )
 
 func Unmarshall(content []byte, config *Config, toml bool) error {
