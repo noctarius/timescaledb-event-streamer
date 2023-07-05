@@ -252,6 +252,32 @@ Redis specific configuration, which is only used if `sink.type` is set to `redis
 | `sink.redis.tls.skipverify`      |                                           The property defines if verification of TLS certificates is skipped. |      bool |             false |
 | `sink.redis.tls.clientauth`      | The property defines the client auth value (as defined in [Go](https://pkg.go.dev/crypto/tls#ClientAuthType)). |       int |                 0 |
 
+### AWS SQS Sink Configuration
+
+AWS SQS queues when configured as **FIFO** queues. No content based deduplication
+is required, since the sink creates a deduplication id based on the LSN,
+transaction id (if available), and content of the message.
+
+| Property             |                                                                                  Description | Data Type | Default Value |
+|----------------------|---------------------------------------------------------------------------------------------:|----------:|--------------:|
+| `sink.sqs.queue.url` |                                                            The URL of the FIFO queue in SQS. |    string |  empty string |
+| `sink.sqs.aws.<...>` | AWS specific content as definied in [AWS service configuration](#aws-service-configuration). |    struct |  empty struct |
+
+### AWS Service Configuration
+
+This configuration is the basic configuration for AWS, including the region,
+or credentials. If the latter isn't configured, the sink will try to use
+environment variables (similar to the official AWS clients) to provide
+connection details.
+
+| Property                    |                Description | Data Type | Default Value |
+|-----------------------------|---------------------------:|----------:|--------------:|
+| `<...>.aws.region`          |            The AWS region. |    string |  empty string |
+| `<...>.aws.endpoint`        |          The AWS endpoint. |    string |  empty string |
+| `<...>.aws.accesskeyid`     |     The AWS Access Key Id. |    string |  empty string |
+| `<...>.aws.secretaccesskey` | The AWS Secret Access Key. |    string |  empty string |
+| `<...>.aws.sessiontoken`    |     The AWS Session Token. |    string |  empty string |
+
 ## Logging Configuration
 
 This section describes the logging configuration. There is one standard logger.
