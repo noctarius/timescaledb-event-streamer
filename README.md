@@ -252,6 +252,16 @@ Redis specific configuration, which is only used if `sink.type` is set to `redis
 | `sink.redis.tls.skipverify`      |                                           The property defines if verification of TLS certificates is skipped. |      bool |             false |
 | `sink.redis.tls.clientauth`      | The property defines the client auth value (as defined in [Go](https://pkg.go.dev/crypto/tls#ClientAuthType)). |       int |                 0 |
 
+### AWS Kinesis Sink Configuration
+
+| Property                         |                                                                                                                                                                                                             Description | Data Type | Default Value |
+|----------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|----------:|--------------:|
+| `sink.kinesis.stream.name`       |                                                                                                           The Name of the AWS Kinesis stream to send events to. The events will be partitioned based on the topic name. |    string |  empty string |
+| `sink.kinesis.stream.create`     |                                                                                                  Defines if the stream should be created at startup if non-existent. The below properties configure the created stream. |   boolean |          true |
+| `sink.kinesis.stream.shardcount` |                                                                                                                                                                   The number if shards to use when creating the stream. |       int |             1 |
+| `sink.kinesis.stream.mode`       | The mode to use when creating the stream. Valid values are `ON_DEMAND`, and `PROVISIONED`. More details in the [AWS documentation](https://docs.aws.amazon.com/kinesis/latest/APIReference/API_StreamModeDetails.html). |    string |  empty string |
+| `sink.kinesis.aws.<...>`         |                                                                                                                            AWS specific content as definied in [AWS service configuration](#aws-service-configuration). |    struct |  empty struct |
+
 ### AWS SQS Sink Configuration
 
 AWS SQS queues when configured as **FIFO** queues. No content based deduplication
