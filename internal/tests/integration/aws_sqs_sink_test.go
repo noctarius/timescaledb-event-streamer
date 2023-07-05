@@ -21,8 +21,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/go-errors/errors"
-	"github.com/go-redis/redis"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
@@ -39,76 +42,93 @@ import (
 	"time"
 )
 
-type RedisIntegrationTestSuite struct {
+type AwsSqsIntegrationTestSuite struct {
 	testrunner.TestRunner
 }
 
-func TestRedisIntegrationTestSuite(t *testing.T) {
-	suite.Run(t, new(RedisIntegrationTestSuite))
+func TestAwsSqsIntegrationTestSuite(t *testing.T) {
+	suite.Run(t, new(AwsSqsIntegrationTestSuite))
 }
 
-func (rits *RedisIntegrationTestSuite) Test_Redis_Sink() {
+func (asits *AwsSqsIntegrationTestSuite) Test_Aws_Sqs_Sink() {
+	awsRegion := "us-east-1"
 	topicPrefix := supporting.RandomTextString(10)
+	queueName := fmt.Sprintf("%s.fifo", supporting.RandomTextString(10))
 
-	redisLogger, err := logging.NewLogger("Test_Redis_Sink")
+	sqsLogger, err := logging.NewLogger("Test_Aws_Sqs_Sink")
 	if err != nil {
-		rits.T().Error(err)
+		asits.T().Error(err)
 	}
 
-	var address string
+	var address, endpoint string
 	var container testcontainers.Container
 
-	rits.RunTest(
+	asits.RunTest(
 		func(ctx testrunner.Context) error {
-			client := redis.NewClient(&redis.Options{
-				Addr: address,
-			})
-
-			subjectName := fmt.Sprintf(
+			/*msgGroupName := fmt.Sprintf(
 				"%s.%s.%s", topicPrefix,
 				testrunner.GetAttribute[string](ctx, "schemaName"),
 				testrunner.GetAttribute[string](ctx, "tableName"),
-			)
+			)*/
 
-			groupName := supporting.RandomTextString(10)
-			consumerName := supporting.RandomTextString(10)
+			awsConfig := aws.NewConfig().
+				WithRegion(awsRegion).
+				WithEndpoint(endpoint).
+				WithCredentials(credentials.NewStaticCredentials("tesst", "test", "test"))
 
-			if err := client.XGroupCreateMkStream(subjectName, groupName, "0").Err(); err != nil {
+			awsSession, err := session.NewSession(awsConfig)
+			if err != nil {
 				return err
+			}
+
+			awsSqs := sqs.New(awsSession)
+			_, err = awsSqs.CreateQueue(&sqs.CreateQueueInput{
+				QueueName: aws.String(queueName),
+				Attributes: map[string]*string{
+					"FifoQueue": aws.String("true"),
+				},
+			})
+			if err != nil {
+				return errors.Wrap(err, 0)
 			}
 
 			collected := make(chan bool, 1)
 			envelopes := make([]inttest.Envelope, 0)
 			go func() {
 				for {
-					results, err := client.XReadGroup(&redis.XReadGroupArgs{
-						Group:    groupName,
-						Consumer: consumerName,
-						Streams:  []string{subjectName, ">"},
-						Count:    1,
-						Block:    0,
-						NoAck:    false,
-					}).Result()
+					msgResult, err := awsSqs.ReceiveMessage(&sqs.ReceiveMessageInput{
+						AttributeNames: []*string{
+							aws.String(sqs.MessageSystemAttributeNameSentTimestamp),
+						},
+						MessageAttributeNames: []*string{
+							aws.String(sqs.QueueAttributeNameAll),
+						},
+						QueueUrl:            aws.String(address),
+						MaxNumberOfMessages: aws.Int64(1),
+						VisibilityTimeout:   aws.Int64(60),
+					})
 					if err != nil {
-						redisLogger.Errorf("failed reading from redis: %+v", err)
+						sqsLogger.Errorf("failed reading from sqs: %+v", err)
 						collected <- true
 						return
 					}
 
-					for _, message := range results[0].Messages {
+					for _, message := range msgResult.Messages {
 						envelope := inttest.Envelope{}
-						if err := json.Unmarshal([]byte(message.Values["envelope"].(string)), &envelope); err != nil {
-							rits.T().Error(err)
+						if message.Body == nil {
+							continue
 						}
 
-						redisLogger.Debugf("EVENT: %+v", envelope)
+						if err := json.Unmarshal([]byte(*message.Body), &envelope); err != nil {
+							asits.T().Error(err)
+						}
+
+						sqsLogger.Debugf("EVENT: %+v", envelope)
 						envelopes = append(envelopes, envelope)
 						if len(envelopes) >= 10 {
 							collected <- true
 							return
 						}
-
-						client.XAck(subjectName, groupName, message.ID)
 					}
 				}
 			}()
@@ -125,7 +145,7 @@ func (rits *RedisIntegrationTestSuite) Test_Redis_Sink() {
 			<-collected
 
 			for i, envelope := range envelopes {
-				assert.Equal(rits.T(), i+1, int(envelope.Payload.After["val"].(float64)))
+				assert.Equal(asits.T(), i+1, int(envelope.Payload.After["val"].(float64)))
 			}
 			return nil
 		},
@@ -141,18 +161,25 @@ func (rits *RedisIntegrationTestSuite) Test_Redis_Sink() {
 			testrunner.Attribute(setupContext, "schemaName", sn)
 			testrunner.Attribute(setupContext, "tableName", tn)
 
-			rC, rA, err := containers.SetupRedisContainer()
+			container, endpoint, address, err = containers.SetupLocalStackWithSQS(awsRegion, queueName)
 			if err != nil {
 				return errors.Wrap(err, 0)
 			}
-			address = rA
-			container = rC
 
 			setupContext.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
 				config.Topic.Prefix = topicPrefix
-				config.Sink.Type = spiconfig.Redis
-				config.Sink.Redis = spiconfig.RedisConfig{
-					Address: address,
+				config.Sink.Type = spiconfig.AwsSQS
+				config.Sink.AwsSqs = spiconfig.AwsSqsConfig{
+					Queue: spiconfig.AwsSqsQueueConfig{
+						Url: aws.String(address),
+					},
+					Aws: spiconfig.AwsConnectionConfig{
+						Region:          aws.String(awsRegion),
+						AccessKeyId:     "test",
+						SecretAccessKey: "test",
+						SessionToken:    "test",
+						Endpoint:        endpoint,
+					},
 				}
 			})
 

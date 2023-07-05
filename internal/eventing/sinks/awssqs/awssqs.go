@@ -18,13 +18,14 @@
 package awssqs
 
 import (
+	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/go-errors/errors"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/sink"
@@ -88,11 +89,28 @@ func (a *awsSqsSink) Emit(_ sink.Context, _ time.Time, topicName string, _, enve
 		return err
 	}
 
+	payload := envelope["payload"].(schema.Struct)
+	source := payload["source"].(schema.Struct)
+	lsn := source["lsn"].(string)
+	txId, present := source["txId"]
+
+	var msgDeduplicationIdContent string
+	if present {
+		msgDeduplicationIdContent = fmt.Sprintf("%s-%d-%s", lsn, *(txId.(*uint32)), envelopeData)
+	} else {
+		msgDeduplicationIdContent = fmt.Sprintf("%s-%s", lsn, envelopeData)
+	}
+
+	hash := sha256.New()
+	hash.Write([]byte(msgDeduplicationIdContent))
+	msgDeduplicationId := fmt.Sprintf("%X", hash.Sum(nil))
+
 	_, err = a.awsSqs.SendMessage(&sqs.SendMessageInput{
-		DelaySeconds:   supporting.AddrOf(int64(0)),
-		MessageBody:    supporting.AddrOf(string(envelopeData)),
-		MessageGroupId: supporting.AddrOf(topicName),
-		QueueUrl:       a.queueUrl,
+		DelaySeconds:           aws.Int64(0),
+		MessageBody:            aws.String(string(envelopeData)),
+		MessageGroupId:         aws.String(topicName),
+		MessageDeduplicationId: aws.String(msgDeduplicationId),
+		QueueUrl:               a.queueUrl,
 	})
 	return err
 }
