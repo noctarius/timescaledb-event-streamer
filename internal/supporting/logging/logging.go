@@ -309,7 +309,7 @@ func newFileHandler(config spiconfig.LoggerFileConfig) (bool, *handler.SyncClose
 
 	if fileHandler == nil {
 		if config.MaxDuration != nil {
-			seconds := rotatefile.RotateTime((time.Second * (*config.MaxDuration)).Seconds())
+			seconds := rotatefile.RotateTime((time.Second * time.Duration(*config.MaxDuration)).Seconds())
 			if h, err := handler.NewTimeRotateFileHandler(config.Path, seconds, configurator); err != nil {
 				return false, nil, errors.Errorf(
 					fmt.Sprintf("Failed to initialize logfile handler => %s", err.Error()),

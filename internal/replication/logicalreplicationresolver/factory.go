@@ -31,9 +31,9 @@ func NewResolver(config *spiconfig.Config, replicationContext *context.Replicati
 	enabled := spiconfig.GetOrDefault(
 		config, spiconfig.PropertyPostgresqlTxwindowEnabled, true,
 	)
-	timeout := spiconfig.GetOrDefault(
-		config, spiconfig.PropertyPostgresqlTxwindowTimeout, time.Duration(60),
-	) * time.Second
+	timeout := time.Duration(spiconfig.GetOrDefault(
+		config, spiconfig.PropertyPostgresqlTxwindowTimeout, 60,
+	)) * time.Second
 	maxSize := spiconfig.GetOrDefault(
 		config, spiconfig.PropertyPostgresqlTxwindowMaxsize, uint(10000),
 	)

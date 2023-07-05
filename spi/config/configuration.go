@@ -23,7 +23,6 @@ import (
 	"os"
 	"reflect"
 	"strings"
-	"time"
 )
 
 type StateStorageType string
@@ -97,9 +96,9 @@ type TransactionConfig struct {
 }
 
 type TransactionWindowConfig struct {
-	Enabled *bool         `toml:"enabled" yaml:"enabled"`
-	Timeout time.Duration `toml:"timeout" yaml:"timeout"`
-	MaxSize uint          `toml:"maxsize" yaml:"maxSize"`
+	Enabled *bool `toml:"enabled" yaml:"enabled"`
+	Timeout int   `toml:"timeout" yaml:"timeout"`
+	MaxSize uint  `toml:"maxsize" yaml:"maxSize"`
 }
 
 type SinkConfig struct {
@@ -289,12 +288,12 @@ type LoggerConsoleConfig struct {
 }
 
 type LoggerFileConfig struct {
-	Enabled     *bool          `toml:"enabled" yaml:"enabled"`
-	Path        string         `toml:"path" yaml:"path"`
-	Rotate      *bool          `toml:"rotate" yaml:"rotate"`
-	MaxSize     *string        `toml:"maxsize" yaml:"maxSize"`
-	MaxDuration *time.Duration `toml:"maxduration" yaml:"maxDuration"`
-	Compress    bool           `toml:"compress" yaml:"compress"`
+	Enabled     *bool   `toml:"enabled" yaml:"enabled"`
+	Path        string  `toml:"path" yaml:"path"`
+	Rotate      *bool   `toml:"rotate" yaml:"rotate"`
+	MaxSize     *string `toml:"maxsize" yaml:"maxSize"`
+	MaxDuration *int    `toml:"maxduration" yaml:"maxDuration"`
+	Compress    bool    `toml:"compress" yaml:"compress"`
 }
 
 func GetOrDefault[V any](config *Config, canonicalProperty string, defaultValue V) V {
