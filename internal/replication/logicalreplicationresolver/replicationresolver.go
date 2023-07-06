@@ -75,11 +75,11 @@ func newLogicalReplicationResolver(config *spiconfig.Config, replicationContext 
 	}, nil
 }
 
-func (l *logicalReplicationResolver) OnHypertableSnapshotStartedEvent(_ *spicatalog.Hypertable) error {
+func (l *logicalReplicationResolver) OnHypertableSnapshotStartedEvent(_ string, _ *spicatalog.Hypertable) error {
 	return nil
 }
 
-func (l *logicalReplicationResolver) OnHypertableSnapshotFinishedEvent(_ *spicatalog.Hypertable) error {
+func (l *logicalReplicationResolver) OnHypertableSnapshotFinishedEvent(_ string, _ *spicatalog.Hypertable) error {
 	return nil
 }
 

@@ -65,12 +65,16 @@ func newTransactionTracker(timeout time.Duration, maxSize uint, replicationConte
 	}, nil
 }
 
-func (tt *transactionTracker) OnHypertableSnapshotStartedEvent(hypertable *spicatalog.Hypertable) error {
-	return tt.resolver.OnHypertableSnapshotStartedEvent(hypertable)
+func (tt *transactionTracker) OnHypertableSnapshotStartedEvent(
+	snapshotName string, hypertable *spicatalog.Hypertable) error {
+
+	return tt.resolver.OnHypertableSnapshotStartedEvent(snapshotName, hypertable)
 }
 
-func (tt *transactionTracker) OnHypertableSnapshotFinishedEvent(hypertable *spicatalog.Hypertable) error {
-	return tt.resolver.OnHypertableSnapshotFinishedEvent(hypertable)
+func (tt *transactionTracker) OnHypertableSnapshotFinishedEvent(
+	snapshotName string, hypertable *spicatalog.Hypertable) error {
+
+	return tt.resolver.OnHypertableSnapshotFinishedEvent(snapshotName, hypertable)
 }
 
 func (tt *transactionTracker) OnSnapshottingStartedEvent(snapshotName string) error {
