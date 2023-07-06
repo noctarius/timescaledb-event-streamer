@@ -95,10 +95,10 @@ func (rc *ReplicationConnection) SendStatusUpdate() error {
 	return nil
 }
 
-func (rc *ReplicationConnection) StartReplication(pluginArguments []string) error {
+func (rc *ReplicationConnection) StartReplication(pluginArguments []string) (pgtypes.LSN, error) {
 	restartLSN, err := rc.locateRestartLSN(rc.replicationContext.sideChannel.readReplicationSlot)
 	if err != nil {
-		return errors.Wrap(err, 0)
+		return 0, errors.Wrap(err, 0)
 	}
 
 	// Configure initial LSN in case there isn't anything immediate to handle
@@ -112,17 +112,17 @@ func (rc *ReplicationConnection) StartReplication(pluginArguments []string) erro
 		},
 	); err != nil {
 		if err := rc.reconnect(); err != nil {
-			return errors.Wrap(err, 0)
+			return 0, errors.Wrap(err, 0)
 		}
 
-		return pglogrepl.StartReplication(context.Background(), rc.conn,
+		return restartLSN, pglogrepl.StartReplication(context.Background(), rc.conn,
 			rc.replicationContext.ReplicationSlotName(), pglogrepl.LSN(restartLSN),
 			pglogrepl.StartReplicationOptions{
 				PluginArgs: pluginArguments,
 			},
 		)
 	}
-	return nil
+	return restartLSN, nil
 }
 
 func (rc *ReplicationConnection) StopReplication() error {

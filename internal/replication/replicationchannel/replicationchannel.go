@@ -144,7 +144,8 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 			return nil
 		}
 
-		if err := replicationConnection.StartReplication(pluginArguments); err != nil {
+		 restartLSN, err := replicationConnection.StartReplication(pluginArguments)
+		 if err != nil {
 			if rc.shutdownRequested.Load() {
 				// If we tried to start replication before the shutdown was initiated,
 				// we totally expect that to fail, and we can just ignore the error
@@ -154,7 +155,7 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 		}
 
 		go func() {
-			err := replicationHandler.startReplicationHandler(replicationConnection)
+			err := replicationHandler.startReplicationHandler(replicationConnection, restartLSN)
 			if err != nil {
 				rc.logger.Fatalf("Issue handling WAL stream: %s", err)
 			}

@@ -145,8 +145,8 @@ func (l *logicalReplicationResolver) OnBeginEvent(xld pgtypes.XLogData, msg *pgt
 	return nil
 }
 
-func (l *logicalReplicationResolver) OnCommitEvent(xld pgtypes.XLogData, msg *pgtypes.CommitMessage) error {
-	l.replicationContext.SetLastCommitLSN(pgtypes.LSN(xld.WALStart + pglogrepl.LSN(len(xld.WALData))))
+func (l *logicalReplicationResolver) OnCommitEvent(_ pgtypes.XLogData, msg *pgtypes.CommitMessage) error {
+	l.replicationContext.SetLastCommitLSN(pgtypes.LSN(msg.TransactionEndLSN))
 	return nil
 }
 

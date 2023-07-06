@@ -61,7 +61,10 @@ func (rh *replicationHandler) stopReplicationHandler() error {
 	return rh.shutdownAwaiter.AwaitDone()
 }
 
-func (rh *replicationHandler) startReplicationHandler(replicationConnection *repcontext.ReplicationConnection) error {
+func (rh *replicationHandler) startReplicationHandler(
+	replicationConnection *repcontext.ReplicationConnection, restartLSN pgtypes.LSN,
+) error {
+
 	standbyMessageTimeout := time.Second * 10
 	nextStandbyMessageDeadline := time.Now().Add(standbyMessageTimeout)
 
@@ -132,7 +135,13 @@ func (rh *replicationHandler) startReplicationHandler(replicationConnection *rep
 				Xid:        xid,
 			}
 
-			if err := rh.handleXLogData(extendedXld); err != nil {
+			// Skip all entries that were already replicated before the streamer was shut down
+			msgType := pglogrepl.MessageType(xld.WALData[0])
+			if msgType != pglogrepl.MessageTypeRelation && restartLSN > pgtypes.LSN(xld.WALStart) {
+				continue
+			}
+
+			if err := rh.handleXLogData(extendedXld, restartLSN); err != nil {
 				return errors.Wrap(err, 0)
 			}
 			rh.replicationContext.AcknowledgeReceived(extendedXld)
@@ -140,7 +149,7 @@ func (rh *replicationHandler) startReplicationHandler(replicationConnection *rep
 	}
 }
 
-func (rh *replicationHandler) handleXLogData(xld pgtypes.XLogData) error {
+func (rh *replicationHandler) handleXLogData(xld pgtypes.XLogData, restartLSN pgtypes.LSN) error {
 	msg, err := pgdecoding.ParseXlogData(xld.WALData, rh.lastTransactionId)
 	if err != nil {
 		return fmt.Errorf("parsing logical replication message: %s", err)

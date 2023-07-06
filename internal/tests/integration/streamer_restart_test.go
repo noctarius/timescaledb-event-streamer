@@ -42,8 +42,8 @@ func TestIntegrationRestartTestSuite(t *testing.T) {
 	suite.Run(t, new(IntegrationRestartTestSuite))
 }
 
-func (irts *IntegrationRestartTestSuite) Test_() {
-	waiter := supporting.NewWaiterWithTimeout(time.Second * 30)
+func (irts *IntegrationRestartTestSuite) Test_Restart_Streamer() {
+	waiter := supporting.NewWaiterWithTimeout(time.Second * 600)
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {

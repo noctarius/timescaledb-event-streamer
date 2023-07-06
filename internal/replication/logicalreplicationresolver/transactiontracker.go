@@ -107,6 +107,14 @@ func (tt *transactionTracker) OnBeginEvent(xld pgtypes.XLogData, msg *pgtypes.Be
 }
 
 func (tt *transactionTracker) OnCommitEvent(xld pgtypes.XLogData, msg *pgtypes.CommitMessage) error {
+	// There isn't a running transaction, which can happen when we
+	// got restarted and the last processed LSN was inside a running
+	// transaction. In this case we skip all earlier logrepl messages
+	// and keep going from where we left off.
+	if tt.currentTransaction == nil {
+		return tt.resolver.OnCommitEvent(xld, msg)
+	}
+
 	currentTransaction := tt.currentTransaction
 	tt.currentTransaction = nil
 
