@@ -152,7 +152,7 @@ func (s *systemCatalogReplicationEventHandler) OnChunkAddedEvent(
 					} else if found {
 						s.systemCatalog.logger.Infof(
 							"Chunk %s already in publication %s but seems to "+
-								"be created while offline, force snapshotting",
+								"be created while offline, forcing snapshotting - this may lead to duplicates!",
 							c.CanonicalName(), s.systemCatalog.replicationContext.PublicationName(),
 						)
 					}
