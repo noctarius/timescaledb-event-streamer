@@ -298,7 +298,7 @@ func initializeSystemCatalog(sc *SystemCatalog) (*SystemCatalog, error) {
 		// Run basic access check based on user permissions
 		access, err := sc.replicationContext.HasTablePrivilege(hypertable, context.Select)
 		if err != nil {
-			return err
+			return errors.Wrap(err, 0)
 		}
 		if !access {
 			return errors.Errorf("Hypertable %s not accessible", hypertable.CanonicalName())

@@ -150,9 +150,22 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 
 	// Get initial list of chunks to add to publication
 	initialChunkTables := systemCatalog.GetAllChunks()
+	r.logger.Debugf(
+		"Necessary chunks: %+v",
+		supporting.Map(initialChunkTables, func(chunk systemcatalog.SystemEntity) string {
+			return chunk.TableName()
+		}),
+	)
 
 	// Filter published chunks to only add new chunks
 	alreadyPublished, err := replicationContext.ReadPublishedTables()
+	r.logger.Debugf(
+		"Chunks already in publication: %+v",
+		supporting.Map(initialChunkTables, func(chunk systemcatalog.SystemEntity) string {
+			return chunk.TableName()
+		}),
+	)
+
 	if err != nil {
 		return supporting.AdaptError(err, 250)
 	}
@@ -161,6 +174,12 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 			return item.CanonicalName() == other.CanonicalName()
 		})
 	})
+	r.logger.Debugf(
+		"Chunks to be added publication: %+v",
+		supporting.Map(initialChunkTables, func(chunk systemcatalog.SystemEntity) string {
+			return chunk.TableName()
+		}),
+	)
 
 	if err := replicationChannel.StartReplicationChannel(replicationContext, initialChunkTables); err != nil {
 		return supporting.AdaptError(err, 16)
