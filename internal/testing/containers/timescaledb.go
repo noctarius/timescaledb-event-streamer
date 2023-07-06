@@ -88,8 +88,8 @@ func SetupTimescaleContainer() (testcontainers.Container, *ConfigProvider, error
 		WaitingFor:   wait.ForListeningPort("5432/tcp"),
 		Env: map[string]string{
 			"POSTGRES_DB":       databaseName,
-			"POSTGRES_PASSWORD": postgresUser,
-			"POSTGRES_USER":     postgresPass,
+			"POSTGRES_PASSWORD": postgresPass,
+			"POSTGRES_USER":     postgresUser,
 		},
 	}
 

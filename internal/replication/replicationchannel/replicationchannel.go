@@ -114,17 +114,19 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 		return fmt.Errorf("CreateReplicationSlot failed: %s", err)
 	} else if createdReplicationSlot {
 		rc.logger.Println("Created replication slot:", slotName)
-
-		// If slot was newly created we immediately try to add as many chunks to the publication
-		// as possible, otherwise we wait for the catalog handler to do it one by one since we may
-		// have to snapshot or replay some of them which were created while we were gone.
-		if len(initialTables) > 0 {
-			if err := rc.replicationContext.AttachTablesToPublication(initialTables...); err != nil {
-				return errors.Wrap(err, 0)
-			}
-		}
 	} else {
 		rc.logger.Println("Reused replication slot:", slotName)
+	}
+
+	// If we have missing chunks in the publication, we need to add them now. This list is either
+	// generated from the list of known, previously existing, chunks (if the state storage contains
+	// that information) or from the database, which provides all chunks at the point in time. This
+	// may include chunks whose creating may be included in the WAL log, but there's nothing we can
+	// do about it 🤷
+	if len(initialTables) > 0 {
+		if err := rc.replicationContext.AttachTablesToPublication(initialTables...); err != nil {
+			return errors.Wrap(err, 0)
+		}
 	}
 
 	offset, err := rc.replicationContext.Offset()

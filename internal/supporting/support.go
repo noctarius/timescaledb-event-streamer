@@ -53,6 +53,14 @@ func Map[E, R any](elements []E, mapper func(element E) R) []R {
 	return result
 }
 
+func MapMapper[K comparable, V, R any](elements map[K]V, mapper func(key K, element V) R) []R {
+	result := make([]R, 0, len(elements))
+	for k, e := range elements {
+		result = append(result, mapper(k, e))
+	}
+	return result
+}
+
 func AddrOf[T any](value T) *T {
 	return &value
 }
@@ -116,6 +124,10 @@ func RandomTextString(length int) string {
 		builder.WriteString(validCharacters[index])
 	}
 	return builder.String()
+}
+
+func RandomNumber(min, max int) int {
+	return min + rand.Intn(max-min)
 }
 
 func DistinctItems[V any](items []V, identityFn func(item V) string) []V {

@@ -133,8 +133,14 @@ func (s *Snapshotter) snapshot(task SnapshotTask) error {
 }
 
 func (s *Snapshotter) snapshotChunk(task SnapshotTask) error {
-	if err := s.replicationContext.AttachTablesToPublication(task.Chunk); err != nil {
+	alreadyPublished, err := s.replicationContext.ExistsTableInPublication(task.Chunk)
+	if err != nil {
 		return errors.Wrap(err, 0)
+	}
+	if !alreadyPublished {
+		if err := s.replicationContext.AttachTablesToPublication(task.Chunk); err != nil {
+			return errors.Wrap(err, 0)
+		}
 	}
 
 	lsn, err := s.replicationContext.SnapshotChunkTable(

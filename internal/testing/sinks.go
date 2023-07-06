@@ -110,6 +110,13 @@ func (t *EventCollectorSink) Events() []CollectedEvent {
 	return t.events
 }
 
+func (t *EventCollectorSink) Clear() {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+	t.keys = make([]schema.Struct, 0)
+	t.events = make([]CollectedEvent, 0)
+}
+
 func (t *EventCollectorSink) NumOfEvents() int {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()

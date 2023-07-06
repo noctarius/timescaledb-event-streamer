@@ -151,10 +151,10 @@ func (s *systemCatalogReplicationEventHandler) OnChunkAddedEvent(
 						return err
 					} else if found {
 						s.systemCatalog.logger.Infof(
-							"Chunk %s already in publication %s, skipping snapshotting",
+							"Chunk %s already in publication %s but seems to "+
+								"be created while offline, force snapshotting",
 							c.CanonicalName(), s.systemCatalog.replicationContext.PublicationName(),
 						)
-						return nil
 					}
 					if err := s.systemCatalog.snapshotChunkWithXld(&xld, c); err != nil {
 						s.systemCatalog.logger.Fatalf("failed to snapshot chunk %s", c.CanonicalName())

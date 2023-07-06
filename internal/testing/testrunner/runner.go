@@ -35,7 +35,7 @@ import (
 	"time"
 )
 
-type Context interface {
+type PrivilegedContext interface {
 	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
@@ -44,6 +44,11 @@ type Context interface {
 	Begin(ctx context.Context) (pgx.Tx, error)
 	BeginTx(ctx context.Context, txOptions pgx.TxOptions) (pgx.Tx, error)
 	Ping(ctx context.Context) error
+}
+
+type Context interface {
+	PrivilegedContext
+	PrivilegedContext(fn func(context PrivilegedContext) error) error
 	CreateHypertable(timeDimension string, chunkSize time.Duration, columns ...systemcatalog.Column) (string, string, error)
 	PauseReplicator() error
 	ResumeReplicator() error
@@ -64,11 +69,50 @@ func GetAttribute[V any](context Context, key string) V {
 	return context.getAttribute(key).(V)
 }
 
+type testPrivilegedContext struct {
+	pool *pgxpool.Pool
+}
+
+func (t *testPrivilegedContext) Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
+	return t.pool.Exec(ctx, sql, args...)
+}
+
+func (t *testPrivilegedContext) Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
+	return t.pool.Query(ctx, sql, args...)
+}
+
+func (t *testPrivilegedContext) QueryRow(ctx context.Context, sql string, args ...any) pgx.Row {
+	return t.pool.QueryRow(ctx, sql, args...)
+}
+
+func (t *testPrivilegedContext) SendBatch(ctx context.Context, batch *pgx.Batch) pgx.BatchResults {
+	return t.pool.SendBatch(ctx, batch)
+}
+
+func (t *testPrivilegedContext) CopyFrom(ctx context.Context, identifier pgx.Identifier,
+	strings []string, source pgx.CopyFromSource) (int64, error) {
+
+	return t.pool.CopyFrom(ctx, identifier, strings, source)
+}
+
+func (t *testPrivilegedContext) Begin(ctx context.Context) (pgx.Tx, error) {
+	return t.pool.Begin(ctx)
+}
+
+func (t *testPrivilegedContext) BeginTx(ctx context.Context, txOptions pgx.TxOptions) (pgx.Tx, error) {
+	return t.pool.BeginTx(ctx, txOptions)
+}
+
+func (t *testPrivilegedContext) Ping(ctx context.Context) error {
+	return t.pool.Ping(ctx)
+}
+
 type testContext struct {
-	pool        *pgxpool.Pool
-	streamer    *internal.Streamer
-	hypertables []string
-	attributes  map[string]any
+	testPrivilegedContext
+	superuserConfig *pgxpool.Config
+	streamer        *internal.Streamer
+	hypertables     []string
+	attributes      map[string]any
 
 	streamerRunning bool
 
@@ -99,38 +143,15 @@ func (t *testContext) ResumeReplicator() error {
 	return nil
 }
 
-func (t *testContext) Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
-	return t.pool.Exec(ctx, sql, args...)
-}
-
-func (t *testContext) Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
-	return t.pool.Query(ctx, sql, args...)
-}
-
-func (t *testContext) QueryRow(ctx context.Context, sql string, args ...any) pgx.Row {
-	return t.pool.QueryRow(ctx, sql, args...)
-}
-
-func (t *testContext) SendBatch(ctx context.Context, batch *pgx.Batch) pgx.BatchResults {
-	return t.pool.SendBatch(ctx, batch)
-}
-
-func (t *testContext) CopyFrom(ctx context.Context, identifier pgx.Identifier,
-	strings []string, source pgx.CopyFromSource) (int64, error) {
-
-	return t.pool.CopyFrom(ctx, identifier, strings, source)
-}
-
-func (t *testContext) Begin(ctx context.Context) (pgx.Tx, error) {
-	return t.pool.Begin(ctx)
-}
-
-func (t *testContext) BeginTx(ctx context.Context, txOptions pgx.TxOptions) (pgx.Tx, error) {
-	return t.pool.BeginTx(ctx, txOptions)
-}
-
-func (t *testContext) Ping(ctx context.Context) error {
-	return t.pool.Ping(ctx)
+func (t *testContext) PrivilegedContext(fn func(context PrivilegedContext) error) error {
+	pool, err := pgxpool.NewWithConfig(context.Background(), t.superuserConfig)
+	if err != nil {
+		return err
+	}
+	subTestContext := &testPrivilegedContext{
+		pool: pool,
+	}
+	return fn(subTestContext)
 }
 
 func (t *testContext) CreateHypertable(timeDimension string,
@@ -151,10 +172,11 @@ func (t *testContext) AddSystemConfigConfigurator(fn func(config *sysconfig.Syst
 type TestRunner struct {
 	suite.Suite
 
-	container     testcontainers.Container
-	userConfig    *pgxpool.Config
-	replPgxConfig *pgx.ConnConfig
-	logger        *logging.Logger
+	container       testcontainers.Container
+	superuserConfig *pgxpool.Config
+	userConfig      *pgxpool.Config
+	replPgxConfig   *pgx.ConnConfig
+	logger          *logging.Logger
 
 	withCaller bool
 }
@@ -224,6 +246,11 @@ func (tr *TestRunner) SetupSuite() {
 		tr.logger.Fatalf("failed setting up replication connection config: %+v", err)
 	}
 	tr.replPgxConfig = replPgxConfig
+
+	superuserConfig := userConfig.Copy()
+	superuserConfig.ConnConfig.User = "postgres"
+	superuserConfig.ConnConfig.Password = "postgres"
+	tr.superuserConfig = superuserConfig
 }
 
 func (tr *TestRunner) TearDownSuite() {
@@ -242,9 +269,12 @@ func (tr *TestRunner) RunTest(testFn func(context Context) error, configurators 
 	defer pool.Close()
 
 	tc := &testContext{
-		pool:        pool,
-		hypertables: make([]string, 0),
-		attributes:  make(map[string]any, 0),
+		testPrivilegedContext: testPrivilegedContext{
+			pool: pool,
+		},
+		superuserConfig: tr.superuserConfig,
+		hypertables:     make([]string, 0),
+		attributes:      make(map[string]any, 0),
 	}
 
 	for _, configurator := range configurators {

@@ -18,7 +18,9 @@
 package replication
 
 import (
+	"bytes"
 	stderrors "errors"
+	"github.com/go-errors/errors"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
 	logrepresolver "github.com/noctarius/timescaledb-event-streamer/internal/replication/logicalreplicationresolver"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationchannel"
@@ -27,9 +29,12 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
 	intsystemcatalog "github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/snapshotting"
+	"github.com/noctarius/timescaledb-event-streamer/spi/encoding"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/urfave/cli"
 )
+
+const esPreviouslyKnownChunks = "::previously::known::chunks"
 
 // Replicator is the main controller for all things logical replication,
 // such as the logical replication connection, the side channel connection,
@@ -149,9 +154,13 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 	snapshotter.StartSnapshotter()
 
 	// Get initial list of chunks to add to publication
-	initialChunkTables := systemCatalog.GetAllChunks()
+	initialChunkTables, err := getKnownChunks(replicationContext, systemCatalog)
+	if err != nil {
+		return supporting.AdaptErrorWithMessage(err, "failed to read known chunks", 25)
+	}
+
 	r.logger.Debugf(
-		"Necessary chunks: %+v",
+		"All interesting chunks: %+v",
 		supporting.Map(initialChunkTables, func(chunk systemcatalog.SystemEntity) string {
 			return chunk.TableName()
 		}),
@@ -161,7 +170,7 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 	alreadyPublished, err := replicationContext.ReadPublishedTables()
 	r.logger.Debugf(
 		"Chunks already in publication: %+v",
-		supporting.Map(initialChunkTables, func(chunk systemcatalog.SystemEntity) string {
+		supporting.Map(alreadyPublished, func(chunk systemcatalog.SystemEntity) string {
 			return chunk.TableName()
 		}),
 	)
@@ -189,8 +198,12 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 		snapshotter.StopSnapshotter()
 		err1 := replicationChannel.StopReplicationChannel()
 		err2 := eventEmitter.Stop()
-		err3 := replicationContext.StopReplicationContext()
-		return stderrors.Join(err1, err2, err3)
+		state, err3 := encodeKnownChunks(systemCatalog.GetAllChunks())
+		if err3 == nil {
+			replicationContext.SetEncodedState(esPreviouslyKnownChunks, state)
+		}
+		err4 := replicationContext.StopReplicationContext()
+		return stderrors.Join(err1, err2, err3, err4)
 	}
 
 	return nil
@@ -203,4 +216,57 @@ func (r *Replicator) StopReplication() *cli.ExitError {
 		return supporting.AdaptError(r.shutdownTask(), 250)
 	}
 	return nil
+}
+
+func getKnownChunks(replicationContext *context.ReplicationContext,
+	systemCatalog *intsystemcatalog.SystemCatalog) ([]systemcatalog.SystemEntity, error) {
+
+	if state, present := replicationContext.EncodedState(esPreviouslyKnownChunks); present {
+		return decodeKnownChunks(state)
+	}
+
+	return systemCatalog.GetAllChunks(), nil
+}
+
+func decodeKnownChunks(data []byte) ([]systemcatalog.SystemEntity, error) {
+	buffer := encoding.NewReadBuffer(bytes.NewBuffer(data))
+
+	numOfChunks, err := buffer.ReadUint32()
+	if err != nil {
+		return nil, errors.Wrap(err, 0)
+	}
+
+	chunks := make([]systemcatalog.SystemEntity, 0, numOfChunks)
+	for i := 0; i < int(numOfChunks); i++ {
+		schemaName, err := buffer.ReadString()
+		if err != nil {
+			return nil, errors.Wrap(err, 0)
+		}
+		tableName, err := buffer.ReadString()
+		if err != nil {
+			return nil, errors.Wrap(err, 0)
+		}
+		chunks = append(chunks, systemcatalog.NewSystemEntity(schemaName, tableName))
+	}
+	return chunks, nil
+}
+
+func encodeKnownChunks(chunks []systemcatalog.SystemEntity) ([]byte, error) {
+	buffer := encoding.NewWriteBuffer(1024)
+
+	numOfChunks := len(chunks)
+	if err := buffer.PutUint32(uint32(numOfChunks)); err != nil {
+		return nil, errors.Wrap(err, 0)
+	}
+
+	for i := 0; i < numOfChunks; i++ {
+		chunk := chunks[i]
+		if err := buffer.PutString(chunk.SchemaName()); err != nil {
+			return nil, errors.Wrap(err, 0)
+		}
+		if err := buffer.PutString(chunk.TableName()); err != nil {
+			return nil, errors.Wrap(err, 0)
+		}
+	}
+	return buffer.Bytes(), nil
 }
