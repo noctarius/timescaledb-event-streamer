@@ -75,7 +75,7 @@ func SetupKafkaContainer() (testcontainers.Container, []string, error) {
 
 	// Collect logs
 	container.FollowOutput(newLogConsumer(kafkaLogger))
-	container.StartLogProducer(context.Background())
+	//container.StartLogProducer(context.Background())
 
 	host, err := container.Host(context.Background())
 	if err != nil {

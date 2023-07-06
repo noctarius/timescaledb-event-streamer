@@ -56,7 +56,7 @@ func SetupRedPandaContainer() (testcontainers.Container, []string, error) {
 
 	// Collect logs
 	container.FollowOutput(newLogConsumer(redpandaLogger))
-	container.StartLogProducer(context.Background())
+	//container.StartLogProducer(context.Background())
 
 	host, err := container.Host(context.Background())
 	if err != nil {
