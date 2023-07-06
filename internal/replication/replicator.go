@@ -153,42 +153,13 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 	// Start the snapshotter
 	snapshotter.StartSnapshotter()
 
-	// Get initial list of chunks to add to publication
-	initialChunkTables, err := getKnownChunks(replicationContext, systemCatalog)
+	// Get initial list of chunks to add to
+	initialChunkTables, err := r.collectChunksForPublication(
+		replicationContext.EncodedState, systemCatalog.GetAllChunks, replicationContext.ReadPublishedTables,
+	)
 	if err != nil {
 		return supporting.AdaptErrorWithMessage(err, "failed to read known chunks", 25)
 	}
-
-	r.logger.Debugf(
-		"All interesting chunks: %+v",
-		supporting.Map(initialChunkTables, func(chunk systemcatalog.SystemEntity) string {
-			return chunk.TableName()
-		}),
-	)
-
-	// Filter published chunks to only add new chunks
-	alreadyPublished, err := replicationContext.ReadPublishedTables()
-	r.logger.Debugf(
-		"Chunks already in publication: %+v",
-		supporting.Map(alreadyPublished, func(chunk systemcatalog.SystemEntity) string {
-			return chunk.TableName()
-		}),
-	)
-
-	if err != nil {
-		return supporting.AdaptError(err, 250)
-	}
-	initialChunkTables = supporting.Filter(initialChunkTables, func(item systemcatalog.SystemEntity) bool {
-		return !supporting.ContainsWithMatcher(alreadyPublished, func(other systemcatalog.SystemEntity) bool {
-			return item.CanonicalName() == other.CanonicalName()
-		})
-	})
-	r.logger.Debugf(
-		"Chunks to be added publication: %+v",
-		supporting.Map(initialChunkTables, func(chunk systemcatalog.SystemEntity) string {
-			return chunk.TableName()
-		}),
-	)
 
 	if err := replicationChannel.StartReplicationChannel(replicationContext, initialChunkTables); err != nil {
 		return supporting.AdaptError(err, 16)
@@ -218,14 +189,58 @@ func (r *Replicator) StopReplication() *cli.ExitError {
 	return nil
 }
 
-func getKnownChunks(replicationContext *context.ReplicationContext,
-	systemCatalog *intsystemcatalog.SystemCatalog) ([]systemcatalog.SystemEntity, error) {
+func (r *Replicator) collectChunksForPublication(encodedState func(name string) ([]byte, bool),
+	getAllChunks func() []systemcatalog.SystemEntity, readPublishedTables func() ([]systemcatalog.SystemEntity, error),
+) ([]systemcatalog.SystemEntity, error) {
 
-	if state, present := replicationContext.EncodedState(esPreviouslyKnownChunks); present {
+	// Get initial list of chunks to add to publication
+	allKnownTables, err := getKnownChunks(encodedState, getAllChunks)
+	if err != nil {
+		return nil, supporting.AdaptErrorWithMessage(err, "failed to read known chunks", 25)
+	}
+
+	r.logger.Debugf(
+		"All interesting chunks: %+v",
+		supporting.Map(allKnownTables, func(chunk systemcatalog.SystemEntity) string {
+			return chunk.TableName()
+		}),
+	)
+
+	// Filter published chunks to only add new chunks
+	alreadyPublished, err := readPublishedTables()
+	if err != nil {
+		return nil, supporting.AdaptError(err, 250)
+	}
+
+	r.logger.Debugf(
+		"Chunks already in publication: %+v",
+		supporting.Map(alreadyPublished, func(chunk systemcatalog.SystemEntity) string {
+			return chunk.TableName()
+		}),
+	)
+
+	initialChunkTables := supporting.Filter(allKnownTables, func(item systemcatalog.SystemEntity) bool {
+		return !supporting.ContainsWithMatcher(alreadyPublished, func(other systemcatalog.SystemEntity) bool {
+			return item.CanonicalName() == other.CanonicalName()
+		})
+	})
+	r.logger.Debugf(
+		"Chunks to be added publication: %+v",
+		supporting.Map(initialChunkTables, func(chunk systemcatalog.SystemEntity) string {
+			return chunk.TableName()
+		}),
+	)
+	return initialChunkTables, nil
+}
+
+func getKnownChunks(encodedState func(name string) ([]byte, bool),
+	getAllChunks func() []systemcatalog.SystemEntity) ([]systemcatalog.SystemEntity, error) {
+
+	if state, present := encodedState(esPreviouslyKnownChunks); present {
 		return decodeKnownChunks(state)
 	}
 
-	return systemCatalog.GetAllChunks(), nil
+	return getAllChunks(), nil
 }
 
 func decodeKnownChunks(data []byte) ([]systemcatalog.SystemEntity, error) {
