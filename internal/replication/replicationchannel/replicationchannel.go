@@ -144,8 +144,8 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 			return nil
 		}
 
-		 restartLSN, err := replicationConnection.StartReplication(pluginArguments)
-		 if err != nil {
+		restartLSN, err := replicationConnection.StartReplication(pluginArguments)
+		if err != nil {
 			if rc.shutdownRequested.Load() {
 				// If we tried to start replication before the shutdown was initiated,
 				// we totally expect that to fail, and we can just ignore the error
