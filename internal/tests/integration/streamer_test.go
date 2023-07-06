@@ -1046,7 +1046,7 @@ func (its *IntegrationTestSuite) TestContinuousAggregateCreateEvents() {
 					return nil
 				}
 				if event.Envelope.Payload.Op != schema.OP_CREATE {
-					its.T().Errorf("event should be of type 'r' but was %s", event.Envelope.Payload.Op)
+					its.T().Errorf("event should be of type 'c' but was %s", event.Envelope.Payload.Op)
 					return nil
 				}
 			}
