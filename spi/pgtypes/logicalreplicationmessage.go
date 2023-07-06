@@ -19,7 +19,9 @@ package pgtypes
 
 import (
 	"encoding/binary"
+	"fmt"
 	"github.com/jackc/pglogrepl"
+	"strings"
 )
 
 const (
@@ -63,4 +65,17 @@ func (m *LogicalReplicationMessage) Decode(src []byte) (err error) {
 
 func (m *LogicalReplicationMessage) IsTransactional() bool {
 	return m.Flags == 1
+}
+
+func (m *LogicalReplicationMessage) String() string {
+	builder := strings.Builder{}
+	builder.WriteString("{")
+	builder.WriteString(fmt.Sprintf("messageType:%s ", m.Type().String()))
+	builder.WriteString(fmt.Sprintf("prefix:%s ", m.Prefix))
+	builder.WriteString(fmt.Sprintf("content:%x ", m.Content))
+	builder.WriteString(fmt.Sprintf("flags:%d ", m.Flags))
+	builder.WriteString(fmt.Sprintf("lsn:%s ", m.LSN.String()))
+	builder.WriteString(fmt.Sprintf("xid:%d ", m.Xid))
+	builder.WriteString("}")
+	return builder.String()
 }

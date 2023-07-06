@@ -135,20 +135,17 @@ func (l *logicalReplicationResolver) OnChunkSnapshotFinishedEvent(
 }
 
 func (l *logicalReplicationResolver) OnRelationEvent(_ pgtypes.XLogData, msg *pgtypes.RelationMessage) error {
-	l.logger.Debugf("RELATION MSG: %+v", msg)
 	l.relations[msg.RelationID] = msg
 	return nil
 }
 
 func (l *logicalReplicationResolver) OnBeginEvent(xld pgtypes.XLogData, msg *pgtypes.BeginMessage) error {
-	l.logger.Debugf("BEGIN MSG: %+v", msg)
 	l.replicationContext.SetLastBeginLSN(pgtypes.LSN(xld.WALStart))
 	l.replicationContext.SetLastTransactionId(msg.Xid)
 	return nil
 }
 
 func (l *logicalReplicationResolver) OnCommitEvent(xld pgtypes.XLogData, msg *pgtypes.CommitMessage) error {
-	l.logger.Debugf("COMMIT MSG: %+v", msg)
 	l.replicationContext.SetLastCommitLSN(pgtypes.LSN(xld.WALStart + pglogrepl.LSN(len(xld.WALData))))
 	return nil
 }
