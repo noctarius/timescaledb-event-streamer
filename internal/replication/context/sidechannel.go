@@ -83,11 +83,7 @@ FROM _timescaledb_catalog.chunk c1
 LEFT JOIN timescaledb_information.chunks c2
        ON c2.chunk_schema = c1.schema_name
       AND c2.chunk_name = c1.table_name
-LEFT JOIN _timescaledb_catalog.chunk c3 ON c3.compressed_chunk_id = c1.id
-LEFT JOIN timescaledb_information.chunks c4
-       ON c4.chunk_schema = c3.schema_name
-      AND c4.chunk_name = c3.table_name
-ORDER BY c1.hypertable_id, coalesce(c2.range_start, c4.range_start)`
+ORDER BY c1.hypertable_id, c1.compressed_chunk_id nulls first, c2.range_start`
 
 const initialTableSchemaQuery = `
 SELECT
@@ -234,6 +230,9 @@ func (sc *sideChannelImpl) createPublication(publicationName string) (success bo
 		sc.logger.Infof("Created publication %s", publicationName)
 		return nil
 	})
+	if err != nil {
+		err = errors.Wrap(err, 0)
+	}
 	return
 }
 
@@ -243,6 +242,9 @@ func (sc *sideChannelImpl) existsPublication(publicationName string) (found bool
 	})
 	if err == pgx.ErrNoRows {
 		err = nil
+	}
+	if err != nil {
+		err = errors.Wrap(err, 0)
 	}
 	return
 }
@@ -258,6 +260,9 @@ func (sc *sideChannelImpl) dropPublication(publicationName string) error {
 		if err == nil {
 			sc.logger.Infof("Dropped publication %s", publicationName)
 		}
+		if err != nil {
+			err = errors.Wrap(err, 0)
+		}
 		return err
 	})
 }
@@ -271,6 +276,9 @@ func (sc *sideChannelImpl) existsTableInPublication(
 	if err == pgx.ErrNoRows {
 		err = nil
 	}
+	if err != nil {
+		err = errors.Wrap(err, 0)
+	}
 	return
 }
 
@@ -278,7 +286,7 @@ func (sc *sideChannelImpl) getSystemInformation() (databaseName, systemId string
 	if err := sc.newSession(time.Second*10, func(session *session) error {
 		return session.queryRow(getSystemInformationQuery).Scan(&databaseName, &systemId, &timeline)
 	}); err != nil {
-		return databaseName, systemId, timeline, err
+		return databaseName, systemId, timeline, errors.Wrap(err, 0)
 	}
 	return
 }
@@ -288,6 +296,9 @@ func (sc *sideChannelImpl) getWalLevel() (walLevel string, err error) {
 	err = sc.newSession(time.Second*10, func(session *session) error {
 		return session.queryRow(walLevelQuery).Scan(&walLevel)
 	})
+	if err != nil {
+		err = errors.Wrap(err, 0)
+	}
 	return
 }
 
@@ -300,7 +311,7 @@ func (sc *sideChannelImpl) getPostgresVersion() (pgVersion version.PostgresVersi
 		pgVersion, err = version.ParsePostgresVersion(v)
 		return nil
 	}); err != nil {
-		return
+		return 0, errors.Wrap(err, 0)
 	}
 	return
 }
@@ -317,6 +328,9 @@ func (sc *sideChannelImpl) getTimescaleDBVersion() (tsdbVersion version.Timescal
 	}); err != nil {
 		if err == pgx.ErrNoRows {
 			err = nil
+		}
+		if err != nil {
+			err = errors.Wrap(err, 0)
 		}
 		return 0, false, err
 	}
@@ -383,7 +397,7 @@ func (sc *sideChannelImpl) readHypertableSchema(
 				continue
 			}
 			if err := sc.readHypertableSchema0(session, hypertable, cb); err != nil {
-				return err
+				return errors.Wrap(err, 0)
 			}
 		}
 		return nil
@@ -608,7 +622,7 @@ func (sc *sideChannelImpl) readSnapshotHighWatermark(
 	)
 	if err := sc.newSession(time.Second*10, func(session *session) error {
 		if _, err := session.exec("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ"); err != nil {
-			return err
+			return errors.Wrap(err, 0)
 		}
 
 		if _, err := session.exec(fmt.Sprintf("SET TRANSACTION SNAPSHOT '%s'", snapshotName)); err != nil {
@@ -660,7 +674,7 @@ func (sc *sideChannelImpl) readContinuousAggregate(materializedHypertableId int3
 		row := session.queryRow(hypertableContinuousAggregateQuery, materializedHypertableId)
 		if err := row.Scan(&viewSchema, &viewName); err != nil {
 			if err != pgx.ErrNoRows {
-				return err
+				return errors.Wrap(err, 0)
 			}
 		} else {
 			found = true
@@ -678,7 +692,7 @@ func (sc *sideChannelImpl) readPublishedTables(publicationName string) ([]system
 		return session.queryFunc(func(row pgx.Row) error {
 			var schemaName, tableName string
 			if err := row.Scan(&schemaName, &tableName); err != nil {
-				return err
+				return errors.Wrap(err, 0)
 			}
 			systemEntities = append(systemEntities, systemcatalog.NewSystemEntity(schemaName, tableName))
 			return nil
@@ -701,18 +715,21 @@ func (sc *sideChannelImpl) readReplicationSlot(
 		}
 		lsn, err := pglogrepl.ParseLSN(restart)
 		if err != nil {
-			return err
+			return errors.Wrap(err, 0)
 		}
 		restartLsn = pgtypes.LSN(lsn)
 		lsn, err = pglogrepl.ParseLSN(confirmed)
 		if err != nil {
-			return err
+			return errors.Wrap(err, 0)
 		}
 		confirmedFlushLsn = pgtypes.LSN(lsn)
 		return nil
 	})
 	if err == pgx.ErrNoRows {
 		err = nil
+	}
+	if err != nil {
+		err = errors.Wrap(err, 0)
 	}
 	return
 }
@@ -723,6 +740,9 @@ func (sc *sideChannelImpl) existsReplicationSlot(slotName string) (found bool, e
 	})
 	if err == pgx.ErrNoRows {
 		err = nil
+	}
+	if err != nil {
+		err = errors.Wrap(err, 0)
 	}
 	return
 }
@@ -759,7 +779,7 @@ func (sc *sideChannelImpl) readHypertableSchema0(
 		columns = append(columns, column)
 		return nil
 	}, initialTableSchemaQuery, hypertable.SchemaName(), hypertable.TableName()); err != nil {
-		return errors.Wrap(err, 0)
+		return err
 	}
 
 	if !cb(hypertable, columns) {
