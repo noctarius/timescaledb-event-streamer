@@ -55,6 +55,7 @@ type HypertableReplicationEventHandler interface {
 	OnTypeEvent(xld pgtypes.XLogData, msg *pgtypes.TypeMessage) error
 	OnOriginEvent(xld pgtypes.XLogData, msg *pgtypes.OriginMessage) error
 	OnMessageEvent(xld pgtypes.XLogData, msg *pgtypes.LogicalReplicationMessage) error
+	OnTransactionFinishedEvent(xld pgtypes.XLogData, msg *pgtypes.CommitMessage) error
 }
 
 type SnapshottingEventHandler interface {

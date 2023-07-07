@@ -141,7 +141,7 @@ func (rh *replicationHandler) startReplicationHandler(
 				continue
 			}
 
-			if err := rh.handleXLogData(extendedXld, restartLSN); err != nil {
+			if err := rh.handleXLogData(extendedXld); err != nil {
 				return errors.Wrap(err, 0)
 			}
 			rh.replicationContext.AcknowledgeReceived(extendedXld)
@@ -149,7 +149,7 @@ func (rh *replicationHandler) startReplicationHandler(
 	}
 }
 
-func (rh *replicationHandler) handleXLogData(xld pgtypes.XLogData, restartLSN pgtypes.LSN) error {
+func (rh *replicationHandler) handleXLogData(xld pgtypes.XLogData) error {
 	msg, err := pgdecoding.ParseXlogData(xld.WALData, rh.lastTransactionId)
 	if err != nil {
 		return fmt.Errorf("parsing logical replication message: %s", err)
@@ -183,7 +183,9 @@ func (rh *replicationHandler) handleReplicationEvents(xld pgtypes.XLogData, msg 
 	case *pglogrepl.BeginMessage:
 		intLogicalMsg := pgtypes.BeginMessage(*logicalMsg)
 		rh.logger.Debugf("EVENT: %s", intLogicalMsg.String())
+		rh.replicationContext.SetLastTransactionId(intLogicalMsg.Xid)
 		rh.lastTransactionId = &intLogicalMsg.Xid
+		xld.Xid = intLogicalMsg.Xid
 		// Indicates the beginning of a group of changes in a transaction. This is only
 		// sent for committed transactions. You won't get any events from rolled back
 		// transactions.

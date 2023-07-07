@@ -310,11 +310,15 @@ func (rc *ReplicationContext) AcknowledgeReceived(xld pgtypes.XLogData) {
 	rc.lastReceivedLSN = pgtypes.LSN(xld.WALStart + pglogrepl.LSN(len(xld.WALData)))
 }
 
-func (rc *ReplicationContext) AcknowledgeProcessed(xld pgtypes.XLogData) error {
+func (rc *ReplicationContext) AcknowledgeProcessed(xld pgtypes.XLogData, processedLSN *pgtypes.LSN) error {
 	rc.lsnMutex.Lock()
 	defer rc.lsnMutex.Unlock()
 
-	rc.lastProcessedLSN = pgtypes.LSN(xld.WALStart + pglogrepl.LSN(len(xld.WALData)))
+	if processedLSN != nil {
+		rc.lastProcessedLSN = *processedLSN
+	} else {
+		rc.lastProcessedLSN = pgtypes.LSN(xld.WALStart + pglogrepl.LSN(len(xld.WALData)))
+	}
 
 	o, err := rc.Offset()
 	if err != nil {

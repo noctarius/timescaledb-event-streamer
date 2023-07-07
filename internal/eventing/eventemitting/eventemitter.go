@@ -116,7 +116,7 @@ func (ee *EventEmitter) emit(xld pgtypes.XLogData, eventTopicName string, key, e
 	if err := backoff.Retry(operation, ee.backOff); err != nil {
 		return err
 	}
-	return ee.replicationContext.AcknowledgeProcessed(xld)
+	return ee.replicationContext.AcknowledgeProcessed(xld, nil)
 }
 
 type eventEmitterEventHandler struct {
@@ -272,6 +272,14 @@ func (e *eventEmitterEventHandler) OnOriginEvent(_ pgtypes.XLogData, _ *pgtypes.
 	return nil
 }
 
+func (e *eventEmitterEventHandler) OnTransactionFinishedEvent(xld pgtypes.XLogData, msg *pgtypes.CommitMessage) error {
+	e.eventEmitter.logger.Debugf(
+		"Transaction xid=%d (LSN: %s) marked as processed", xld.Xid, msg.TransactionEndLSN.String(),
+	)
+	transactionEndLSN := pgtypes.LSN(msg.TransactionEndLSN)
+	return e.eventEmitter.replicationContext.AcknowledgeProcessed(xld, &transactionEndLSN)
+}
+
 func (e *eventEmitterEventHandler) emit(xld pgtypes.XLogData, hypertable *systemcatalog.Hypertable,
 	eventProvider func(source schema.Struct) schema.Struct, keyProvider func() (schema.Struct, error)) error {
 
@@ -303,7 +311,7 @@ func (e *eventEmitterEventHandler) emit0(xld pgtypes.XLogData, snapshot bool,
 
 	// If unsuccessful we'll discard the event and not send it to the sink
 	if !success {
-		return e.eventEmitter.replicationContext.AcknowledgeProcessed(xld)
+		return e.eventEmitter.replicationContext.AcknowledgeProcessed(xld, nil)
 	}
 
 	return e.eventEmitter.emit(xld, eventTopicName, key, value)
