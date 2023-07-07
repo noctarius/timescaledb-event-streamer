@@ -78,6 +78,12 @@ func (s *Snapshotter) EnqueueSnapshot(task SnapshotTask) error {
 
 		// Enqueue the actual task
 		s.snapshotQueues[partition] <- task
+		if task.Chunk != nil {
+			s.logger.Debugf(
+				"Submitting snapshot request for chunk '%s' to partition %d",
+				task.Chunk.TableName(), partition,
+			)
+		}
 	}
 
 	// Notify of snapshotting to save incoming events
