@@ -115,6 +115,10 @@ func (f *fileStateStorage) Start() error {
 
 func (f *fileStateStorage) Stop() error {
 	f.logger.Infof("Stopping FileStateStorage at %s", f.path)
+	f.logger.Debugln("Last processed LSNs:")
+	for name, offset := range f.offsets {
+		f.logger.Debugf("  * %s: %s", name, offset.LSN.String())
+	}
 	f.shutdownWaiter.SignalShutdown()
 	if err := f.shutdownWaiter.AwaitDone(); err != nil {
 		f.logger.Warnln("Failed to shutdown auto storage in time")
