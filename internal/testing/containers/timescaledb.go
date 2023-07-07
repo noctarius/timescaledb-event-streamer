@@ -29,6 +29,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"time"
 )
 
@@ -81,8 +82,18 @@ func (c *ConfigProvider) UserConnConfig() (*pgxpool.Config, error) {
 }
 
 func SetupTimescaleContainer() (testcontainers.Container, *ConfigProvider, error) {
+	pgVersion := 15
+	val, present := os.LookupEnv("TSES_TEST_PG_VERSION")
+	if present {
+		v, err := strconv.ParseInt(val, 10, 32)
+		if err != nil {
+			return nil, nil, err
+		}
+		pgVersion = int(v)
+	}
+
 	containerRequest := testcontainers.ContainerRequest{
-		Image:        "timescale/timescaledb:latest-pg15",
+		Image:        fmt.Sprintf("timescale/timescaledb:latest-pg%d", pgVersion),
 		ExposedPorts: []string{"5432/tcp"},
 		Cmd:          []string{"-c", "fsync=off", "-c", "wal_level=logical"},
 		WaitingFor:   wait.ForListeningPort("5432/tcp"),
