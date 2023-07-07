@@ -43,6 +43,10 @@ jobs:
       run: make build
 
   test:
+    strategy:
+      matrix:
+        pg_version: [13, 14, 15]
+
     name: unit
     runs-on: ubuntu-latest
     steps:
@@ -69,11 +73,11 @@ jobs:
 
     - name: Test
       if: ${{ matrix.os != 'macos-latest' }}
-      run: make test > unit-run.log  2>&1
+      run: TSES_TEST_PG_VERSION=${{ matrix.pg_version }} make test > unit-run.log  2>&1
 
     - name: Test
       if: ${{ matrix.os == 'macos-latest' }}
-      run: make test > unit-run.log  2>&1
+      run: TSES_TEST_PG_VERSION=${{ matrix.pg_version }} make test > unit-run.log  2>&1
       env:
         DOCKER_HOST: 'unix:///Users/runner/.colima/default/docker.sock'
         TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE: '/var/run/docker.sock'
