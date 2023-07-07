@@ -314,10 +314,14 @@ func (rc *ReplicationContext) AcknowledgeProcessed(xld pgtypes.XLogData, process
 	rc.lsnMutex.Lock()
 	defer rc.lsnMutex.Unlock()
 
+	newLastProcessedLSN := pgtypes.LSN(xld.WALStart + pglogrepl.LSN(len(xld.WALData)))
 	if processedLSN != nil {
-		rc.lastProcessedLSN = *processedLSN
-	} else {
-		rc.lastProcessedLSN = pgtypes.LSN(xld.WALStart + pglogrepl.LSN(len(xld.WALData)))
+		rc.dispatcher.logger.Debugf("Acknowledge transaction end: %s", processedLSN.String())
+		newLastProcessedLSN = *processedLSN
+	}
+
+	if newLastProcessedLSN > rc.lastProcessedLSN {
+		rc.lastProcessedLSN = newLastProcessedLSN
 	}
 
 	o, err := rc.Offset()
@@ -326,11 +330,12 @@ func (rc *ReplicationContext) AcknowledgeProcessed(xld pgtypes.XLogData, process
 	}
 
 	if o == nil {
-		o = &statestorage.Offset{
-			LSN:       rc.lastProcessedLSN,
-			Timestamp: xld.ServerTime,
-		}
+		o = &statestorage.Offset{}
 	}
+
+	o.LSN = rc.lastProcessedLSN
+	o.Timestamp = xld.ServerTime
+
 	return rc.stateStorage.Set(rc.replicationSlotName, o)
 }
 
