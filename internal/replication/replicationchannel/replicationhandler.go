@@ -120,7 +120,10 @@ func (rh *replicationHandler) startReplicationHandler(
 			if err != nil {
 				rh.logger.Fatalln("ParsePrimaryKeepaliveMessage failed:", err)
 			}
-			//logger.Println("Primary Keepalive Message =>", "ServerWALEnd:", pkm.ServerWALEnd, "ServerTime:", pkm.ServerTime, "ReplyRequested:", pkm.ReplyRequested)
+			rh.logger.Tracef(
+				"Primary Keepalive Message => ServerWALEnd:%s ServerTime:%s ReplyRequested:%t",
+				pkm.ServerWALEnd.String(), pkm.ServerTime, pkm.ReplyRequested,
+			)
 
 			if pkm.ReplyRequested {
 				nextStandbyMessageDeadline = time.Time{}
