@@ -211,6 +211,9 @@ func (r *Replicator) collectChunksForPublication(encodedState func(name string) 
 	if err != nil {
 		return nil, supporting.AdaptError(err, 250)
 	}
+	alreadyPublished = supporting.Filter(alreadyPublished, func(item systemcatalog.SystemEntity) bool {
+		return item.SchemaName() == "_timescaledb_internal"
+	})
 
 	r.logger.Debugf(
 		"Chunks already in publication: %+v",
