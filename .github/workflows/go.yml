@@ -48,7 +48,7 @@ jobs:
       matrix:
         pg_version: [13, 14, 15]
 
-    name: Tests (Unit / Integration) - PostgreSQL ${{ matrix.pg_version }}
+    name: Tests (Unit / Int) - PG ${{ matrix.pg_version }}
     runs-on: ubuntu-latest
     steps:
     - name: Check out code into the Go module directory
