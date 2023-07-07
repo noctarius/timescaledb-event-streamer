@@ -29,6 +29,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"runtime"
+	"sync/atomic"
 	"time"
 )
 
@@ -37,6 +38,7 @@ type replicationHandler struct {
 	clientXLogPos      pglogrepl.LSN
 	relations          map[uint32]*pgtypes.RelationMessage
 	shutdownAwaiter    *supporting.ShutdownAwaiter
+	loopDead           atomic.Bool
 	lastTransactionId  *uint32
 	logger             *logging.Logger
 }
@@ -52,12 +54,16 @@ func newReplicationHandler(replicationContext *repcontext.ReplicationContext) (*
 		relations:          make(map[uint32]*pgtypes.RelationMessage),
 		shutdownAwaiter:    supporting.NewShutdownAwaiter(),
 		logger:             logger,
+		loopDead:           atomic.Bool{},
 	}, nil
 }
 
 func (rh *replicationHandler) stopReplicationHandler() error {
 	rh.logger.Println("Starting to shutdown")
 	rh.shutdownAwaiter.SignalShutdown()
+	if rh.loopDead.Load() {
+		return nil
+	}
 	return rh.shutdownAwaiter.AwaitDone()
 }
 
@@ -88,6 +94,8 @@ func (rh *replicationHandler) startReplicationHandler(
 
 		rawMsg, err := replicationConnection.ReceiveMessage(nextStandbyMessageDeadline)
 		if err != nil {
+			runtime.UnlockOSThread()
+			rh.loopDead.Store(true)
 			return errors.Wrap(err, 0)
 		}
 
@@ -142,6 +150,8 @@ func (rh *replicationHandler) startReplicationHandler(
 			}
 
 			if err := rh.handleXLogData(extendedXld); err != nil {
+				runtime.UnlockOSThread()
+				rh.loopDead.Store(true)
 				return errors.Wrap(err, 0)
 			}
 			rh.replicationContext.AcknowledgeReceived(extendedXld)
