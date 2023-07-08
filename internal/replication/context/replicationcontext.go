@@ -52,6 +52,7 @@ type ReplicationContext struct {
 	publicationManager *publicationManager
 	stateManager       *stateManager
 	schemaManager      *schemaManager
+	taskManager        *taskManager
 
 	snapshotInitialMode     spiconfig.InitialSnapshotMode
 	snapshotBatchSize       int
@@ -171,6 +172,9 @@ func NewReplicationContext(config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
 	replicationContext.stateManager = &stateManager{
 		stateStorage: stateStorage,
 	}
+	replicationContext.taskManager = &taskManager{
+		taskDispatcher: taskDispatcher,
+	}
 	replicationContext.schemaManager = &schemaManager{
 		namingStrategy: namingStrategy,
 		topicPrefix:    config.Topic.Prefix,
@@ -192,6 +196,10 @@ func (rc *ReplicationContext) StateManager() StateManager {
 
 func (rc *ReplicationContext) SchemaManager() SchemaManager {
 	return rc.schemaManager
+}
+
+func (rc *ReplicationContext) TaskManager() TaskManager {
+	return rc.taskManager
 }
 
 func (rc *ReplicationContext) StartReplicationContext() error {
@@ -427,24 +435,6 @@ func (rc *ReplicationContext) ReadContinuousAggregate(
 	return rc.sideChannel.readContinuousAggregate(materializedHypertableId)
 }
 
-// ----> TaskDispatcher functions
-
-func (rc *ReplicationContext) RegisterReplicationEventHandler(handler eventhandlers.BaseReplicationEventHandler) {
-	rc.dispatcher.RegisterReplicationEventHandler(handler)
-}
-
-func (rc *ReplicationContext) EnqueueTask(task Task) error {
-	return rc.dispatcher.EnqueueTask(task)
-}
-
-func (rc *ReplicationContext) RunTask(task Task) error {
-	return rc.dispatcher.RunTask(task)
-}
-
-func (rc *ReplicationContext) EnqueueTaskAndWait(task Task) error {
-	return rc.dispatcher.EnqueueTaskAndWait(task)
-}
-
 func (rc *ReplicationContext) NewReplicationConnection() (*ReplicationConnection, error) {
 	return newReplicationConnection(rc)
 }
@@ -675,4 +665,24 @@ func (sm *schemaManager) HypertableKeySchemaName(hypertable *systemcatalog.Hyper
 
 func (sm *schemaManager) MessageEnvelopeSchemaName() string {
 	return sm.schemaRegistry.MessageEnvelopeSchemaName()
+}
+
+type taskManager struct {
+	taskDispatcher *dispatcher
+}
+
+func (tm *taskManager) RegisterReplicationEventHandler(handler eventhandlers.BaseReplicationEventHandler) {
+	tm.taskDispatcher.RegisterReplicationEventHandler(handler)
+}
+
+func (tm *taskManager) EnqueueTask(task Task) error {
+	return tm.taskDispatcher.EnqueueTask(task)
+}
+
+func (tm *taskManager) RunTask(task Task) error {
+	return tm.taskDispatcher.RunTask(task)
+}
+
+func (tm *taskManager) EnqueueTaskAndWait(task Task) error {
+	return tm.taskDispatcher.EnqueueTaskAndWait(task)
 }

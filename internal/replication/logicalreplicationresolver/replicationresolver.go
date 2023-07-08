@@ -33,6 +33,7 @@ import (
 type logicalReplicationResolver struct {
 	replicationContext *context.ReplicationContext
 	systemCatalog      *systemcatalog.SystemCatalog
+	taskManager        context.TaskManager
 	relations          map[uint32]*pgtypes.RelationMessage
 	eventQueues        map[string]*supporting.Queue[func(snapshot pgtypes.LSN) error]
 	logger             *logging.Logger
@@ -59,6 +60,7 @@ func newLogicalReplicationResolver(config *spiconfig.Config, replicationContext 
 	return &logicalReplicationResolver{
 		replicationContext: replicationContext,
 		systemCatalog:      systemCatalog,
+		taskManager:        replicationContext.TaskManager(),
 		relations:          make(map[uint32]*pgtypes.RelationMessage, 0),
 		eventQueues:        make(map[string]*supporting.Queue[func(snapshot pgtypes.LSN) error], 0),
 		logger:             logger,
@@ -147,7 +149,7 @@ func (l *logicalReplicationResolver) OnBeginEvent(xld pgtypes.XLogData, msg *pgt
 
 func (l *logicalReplicationResolver) OnCommitEvent(xld pgtypes.XLogData, msg *pgtypes.CommitMessage) error {
 	l.replicationContext.SetLastCommitLSN(pgtypes.LSN(msg.TransactionEndLSN))
-	return l.replicationContext.EnqueueTask(func(notificator context.Notificator) {
+	return l.taskManager.EnqueueTask(func(notificator context.Notificator) {
 		notificator.NotifyHypertableReplicationEventHandler(
 			func(handler eventhandlers.HypertableReplicationEventHandler) error {
 				return handler.OnTransactionFinishedEvent(xld, msg)
@@ -176,7 +178,7 @@ func (l *logicalReplicationResolver) OnInsertEvent(xld pgtypes.XLogData, msg *pg
 
 	if chunk, hypertable, present := l.resolveChunkAndHypertable(rel.Namespace, rel.RelationName); present {
 		return l.enqueueOrExecute(chunk, xld, func() error {
-			return l.replicationContext.EnqueueTask(func(notificator context.Notificator) {
+			return l.taskManager.EnqueueTask(func(notificator context.Notificator) {
 				notificator.NotifyHypertableReplicationEventHandler(
 					func(handler eventhandlers.HypertableReplicationEventHandler) error {
 						return handler.OnInsertEvent(xld, hypertable, chunk, msg.NewValues)
@@ -217,7 +219,7 @@ func (l *logicalReplicationResolver) OnUpdateEvent(xld pgtypes.XLogData, msg *pg
 
 	if chunk, hypertable, present := l.resolveChunkAndHypertable(rel.Namespace, rel.RelationName); present {
 		return l.enqueueOrExecute(chunk, xld, func() error {
-			return l.replicationContext.EnqueueTask(func(notificator context.Notificator) {
+			return l.taskManager.EnqueueTask(func(notificator context.Notificator) {
 				notificator.NotifyHypertableReplicationEventHandler(
 					func(handler eventhandlers.HypertableReplicationEventHandler) error {
 						return handler.OnUpdateEvent(xld, hypertable, chunk, msg.OldValues, msg.NewValues)
@@ -250,7 +252,7 @@ func (l *logicalReplicationResolver) OnDeleteEvent(xld pgtypes.XLogData, msg *pg
 
 	if chunk, hypertable, present := l.resolveChunkAndHypertable(rel.Namespace, rel.RelationName); present {
 		if err := l.enqueueOrExecute(chunk, xld, func() error {
-			return l.replicationContext.EnqueueTask(func(notificator context.Notificator) {
+			return l.taskManager.EnqueueTask(func(notificator context.Notificator) {
 				notificator.NotifyHypertableReplicationEventHandler(
 					func(handler eventhandlers.HypertableReplicationEventHandler) error {
 						return handler.OnDeleteEvent(xld, hypertable, chunk, msg.OldValues, false)
@@ -263,7 +265,7 @@ func (l *logicalReplicationResolver) OnDeleteEvent(xld pgtypes.XLogData, msg *pg
 
 		if l.genDeleteTombstone {
 			return l.enqueueOrExecute(chunk, xld, func() error {
-				return l.replicationContext.EnqueueTask(func(notificator context.Notificator) {
+				return l.taskManager.EnqueueTask(func(notificator context.Notificator) {
 					notificator.NotifyHypertableReplicationEventHandler(
 						func(handler eventhandlers.HypertableReplicationEventHandler) error {
 							return handler.OnDeleteEvent(xld, hypertable, chunk, msg.OldValues, true)
@@ -304,7 +306,7 @@ func (l *logicalReplicationResolver) OnTruncateEvent(xld pgtypes.XLogData, msg *
 	})
 
 	for _, hypertable := range truncatedHypertables {
-		if err := l.replicationContext.EnqueueTask(func(notificator context.Notificator) {
+		if err := l.taskManager.EnqueueTask(func(notificator context.Notificator) {
 			notificator.NotifyHypertableReplicationEventHandler(
 				func(handler eventhandlers.HypertableReplicationEventHandler) error {
 					return handler.OnTruncateEvent(xld, hypertable)
@@ -320,7 +322,7 @@ func (l *logicalReplicationResolver) OnTruncateEvent(xld pgtypes.XLogData, msg *
 func (l *logicalReplicationResolver) OnMessageEvent(
 	xld pgtypes.XLogData, msg *pgtypes.LogicalReplicationMessage) error {
 
-	return l.replicationContext.EnqueueTask(func(notificator context.Notificator) {
+	return l.taskManager.EnqueueTask(func(notificator context.Notificator) {
 		notificator.NotifyHypertableReplicationEventHandler(
 			func(handler eventhandlers.HypertableReplicationEventHandler) error {
 				return handler.OnMessageEvent(xld, msg)
@@ -342,7 +344,7 @@ func (l *logicalReplicationResolver) OnOriginEvent(xld pgtypes.XLogData, msg *pg
 }
 
 func (l *logicalReplicationResolver) onHypertableInsertEvent(xld pgtypes.XLogData, msg *pgtypes.InsertMessage) error {
-	return l.replicationContext.EnqueueTask(func(notificator context.Notificator) {
+	return l.taskManager.EnqueueTask(func(notificator context.Notificator) {
 		notificator.NotifySystemCatalogReplicationEventHandler(
 			func(handler eventhandlers.SystemCatalogReplicationEventHandler) error {
 				return handler.OnHypertableAddedEvent(xld, msg.RelationID, msg.NewValues)
@@ -352,7 +354,7 @@ func (l *logicalReplicationResolver) onHypertableInsertEvent(xld pgtypes.XLogDat
 }
 
 func (l *logicalReplicationResolver) onChunkInsertEvent(xld pgtypes.XLogData, msg *pgtypes.InsertMessage) error {
-	return l.replicationContext.EnqueueTask(func(notificator context.Notificator) {
+	return l.taskManager.EnqueueTask(func(notificator context.Notificator) {
 		notificator.NotifySystemCatalogReplicationEventHandler(
 			func(handler eventhandlers.SystemCatalogReplicationEventHandler) error {
 				return handler.OnChunkAddedEvent(xld, msg.RelationID, msg.NewValues)
@@ -362,7 +364,7 @@ func (l *logicalReplicationResolver) onChunkInsertEvent(xld pgtypes.XLogData, ms
 }
 
 func (l *logicalReplicationResolver) onHypertableUpdateEvent(xld pgtypes.XLogData, msg *pgtypes.UpdateMessage) error {
-	return l.replicationContext.EnqueueTask(func(notificator context.Notificator) {
+	return l.taskManager.EnqueueTask(func(notificator context.Notificator) {
 		notificator.NotifySystemCatalogReplicationEventHandler(
 			func(handler eventhandlers.SystemCatalogReplicationEventHandler) error {
 				return handler.OnHypertableUpdatedEvent(xld, msg.RelationID, msg.OldValues, msg.NewValues)
@@ -372,7 +374,7 @@ func (l *logicalReplicationResolver) onHypertableUpdateEvent(xld pgtypes.XLogDat
 }
 
 func (l *logicalReplicationResolver) onChunkUpdateEvent(xld pgtypes.XLogData, msg *pgtypes.UpdateMessage) error {
-	return l.replicationContext.RunTask(func(notificator context.Notificator) {
+	return l.taskManager.RunTask(func(notificator context.Notificator) {
 		notificator.NotifySystemCatalogReplicationEventHandler(
 			func(handler eventhandlers.SystemCatalogReplicationEventHandler) error {
 				return handler.OnChunkUpdatedEvent(xld, msg.RelationID, msg.OldValues, msg.NewValues)
@@ -382,7 +384,7 @@ func (l *logicalReplicationResolver) onChunkUpdateEvent(xld pgtypes.XLogData, ms
 }
 
 func (l *logicalReplicationResolver) onHypertableDeleteEvent(xld pgtypes.XLogData, msg *pgtypes.DeleteMessage) error {
-	return l.replicationContext.EnqueueTask(func(notificator context.Notificator) {
+	return l.taskManager.EnqueueTask(func(notificator context.Notificator) {
 		notificator.NotifySystemCatalogReplicationEventHandler(
 			func(handler eventhandlers.SystemCatalogReplicationEventHandler) error {
 				return handler.OnHypertableDeletedEvent(xld, msg.RelationID, msg.OldValues)
@@ -402,7 +404,7 @@ func (l *logicalReplicationResolver) onChunkDeleteEvent(xld pgtypes.XLogData, ms
 		}
 	}
 
-	return l.replicationContext.EnqueueTask(func(notificator context.Notificator) {
+	return l.taskManager.EnqueueTask(func(notificator context.Notificator) {
 		notificator.NotifySystemCatalogReplicationEventHandler(
 			func(handler eventhandlers.SystemCatalogReplicationEventHandler) error {
 				return handler.OnChunkDeletedEvent(xld, msg.RelationID, msg.OldValues)
@@ -423,7 +425,7 @@ func (l *logicalReplicationResolver) onChunkCompressionEvent(xld pgtypes.XLogDat
 			return nil
 		}
 
-		return l.replicationContext.EnqueueTask(func(notificator context.Notificator) {
+		return l.taskManager.EnqueueTask(func(notificator context.Notificator) {
 			notificator.NotifyCompressionReplicationEventHandler(
 				func(handler eventhandlers.CompressionReplicationEventHandler) error {
 					return handler.OnChunkCompressedEvent(xld, uncompressedHypertable, chunk)
@@ -446,7 +448,7 @@ func (l *logicalReplicationResolver) onChunkDecompressionEvent(xld pgtypes.XLogD
 			return nil
 		}
 
-		if err := l.replicationContext.EnqueueTask(func(notificator context.Notificator) {
+		if err := l.taskManager.EnqueueTask(func(notificator context.Notificator) {
 			notificator.NotifyCompressionReplicationEventHandler(
 				func(handler eventhandlers.CompressionReplicationEventHandler) error {
 					return handler.OnChunkDecompressedEvent(xld, uncompressedHypertable, chunk)

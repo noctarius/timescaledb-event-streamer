@@ -2,6 +2,7 @@ package context
 
 import (
 	"encoding"
+	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/watermark"
@@ -41,4 +42,11 @@ type SchemaManager interface {
 	HypertableEnvelopeSchemaName(hypertable *systemcatalog.Hypertable) string
 	HypertableKeySchemaName(hypertable *systemcatalog.Hypertable) string
 	MessageEnvelopeSchemaName() string
+}
+
+type TaskManager interface {
+	RegisterReplicationEventHandler(handler eventhandlers.BaseReplicationEventHandler)
+	EnqueueTask(task Task) error
+	RunTask(task Task) error
+	EnqueueTaskAndWait(task Task) error
 }

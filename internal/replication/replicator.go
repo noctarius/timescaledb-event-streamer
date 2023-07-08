@@ -136,9 +136,10 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 	}
 
 	// Register event handlers
-	replicationContext.RegisterReplicationEventHandler(transactionResolver)
-	replicationContext.RegisterReplicationEventHandler(systemCatalog.NewEventHandler())
-	replicationContext.RegisterReplicationEventHandler(eventEmitter.NewEventHandler())
+	taskManager := replicationContext.TaskManager()
+	taskManager.RegisterReplicationEventHandler(transactionResolver)
+	taskManager.RegisterReplicationEventHandler(systemCatalog.NewEventHandler())
+	taskManager.RegisterReplicationEventHandler(eventEmitter.NewEventHandler())
 
 	// Start internal dispatching
 	if err := replicationContext.StartReplicationContext(); err != nil {

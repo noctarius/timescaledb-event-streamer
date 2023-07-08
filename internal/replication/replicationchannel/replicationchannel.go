@@ -207,14 +207,15 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 
 	// Start snapshotting
 	if snapshotName != "" {
-		rc.replicationContext.RegisterReplicationEventHandler(
+		taskManager := rc.replicationContext.TaskManager()
+		taskManager.RegisterReplicationEventHandler(
 			&snapshottingEventHandler{
 				startReplication: startReplication,
 			},
 		)
 
 		// Kick of the actual snapshotting
-		if err := rc.replicationContext.EnqueueTask(func(notificator repcontext.Notificator) {
+		if err := taskManager.EnqueueTask(func(notificator repcontext.Notificator) {
 			notificator.NotifySnapshottingEventHandler(func(handler eventhandlers.SnapshottingEventHandler) error {
 				return handler.OnSnapshottingStartedEvent(snapshotName)
 			})
