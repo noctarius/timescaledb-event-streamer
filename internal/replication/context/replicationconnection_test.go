@@ -31,7 +31,9 @@ import (
 func Test_ReplicationConnection_locateRestartLSN_empty(t *testing.T) {
 	replicationContext := &ReplicationContext{
 		replicationSlotName: "test",
-		stateStorage:        dummy.NewDummyStateStorage(),
+		stateManager: &stateManager{
+			stateStorage: dummy.NewDummyStateStorage(),
+		},
 	}
 
 	logger, err := logging.NewLogger("ReplicationConnection")
@@ -71,14 +73,16 @@ func Test_ReplicationConnection_locateRestartLSN_empty(t *testing.T) {
 func Test_ReplicationConnection_locateRestartLSN_from_offset(t *testing.T) {
 	replicationContext := &ReplicationContext{
 		replicationSlotName: "test",
-		stateStorage:        dummy.NewDummyStateStorage(),
+		stateManager: &stateManager{
+			stateStorage: dummy.NewDummyStateStorage(),
+		},
 	}
 
 	offset := &statestorage.Offset{}
 	offset.LSN = 20000
 	offset.Timestamp = time.Now()
 
-	if err := replicationContext.stateStorage.Set(replicationContext.replicationSlotName, offset); err != nil {
+	if err := replicationContext.stateManager.set(replicationContext.replicationSlotName, offset); err != nil {
 		t.Errorf("error: %+v", err)
 	}
 
@@ -119,14 +123,16 @@ func Test_ReplicationConnection_locateRestartLSN_from_offset(t *testing.T) {
 func Test_ReplicationConnection_locateRestartLSN_from_confirmed_flush_LSN_larger(t *testing.T) {
 	replicationContext := &ReplicationContext{
 		replicationSlotName: "test",
-		stateStorage:        dummy.NewDummyStateStorage(),
+		stateManager: &stateManager{
+			stateStorage: dummy.NewDummyStateStorage(),
+		},
 	}
 
 	offset := &statestorage.Offset{}
 	offset.LSN = 20000
 	offset.Timestamp = time.Now()
 
-	if err := replicationContext.stateStorage.Set(replicationContext.replicationSlotName, offset); err != nil {
+	if err := replicationContext.stateManager.set(replicationContext.replicationSlotName, offset); err != nil {
 		t.Errorf("error: %+v", err)
 	}
 
@@ -167,14 +173,16 @@ func Test_ReplicationConnection_locateRestartLSN_from_confirmed_flush_LSN_larger
 func Test_ReplicationConnection_locateRestartLSN_from_confirmed_flush_LSN_smaller(t *testing.T) {
 	replicationContext := &ReplicationContext{
 		replicationSlotName: "test",
-		stateStorage:        dummy.NewDummyStateStorage(),
+		stateManager: &stateManager{
+			stateStorage: dummy.NewDummyStateStorage(),
+		},
 	}
 
 	offset := &statestorage.Offset{}
 	offset.LSN = 20000
 	offset.Timestamp = time.Now()
 
-	if err := replicationContext.stateStorage.Set(replicationContext.replicationSlotName, offset); err != nil {
+	if err := replicationContext.stateManager.set(replicationContext.replicationSlotName, offset); err != nil {
 		t.Errorf("error: %+v", err)
 	}
 
@@ -215,14 +223,16 @@ func Test_ReplicationConnection_locateRestartLSN_from_confirmed_flush_LSN_smalle
 func Test_ReplicationConnection_locateRestartLSN_error_physical_slot(t *testing.T) {
 	replicationContext := &ReplicationContext{
 		replicationSlotName: "test",
-		stateStorage:        dummy.NewDummyStateStorage(),
+		stateManager: &stateManager{
+			stateStorage: dummy.NewDummyStateStorage(),
+		},
 	}
 
 	offset := &statestorage.Offset{}
 	offset.LSN = 20000
 	offset.Timestamp = time.Now()
 
-	if err := replicationContext.stateStorage.Set(replicationContext.replicationSlotName, offset); err != nil {
+	if err := replicationContext.stateManager.set(replicationContext.replicationSlotName, offset); err != nil {
 		t.Errorf("error: %+v", err)
 	}
 
@@ -259,14 +269,16 @@ func Test_ReplicationConnection_locateRestartLSN_error_physical_slot(t *testing.
 func Test_ReplicationConnection_locateRestartLSN_error_plugin_name(t *testing.T) {
 	replicationContext := &ReplicationContext{
 		replicationSlotName: "test",
-		stateStorage:        dummy.NewDummyStateStorage(),
+		stateManager: &stateManager{
+			stateStorage: dummy.NewDummyStateStorage(),
+		},
 	}
 
 	offset := &statestorage.Offset{}
 	offset.LSN = 20000
 	offset.Timestamp = time.Now()
 
-	if err := replicationContext.stateStorage.Set(replicationContext.replicationSlotName, offset); err != nil {
+	if err := replicationContext.stateManager.set(replicationContext.replicationSlotName, offset); err != nil {
 		t.Errorf("error: %+v", err)
 	}
 

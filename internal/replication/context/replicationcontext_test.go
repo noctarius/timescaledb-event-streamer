@@ -29,12 +29,12 @@ func TestReplicationContext_EventTopicName(t *testing.T) {
 	topicPrefix := "foobar"
 	hypertable := systemcatalog.NewHypertable(1, "test", "schema", "hypertable", "", "", nil, 0, false, nil, nil, pgtypes.DEFAULT)
 
-	replicationContext := &ReplicationContext{
+	schemaManager := &schemaManager{
 		topicPrefix:    topicPrefix,
 		namingStrategy: &namingstrategies.DebeziumNamingStrategy{},
 	}
 
-	topicName := replicationContext.EventTopicName(hypertable)
+	topicName := schemaManager.EventTopicName(hypertable)
 	assert.Equal(t, "foobar.schema.hypertable", topicName)
 
 }
@@ -42,11 +42,11 @@ func TestReplicationContext_SchemaTopicName(t *testing.T) {
 	topicPrefix := "foobar"
 	hypertable := systemcatalog.NewHypertable(1, "test", "schema", "hypertable", "", "", nil, 0, false, nil, nil, pgtypes.DEFAULT)
 
-	replicationContext := &ReplicationContext{
+	schemaManager := &schemaManager{
 		topicPrefix:    topicPrefix,
 		namingStrategy: &namingstrategies.DebeziumNamingStrategy{},
 	}
 
-	topicName := replicationContext.SchemaTopicName(hypertable)
+	topicName := schemaManager.SchemaTopicName(hypertable)
 	assert.Equal(t, "foobar.schema.hypertable", topicName)
 }
