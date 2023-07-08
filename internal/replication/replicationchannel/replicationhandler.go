@@ -34,7 +34,7 @@ import (
 )
 
 type replicationHandler struct {
-	replicationContext *context.ReplicationContext
+	replicationContext context.ReplicationContext
 	taskManager        context.TaskManager
 	clientXLogPos      pglogrepl.LSN
 	relations          map[uint32]*pgtypes.RelationMessage
@@ -44,7 +44,7 @@ type replicationHandler struct {
 	logger             *logging.Logger
 }
 
-func newReplicationHandler(replicationContext *context.ReplicationContext) (*replicationHandler, error) {
+func newReplicationHandler(replicationContext context.ReplicationContext) (*replicationHandler, error) {
 	logger, err := logging.NewLogger("ReplicationHandler")
 	if err != nil {
 		return nil, err

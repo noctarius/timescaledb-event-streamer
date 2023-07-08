@@ -40,7 +40,7 @@ type SnapshotTask struct {
 
 type Snapshotter struct {
 	partitionCount     uint64
-	replicationContext *context.ReplicationContext
+	replicationContext context.ReplicationContext
 	taskManager        context.TaskManager
 	publicationManager context.PublicationManager
 	snapshotQueues     []chan SnapshotTask
@@ -48,7 +48,7 @@ type Snapshotter struct {
 	logger             *logging.Logger
 }
 
-func NewSnapshotter(partitionCount uint8, replicationContext *context.ReplicationContext) (*Snapshotter, error) {
+func NewSnapshotter(partitionCount uint8, replicationContext context.ReplicationContext) (*Snapshotter, error) {
 	snapshotQueues := make([]chan SnapshotTask, partitionCount)
 	for i := range snapshotQueues {
 		snapshotQueues[i] = make(chan SnapshotTask, 128)

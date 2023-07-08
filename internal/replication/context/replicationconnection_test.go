@@ -29,7 +29,7 @@ import (
 )
 
 func Test_ReplicationConnection_locateRestartLSN_empty(t *testing.T) {
-	replicationContext := &ReplicationContext{
+	replicationContext := &replicationContext{
 		replicationSlotName: "test",
 		stateManager: &stateManager{
 			stateStorage: dummy.NewDummyStateStorage(),
@@ -71,7 +71,7 @@ func Test_ReplicationConnection_locateRestartLSN_empty(t *testing.T) {
 }
 
 func Test_ReplicationConnection_locateRestartLSN_from_offset(t *testing.T) {
-	replicationContext := &ReplicationContext{
+	replicationContext := &replicationContext{
 		replicationSlotName: "test",
 		stateManager: &stateManager{
 			stateStorage: dummy.NewDummyStateStorage(),
@@ -121,7 +121,7 @@ func Test_ReplicationConnection_locateRestartLSN_from_offset(t *testing.T) {
 }
 
 func Test_ReplicationConnection_locateRestartLSN_from_confirmed_flush_LSN_larger(t *testing.T) {
-	replicationContext := &ReplicationContext{
+	replicationContext := &replicationContext{
 		replicationSlotName: "test",
 		stateManager: &stateManager{
 			stateStorage: dummy.NewDummyStateStorage(),
@@ -171,7 +171,7 @@ func Test_ReplicationConnection_locateRestartLSN_from_confirmed_flush_LSN_larger
 }
 
 func Test_ReplicationConnection_locateRestartLSN_from_confirmed_flush_LSN_smaller(t *testing.T) {
-	replicationContext := &ReplicationContext{
+	replicationContext := &replicationContext{
 		replicationSlotName: "test",
 		stateManager: &stateManager{
 			stateStorage: dummy.NewDummyStateStorage(),
@@ -221,7 +221,7 @@ func Test_ReplicationConnection_locateRestartLSN_from_confirmed_flush_LSN_smalle
 }
 
 func Test_ReplicationConnection_locateRestartLSN_error_physical_slot(t *testing.T) {
-	replicationContext := &ReplicationContext{
+	replicationContext := &replicationContext{
 		replicationSlotName: "test",
 		stateManager: &stateManager{
 			stateStorage: dummy.NewDummyStateStorage(),
@@ -267,7 +267,7 @@ func Test_ReplicationConnection_locateRestartLSN_error_physical_slot(t *testing.
 }
 
 func Test_ReplicationConnection_locateRestartLSN_error_plugin_name(t *testing.T) {
-	replicationContext := &ReplicationContext{
+	replicationContext := &replicationContext{
 		replicationSlotName: "test",
 		stateManager: &stateManager{
 			stateStorage: dummy.NewDummyStateStorage(),

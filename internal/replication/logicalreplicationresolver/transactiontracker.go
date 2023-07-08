@@ -45,7 +45,7 @@ type transactionTracker struct {
 	supportsDecompressionMarkers bool
 }
 
-func newTransactionTracker(timeout time.Duration, maxSize uint, replicationContext *context.ReplicationContext,
+func newTransactionTracker(timeout time.Duration, maxSize uint, replicationContext context.ReplicationContext,
 	systemCatalog *systemcatalog.SystemCatalog, resolver *logicalReplicationResolver,
 ) (eventhandlers.LogicalReplicationEventHandler, error) {
 

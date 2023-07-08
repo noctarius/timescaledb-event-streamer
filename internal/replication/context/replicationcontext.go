@@ -42,7 +42,7 @@ import (
 
 const stateContextName = "snapshotContext"
 
-type ReplicationContext struct {
+type replicationContext struct {
 	pgxConfig *pgx.ConnConfig
 
 	sideChannel *sideChannelImpl
@@ -79,7 +79,7 @@ type ReplicationContext struct {
 }
 
 func NewReplicationContext(config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
-	namingStrategy namingstrategy.NamingStrategy, stateStorage statestorage.Storage) (*ReplicationContext, error) {
+	namingStrategy namingstrategy.NamingStrategy, stateStorage statestorage.Storage) (ReplicationContext, error) {
 
 	publicationName := spiconfig.GetOrDefault(
 		config, spiconfig.PropertyPostgresqlPublicationName, "",
@@ -113,7 +113,7 @@ func NewReplicationContext(config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
 
 	// Build the replication context to be passed along in terms of
 	// potential interface implementations to break up internal dependencies
-	replicationContext := &ReplicationContext{
+	replicationContext := &replicationContext{
 		pgxConfig: pgxConfig,
 
 		dispatcher: taskDispatcher,
@@ -186,35 +186,35 @@ func NewReplicationContext(config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
 	return replicationContext, nil
 }
 
-func (rc *ReplicationContext) PublicationManager() PublicationManager {
+func (rc *replicationContext) PublicationManager() PublicationManager {
 	return rc.publicationManager
 }
 
-func (rc *ReplicationContext) StateManager() StateManager {
+func (rc *replicationContext) StateManager() StateManager {
 	return rc.stateManager
 }
 
-func (rc *ReplicationContext) SchemaManager() SchemaManager {
+func (rc *replicationContext) SchemaManager() SchemaManager {
 	return rc.schemaManager
 }
 
-func (rc *ReplicationContext) TaskManager() TaskManager {
+func (rc *replicationContext) TaskManager() TaskManager {
 	return rc.taskManager
 }
 
-func (rc *ReplicationContext) StartReplicationContext() error {
+func (rc *replicationContext) StartReplicationContext() error {
 	rc.dispatcher.StartDispatcher()
 	return rc.stateManager.start()
 }
 
-func (rc *ReplicationContext) StopReplicationContext() error {
+func (rc *replicationContext) StopReplicationContext() error {
 	if err := rc.dispatcher.StopDispatcher(); err != nil {
 		return err
 	}
 	return rc.stateManager.stop()
 }
 
-func (rc *ReplicationContext) Offset() (*statestorage.Offset, error) {
+func (rc *replicationContext) Offset() (*statestorage.Offset, error) {
 	offsets, err := rc.stateManager.get()
 	if err != nil {
 		return nil, err
@@ -228,70 +228,70 @@ func (rc *ReplicationContext) Offset() (*statestorage.Offset, error) {
 	return nil, nil
 }
 
-func (rc *ReplicationContext) SetLastTransactionId(xid uint32) {
+func (rc *replicationContext) SetLastTransactionId(xid uint32) {
 	rc.lsnMutex.Lock()
 	defer rc.lsnMutex.Unlock()
 
 	rc.lastTransactionId = xid
 }
 
-func (rc *ReplicationContext) LastTransactionId() uint32 {
+func (rc *replicationContext) LastTransactionId() uint32 {
 	rc.lsnMutex.Lock()
 	defer rc.lsnMutex.Unlock()
 
 	return rc.lastTransactionId
 }
 
-func (rc *ReplicationContext) SetLastBeginLSN(lsn pgtypes.LSN) {
+func (rc *replicationContext) SetLastBeginLSN(lsn pgtypes.LSN) {
 	rc.lsnMutex.Lock()
 	defer rc.lsnMutex.Unlock()
 
 	rc.lastBeginLSN = lsn
 }
 
-func (rc *ReplicationContext) LastBeginLSN() pgtypes.LSN {
+func (rc *replicationContext) LastBeginLSN() pgtypes.LSN {
 	rc.lsnMutex.Lock()
 	defer rc.lsnMutex.Unlock()
 
 	return rc.lastBeginLSN
 }
 
-func (rc *ReplicationContext) SetLastCommitLSN(lsn pgtypes.LSN) {
+func (rc *replicationContext) SetLastCommitLSN(lsn pgtypes.LSN) {
 	rc.lsnMutex.Lock()
 	defer rc.lsnMutex.Unlock()
 
 	rc.lastCommitLSN = lsn
 }
 
-func (rc *ReplicationContext) LastCommitLSN() pgtypes.LSN {
+func (rc *replicationContext) LastCommitLSN() pgtypes.LSN {
 	rc.lsnMutex.Lock()
 	defer rc.lsnMutex.Unlock()
 
 	return rc.lastCommitLSN
 }
 
-func (rc *ReplicationContext) LastReceivedLSN() pgtypes.LSN {
+func (rc *replicationContext) LastReceivedLSN() pgtypes.LSN {
 	rc.lsnMutex.Lock()
 	defer rc.lsnMutex.Unlock()
 
 	return rc.lastReceivedLSN
 }
 
-func (rc *ReplicationContext) LastProcessedLSN() pgtypes.LSN {
+func (rc *replicationContext) LastProcessedLSN() pgtypes.LSN {
 	rc.lsnMutex.Lock()
 	defer rc.lsnMutex.Unlock()
 
 	return rc.lastProcessedLSN
 }
 
-func (rc *ReplicationContext) AcknowledgeReceived(xld pgtypes.XLogData) {
+func (rc *replicationContext) AcknowledgeReceived(xld pgtypes.XLogData) {
 	rc.lsnMutex.Lock()
 	defer rc.lsnMutex.Unlock()
 
 	rc.lastReceivedLSN = pgtypes.LSN(xld.WALStart + pglogrepl.LSN(len(xld.WALData)))
 }
 
-func (rc *ReplicationContext) AcknowledgeProcessed(xld pgtypes.XLogData, processedLSN *pgtypes.LSN) error {
+func (rc *replicationContext) AcknowledgeProcessed(xld pgtypes.XLogData, processedLSN *pgtypes.LSN) error {
 	rc.lsnMutex.Lock()
 	defer rc.lsnMutex.Unlock()
 
@@ -320,126 +320,126 @@ func (rc *ReplicationContext) AcknowledgeProcessed(xld pgtypes.XLogData, process
 	return rc.stateManager.set(rc.replicationSlotName, o)
 }
 
-func (rc *ReplicationContext) InitialSnapshotMode() spiconfig.InitialSnapshotMode {
+func (rc *replicationContext) InitialSnapshotMode() spiconfig.InitialSnapshotMode {
 	return rc.snapshotInitialMode
 }
 
-func (rc *ReplicationContext) DatabaseUsername() string {
+func (rc *replicationContext) DatabaseUsername() string {
 	return rc.pgxConfig.User
 }
 
-func (rc *ReplicationContext) ReplicationSlotName() string {
+func (rc *replicationContext) ReplicationSlotName() string {
 	return rc.replicationSlotName
 }
 
-func (rc *ReplicationContext) ReplicationSlotCreate() bool {
+func (rc *replicationContext) ReplicationSlotCreate() bool {
 	return rc.replicationSlotCreate
 }
 
-func (rc *ReplicationContext) ReplicationSlotAutoDrop() bool {
+func (rc *replicationContext) ReplicationSlotAutoDrop() bool {
 	return rc.replicationSlotAutoDrop
 }
 
-func (rc *ReplicationContext) WALLevel() string {
+func (rc *replicationContext) WALLevel() string {
 	return rc.walLevel
 }
 
-func (rc *ReplicationContext) SystemId() string {
+func (rc *replicationContext) SystemId() string {
 	return rc.systemId
 }
 
-func (rc *ReplicationContext) Timeline() int32 {
+func (rc *replicationContext) Timeline() int32 {
 	return rc.timeline
 }
 
-func (rc *ReplicationContext) DatabaseName() string {
+func (rc *replicationContext) DatabaseName() string {
 	return rc.databaseName
 }
 
-func (rc *ReplicationContext) PostgresVersion() version.PostgresVersion {
+func (rc *replicationContext) PostgresVersion() version.PostgresVersion {
 	return rc.pgVersion
 }
 
-func (rc *ReplicationContext) TimescaleVersion() version.TimescaleVersion {
+func (rc *replicationContext) TimescaleVersion() version.TimescaleVersion {
 	return rc.tsdbVersion
 }
 
-func (rc *ReplicationContext) IsMinimumPostgresVersion() bool {
+func (rc *replicationContext) IsMinimumPostgresVersion() bool {
 	return rc.pgVersion >= intversion.PG_MIN_VERSION
 }
 
-func (rc *ReplicationContext) IsPG14GE() bool {
+func (rc *replicationContext) IsPG14GE() bool {
 	return rc.pgVersion >= intversion.PG_14_VERSION
 }
 
-func (rc *ReplicationContext) IsMinimumTimescaleVersion() bool {
+func (rc *replicationContext) IsMinimumTimescaleVersion() bool {
 	return rc.tsdbVersion >= intversion.TSDB_MIN_VERSION
 }
 
-func (rc *ReplicationContext) IsTSDB212GE() bool {
+func (rc *replicationContext) IsTSDB212GE() bool {
 	return rc.tsdbVersion >= intversion.TSDB_212_VERSION
 }
 
-func (rc *ReplicationContext) IsLogicalReplicationEnabled() bool {
+func (rc *replicationContext) IsLogicalReplicationEnabled() bool {
 	return rc.walLevel == "logical"
 }
 
 // ----> SideChannel functions
 
-func (rc *ReplicationContext) HasTablePrivilege(
+func (rc *replicationContext) HasTablePrivilege(
 	entity systemcatalog.SystemEntity, grant Grant) (access bool, err error) {
 
 	return rc.sideChannel.hasTablePrivilege(rc.pgxConfig.User, entity, grant)
 }
 
-func (rc *ReplicationContext) LoadHypertables(cb func(hypertable *systemcatalog.Hypertable) error) error {
+func (rc *replicationContext) LoadHypertables(cb func(hypertable *systemcatalog.Hypertable) error) error {
 	return rc.sideChannel.readHypertables(cb)
 }
 
-func (rc *ReplicationContext) LoadChunks(cb func(chunk *systemcatalog.Chunk) error) error {
+func (rc *replicationContext) LoadChunks(cb func(chunk *systemcatalog.Chunk) error) error {
 	return rc.sideChannel.readChunks(cb)
 }
 
-func (rc *ReplicationContext) ReadHypertableSchema(
+func (rc *replicationContext) ReadHypertableSchema(
 	cb func(hypertable *systemcatalog.Hypertable, columns []systemcatalog.Column) bool,
 	hypertables ...*systemcatalog.Hypertable) error {
 
 	return rc.sideChannel.readHypertableSchema(cb, hypertables...)
 }
 
-func (rc *ReplicationContext) SnapshotChunkTable(chunk *systemcatalog.Chunk,
+func (rc *replicationContext) SnapshotChunkTable(chunk *systemcatalog.Chunk,
 	cb func(lsn pgtypes.LSN, values map[string]any) error) (pgtypes.LSN, error) {
 
 	return rc.sideChannel.snapshotChunkTable(chunk, rc.snapshotBatchSize, cb)
 }
 
-func (rc *ReplicationContext) FetchHypertableSnapshotBatch(hypertable *systemcatalog.Hypertable, snapshotName string,
+func (rc *replicationContext) FetchHypertableSnapshotBatch(hypertable *systemcatalog.Hypertable, snapshotName string,
 	cb func(lsn pgtypes.LSN, values map[string]any) error) error {
 
 	return rc.sideChannel.fetchHypertableSnapshotBatch(hypertable, snapshotName, rc.snapshotBatchSize, cb)
 }
 
-func (rc *ReplicationContext) ReadSnapshotHighWatermark(
+func (rc *replicationContext) ReadSnapshotHighWatermark(
 	hypertable *systemcatalog.Hypertable, snapshotName string) (map[string]any, error) {
 
 	return rc.sideChannel.readSnapshotHighWatermark(hypertable, snapshotName)
 }
 
-func (rc *ReplicationContext) ReadReplicaIdentity(entity systemcatalog.SystemEntity) (pgtypes.ReplicaIdentity, error) {
+func (rc *replicationContext) ReadReplicaIdentity(entity systemcatalog.SystemEntity) (pgtypes.ReplicaIdentity, error) {
 	return rc.sideChannel.readReplicaIdentity(entity.SchemaName(), entity.TableName())
 }
 
-func (rc *ReplicationContext) ReadContinuousAggregate(
+func (rc *replicationContext) ReadContinuousAggregate(
 	materializedHypertableId int32) (viewSchema, viewName string, found bool, err error) {
 
 	return rc.sideChannel.readContinuousAggregate(materializedHypertableId)
 }
 
-func (rc *ReplicationContext) NewReplicationConnection() (*ReplicationConnection, error) {
+func (rc *replicationContext) NewReplicationConnection() (*ReplicationConnection, error) {
 	return newReplicationConnection(rc)
 }
 
-func (rc *ReplicationContext) newReplicationChannelConnection(ctx context.Context) (*pgconn.PgConn, error) {
+func (rc *replicationContext) newReplicationChannelConnection(ctx context.Context) (*pgconn.PgConn, error) {
 	connConfig := rc.pgxConfig.Config.Copy()
 	if connConfig.RuntimeParams == nil {
 		connConfig.RuntimeParams = make(map[string]string)
@@ -448,11 +448,11 @@ func (rc *ReplicationContext) newReplicationChannelConnection(ctx context.Contex
 	return pgconn.ConnectConfig(ctx, connConfig)
 }
 
-func (rc *ReplicationContext) newSideChannelConnection(ctx context.Context) (*pgx.Conn, error) {
+func (rc *replicationContext) newSideChannelConnection(ctx context.Context) (*pgx.Conn, error) {
 	return pgx.ConnectConfig(ctx, rc.pgxConfig)
 }
 
-func (rc *ReplicationContext) setPositionLSNs(receivedLSN, processedLSN pgtypes.LSN) {
+func (rc *replicationContext) setPositionLSNs(receivedLSN, processedLSN pgtypes.LSN) {
 	rc.lsnMutex.Lock()
 	defer rc.lsnMutex.Unlock()
 
@@ -460,7 +460,7 @@ func (rc *ReplicationContext) setPositionLSNs(receivedLSN, processedLSN pgtypes.
 	rc.lastProcessedLSN = processedLSN
 }
 
-func (rc *ReplicationContext) positionLSNs() (receivedLSN, processedLSN pgtypes.LSN) {
+func (rc *replicationContext) positionLSNs() (receivedLSN, processedLSN pgtypes.LSN) {
 	rc.lsnMutex.Lock()
 	defer rc.lsnMutex.Unlock()
 
@@ -468,7 +468,7 @@ func (rc *ReplicationContext) positionLSNs() (receivedLSN, processedLSN pgtypes.
 }
 
 type publicationManager struct {
-	replicationContext *ReplicationContext
+	replicationContext *replicationContext
 }
 
 func (pm *publicationManager) PublicationName() string {

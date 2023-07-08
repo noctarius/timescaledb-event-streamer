@@ -36,7 +36,7 @@ import (
 )
 
 type EventEmitter struct {
-	replicationContext *context.ReplicationContext
+	replicationContext context.ReplicationContext
 	schemaManager      context.SchemaManager
 	stateManager       context.StateManager
 	filter             eventfiltering.EventFilter
@@ -47,7 +47,7 @@ type EventEmitter struct {
 }
 
 func NewEventEmitter(
-	replicationContext *context.ReplicationContext, sink sink.Sink, filter eventfiltering.EventFilter) (*EventEmitter, error) {
+	replicationContext context.ReplicationContext, sink sink.Sink, filter eventfiltering.EventFilter) (*EventEmitter, error) {
 
 	logger, err := logging.NewLogger("EventEmitter")
 	if err != nil {

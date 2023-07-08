@@ -25,7 +25,7 @@ import (
 	"time"
 )
 
-func NewResolver(config *spiconfig.Config, replicationContext *context.ReplicationContext,
+func NewResolver(config *spiconfig.Config, replicationContext context.ReplicationContext,
 	systemCatalog *systemcatalog.SystemCatalog) (eventhandlers.BaseReplicationEventHandler, error) {
 
 	enabled := spiconfig.GetOrDefault(

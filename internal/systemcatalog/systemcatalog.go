@@ -43,14 +43,14 @@ type SystemCatalog struct {
 	hypertable2chunks     map[int32][]int32
 	hypertable2compressed map[int32]int32
 	compressed2hypertable map[int32]int32
-	replicationContext    *context.ReplicationContext
+	replicationContext    context.ReplicationContext
 	replicationFilter     *tablefiltering.TableFilter
 	snapshotter           *snapshotting.Snapshotter
 	logger                *logging.Logger
 	rwLock                sync.RWMutex
 }
 
-func NewSystemCatalog(config *config.Config, replicationContext *context.ReplicationContext,
+func NewSystemCatalog(config *config.Config, replicationContext context.ReplicationContext,
 	snapshotter *snapshotting.Snapshotter) (*SystemCatalog, error) {
 
 	if config == nil {

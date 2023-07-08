@@ -31,7 +31,7 @@ import (
 )
 
 type logicalReplicationResolver struct {
-	replicationContext *context.ReplicationContext
+	replicationContext context.ReplicationContext
 	systemCatalog      *systemcatalog.SystemCatalog
 	taskManager        context.TaskManager
 	relations          map[uint32]*pgtypes.RelationMessage
@@ -49,7 +49,7 @@ type logicalReplicationResolver struct {
 	genDecompressionEvent bool
 }
 
-func newLogicalReplicationResolver(config *spiconfig.Config, replicationContext *context.ReplicationContext,
+func newLogicalReplicationResolver(config *spiconfig.Config, replicationContext context.ReplicationContext,
 	systemCatalog *systemcatalog.SystemCatalog) (*logicalReplicationResolver, error) {
 
 	logger, err := logging.NewLogger("LogicalReplicationResolver")

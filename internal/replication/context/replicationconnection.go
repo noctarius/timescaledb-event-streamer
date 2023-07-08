@@ -34,14 +34,14 @@ const outputPlugin = "pgoutput"
 
 type ReplicationConnection struct {
 	logger             *logging.Logger
-	replicationContext *ReplicationContext
+	replicationContext *replicationContext
 
 	conn                   *pgconn.PgConn
 	identification         pglogrepl.IdentifySystemResult
 	replicationSlotCreated bool
 }
 
-func newReplicationConnection(replicationContext *ReplicationContext) (*ReplicationConnection, error) {
+func newReplicationConnection(replicationContext *replicationContext) (*ReplicationConnection, error) {
 	logger, err := logging.NewLogger("ReplicationConnection")
 	if err != nil {
 		return nil, err

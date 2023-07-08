@@ -188,10 +188,10 @@ const checkTablePrivilegeByUserQuery = `SELECT HAS_TABLE_PRIVILEGE($1, $2, $3)`
 
 type sideChannelImpl struct {
 	logger             *logging.Logger
-	replicationContext *ReplicationContext
+	replicationContext *replicationContext
 }
 
-func newSideChannel(replicationContext *ReplicationContext) (*sideChannelImpl, error) {
+func newSideChannel(replicationContext *replicationContext) (*sideChannelImpl, error) {
 	logger, err := logging.NewLogger("SideChannel")
 	if err != nil {
 		return nil, err
