@@ -178,8 +178,10 @@ func (s *Snapshotter) snapshotChunk(task SnapshotTask) error {
 }
 
 func (s *Snapshotter) snapshotHypertable(task SnapshotTask) error {
+	stateManager := s.replicationContext.StateManager()
+
 	// tableSnapshotState
-	if err := s.replicationContext.SnapshotContextTransaction(
+	if err := stateManager.SnapshotContextTransaction(
 		*task.SnapshotName, true,
 		func(snapshotContext *watermark.SnapshotContext) error {
 			hypertableWatermark, created := snapshotContext.GetOrCreateWatermark(task.Hypertable)
@@ -205,7 +207,7 @@ func (s *Snapshotter) snapshotHypertable(task SnapshotTask) error {
 		return errors.Wrap(err, 0)
 	}
 
-	return s.replicationContext.SnapshotContextTransaction(
+	return stateManager.SnapshotContextTransaction(
 		*task.SnapshotName, false,
 		func(snapshotContext *watermark.SnapshotContext) error {
 			hypertableWatermark, present := snapshotContext.GetWatermark(task.Hypertable)

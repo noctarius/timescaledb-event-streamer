@@ -388,7 +388,8 @@ func (s *snapshottingEventHandler) OnChunkSnapshotFinishedEvent(
 func (s *snapshottingEventHandler) OnHypertableSnapshotStartedEvent(
 	snapshotName string, hypertable *systemcatalog.Hypertable) error {
 
-	snapshotContext, err := s.systemCatalog.replicationContext.GetSnapshotContext()
+	stateManager := s.systemCatalog.replicationContext.StateManager()
+	snapshotContext, err := stateManager.SnapshotContext()
 	if err != nil {
 		return err
 	}
@@ -419,7 +420,8 @@ func (s *snapshottingEventHandler) OnHypertableSnapshotStartedEvent(
 func (s *snapshottingEventHandler) OnHypertableSnapshotFinishedEvent(
 	snapshotName string, hypertable *systemcatalog.Hypertable) error {
 
-	if err := s.systemCatalog.replicationContext.SnapshotContextTransaction(
+	stateManager := s.systemCatalog.replicationContext.StateManager()
+	if err := stateManager.SnapshotContextTransaction(
 		snapshotName, false,
 		func(snapshotContext *watermark.SnapshotContext) error {
 			s.handledHypertables[hypertable.CanonicalName()] = true

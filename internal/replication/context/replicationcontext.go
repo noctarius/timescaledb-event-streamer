@@ -49,10 +49,10 @@ type ReplicationContext struct {
 	dispatcher     *dispatcher
 	schemaRegistry schema.Registry
 	namingStrategy namingstrategy.NamingStrategy
-	stateStorage   statestorage.Storage
 
 	// internal manager classes
-	publicationManager PublicationManager
+	publicationManager *publicationManager
+	stateManager       *stateManager
 
 	snapshotInitialMode     spiconfig.InitialSnapshotMode
 	snapshotBatchSize       int
@@ -119,7 +119,6 @@ func NewReplicationContext(config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
 
 		namingStrategy: namingStrategy,
 		dispatcher:     taskDispatcher,
-		stateStorage:   stateStorage,
 
 		snapshotInitialMode:     snapshotInitialMode,
 		snapshotBatchSize:       snapshotBatchSize,
@@ -177,6 +176,9 @@ func NewReplicationContext(config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
 	replicationContext.publicationManager = &publicationManager{
 		replicationContext: replicationContext,
 	}
+	replicationContext.stateManager = &stateManager{
+		stateStorage: stateStorage,
+	}
 
 	return replicationContext, nil
 }
@@ -185,68 +187,24 @@ func (rc *ReplicationContext) PublicationManager() PublicationManager {
 	return rc.publicationManager
 }
 
+func (rc *ReplicationContext) StateManager() StateManager {
+	return rc.stateManager
+}
+
 func (rc *ReplicationContext) StartReplicationContext() error {
 	rc.dispatcher.StartDispatcher()
-	return rc.stateStorage.Start()
+	return rc.stateManager.start()
 }
 
 func (rc *ReplicationContext) StopReplicationContext() error {
 	if err := rc.dispatcher.StopDispatcher(); err != nil {
 		return err
 	}
-	return rc.stateStorage.Stop()
-}
-
-func (rc *ReplicationContext) GetSnapshotContext() (*watermark.SnapshotContext, error) {
-	snapshotContext := &watermark.SnapshotContext{}
-	present, err := rc.StateDecoder(stateContextName, snapshotContext)
-	if err != nil {
-		return nil, errors.Wrap(err, 0)
-	}
-	if !present {
-		return nil, nil
-	}
-	return snapshotContext, nil
-}
-
-func (rc *ReplicationContext) SnapshotContextTransaction(snapshotName string,
-	createIfNotExists bool, transaction func(snapshotContext *watermark.SnapshotContext) error) error {
-
-	retrieval := func() (*watermark.SnapshotContext, error) {
-		return rc.GetSnapshotContext()
-	}
-
-	if createIfNotExists {
-		retrieval = func() (*watermark.SnapshotContext, error) {
-			return rc.getOrCreateSnapshotContext(snapshotName)
-		}
-	}
-
-	snapshotContext, err := retrieval()
-	if err != nil {
-		return err
-	}
-
-	if snapshotContext == nil && !createIfNotExists {
-		return errors.Errorf("No such snapshot context found")
-	}
-
-	if err := transaction(snapshotContext); err != nil {
-		return err
-	}
-
-	if err := rc.SetSnapshotContext(snapshotContext); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (rc *ReplicationContext) SetSnapshotContext(snapshotContext *watermark.SnapshotContext) error {
-	return rc.StateEncoder(stateContextName, snapshotContext)
+	return rc.stateManager.stop()
 }
 
 func (rc *ReplicationContext) Offset() (*statestorage.Offset, error) {
-	offsets, err := rc.stateStorage.Get()
+	offsets, err := rc.stateManager.get()
 	if err != nil {
 		return nil, err
 	}
@@ -348,23 +306,7 @@ func (rc *ReplicationContext) AcknowledgeProcessed(xld pgtypes.XLogData, process
 	o.LSN = rc.lastProcessedLSN
 	o.Timestamp = xld.ServerTime
 
-	return rc.stateStorage.Set(rc.replicationSlotName, o)
-}
-
-func (rc *ReplicationContext) StateEncoder(name string, encoder encoding.BinaryMarshaler) error {
-	return rc.stateStorage.StateEncoder(name, encoder)
-}
-
-func (rc *ReplicationContext) StateDecoder(name string, decoder encoding.BinaryUnmarshaler) (present bool, err error) {
-	return rc.stateStorage.StateDecoder(name, decoder)
-}
-
-func (rc *ReplicationContext) SetEncodedState(name string, encodedState []byte) {
-	rc.stateStorage.SetEncodedState(name, encodedState)
-}
-
-func (rc *ReplicationContext) EncodedState(name string) (encodedState []byte, present bool) {
-	return rc.stateStorage.EncodedState(name)
+	return rc.stateManager.set(rc.replicationSlotName, o)
 }
 
 func (rc *ReplicationContext) InitialSnapshotMode() spiconfig.InitialSnapshotMode {
@@ -575,29 +517,6 @@ func (rc *ReplicationContext) positionLSNs() (receivedLSN, processedLSN pgtypes.
 
 	return rc.lastReceivedLSN, rc.lastProcessedLSN
 }
-func (rc *ReplicationContext) getOrCreateSnapshotContext(
-	snapshotName string) (*watermark.SnapshotContext, error) {
-
-	snapshotContext, err := rc.GetSnapshotContext()
-	if err != nil {
-		return nil, err
-	}
-
-	// Exists -> done
-	if snapshotContext != nil {
-		return snapshotContext, nil
-	}
-
-	// New snapshot context
-	snapshotContext = watermark.NewSnapshotContext(snapshotName)
-
-	// Register new snapshot context
-	if err := rc.SetSnapshotContext(snapshotContext); err != nil {
-		return nil, err
-	}
-
-	return snapshotContext, nil
-}
 
 type publicationManager struct {
 	replicationContext *ReplicationContext
@@ -643,4 +562,112 @@ func (pm *publicationManager) ExistsPublication() (bool, error) {
 
 func (pm *publicationManager) DropPublication() error {
 	return pm.replicationContext.sideChannel.dropPublication(pm.PublicationName())
+}
+
+type stateManager struct {
+	stateStorage statestorage.Storage
+}
+
+func (sm *stateManager) start() error {
+	return sm.stateStorage.Start()
+}
+
+func (sm *stateManager) stop() error {
+	return sm.stateStorage.Stop()
+}
+
+func (sm *stateManager) get() (map[string]*statestorage.Offset, error) {
+	return sm.stateStorage.Get()
+}
+
+func (sm *stateManager) set(key string, value *statestorage.Offset) error {
+	return sm.stateStorage.Set(key, value)
+}
+
+func (sm *stateManager) StateEncoder(name string, encoder encoding.BinaryMarshaler) error {
+	return sm.stateStorage.StateEncoder(name, encoder)
+}
+
+func (sm *stateManager) StateDecoder(name string, decoder encoding.BinaryUnmarshaler) (present bool, err error) {
+	return sm.stateStorage.StateDecoder(name, decoder)
+}
+
+func (sm *stateManager) SetEncodedState(name string, encodedState []byte) {
+	sm.stateStorage.SetEncodedState(name, encodedState)
+}
+
+func (sm *stateManager) EncodedState(name string) (encodedState []byte, present bool) {
+	return sm.stateStorage.EncodedState(name)
+}
+
+func (sm *stateManager) SnapshotContext() (*watermark.SnapshotContext, error) {
+	snapshotContext := &watermark.SnapshotContext{}
+	present, err := sm.StateDecoder(stateContextName, snapshotContext)
+	if err != nil {
+		return nil, errors.Wrap(err, 0)
+	}
+	if !present {
+		return nil, nil
+	}
+	return snapshotContext, nil
+}
+
+func (sm *stateManager) SnapshotContextTransaction(snapshotName string,
+	createIfNotExists bool, transaction func(snapshotContext *watermark.SnapshotContext) error) error {
+
+	retrieval := func() (*watermark.SnapshotContext, error) {
+		return sm.SnapshotContext()
+	}
+
+	if createIfNotExists {
+		retrieval = func() (*watermark.SnapshotContext, error) {
+			return sm.getOrCreateSnapshotContext(snapshotName)
+		}
+	}
+
+	snapshotContext, err := retrieval()
+	if err != nil {
+		return err
+	}
+
+	if snapshotContext == nil && !createIfNotExists {
+		return errors.Errorf("No such snapshot context found")
+	}
+
+	if err := transaction(snapshotContext); err != nil {
+		return err
+	}
+
+	if err := sm.setSnapshotContext(snapshotContext); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (sm *stateManager) setSnapshotContext(snapshotContext *watermark.SnapshotContext) error {
+	return sm.StateEncoder(stateContextName, snapshotContext)
+}
+
+func (sm *stateManager) getOrCreateSnapshotContext(
+	snapshotName string) (*watermark.SnapshotContext, error) {
+
+	snapshotContext, err := sm.SnapshotContext()
+	if err != nil {
+		return nil, err
+	}
+
+	// Exists -> done
+	if snapshotContext != nil {
+		return snapshotContext, nil
+	}
+
+	// New snapshot context
+	snapshotContext = watermark.NewSnapshotContext(snapshotName)
+
+	// Register new snapshot context
+	if err := sm.setSnapshotContext(snapshotContext); err != nil {
+		return nil, err
+	}
+
+	return snapshotContext, nil
 }

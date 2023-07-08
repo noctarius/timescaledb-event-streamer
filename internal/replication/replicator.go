@@ -155,7 +155,7 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 
 	// Get initial list of chunks to add to
 	initialChunkTables, err := r.collectChunksForPublication(
-		replicationContext.EncodedState, systemCatalog.GetAllChunks,
+		replicationContext.StateManager().EncodedState, systemCatalog.GetAllChunks,
 		replicationContext.PublicationManager().ReadPublishedTables,
 	)
 	if err != nil {
@@ -172,7 +172,7 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 		err2 := eventEmitter.Stop()
 		state, err3 := encodeKnownChunks(systemCatalog.GetAllChunks())
 		if err3 == nil {
-			replicationContext.SetEncodedState(esPreviouslyKnownChunks, state)
+			replicationContext.StateManager().SetEncodedState(esPreviouslyKnownChunks, state)
 		}
 		err4 := replicationContext.StopReplicationContext()
 		return stderrors.Join(err1, err2, err3, err4)

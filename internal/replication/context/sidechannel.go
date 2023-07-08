@@ -478,7 +478,7 @@ func (sc *sideChannelImpl) fetchHypertableSnapshotBatch(
 		return errors.Errorf("missing snapshotting index for hypertable '%s'", hypertable.CanonicalName())
 	}
 
-	return sc.replicationContext.SnapshotContextTransaction(
+	return sc.replicationContext.StateManager().SnapshotContextTransaction(
 		snapshotName, false,
 		func(snapshotContext *watermark.SnapshotContext) error {
 			hypertableWatermark, present := snapshotContext.GetWatermark(hypertable)

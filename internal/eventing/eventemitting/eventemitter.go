@@ -63,10 +63,11 @@ func NewEventEmitter(
 }
 
 func (ee *EventEmitter) Start() error {
-	if encodedSinkContextState, present := ee.replicationContext.EncodedState("SinkContextState"); present {
+	stateManager := ee.replicationContext.StateManager()
+	if encodedSinkContextState, present := stateManager.EncodedState("SinkContextState"); present {
 		return ee.sinkContext.UnmarshalBinary(encodedSinkContextState)
 	}
-	if err := ee.replicationContext.StateEncoder(
+	if err := stateManager.StateEncoder(
 		"SinkContextState", statestorage.StateEncoderFunc(ee.sinkContext.MarshalBinary),
 	); err != nil {
 		return errors.Wrap(err, 0)
