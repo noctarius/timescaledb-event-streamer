@@ -68,6 +68,8 @@ func (rc *ReplicationChannel) StopReplicationChannel() error {
 func (rc *ReplicationChannel) StartReplicationChannel(
 	replicationContext *repcontext.ReplicationContext, initialTables []systemcatalog.SystemEntity) error {
 
+	publicationManager := replicationContext.PublicationManager()
+
 	replicationHandler, err := newReplicationHandler(replicationContext)
 	if err != nil {
 		return errors.Wrap(err, 0)
@@ -78,13 +80,13 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 		return errors.Wrap(err, 0)
 	}
 
-	if found, err := rc.replicationContext.ExistsPublication(); err != nil {
+	if found, err := publicationManager.ExistsPublication(); err != nil {
 		return errors.Wrap(err, 0)
 	} else if !found {
-		if !rc.replicationContext.PublicationCreate() {
+		if !publicationManager.PublicationCreate() {
 			return errors.Errorf("Publication missing but wasn't asked to create it either")
 		}
-		if created, err := rc.replicationContext.CreatePublication(); created {
+		if created, err := publicationManager.CreatePublication(); created {
 			rc.createdPublication = true
 		} else if err != nil {
 			return errors.Wrap(err, 0)
@@ -93,7 +95,7 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 
 	// Build output plugin parameters
 	pluginArguments := []string{
-		fmt.Sprintf("publication_names '%s'", rc.replicationContext.PublicationName()),
+		fmt.Sprintf("publication_names '%s'", publicationManager.PublicationName()),
 	}
 	if replicationContext.IsPG14GE() {
 		pluginArguments = append(
@@ -124,7 +126,7 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 	// may include chunks whose creating may be included in the WAL log, but there's nothing we can
 	// do about it 🤷
 	if len(initialTables) > 0 {
-		if err := rc.replicationContext.AttachTablesToPublication(initialTables...); err != nil {
+		if err := publicationManager.AttachTablesToPublication(initialTables...); err != nil {
 			return errors.Wrap(err, 0)
 		}
 	}
@@ -240,8 +242,8 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 		if err := replicationConnection.DropReplicationSlot(); err != nil {
 			rc.logger.Errorf("shutdown failed (drop replication slot): %+v", err)
 		}
-		if rc.createdPublication && rc.replicationContext.PublicationAutoDrop() {
-			if err := rc.replicationContext.DropPublication(); err != nil {
+		if rc.createdPublication && publicationManager.PublicationAutoDrop() {
+			if err := publicationManager.DropPublication(); err != nil {
 				rc.logger.Errorf("shutdown failed (drop publication): %+v", err)
 			}
 		}

@@ -52,7 +52,7 @@ type dispatcher struct {
 }
 
 func newDispatcher() (*dispatcher, error) {
-	logger, err := logging.NewLogger("Dispatcher")
+	logger, err := logging.NewLogger("TaskDispatcher")
 	if err != nil {
 		return nil, errors.Wrap(err, 0)
 	}

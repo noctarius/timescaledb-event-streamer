@@ -155,7 +155,8 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 
 	// Get initial list of chunks to add to
 	initialChunkTables, err := r.collectChunksForPublication(
-		replicationContext.EncodedState, systemCatalog.GetAllChunks, replicationContext.ReadPublishedTables,
+		replicationContext.EncodedState, systemCatalog.GetAllChunks,
+		replicationContext.PublicationManager().ReadPublishedTables,
 	)
 	if err != nil {
 		return supporting.AdaptErrorWithMessage(err, "failed to read known chunks", 25)

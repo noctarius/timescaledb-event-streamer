@@ -147,13 +147,14 @@ func (s *systemCatalogReplicationEventHandler) OnChunkAddedEvent(
 				if !c.IsCompressed() &&
 					s.systemCatalog.IsHypertableSelectedForReplication(hypertableId) {
 
-					if found, err := s.systemCatalog.replicationContext.ExistsTableInPublication(c); err != nil {
+					publicationManager := s.systemCatalog.replicationContext.PublicationManager()
+					if found, err := publicationManager.ExistsTableInPublication(c); err != nil {
 						return err
 					} else if found {
 						s.systemCatalog.logger.Infof(
 							"Chunk %s already in publication %s but seems to "+
 								"be created while offline, forcing snapshotting - this may lead to duplicates!",
-							c.CanonicalName(), s.systemCatalog.replicationContext.PublicationName(),
+							c.CanonicalName(), publicationManager.PublicationName(),
 						)
 					}
 					if err := s.systemCatalog.snapshotChunkWithXld(&xld, c); err != nil {

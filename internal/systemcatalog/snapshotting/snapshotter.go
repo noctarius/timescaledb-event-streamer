@@ -41,6 +41,7 @@ type SnapshotTask struct {
 type Snapshotter struct {
 	partitionCount     uint64
 	replicationContext *context.ReplicationContext
+	publicationManager context.PublicationManager
 	snapshotQueues     []chan SnapshotTask
 	shutdownAwaiter    *supporting.MultiShutdownAwaiter
 	logger             *logging.Logger
@@ -60,6 +61,7 @@ func NewSnapshotter(partitionCount uint8, replicationContext *context.Replicatio
 	return &Snapshotter{
 		partitionCount:     uint64(partitionCount),
 		replicationContext: replicationContext,
+		publicationManager: replicationContext.PublicationManager(),
 		snapshotQueues:     snapshotQueues,
 		logger:             logger,
 		shutdownAwaiter:    supporting.NewMultiShutdownAwaiter(uint(partitionCount)),
@@ -139,12 +141,12 @@ func (s *Snapshotter) snapshot(task SnapshotTask) error {
 }
 
 func (s *Snapshotter) snapshotChunk(task SnapshotTask) error {
-	alreadyPublished, err := s.replicationContext.ExistsTableInPublication(task.Chunk)
+	alreadyPublished, err := s.publicationManager.ExistsTableInPublication(task.Chunk)
 	if err != nil {
 		return errors.Wrap(err, 0)
 	}
 	if !alreadyPublished {
-		if err := s.replicationContext.AttachTablesToPublication(task.Chunk); err != nil {
+		if err := s.publicationManager.AttachTablesToPublication(task.Chunk); err != nil {
 			return errors.Wrap(err, 0)
 		}
 	}

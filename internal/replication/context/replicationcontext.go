@@ -51,6 +51,9 @@ type ReplicationContext struct {
 	namingStrategy namingstrategy.NamingStrategy
 	stateStorage   statestorage.Storage
 
+	// internal manager classes
+	publicationManager PublicationManager
+
 	snapshotInitialMode     spiconfig.InitialSnapshotMode
 	snapshotBatchSize       int
 	publicationName         string
@@ -170,7 +173,16 @@ func NewReplicationContext(config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
 	// for the schema generation on event creation
 	replicationContext.schemaRegistry = intschema.NewRegistry(replicationContext)
 
+	// Set up internal manager classes
+	replicationContext.publicationManager = &publicationManager{
+		replicationContext: replicationContext,
+	}
+
 	return replicationContext, nil
+}
+
+func (rc *ReplicationContext) PublicationManager() PublicationManager {
+	return rc.publicationManager
 }
 
 func (rc *ReplicationContext) StartReplicationContext() error {
@@ -363,18 +375,6 @@ func (rc *ReplicationContext) DatabaseUsername() string {
 	return rc.pgxConfig.User
 }
 
-func (rc *ReplicationContext) PublicationName() string {
-	return rc.publicationName
-}
-
-func (rc *ReplicationContext) PublicationCreate() bool {
-	return rc.publicationCreate
-}
-
-func (rc *ReplicationContext) PublicationAutoDrop() bool {
-	return rc.publicationAutoDrop
-}
-
 func (rc *ReplicationContext) ReplicationSlotName() string {
 	return rc.replicationSlotName
 }
@@ -458,18 +458,6 @@ func (rc *ReplicationContext) ReadHypertableSchema(
 	return rc.sideChannel.readHypertableSchema(cb, hypertables...)
 }
 
-func (rc *ReplicationContext) ExistsTableInPublication(entity systemcatalog.SystemEntity) (found bool, err error) {
-	return rc.sideChannel.existsTableInPublication(rc.publicationName, entity.SchemaName(), entity.TableName())
-}
-
-func (rc *ReplicationContext) AttachTablesToPublication(entities ...systemcatalog.SystemEntity) error {
-	return rc.sideChannel.attachTablesToPublication(rc.publicationName, entities...)
-}
-
-func (rc *ReplicationContext) DetachTablesFromPublication(entities ...systemcatalog.SystemEntity) error {
-	return rc.sideChannel.detachTablesFromPublication(rc.publicationName, entities...)
-}
-
 func (rc *ReplicationContext) SnapshotChunkTable(chunk *systemcatalog.Chunk,
 	cb func(lsn pgtypes.LSN, values map[string]any) error) (pgtypes.LSN, error) {
 
@@ -498,23 +486,7 @@ func (rc *ReplicationContext) ReadContinuousAggregate(
 	return rc.sideChannel.readContinuousAggregate(materializedHypertableId)
 }
 
-func (rc *ReplicationContext) ReadPublishedTables() ([]systemcatalog.SystemEntity, error) {
-	return rc.sideChannel.readPublishedTables(rc.publicationName)
-}
-
-func (rc *ReplicationContext) CreatePublication() (bool, error) {
-	return rc.sideChannel.createPublication(rc.publicationName)
-}
-
-func (rc *ReplicationContext) ExistsPublication() (bool, error) {
-	return rc.sideChannel.existsPublication(rc.publicationName)
-}
-
-func (rc *ReplicationContext) DropPublication() error {
-	return rc.sideChannel.dropPublication(rc.publicationName)
-}
-
-// ----> Dispatcher functions
+// ----> TaskDispatcher functions
 
 func (rc *ReplicationContext) RegisterReplicationEventHandler(handler eventhandlers.BaseReplicationEventHandler) {
 	rc.dispatcher.RegisterReplicationEventHandler(handler)
@@ -625,4 +597,50 @@ func (rc *ReplicationContext) getOrCreateSnapshotContext(
 	}
 
 	return snapshotContext, nil
+}
+
+type publicationManager struct {
+	replicationContext *ReplicationContext
+}
+
+func (pm *publicationManager) PublicationName() string {
+	return pm.replicationContext.publicationName
+}
+
+func (pm *publicationManager) PublicationCreate() bool {
+	return pm.replicationContext.publicationCreate
+}
+
+func (pm *publicationManager) PublicationAutoDrop() bool {
+	return pm.replicationContext.publicationAutoDrop
+}
+
+func (pm *publicationManager) ExistsTableInPublication(entity systemcatalog.SystemEntity) (found bool, err error) {
+	return pm.replicationContext.sideChannel.existsTableInPublication(
+		pm.PublicationName(), entity.SchemaName(), entity.TableName(),
+	)
+}
+
+func (pm *publicationManager) AttachTablesToPublication(entities ...systemcatalog.SystemEntity) error {
+	return pm.replicationContext.sideChannel.attachTablesToPublication(pm.PublicationName(), entities...)
+}
+
+func (pm *publicationManager) DetachTablesFromPublication(entities ...systemcatalog.SystemEntity) error {
+	return pm.replicationContext.sideChannel.detachTablesFromPublication(pm.PublicationName(), entities...)
+}
+
+func (pm *publicationManager) ReadPublishedTables() ([]systemcatalog.SystemEntity, error) {
+	return pm.replicationContext.sideChannel.readPublishedTables(pm.PublicationName())
+}
+
+func (pm *publicationManager) CreatePublication() (bool, error) {
+	return pm.replicationContext.sideChannel.createPublication(pm.PublicationName())
+}
+
+func (pm *publicationManager) ExistsPublication() (bool, error) {
+	return pm.replicationContext.sideChannel.existsPublication(pm.PublicationName())
+}
+
+func (pm *publicationManager) DropPublication() error {
+	return pm.replicationContext.sideChannel.dropPublication(pm.PublicationName())
 }
