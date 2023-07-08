@@ -32,8 +32,3 @@ var (
 	CommitHash = "unknown"
 	Branch     = "unknown"
 )
-
-var (
-	PostgresqlVersion  version.PostgresVersion
-	TimescaleDbVersion version.TimescaleVersion
-)
