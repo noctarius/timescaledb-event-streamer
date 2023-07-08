@@ -2,6 +2,7 @@ package context
 
 import (
 	"encoding"
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/watermark"
 )
@@ -27,4 +28,17 @@ type StateManager interface {
 	SnapshotContext() (*watermark.SnapshotContext, error)
 	SnapshotContextTransaction(snapshotName string, createIfNotExists bool,
 		transaction func(snapshotContext *watermark.SnapshotContext) error) error
+}
+
+type SchemaManager interface {
+	TopicPrefix() string
+	EventTopicName(hypertable *systemcatalog.Hypertable) string
+	SchemaTopicName(hypertable *systemcatalog.Hypertable) string
+	MessageTopicName() string
+	RegisterSchema(schemaName string, schema schema.Struct)
+	GetSchema(schemaName string) schema.Struct
+	GetSchemaOrCreate(schemaName string, creator func() schema.Struct) schema.Struct
+	HypertableEnvelopeSchemaName(hypertable *systemcatalog.Hypertable) string
+	HypertableKeySchemaName(hypertable *systemcatalog.Hypertable) string
+	MessageEnvelopeSchemaName() string
 }

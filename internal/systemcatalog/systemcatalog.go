@@ -251,9 +251,10 @@ func (sc *SystemCatalog) NewEventHandler() eventhandlers.SystemCatalogReplicatio
 
 func (sc *SystemCatalog) ApplySchemaUpdate(hypertable *systemcatalog.Hypertable, columns []systemcatalog.Column) bool {
 	if difference := hypertable.ApplyTableSchema(columns); difference != nil {
-		hypertableSchemaName := fmt.Sprintf("%s.Value", sc.replicationContext.SchemaTopicName(hypertable))
+		schemaManager := sc.replicationContext.SchemaManager()
+		hypertableSchemaName := fmt.Sprintf("%s.Value", schemaManager.SchemaTopicName(hypertable))
 		hypertableSchema := schema.HypertableSchema(hypertableSchemaName, hypertable.Columns())
-		sc.replicationContext.RegisterSchema(hypertableSchemaName, hypertableSchema)
+		schemaManager.RegisterSchema(hypertableSchemaName, hypertableSchema)
 		sc.logger.Verbosef("SCHEMA UPDATE: HYPERTABLE %d => %+v", hypertable.Id(), difference)
 		return len(difference) > 0
 	}

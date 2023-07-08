@@ -34,7 +34,7 @@ type Registry struct {
 func NewRegistry(topicNameGenerator namegenerator.NameGenerator) schema.Registry {
 	r := &Registry{
 		topicNameGenerator: topicNameGenerator,
-		schemaRegistry:     make(map[string]schema.Struct, 0),
+		schemaRegistry:     make(map[string]schema.Struct),
 		mutex:              async.NewReentrantLock(),
 	}
 	initializeSourceSchemas(r)

@@ -273,8 +273,8 @@ func TimescaleEventKeySchema() Struct {
 	}
 }
 
-func EnvelopeSchema(schemaRegistry Registry, hypertable *systemcatalog.Hypertable,
-	topicSchemaGenerator namegenerator.NameGenerator) Struct {
+func EnvelopeSchema(schemaRegistry Registry, topicSchemaGenerator namegenerator.NameGenerator,
+	hypertable *systemcatalog.Hypertable) Struct {
 
 	schemaTopicName := topicSchemaGenerator.SchemaTopicName(hypertable)
 	hypertableSchemaName := fmt.Sprintf("%s.Value", schemaTopicName)

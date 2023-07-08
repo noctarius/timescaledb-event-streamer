@@ -45,21 +45,19 @@ const stateContextName = "snapshotContext"
 type ReplicationContext struct {
 	pgxConfig *pgx.ConnConfig
 
-	sideChannel    *sideChannelImpl
-	dispatcher     *dispatcher
-	schemaRegistry schema.Registry
-	namingStrategy namingstrategy.NamingStrategy
+	sideChannel *sideChannelImpl
+	dispatcher  *dispatcher
 
 	// internal manager classes
 	publicationManager *publicationManager
 	stateManager       *stateManager
+	schemaManager      *schemaManager
 
 	snapshotInitialMode     spiconfig.InitialSnapshotMode
 	snapshotBatchSize       int
 	publicationName         string
 	publicationCreate       bool
 	publicationAutoDrop     bool
-	topicPrefix             string
 	replicationSlotName     string
 	replicationSlotCreate   bool
 	replicationSlotAutoDrop bool
@@ -117,15 +115,13 @@ func NewReplicationContext(config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
 	replicationContext := &ReplicationContext{
 		pgxConfig: pgxConfig,
 
-		namingStrategy: namingStrategy,
-		dispatcher:     taskDispatcher,
+		dispatcher: taskDispatcher,
 
 		snapshotInitialMode:     snapshotInitialMode,
 		snapshotBatchSize:       snapshotBatchSize,
 		publicationName:         publicationName,
 		publicationCreate:       publicationCreate,
 		publicationAutoDrop:     publicationAutoDrop,
-		topicPrefix:             config.Topic.Prefix,
 		replicationSlotName:     replicationSlotName,
 		replicationSlotCreate:   replicationSlotCreate,
 		replicationSlotAutoDrop: replicationSlotAutoDrop,
@@ -168,10 +164,6 @@ func NewReplicationContext(config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
 	}
 	replicationContext.walLevel = walLevel
 
-	// Instantiate the schema registry, keeping track of hypertable schemas
-	// for the schema generation on event creation
-	replicationContext.schemaRegistry = intschema.NewRegistry(replicationContext)
-
 	// Set up internal manager classes
 	replicationContext.publicationManager = &publicationManager{
 		replicationContext: replicationContext,
@@ -179,6 +171,13 @@ func NewReplicationContext(config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
 	replicationContext.stateManager = &stateManager{
 		stateStorage: stateStorage,
 	}
+	replicationContext.schemaManager = &schemaManager{
+		namingStrategy: namingStrategy,
+		topicPrefix:    config.Topic.Prefix,
+	}
+	// Instantiate the schema registry, keeping track of hypertable schemas
+	// for the schema generation on event creation
+	replicationContext.schemaManager.schemaRegistry = intschema.NewRegistry(replicationContext.schemaManager)
 
 	return replicationContext, nil
 }
@@ -189,6 +188,10 @@ func (rc *ReplicationContext) PublicationManager() PublicationManager {
 
 func (rc *ReplicationContext) StateManager() StateManager {
 	return rc.stateManager
+}
+
+func (rc *ReplicationContext) SchemaManager() SchemaManager {
+	return rc.schemaManager
 }
 
 func (rc *ReplicationContext) StartReplicationContext() error {
@@ -345,10 +348,6 @@ func (rc *ReplicationContext) DatabaseName() string {
 	return rc.databaseName
 }
 
-func (rc *ReplicationContext) TopicPrefix() string {
-	return rc.topicPrefix
-}
-
 func (rc *ReplicationContext) PostgresVersion() version.PostgresVersion {
 	return rc.pgVersion
 }
@@ -444,46 +443,6 @@ func (rc *ReplicationContext) RunTask(task Task) error {
 
 func (rc *ReplicationContext) EnqueueTaskAndWait(task Task) error {
 	return rc.dispatcher.EnqueueTaskAndWait(task)
-}
-
-// ----> Name Generator functions
-
-func (rc *ReplicationContext) EventTopicName(hypertable *systemcatalog.Hypertable) string {
-	return rc.namingStrategy.EventTopicName(rc.topicPrefix, hypertable)
-}
-
-func (rc *ReplicationContext) SchemaTopicName(hypertable *systemcatalog.Hypertable) string {
-	return rc.namingStrategy.SchemaTopicName(rc.topicPrefix, hypertable)
-}
-
-func (rc *ReplicationContext) MessageTopicName() string {
-	return rc.namingStrategy.MessageTopicName(rc.topicPrefix)
-}
-
-// ----> Name Generator functions
-
-func (rc *ReplicationContext) RegisterSchema(schemaName string, schema schema.Struct) {
-	rc.schemaRegistry.RegisterSchema(schemaName, schema)
-}
-
-func (rc *ReplicationContext) GetSchema(schemaName string) schema.Struct {
-	return rc.schemaRegistry.GetSchema(schemaName)
-}
-
-func (rc *ReplicationContext) GetSchemaOrCreate(schemaName string, creator func() schema.Struct) schema.Struct {
-	return rc.schemaRegistry.GetSchemaOrCreate(schemaName, creator)
-}
-
-func (rc *ReplicationContext) HypertableEnvelopeSchemaName(hypertable *systemcatalog.Hypertable) string {
-	return rc.schemaRegistry.HypertableEnvelopeSchemaName(hypertable)
-}
-
-func (rc *ReplicationContext) HypertableKeySchemaName(hypertable *systemcatalog.Hypertable) string {
-	return rc.schemaRegistry.HypertableKeySchemaName(hypertable)
-}
-
-func (rc *ReplicationContext) MessageEnvelopeSchemaName() string {
-	return rc.schemaRegistry.MessageEnvelopeSchemaName()
 }
 
 func (rc *ReplicationContext) NewReplicationConnection() (*ReplicationConnection, error) {
@@ -670,4 +629,50 @@ func (sm *stateManager) getOrCreateSnapshotContext(
 	}
 
 	return snapshotContext, nil
+}
+
+type schemaManager struct {
+	schemaRegistry schema.Registry
+	namingStrategy namingstrategy.NamingStrategy
+	topicPrefix    string
+}
+
+func (sm *schemaManager) TopicPrefix() string {
+	return sm.topicPrefix
+}
+
+func (sm *schemaManager) EventTopicName(hypertable *systemcatalog.Hypertable) string {
+	return sm.namingStrategy.EventTopicName(sm.topicPrefix, hypertable)
+}
+
+func (sm *schemaManager) SchemaTopicName(hypertable *systemcatalog.Hypertable) string {
+	return sm.namingStrategy.SchemaTopicName(sm.topicPrefix, hypertable)
+}
+
+func (sm *schemaManager) MessageTopicName() string {
+	return sm.namingStrategy.MessageTopicName(sm.topicPrefix)
+}
+
+func (sm *schemaManager) RegisterSchema(schemaName string, schema schema.Struct) {
+	sm.schemaRegistry.RegisterSchema(schemaName, schema)
+}
+
+func (sm *schemaManager) GetSchema(schemaName string) schema.Struct {
+	return sm.schemaRegistry.GetSchema(schemaName)
+}
+
+func (sm *schemaManager) GetSchemaOrCreate(schemaName string, creator func() schema.Struct) schema.Struct {
+	return sm.schemaRegistry.GetSchemaOrCreate(schemaName, creator)
+}
+
+func (sm *schemaManager) HypertableEnvelopeSchemaName(hypertable *systemcatalog.Hypertable) string {
+	return sm.schemaRegistry.HypertableEnvelopeSchemaName(hypertable)
+}
+
+func (sm *schemaManager) HypertableKeySchemaName(hypertable *systemcatalog.Hypertable) string {
+	return sm.schemaRegistry.HypertableKeySchemaName(hypertable)
+}
+
+func (sm *schemaManager) MessageEnvelopeSchemaName() string {
+	return sm.schemaRegistry.MessageEnvelopeSchemaName()
 }

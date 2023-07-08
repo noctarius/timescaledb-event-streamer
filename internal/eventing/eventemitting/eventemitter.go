@@ -37,6 +37,8 @@ import (
 
 type EventEmitter struct {
 	replicationContext *context.ReplicationContext
+	schemaManager      context.SchemaManager
+	stateManager       context.StateManager
 	filter             eventfiltering.EventFilter
 	sink               sink.Sink
 	sinkContext        *sinkContextImpl
@@ -54,6 +56,8 @@ func NewEventEmitter(
 
 	return &EventEmitter{
 		replicationContext: replicationContext,
+		schemaManager:      replicationContext.SchemaManager(),
+		stateManager:       replicationContext.StateManager(),
 		filter:             filter,
 		sink:               sink,
 		logger:             logger,
@@ -63,11 +67,10 @@ func NewEventEmitter(
 }
 
 func (ee *EventEmitter) Start() error {
-	stateManager := ee.replicationContext.StateManager()
-	if encodedSinkContextState, present := stateManager.EncodedState("SinkContextState"); present {
+	if encodedSinkContextState, present := ee.stateManager.EncodedState("SinkContextState"); present {
 		return ee.sinkContext.UnmarshalBinary(encodedSinkContextState)
 	}
-	if err := stateManager.StateEncoder(
+	if err := ee.stateManager.StateEncoder(
 		"SinkContextState", statestorage.StateEncoderFunc(ee.sinkContext.MarshalBinary),
 	); err != nil {
 		return errors.Wrap(err, 0)
@@ -86,23 +89,23 @@ func (ee *EventEmitter) NewEventHandler() eventhandlers.BaseReplicationEventHand
 }
 
 func (ee *EventEmitter) envelopeSchema(hypertable *systemcatalog.Hypertable) schema.Struct {
-	schemaTopicName := ee.replicationContext.HypertableEnvelopeSchemaName(hypertable)
-	return ee.replicationContext.GetSchemaOrCreate(schemaTopicName, func() schema.Struct {
-		return schema.EnvelopeSchema(ee.replicationContext, hypertable, ee.replicationContext)
+	schemaTopicName := ee.schemaManager.HypertableEnvelopeSchemaName(hypertable)
+	return ee.schemaManager.GetSchemaOrCreate(schemaTopicName, func() schema.Struct {
+		return schema.EnvelopeSchema(ee.schemaManager, ee.schemaManager, hypertable)
 	})
 }
 
 func (ee *EventEmitter) envelopeMessageSchema() schema.Struct {
-	schemaTopicName := ee.replicationContext.MessageEnvelopeSchemaName()
-	return ee.replicationContext.GetSchemaOrCreate(schemaTopicName, func() schema.Struct {
-		return schema.EnvelopeMessageSchema(ee.replicationContext, ee.replicationContext)
+	schemaTopicName := ee.schemaManager.MessageEnvelopeSchemaName()
+	return ee.schemaManager.GetSchemaOrCreate(schemaTopicName, func() schema.Struct {
+		return schema.EnvelopeMessageSchema(ee.schemaManager, ee.schemaManager)
 	})
 }
 
 func (ee *EventEmitter) keySchema(hypertable *systemcatalog.Hypertable) schema.Struct {
-	schemaTopicName := ee.replicationContext.HypertableKeySchemaName(hypertable)
-	return ee.replicationContext.GetSchemaOrCreate(schemaTopicName, func() schema.Struct {
-		return schema.KeySchema(hypertable, ee.replicationContext)
+	schemaTopicName := ee.schemaManager.HypertableKeySchemaName(hypertable)
+	return ee.schemaManager.GetSchemaOrCreate(schemaTopicName, func() schema.Struct {
+		return schema.KeySchema(hypertable, ee.schemaManager)
 	})
 }
 
@@ -292,7 +295,7 @@ func (e *eventEmitterEventHandler) emit0(xld pgtypes.XLogData, snapshot bool,
 	keyProvider func() (schema.Struct, error)) error {
 
 	envelopeSchema := e.eventEmitter.envelopeSchema(hypertable)
-	eventTopicName := e.eventEmitter.replicationContext.EventTopicName(hypertable)
+	eventTopicName := e.eventEmitter.schemaManager.EventTopicName(hypertable)
 
 	keyData, err := keyProvider()
 	if err != nil {
@@ -333,11 +336,11 @@ func (e *eventEmitterEventHandler) emitMessageEvent(xld pgtypes.XLogData,
 	}
 
 	envelopeSchema := e.eventEmitter.envelopeMessageSchema()
-	messageKeySchema := e.eventEmitter.replicationContext.GetSchema(schema.MessageKeySchemaName)
+	messageKeySchema := e.eventEmitter.schemaManager.GetSchema(schema.MessageKeySchemaName)
 
 	source := schema.Source(xld.ServerWALEnd, timestamp, false, "", "", "", transactionId)
 	payload := eventProvider(source)
-	eventTopicName := e.eventEmitter.replicationContext.MessageTopicName()
+	eventTopicName := e.eventEmitter.schemaManager.MessageTopicName()
 
 	key := schema.Envelope(messageKeySchema, schema.MessageKey(msg.Prefix))
 	value := schema.Envelope(envelopeSchema, payload)
