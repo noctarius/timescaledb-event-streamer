@@ -30,6 +30,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/testing/containers"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
+	"github.com/noctarius/timescaledb-event-streamer/spi/version"
 	"github.com/stretchr/testify/suite"
 	"github.com/testcontainers/testcontainers-go"
 	"time"
@@ -52,6 +53,8 @@ type Context interface {
 	CreateHypertable(timeDimension string, chunkSize time.Duration, columns ...systemcatalog.Column) (string, string, error)
 	PauseReplicator() error
 	ResumeReplicator() error
+	PostgresqlVersion() version.PostgresVersion
+	TimescaleVersion() version.TimescaleVersion
 	attribute(key string, value any)
 	getAttribute(key string) any
 }
@@ -141,6 +144,32 @@ func (t *testContext) ResumeReplicator() error {
 	}
 	t.streamerRunning = true
 	return nil
+}
+
+func (t *testContext) PostgresqlVersion() version.PostgresVersion {
+	var v string
+	if err := t.pool.QueryRow(context.Background(), "SHOW SERVER_VERSION").Scan(&v); err != nil {
+		panic(err)
+	}
+	pv, err := version.ParsePostgresVersion(v)
+	if err != nil {
+		panic(err)
+	}
+	return pv
+}
+
+func (t *testContext) TimescaleVersion() version.TimescaleVersion {
+	var v string
+	if err := t.pool.QueryRow(context.Background(),
+		"SELECT extversion FROM pg_catalog.pg_extension WHERE extname = 'timescaledb'",
+	).Scan(&v); err != nil {
+		panic(err)
+	}
+	tsv, err := version.ParseTimescaleVersion(v)
+	if err != nil {
+		panic(err)
+	}
+	return tsv
 }
 
 func (t *testContext) PrivilegedContext(fn func(context PrivilegedContext) error) error {
@@ -274,7 +303,7 @@ func (tr *TestRunner) RunTest(testFn func(context Context) error, configurators 
 		},
 		superuserConfig: tr.superuserConfig,
 		hypertables:     make([]string, 0),
-		attributes:      make(map[string]any, 0),
+		attributes:      make(map[string]any),
 	}
 
 	for _, configurator := range configurators {
