@@ -309,6 +309,9 @@ func (sc *sideChannelImpl) getPostgresVersion() (pgVersion version.PostgresVersi
 			return err
 		}
 		pgVersion, err = version.ParsePostgresVersion(v)
+		if err != nil {
+			return err
+		}
 		return nil
 	}); err != nil {
 		return 0, errors.Wrap(err, 0)
@@ -323,6 +326,9 @@ func (sc *sideChannelImpl) getTimescaleDBVersion() (tsdbVersion version.Timescal
 			return err
 		}
 		tsdbVersion, err = version.ParseTimescaleVersion(v)
+		if err != nil {
+			return err
+		}
 		found = true
 		return nil
 	}); err != nil {
