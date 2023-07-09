@@ -86,8 +86,8 @@ func (rc *ReplicationConnection) SendStatusUpdate() error {
 	/*receivedLSN*/ _, processedLSN := rc.replicationContext.positionLSNs()
 	if err := pglogrepl.SendStandbyStatusUpdate(context.Background(), rc.conn,
 		pglogrepl.StandbyStatusUpdate{
-			WALWritePosition: pglogrepl.LSN(processedLSN),
-			WALApplyPosition: pglogrepl.LSN(processedLSN),
+			WALWritePosition: pglogrepl.LSN(processedLSN) + 1,
+			WALApplyPosition: pglogrepl.LSN(processedLSN) + 1,
 		},
 	); err != nil {
 		rc.logger.Fatalln("SendStandbyStatusUpdate failed:", err)
