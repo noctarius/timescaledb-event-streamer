@@ -73,7 +73,7 @@ func (rh *replicationHandler) startReplicationHandler(
 	replicationConnection *context.ReplicationConnection, restartLSN pgtypes.LSN,
 ) error {
 
-	standbyMessageTimeout := time.Second * 10
+	standbyMessageTimeout := time.Second * 5
 	nextStandbyMessageDeadline := time.Now().Add(standbyMessageTimeout)
 
 	runtime.LockOSThread()
