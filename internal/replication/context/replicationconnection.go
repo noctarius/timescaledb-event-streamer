@@ -83,11 +83,11 @@ func (rc *ReplicationConnection) ReceiveMessage(deadline time.Time) (pgproto3.Ba
 }
 
 func (rc *ReplicationConnection) SendStatusUpdate() error {
-	receivedLSN, processedLSN := rc.replicationContext.positionLSNs()
+	/*receivedLSN*/ _, processedLSN := rc.replicationContext.positionLSNs()
 	if err := pglogrepl.SendStandbyStatusUpdate(context.Background(), rc.conn,
 		pglogrepl.StandbyStatusUpdate{
-			WALWritePosition: pglogrepl.LSN(receivedLSN),
-			WALFlushPosition: pglogrepl.LSN(processedLSN),
+			WALWritePosition: pglogrepl.LSN(processedLSN),
+			WALApplyPosition: pglogrepl.LSN(processedLSN),
 		},
 	); err != nil {
 		rc.logger.Fatalln("SendStandbyStatusUpdate failed:", err)
