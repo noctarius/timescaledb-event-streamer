@@ -17,7 +17,10 @@
 
 package testing
 
-import "github.com/noctarius/timescaledb-event-streamer/spi/schema"
+import (
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
+	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
+)
 
 type Source struct {
 	Connector string `json:"connector"`
@@ -42,12 +45,12 @@ type Payload struct {
 }
 
 type Field struct {
-	Name     string  `json:"name"`
-	Field    string  `json:"field"`
-	Optional bool    `json:"optional"`
-	Type     string  `json:"type"`
-	Fields   []Field `json:"fields"`
-	Default  any     `json:"default"`
+	Name     string                 `json:"name"`
+	Field    string                 `json:"field"`
+	Optional bool                   `json:"optional"`
+	Type     systemcatalog.DataType `json:"type"`
+	Fields   []Field                `json:"fields"`
+	Default  any                    `json:"default"`
 }
 
 type Schema struct {
@@ -60,4 +63,13 @@ type Schema struct {
 type Envelope struct {
 	Payload Payload `json:"payload"`
 	Schema  Schema  `json:"schema"`
+}
+
+func GetField(name string, fields []Field) (Field, bool) {
+	for _, field := range fields {
+		if field.Field == name {
+			return field, true
+		}
+	}
+	return Field{}, false
 }

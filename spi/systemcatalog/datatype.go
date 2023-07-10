@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"github.com/hashicorp/go-uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	"net"
+	"net/netip"
 	"time"
 )
 
@@ -46,53 +48,69 @@ const (
 
 var mapping = map[uint32]DataType{
 	pgtype.BoolOID:        BOOLEAN,
-	pgtype.BitOID:         BOOLEAN,
-	pgtype.BitArrayOID:    BYTES,
 	pgtype.Int2OID:        INT16,
 	pgtype.Int4OID:        INT32,
 	pgtype.Int8OID:        INT64,
 	pgtype.Float4OID:      FLOAT32,
 	pgtype.Float8OID:      FLOAT64,
+	pgtype.BPCharOID:      STRING,
 	pgtype.QCharOID:       STRING,
 	pgtype.VarcharOID:     STRING,
 	pgtype.TextOID:        STRING,
 	pgtype.TimestampOID:   INT64,
 	pgtype.TimestamptzOID: STRING,
 	pgtype.IntervalOID:    INT64,
-	pgtype.ByteaArrayOID:  BYTES,
+	pgtype.ByteaOID:       BYTES,
 	pgtype.JSONOID:        STRING,
 	pgtype.JSONBOID:       STRING,
 	pgtype.UUIDOID:        STRING,
-	pgtype.PointOID:       STRUCT,
-	pgtype.NumericOID:     BYTES,
-	514836:                STRUCT, // geometry
-	516272:                STRUCT, // ltree
+	pgtype.NameOID:        STRING,
+	pgtype.OIDOID:         INT64,
+	pgtype.TIDOID:         INT64,
+	pgtype.XIDOID:         INT64,
+	pgtype.CIDOID:         INT64,
+	pgtype.CIDROID:        STRING,
+	pgtype.MacaddrOID:     STRING,
+	774:                   STRING, //macaddr8
+	pgtype.InetOID:        STRING,
+	pgtype.DateOID:        STRING,
+	pgtype.TimeOID:        STRING,
+	//pgtype.NumericOID:     BYTES,
 }
 
-var converters = map[uint32]Converter{
-	pgtype.BoolOID:        nil,
-	pgtype.BitOID:         nil,
-	pgtype.BitArrayOID:    bits2bytes,
-	pgtype.Int2OID:        nil,
-	pgtype.Int4OID:        nil,
-	pgtype.Int8OID:        nil,
-	pgtype.Float4OID:      nil,
-	pgtype.Float8OID:      nil,
-	pgtype.QCharOID:       nil,
-	pgtype.VarcharOID:     nil,
-	pgtype.TextOID:        nil,
-	pgtype.TimestampOID:   timestamp2text,
-	pgtype.TimestamptzOID: timestamp2text,
-	pgtype.IntervalOID:    nil,
-	pgtype.ByteaArrayOID:  nil,
-	pgtype.JSONOID:        json2text,
-	pgtype.JSONBOID:       json2text,
-	pgtype.UUIDOID:        uuid2text,
-	pgtype.PointOID:       nil, // FIXME
-	pgtype.NumericOID:     nil, // FIXME
-	514836:                nil, // geometry, FIXME
-	516272:                nil, // ltree, FIXME
-}
+var (
+	converters = map[uint32]Converter{
+		pgtype.BoolOID:        nil,
+		pgtype.Int2OID:        nil,
+		pgtype.Int4OID:        nil,
+		pgtype.Int8OID:        nil,
+		pgtype.Float4OID:      nil,
+		pgtype.Float8OID:      nil,
+		pgtype.BPCharOID:      nil,
+		pgtype.QCharOID:       char2text,
+		pgtype.VarcharOID:     nil,
+		pgtype.TextOID:        nil,
+		pgtype.TimestampOID:   timestamp2int64,
+		pgtype.TimestamptzOID: timestamp2text,
+		pgtype.IntervalOID:    interval2int64,
+		pgtype.ByteaOID:       nil,
+		pgtype.JSONOID:        json2text,
+		pgtype.JSONBOID:       json2text,
+		pgtype.UUIDOID:        uuid2text,
+		pgtype.NameOID:        nil,
+		pgtype.OIDOID:         uint322int64,
+		pgtype.TIDOID:         uint322int64,
+		pgtype.XIDOID:         uint322int64,
+		pgtype.CIDOID:         uint322int64,
+		pgtype.CIDROID:        addr2text,
+		pgtype.MacaddrOID:     macaddr2text,
+		774:                   macaddr2text, // macaddr8
+		pgtype.InetOID:        addr2text,
+		pgtype.DateOID:        timestamp2text,
+		pgtype.TimeOID:        time2text,
+		//pgtype.NumericOID:     nil,
+	}
+)
 
 // ErrIllegalValue represents an illegal type conversion request
 // for the given value
@@ -121,9 +139,52 @@ func ConverterByOID(oid uint32) (Converter, error) {
 	return nil, fmt.Errorf("unsupported OID: %d", oid)
 }
 
-func timestamp2text(_ uint32, value any) (any, error) {
+func char2text(_ uint32, value any) (any, error) {
+	if v, ok := value.(int32); ok {
+		return string(v), nil
+	}
+	return nil, ErrIllegalValue
+}
+
+func timestamp2text(oid uint32, value any) (any, error) {
+	if v, ok := value.(time.Time); ok {
+		switch oid {
+		case pgtype.DateOID:
+			return v.Format(time.DateOnly), nil
+		default:
+			return v.In(time.UTC).String(), nil
+		}
+	}
+	return nil, ErrIllegalValue
+}
+
+func time2text(_ uint32, value any) (any, error) {
+	if v, ok := value.(pgtype.Time); ok {
+		remaining := int64(time.Microsecond) * v.Microseconds
+		hours := remaining / int64(time.Hour)
+		remaining = remaining % int64(time.Hour)
+		minutes := remaining / int64(time.Minute)
+		remaining = remaining % int64(time.Minute)
+		seconds := remaining / int64(time.Second)
+		remaining = remaining % int64(time.Second)
+		return fmt.Sprintf(
+			"%02d:%02d:%02d.%06d", hours, minutes, seconds,
+			(time.Nanosecond * time.Duration(remaining)).Microseconds(),
+		), nil
+	}
+	return nil, ErrIllegalValue
+}
+
+func timestamp2int64(_ uint32, value any) (any, error) {
 	if v, ok := value.(time.Time); ok {
 		return v.UnixMilli(), nil
+	}
+	return nil, ErrIllegalValue
+}
+
+/*func bit2bool(_ uint32, value any) (any, error) {
+	if v, ok := value.(pgtype.Bits); ok {
+		return v.Bytes[0]&0xF0 == 128, nil
 	}
 	return nil, ErrIllegalValue
 }
@@ -133,7 +194,7 @@ func bits2bytes(_ uint32, value any) (any, error) {
 		return v.Bytes, nil
 	}
 	return nil, ErrIllegalValue
-}
+}*/
 
 func json2text(_ uint32, value any) (any, error) {
 	if v, ok := value.(map[string]any); ok {
@@ -153,6 +214,40 @@ func uuid2text(_ uint32, value any) (any, error) {
 			return nil, err
 		}
 		return u, nil
+	} else if v, ok := value.([16]byte); ok {
+		u, err := uuid.FormatUUID(v[:])
+		if err != nil {
+			return nil, err
+		}
+		return u, nil
+	}
+	return nil, ErrIllegalValue
+}
+
+func uint322int64(_ uint32, value any) (any, error) {
+	if v, ok := value.(uint32); ok {
+		return int64(v), nil
+	}
+	return nil, ErrIllegalValue
+}
+
+func macaddr2text(_ uint32, value any) (any, error) {
+	if v, ok := value.(net.HardwareAddr); ok {
+		return v.String(), nil
+	}
+	return nil, ErrIllegalValue
+}
+
+func addr2text(_ uint32, value any) (any, error) {
+	if v, ok := value.(netip.Prefix); ok {
+		return v.String(), nil
+	}
+	return nil, ErrIllegalValue
+}
+
+func interval2int64(_ uint32, value any) (any, error) {
+	if v, ok := value.(pgtype.Interval); ok {
+		return v.Microseconds, nil
 	}
 	return nil, ErrIllegalValue
 }

@@ -28,6 +28,7 @@ var typeMap *pgtype.Map
 
 func init() {
 	typeMap = pgtype.NewMap()
+	typeMap.RegisterType(&pgtype.Type{Name: "macaddr8", OID: 774, Codec: pgtype.MacaddrCodec{}})
 }
 
 type RowDecoder struct {
