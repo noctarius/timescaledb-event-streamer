@@ -30,6 +30,7 @@ import (
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
+	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes/datatypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
@@ -53,6 +54,7 @@ type replicationContext struct {
 	stateManager       *stateManager
 	schemaManager      *schemaManager
 	taskManager        *taskManager
+	typeManager        TypeManager
 
 	snapshotInitialMode     spiconfig.InitialSnapshotMode
 	snapshotBatchSize       int
@@ -175,6 +177,11 @@ func NewReplicationContext(config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
 	replicationContext.taskManager = &taskManager{
 		taskDispatcher: taskDispatcher,
 	}
+	typeManager, err := datatypes.NewTypeManager(sideChannel)
+	if err != nil {
+		return nil, errors.Wrap(err, 0)
+	}
+	replicationContext.typeManager = typeManager
 	replicationContext.schemaManager = &schemaManager{
 		namingStrategy: namingStrategy,
 		topicPrefix:    config.Topic.Prefix,
@@ -200,6 +207,10 @@ func (rc *replicationContext) SchemaManager() SchemaManager {
 
 func (rc *replicationContext) TaskManager() TaskManager {
 	return rc.taskManager
+}
+
+func (rc *replicationContext) TypeManager() TypeManager {
+	return rc.typeManager
 }
 
 func (rc *replicationContext) StartReplicationContext() error {

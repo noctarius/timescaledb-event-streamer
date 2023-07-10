@@ -18,8 +18,8 @@
 package testing
 
 import (
+	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes/datatypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
-	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 )
 
 type Source struct {
@@ -45,12 +45,12 @@ type Payload struct {
 }
 
 type Field struct {
-	Name     string                 `json:"name"`
-	Field    string                 `json:"field"`
-	Optional bool                   `json:"optional"`
-	Type     systemcatalog.DataType `json:"type"`
-	Fields   []Field                `json:"fields"`
-	Default  any                    `json:"default"`
+	Name     string               `json:"name"`
+	Field    string               `json:"field"`
+	Optional bool                 `json:"optional"`
+	Type     datatypes.SchemaType `json:"type"`
+	Fields   []Field              `json:"fields"`
+	Default  any                  `json:"default"`
 }
 
 type Schema struct {
@@ -72,4 +72,42 @@ func GetField(name string, fields []Field) (Field, bool) {
 		}
 	}
 	return Field{}, false
+}
+
+type Column struct {
+	name         string
+	pgType       string
+	nullable     bool
+	primaryKey   bool
+	defaultValue *string
+}
+
+func NewColumn(name, pgType string, nullable, primaryKey bool, defaultValue *string) Column {
+	return Column{
+		name:         name,
+		pgType:       pgType,
+		nullable:     nullable,
+		primaryKey:   primaryKey,
+		defaultValue: defaultValue,
+	}
+}
+
+func (c Column) Name() string {
+	return c.name
+}
+
+func (c Column) PgType() string {
+	return c.pgType
+}
+
+func (c Column) IsNullable() bool {
+	return c.nullable
+}
+
+func (c Column) IsPrimaryKey() bool {
+	return c.primaryKey
+}
+
+func (c Column) DefaultValue() *string {
+	return c.defaultValue
 }

@@ -20,6 +20,7 @@ package replication
 import (
 	"bytes"
 	stderrors "errors"
+	"fmt"
 	"github.com/go-errors/errors"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
 	logrepresolver "github.com/noctarius/timescaledb-event-streamer/internal/replication/logicalreplicationresolver"
@@ -143,7 +144,7 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 
 	// Start internal dispatching
 	if err := replicationContext.StartReplicationContext(); err != nil {
-		return cli.NewExitError("failed to start replication context", 18)
+		return cli.NewExitError(fmt.Sprintf("failed to start replication context: %s", err.Error()), 18)
 	}
 
 	// Start event emitter

@@ -1,52 +1,28 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-package systemcatalog
+package datatypes
 
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/go-errors/errors"
 	"github.com/hashicorp/go-uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
 	"net"
 	"net/netip"
+	"sync"
 	"time"
 )
 
-// DataType is a string like definition of the available
-// event stream data types
-type DataType string
+type TypeFactory func(name string, typ TypeType, oid uint32, category TypeCategory, arrayType bool, oidArray uint32,
+	oidElement uint32, recordType bool, parentOid uint32, modifiers int, enumValues []string, delimiter string,
+	schemaType SchemaType) Type
 
-const (
-	INT8    DataType = "int8"
-	INT16   DataType = "int16"
-	INT32   DataType = "int32"
-	INT64   DataType = "int64"
-	FLOAT32 DataType = "float32"
-	FLOAT64 DataType = "float64"
-	BOOLEAN DataType = "boolean"
-	STRING  DataType = "string"
-	BYTES   DataType = "bytes"
-	ARRAY   DataType = "array"
-	MAP     DataType = "map"
-	STRUCT  DataType = "struct"
-)
+type TypeResolver interface {
+	ReadPgTypes(factory TypeFactory, callback func(Type) error) error
+	ReadPgType(oid uint32, factory TypeFactory) (Type, bool, error)
+}
 
-var mapping = map[uint32]DataType{
+var coreTypes = map[uint32]SchemaType{
 	pgtype.BoolOID:        BOOLEAN,
 	pgtype.Int2OID:        INT16,
 	pgtype.Int4OID:        INT32,
@@ -75,66 +51,131 @@ var mapping = map[uint32]DataType{
 	pgtype.InetOID:        STRING,
 	pgtype.DateOID:        STRING,
 	pgtype.TimeOID:        STRING,
-	//pgtype.NumericOID:     BYTES,
 }
 
-var (
-	converters = map[uint32]Converter{
-		pgtype.BoolOID:        nil,
-		pgtype.Int2OID:        nil,
-		pgtype.Int4OID:        nil,
-		pgtype.Int8OID:        nil,
-		pgtype.Float4OID:      nil,
-		pgtype.Float8OID:      nil,
-		pgtype.BPCharOID:      nil,
-		pgtype.QCharOID:       char2text,
-		pgtype.VarcharOID:     nil,
-		pgtype.TextOID:        nil,
-		pgtype.TimestampOID:   timestamp2int64,
-		pgtype.TimestamptzOID: timestamp2text,
-		pgtype.IntervalOID:    interval2int64,
-		pgtype.ByteaOID:       nil,
-		pgtype.JSONOID:        json2text,
-		pgtype.JSONBOID:       json2text,
-		pgtype.UUIDOID:        uuid2text,
-		pgtype.NameOID:        nil,
-		pgtype.OIDOID:         uint322int64,
-		pgtype.TIDOID:         uint322int64,
-		pgtype.XIDOID:         uint322int64,
-		pgtype.CIDOID:         uint322int64,
-		pgtype.CIDROID:        addr2text,
-		pgtype.MacaddrOID:     macaddr2text,
-		774:                   macaddr2text, // macaddr8
-		pgtype.InetOID:        addr2text,
-		pgtype.DateOID:        timestamp2text,
-		pgtype.TimeOID:        time2text,
-		//pgtype.NumericOID:     nil,
-	}
-)
+var converters = map[uint32]Converter{
+	pgtype.BoolOID:        nil,
+	pgtype.Int2OID:        nil,
+	pgtype.Int4OID:        nil,
+	pgtype.Int8OID:        nil,
+	pgtype.Float4OID:      nil,
+	pgtype.Float8OID:      nil,
+	pgtype.BPCharOID:      nil,
+	pgtype.QCharOID:       char2text,
+	pgtype.VarcharOID:     nil,
+	pgtype.TextOID:        nil,
+	pgtype.TimestampOID:   timestamp2int64,
+	pgtype.TimestamptzOID: timestamp2text,
+	pgtype.IntervalOID:    interval2int64,
+	pgtype.ByteaOID:       nil,
+	pgtype.JSONOID:        json2text,
+	pgtype.JSONBOID:       json2text,
+	pgtype.UUIDOID:        uuid2text,
+	pgtype.NameOID:        nil,
+	pgtype.OIDOID:         uint322int64,
+	pgtype.TIDOID:         uint322int64,
+	pgtype.XIDOID:         uint322int64,
+	pgtype.CIDOID:         uint322int64,
+	pgtype.CIDROID:        addr2text,
+	pgtype.MacaddrOID:     macaddr2text,
+	774:                   macaddr2text, // macaddr8
+	pgtype.InetOID:        addr2text,
+	pgtype.DateOID:        timestamp2text,
+	pgtype.TimeOID:        time2text,
+}
 
 // ErrIllegalValue represents an illegal type conversion request
 // for the given value
 var ErrIllegalValue = fmt.Errorf("illegal value for data type conversion")
 
-// Converter represents a conversion function to convert from
-// a PostgreSQL internal OID number and value to a value according
-// to the stream definition
-type Converter func(oid uint32, value any) (any, error)
-
-// DataTypeByOID returns the DataType for a given OID, if
-// no valid mapping is available, it will return an error
-func DataTypeByOID(oid uint32) (DataType, error) {
-	if v, ok := mapping[oid]; ok {
-		return v, nil
-	}
-	return "", fmt.Errorf("unsupported OID: %d", oid)
+type TypeManager struct {
+	logger         *logging.Logger
+	typeResolver   TypeResolver
+	typeCache      map[uint32]Type
+	typeCacheMutex sync.Mutex
 }
 
-// ConverterByOID returns the Converter for a given OID, if
-// no valid mapping is available, it will return an error
-func ConverterByOID(oid uint32) (Converter, error) {
-	if v, ok := converters[oid]; ok {
-		return v, nil
+func NewTypeManager(typeResolver TypeResolver) (*TypeManager, error) {
+	logger, err := logging.NewLogger("TypeManager")
+	if err != nil {
+		return nil, err
+	}
+
+	typeManager := &TypeManager{
+		logger:         logger,
+		typeResolver:   typeResolver,
+		typeCache:      make(map[uint32]Type),
+		typeCacheMutex: sync.Mutex{},
+	}
+
+	if err := typeManager.initialize(); err != nil {
+		return nil, err
+	}
+	return typeManager, nil
+}
+
+func (tm *TypeManager) initialize() error {
+	tm.typeCacheMutex.Lock()
+	defer tm.typeCacheMutex.Unlock()
+
+	if err := tm.typeResolver.ReadPgTypes(tm.typeFactory, func(typ Type) error {
+		tm.typeCache[typ.Oid()] = typ
+		return nil
+	}); err != nil {
+		return err
+	}
+	tm.logger.Debugf("Loaded %d types from PostgreSQL", len(tm.typeCache))
+	return nil
+}
+
+func (tm *TypeManager) typeFactory(name string, typ TypeType, oid uint32, category TypeCategory,
+	arrayType bool, oidArray uint32, oidElement uint32, recordType bool, parentOid uint32, modifiers int,
+	enumValues []string, delimiter string, schemaType SchemaType) Type {
+
+	nType := NewType(name, typ, oid, category, arrayType, oidArray, oidElement,
+		recordType, parentOid, modifiers, enumValues, delimiter, schemaType)
+
+	nType.typeManager = tm
+	return nType
+}
+
+func (tm *TypeManager) DataType(oid uint32) (Type, error) {
+	tm.typeCacheMutex.Lock()
+	defer tm.typeCacheMutex.Unlock()
+
+	// Is it a core type?
+	/*dataType, err := systemcatalog.DataTypeByOID(oid)
+	if err != nil {
+		return dataType, nil
+	}*/
+
+	// Is it already available / cached?
+	dataType, present := tm.typeCache[oid]
+	if present {
+		return dataType, nil
+	}
+
+	dataType, found, err := tm.typeResolver.ReadPgType(oid, tm.typeFactory)
+	if err != nil {
+		return Type{}, err
+	}
+
+	if !found {
+		return Type{}, errors.Errorf("illegal oid: %d", oid)
+	}
+
+	tm.typeCache[oid] = dataType
+	return dataType, nil
+}
+
+func (tm *TypeManager) SchemaBuilder() {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (tm *TypeManager) Converter(oid uint32) (Converter, error) {
+	if converter, present := converters[oid]; present {
+		return converter, nil
 	}
 	return nil, fmt.Errorf("unsupported OID: %d", oid)
 }

@@ -378,10 +378,11 @@ func (e *eventEmitterEventHandler) convertColumnValues(
 		return nil, nil
 	}
 
+	typeManager := e.eventEmitter.replicationContext.TypeManager()
 	result := make(map[string]any)
 	for _, column := range columns {
 		if v, present := values[column.Name()]; present {
-			converter, err := systemcatalog.ConverterByOID(column.DataType())
+			converter, err := typeManager.Converter(column.DataType())
 			if err != nil {
 				return nil, err
 			}

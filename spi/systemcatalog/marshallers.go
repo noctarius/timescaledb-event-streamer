@@ -22,6 +22,7 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/noctarius/timescaledb-event-streamer/spi/encoding"
+	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes/datatypes"
 	"time"
 )
 
@@ -83,14 +84,14 @@ func BinaryMarshall(buffer encoding.WriteBuffer, oid uint32, value any) error {
 	if marshaller, found := marshallers[oid]; found {
 		return marshaller(buffer, oid, value)
 	}
-	return ErrIllegalValue
+	return datatypes.ErrIllegalValue
 }
 
 func BinaryUnmarshall(buffer encoding.ReadBuffer, oid uint32) (value any, err error) {
 	if unmarshaller, found := unmarshallers[oid]; found {
 		return unmarshaller(buffer, oid)
 	}
-	return nil, ErrIllegalValue
+	return nil, datatypes.ErrIllegalValue
 }
 
 func boolMarshaller(buffer encoding.WriteBuffer, _ uint32, value any) error {
@@ -100,7 +101,7 @@ func boolMarshaller(buffer encoding.WriteBuffer, _ uint32, value any) error {
 	case *bool:
 		return buffer.PutBool(*v)
 	default:
-		return ErrIllegalValue
+		return datatypes.ErrIllegalValue
 	}
 
 }
@@ -113,7 +114,7 @@ func bitArrayMarshaller(buffer encoding.WriteBuffer, _ uint32, value any) error 
 	if data, ok := value.([]byte); ok {
 		return buffer.PutBytes(data)
 	}
-	return ErrIllegalValue
+	return datatypes.ErrIllegalValue
 }
 
 func bitArrayUnmarshaller(buffer encoding.ReadBuffer, _ uint32) (value any, err error) {
@@ -139,7 +140,7 @@ func intMarshaller(buffer encoding.WriteBuffer, _ uint32, value any) error {
 	case *int64:
 		return buffer.PutInt64(*v)
 	default:
-		return ErrIllegalValue
+		return datatypes.ErrIllegalValue
 	}
 }
 
@@ -152,7 +153,7 @@ func intUnmarshaller(buffer encoding.ReadBuffer, oid uint32) (value any, err err
 	case pgtype.Int8OID:
 		return buffer.ReadInt64()
 	default:
-		return 0, ErrIllegalValue
+		return 0, datatypes.ErrIllegalValue
 	}
 }
 
@@ -167,7 +168,7 @@ func floatMarshaller(buffer encoding.WriteBuffer, oid uint32, value any) error {
 	case *float64:
 		return buffer.PutFloat64(*v)
 	default:
-		return ErrIllegalValue
+		return datatypes.ErrIllegalValue
 	}
 }
 
@@ -178,7 +179,7 @@ func floatUnmarshaller(buffer encoding.ReadBuffer, oid uint32) (value any, err e
 	case pgtype.Float8OID:
 		return buffer.ReadFloat64()
 	default:
-		return 0, ErrIllegalValue
+		return 0, datatypes.ErrIllegalValue
 	}
 }
 
@@ -186,7 +187,7 @@ func stringMarshaller(buffer encoding.WriteBuffer, _ uint32, value any) error {
 	if s, ok := value.(string); ok {
 		return buffer.PutString(s)
 	}
-	return ErrIllegalValue
+	return datatypes.ErrIllegalValue
 }
 
 func stringUnmarshaller(buffer encoding.ReadBuffer, _ uint32) (value any, err error) {
@@ -201,7 +202,7 @@ func timestampMarshaller(buffer encoding.WriteBuffer, _ uint32, value any) error
 			return errors.Wrap(err, 0)
 		}
 	}
-	return ErrIllegalValue
+	return datatypes.ErrIllegalValue
 }
 
 func timestampUnmarshaller(buffer encoding.ReadBuffer, _ uint32) (value any, err error) {
@@ -220,7 +221,7 @@ func intervalMarshaller(buffer encoding.WriteBuffer, _ uint32, value any) error 
 	if d, ok := value.(time.Duration); ok {
 		return buffer.PutInt64(int64(d))
 	}
-	return ErrIllegalValue
+	return datatypes.ErrIllegalValue
 }
 
 func intervalUnmarshaller(buffer encoding.ReadBuffer, _ uint32) (value any, err error) {
@@ -235,7 +236,7 @@ func byteArrayMarshaller(buffer encoding.WriteBuffer, _ uint32, value any) error
 	if data, ok := value.([]byte); ok {
 		return buffer.PutBytes(data)
 	}
-	return ErrIllegalValue
+	return datatypes.ErrIllegalValue
 }
 
 func byteArrayUnmarshaller(buffer encoding.ReadBuffer, _ uint32) (value any, err error) {
@@ -250,7 +251,7 @@ func jsonMarshaller(buffer encoding.WriteBuffer, _ uint32, value any) error {
 		}
 		return buffer.PutBytes(d)
 	}
-	return ErrIllegalValue
+	return datatypes.ErrIllegalValue
 }
 
 func jsonUnmarshaller(buffer encoding.ReadBuffer, _ uint32) (value any, err error) {
@@ -272,7 +273,7 @@ func uuidMarshaller(buffer encoding.WriteBuffer, _ uint32, value any) error {
 		}
 		return nil
 	}
-	return ErrIllegalValue
+	return datatypes.ErrIllegalValue
 }
 
 func uuidUnmarshaller(buffer encoding.ReadBuffer, _ uint32) (value any, err error) {

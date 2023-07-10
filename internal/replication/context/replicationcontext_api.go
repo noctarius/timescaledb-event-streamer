@@ -5,6 +5,7 @@ import (
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
+	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes/datatypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
@@ -21,6 +22,7 @@ type ReplicationContext interface {
 	StateManager() StateManager
 	SchemaManager() SchemaManager
 	TaskManager() TaskManager
+	TypeManager() TypeManager
 
 	Offset() (*statestorage.Offset, error)
 	SetLastTransactionId(xid uint32)
@@ -107,4 +109,10 @@ type TaskManager interface {
 	EnqueueTask(task Task) error
 	RunTask(task Task) error
 	EnqueueTaskAndWait(task Task) error
+}
+
+type TypeManager interface {
+	DataType(oid uint32) (datatypes.Type, error)
+	SchemaBuilder()
+	Converter(oid uint32) (datatypes.Converter, error)
 }

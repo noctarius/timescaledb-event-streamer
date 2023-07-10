@@ -24,7 +24,6 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
-	"time"
 )
 
 type Task = func(notificator Notificator)
@@ -198,8 +197,6 @@ func (d *dispatcher) StartDispatcher() {
 			task := d.taskQueue.Pop()
 			if task != nil {
 				task(notificator)
-			} else {
-				time.Sleep(time.Millisecond * 10)
 			}
 		}
 

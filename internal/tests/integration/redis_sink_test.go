@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"github.com/go-errors/errors"
 	"github.com/go-redis/redis"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
@@ -31,7 +30,6 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/testing/containers"
 	"github.com/noctarius/timescaledb-event-streamer/internal/testing/testrunner"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
-	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"github.com/testcontainers/testcontainers-go"
@@ -132,8 +130,8 @@ func (rits *RedisIntegrationTestSuite) Test_Redis_Sink() {
 
 		testrunner.WithSetup(func(setupContext testrunner.SetupContext) error {
 			sn, tn, err := setupContext.CreateHypertable("ts", time.Hour*24,
-				systemcatalog.NewColumn("ts", pgtype.TimestamptzOID, "timestamptz", false, nil),
-				systemcatalog.NewColumn("val", pgtype.Int4OID, "integer", false, nil),
+				inttest.NewColumn("ts", "timestamptz", false, false, nil),
+				inttest.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err

@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"github.com/go-errors/errors"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
+	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes/datatypes"
 	"reflect"
 	"strings"
 	"time"
@@ -163,7 +164,7 @@ func (i *Index) whereClause(comparison string, params map[string]any) (string, b
 			success = false
 			return ""
 		}
-		return param2value(v, t.dataType)
+		return param2value(v, t)
 	})
 
 	if !success {
@@ -173,7 +174,7 @@ func (i *Index) whereClause(comparison string, params map[string]any) (string, b
 	return fmt.Sprintf("%s %s (%s)", tupleList, comparison, strings.Join(comparisonList, ",")), true
 }
 
-func param2value(param any, dataType uint32) string {
+func param2value(param any, column Column) string {
 	pv := reflect.ValueOf(param)
 	pt := pv.Type()
 
@@ -186,17 +187,17 @@ func param2value(param any, dataType uint32) string {
 		pt = pv.Type()
 	}
 
-	switch mapping[dataType] {
-	case FLOAT32, FLOAT64:
+	switch column.pgType.SchemaType() {
+	case datatypes.FLOAT32, datatypes.FLOAT64:
 		return fmt.Sprintf("%f", pv.Float())
-	case INT8, INT16, INT32, INT64:
+	case datatypes.INT8, datatypes.INT16, datatypes.INT32, datatypes.INT64:
 		return fmt.Sprintf("%d", pv.Int())
-	case BOOLEAN:
+	case datatypes.BOOLEAN:
 		if pv.Bool() {
 			return "TRUE"
 		}
 		return "FALSE"
-	case STRING:
+	case datatypes.STRING:
 		val := pv.String()
 		if pt.Kind() != reflect.String {
 			switch v := pv.Interface().(type) {
@@ -208,10 +209,10 @@ func param2value(param any, dataType uint32) string {
 		}
 		return fmt.Sprintf("'%s'", sanitizeString(val))
 
-	case BYTES:
+	case datatypes.BYTES:
 		bytes := pv.Interface().([]byte)
 		return fmt.Sprintf("bytea '\\x%X'", bytes)
-	case ARRAY:
+	case datatypes.ARRAY:
 		numOfElements := pv.Len()
 		index := 0
 		iterator := func() (reflect.Value, bool) {
@@ -224,7 +225,7 @@ func param2value(param any, dataType uint32) string {
 		}
 
 		elements := supporting.MapWithIterator(iterator, func(element reflect.Value) string {
-			return param2value(element.Interface(), 0) // FIXME, right now arrays aren't fully supported
+			return param2value(element.Interface(), column) // FIXME, right now arrays aren't fully supported
 		})
 		return fmt.Sprintf("'{%s}'", strings.Join(elements, ","))
 

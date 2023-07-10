@@ -20,6 +20,7 @@ package systemcatalog
 import (
 	"fmt"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
+	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes/datatypes"
 	"strings"
 )
 
@@ -114,7 +115,7 @@ func (c Columns) ReplicaIdentityIndex() (index *Index, present bool) {
 type Column struct {
 	name         string
 	dataType     uint32
-	typeName     string
+	pgType       datatypes.Type
 	nullable     bool
 	primaryKey   bool
 	keySeq       *int
@@ -132,16 +133,16 @@ type Column struct {
 // NewColumn instantiates a new Column instance which isn't
 // part of any index. This method is a shorthand version of
 // NewIndexColumn
-func NewColumn(name string, dataType uint32, typeName string, nullable bool, defaultValue *string) Column {
+func NewColumn(name string, dataType uint32, pgType datatypes.Type, nullable bool, defaultValue *string) Column {
 	return NewIndexColumn(
-		name, dataType, typeName, nullable, false, nil,
+		name, dataType, pgType, nullable, false, nil,
 		defaultValue, false, nil, ASC, NULLS_LAST,
 		false, false, nil, nil,
 	)
 }
 
 // NewIndexColumn instantiates a new Column instance
-func NewIndexColumn(name string, dataType uint32, typeName string, nullable, primaryKey bool,
+func NewIndexColumn(name string, dataType uint32, pgType datatypes.Type, nullable, primaryKey bool,
 	keySeq *int, defaultValue *string, isReplicaIdent bool, indexName *string,
 	sortOrder IndexSortOrder, nullsOrder IndexNullsOrder,
 	dimension bool, dimAligned bool, dimType *string, dimSeq *int) Column {
@@ -149,7 +150,7 @@ func NewIndexColumn(name string, dataType uint32, typeName string, nullable, pri
 	return Column{
 		name:         name,
 		dataType:     dataType,
-		typeName:     typeName,
+		pgType:       pgType,
 		nullable:     nullable,
 		primaryKey:   primaryKey,
 		keySeq:       keySeq,
@@ -176,8 +177,8 @@ func (c Column) DataType() uint32 {
 }
 
 // TypeName returns the data type name of the column
-func (c Column) TypeName() string {
-	return c.typeName
+func (c Column) PgType() datatypes.Type {
+	return c.pgType
 }
 
 // IsNullable returns true if the column is nullable
@@ -228,7 +229,7 @@ func (c Column) String() string {
 	builder.WriteString("{")
 	builder.WriteString(fmt.Sprintf("name:%s ", c.name))
 	builder.WriteString(fmt.Sprintf("dataType:%d ", c.dataType))
-	builder.WriteString(fmt.Sprintf("typeName:%s ", c.typeName))
+	builder.WriteString(fmt.Sprintf("pgType:%s ", c.pgType.Name()))
 	builder.WriteString(fmt.Sprintf("nullable:%t ", c.nullable))
 	builder.WriteString(fmt.Sprintf("primaryKey:%t ", c.primaryKey))
 	if c.keySeq == nil {
@@ -265,7 +266,7 @@ func (c Column) String() string {
 
 func (c Column) equals(other Column) bool {
 	return c.name == other.name &&
-		c.typeName == other.typeName &&
+		c.pgType.Equal(other.pgType) &&
 		c.dataType == other.dataType &&
 		c.nullable == other.nullable &&
 		c.primaryKey == other.primaryKey &&
@@ -285,7 +286,7 @@ func (c Column) equals(other Column) bool {
 }
 
 func (c Column) equalsExceptName(other Column) bool {
-	return c.typeName == other.typeName &&
+	return c.pgType.Equal(other.pgType) &&
 		c.dataType == other.dataType &&
 		c.nullable == other.nullable &&
 		c.primaryKey == other.primaryKey &&
@@ -312,8 +313,8 @@ func (c Column) differences(new Column) map[string]string {
 	if c.dataType != new.dataType {
 		differences["dataType"] = fmt.Sprintf("%d=>%d", c.dataType, new.dataType)
 	}
-	if c.typeName != new.typeName {
-		differences["typeName"] = fmt.Sprintf("%s=>%s", c.typeName, new.typeName)
+	if !c.pgType.Equal(new.pgType) {
+		differences["pgType"] = fmt.Sprintf("%s=>%s", c.pgType.Name(), new.pgType.Name())
 	}
 	if c.nullable != new.nullable {
 		differences["nullable"] = fmt.Sprintf("%t=>%t", c.nullable, new.nullable)
