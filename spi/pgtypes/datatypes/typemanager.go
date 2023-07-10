@@ -6,6 +6,7 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/hashicorp/go-uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
 	"net"
 	"net/netip"
@@ -84,15 +85,21 @@ var converters = map[uint32]Converter{
 	pgtype.TimeOID:        time2text,
 }
 
+var optimizedTypes = []string{
+	"geometry", "ltree",
+}
+
 // ErrIllegalValue represents an illegal type conversion request
 // for the given value
 var ErrIllegalValue = fmt.Errorf("illegal value for data type conversion")
 
 type TypeManager struct {
-	logger         *logging.Logger
-	typeResolver   TypeResolver
-	typeCache      map[uint32]Type
-	typeCacheMutex sync.Mutex
+	logger              *logging.Logger
+	typeResolver        TypeResolver
+	typeCache           map[uint32]Type
+	typeCacheMutex      sync.Mutex
+	optimizedTypes      map[uint32]Type
+	optimizedConverters map[uint32]Converter
 }
 
 func NewTypeManager(typeResolver TypeResolver) (*TypeManager, error) {
@@ -102,10 +109,12 @@ func NewTypeManager(typeResolver TypeResolver) (*TypeManager, error) {
 	}
 
 	typeManager := &TypeManager{
-		logger:         logger,
-		typeResolver:   typeResolver,
-		typeCache:      make(map[uint32]Type),
-		typeCacheMutex: sync.Mutex{},
+		logger:              logger,
+		typeResolver:        typeResolver,
+		typeCache:           make(map[uint32]Type),
+		typeCacheMutex:      sync.Mutex{},
+		optimizedTypes:      make(map[uint32]Type),
+		optimizedConverters: make(map[uint32]Converter),
 	}
 
 	if err := typeManager.initialize(); err != nil {
@@ -120,6 +129,12 @@ func (tm *TypeManager) initialize() error {
 
 	if err := tm.typeResolver.ReadPgTypes(tm.typeFactory, func(typ Type) error {
 		tm.typeCache[typ.Oid()] = typ
+
+		if supporting.IndexOf(optimizedTypes, typ.name) != -1 {
+			tm.optimizedTypes[typ.oid] = typ
+			tm.optimizedConverters[typ.oid] = nil // FIXME
+		}
+
 		return nil
 	}); err != nil {
 		return err
@@ -142,12 +157,6 @@ func (tm *TypeManager) typeFactory(name string, typ TypeType, oid uint32, catego
 func (tm *TypeManager) DataType(oid uint32) (Type, error) {
 	tm.typeCacheMutex.Lock()
 	defer tm.typeCacheMutex.Unlock()
-
-	// Is it a core type?
-	/*dataType, err := systemcatalog.DataTypeByOID(oid)
-	if err != nil {
-		return dataType, nil
-	}*/
 
 	// Is it already available / cached?
 	dataType, present := tm.typeCache[oid]
@@ -175,6 +184,9 @@ func (tm *TypeManager) SchemaBuilder() {
 
 func (tm *TypeManager) Converter(oid uint32) (Converter, error) {
 	if converter, present := converters[oid]; present {
+		return converter, nil
+	}
+	if converter, present := tm.optimizedConverters[oid]; present {
 		return converter, nil
 	}
 	return nil, fmt.Errorf("unsupported OID: %d", oid)
