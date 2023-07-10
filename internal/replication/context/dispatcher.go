@@ -39,7 +39,7 @@ type Notificator interface {
 
 type dispatcher struct {
 	logger              *logging.Logger
-	taskQueue           *supporting.Queue[Task]
+	taskQueue           *supporting.Channel[Task]
 	baseHandlers        []eventhandlers.BaseReplicationEventHandler
 	catalogHandlers     []eventhandlers.SystemCatalogReplicationEventHandler
 	compressionHandlers []eventhandlers.CompressionReplicationEventHandler
@@ -58,7 +58,7 @@ func newDispatcher() (*dispatcher, error) {
 
 	d := &dispatcher{
 		logger:              logger,
-		taskQueue:           supporting.NewQueue[Task](),
+		taskQueue:           supporting.NewChannel[Task](4096),
 		baseHandlers:        make([]eventhandlers.BaseReplicationEventHandler, 0),
 		catalogHandlers:     make([]eventhandlers.SystemCatalogReplicationEventHandler, 0),
 		compressionHandlers: make([]eventhandlers.CompressionReplicationEventHandler, 0),
@@ -191,12 +191,9 @@ func (d *dispatcher) StartDispatcher() {
 			select {
 			case <-d.shutdownAwaiter.AwaitShutdownChan():
 				goto finish
-			default:
-			}
-
-			task := d.taskQueue.Pop()
-			if task != nil {
+			case task := <-d.taskQueue.ReadChannel():
 				task(notificator)
+			default:
 			}
 		}
 
@@ -215,7 +212,7 @@ func (d *dispatcher) EnqueueTask(task Task) error {
 	if d.shutdownActive {
 		return fmt.Errorf("shutdown active, draining only")
 	}
-	d.taskQueue.Push(task)
+	d.taskQueue.Write(task)
 	return nil
 }
 
@@ -224,7 +221,7 @@ func (d *dispatcher) EnqueueTaskAndWait(task Task) error {
 		return fmt.Errorf("shutdown active, draining only")
 	}
 	done := supporting.NewWaiter()
-	d.taskQueue.Push(func(notificator Notificator) {
+	d.taskQueue.Write(func(notificator Notificator) {
 		task(notificator)
 		done.Signal()
 	})
