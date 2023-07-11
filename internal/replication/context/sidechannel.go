@@ -825,7 +825,7 @@ func (sc *sideChannelImpl) readHypertableSchema0(
 	return nil
 }
 
-func (sc *sideChannelImpl) ReadPgTypes(factory datatypes.TypeFactory, cb func(pgType datatypes.Type) error) error {
+func (sc *sideChannelImpl) ReadPgTypes(factory datatypes.TypeFactory, cb func(pgType systemcatalog.PgType) error) error {
 	return sc.newSession(time.Second*30, func(session *session) error {
 		return session.queryFunc(func(row pgx.Row) error {
 			typ, found, err := sc.scanPgType(row, factory)
@@ -849,7 +849,7 @@ func (sc *sideChannelImpl) ReadPgTypes(factory datatypes.TypeFactory, cb func(pg
 
 func (sc *sideChannelImpl) ReadPgType(
 	oid uint32, factory datatypes.TypeFactory,
-) (typ datatypes.Type, found bool, err error) {
+) (typ systemcatalog.PgType, found bool, err error) {
 
 	if err := sc.newSession(time.Second*30, func(session *session) error {
 		return session.queryFunc(func(row pgx.Row) error {
@@ -860,41 +860,41 @@ func (sc *sideChannelImpl) ReadPgType(
 			return nil
 		}, fmt.Sprintf(readPgTypeQuery, "AND t.oid = $1"), oid)
 	}); err != nil {
-		return datatypes.Type{}, false, errors.Wrap(err, 0)
+		return nil, false, errors.Wrap(err, 0)
 	}
 
 	if !found {
-		return datatypes.Type{}, false, nil
+		return nil, false, nil
 	}
 
 	// Record types aren't supported at the moment, so we can simply skip them
 	if typ.IsRecord() {
-		return datatypes.Type{}, false, nil
+		return nil, false, nil
 	}
 
 	return typ, true, nil
 }
 
-func (sc *sideChannelImpl) scanPgType(row pgx.Row, factory datatypes.TypeFactory) (datatypes.Type, bool, error) {
+func (sc *sideChannelImpl) scanPgType(row pgx.Row, factory datatypes.TypeFactory) (systemcatalog.PgType, bool, error) {
 	var name string
-	var typ, category, delimiter int32
+	var kind, category, delimiter int32
 	var arrayType, recordType bool
-	var oid, oidArray, oidElem, parentOid uint32
+	var oid, oidArray, oidElement, parentOid uint32
 	var modifiers int
 	var enumValues []string
 
 	if err := row.Scan(
-		&name, &arrayType, &recordType, &typ, &oid, &oidArray, &oidElem,
+		&name, &arrayType, &recordType, &kind, &oid, &oidArray, &oidElement,
 		&category, &parentOid, &modifiers, &enumValues, &delimiter,
 	); err != nil {
 		if err == pgx.ErrNoRows {
-			return datatypes.Type{}, false, nil
+			return nil, false, nil
 		}
-		return datatypes.Type{}, false, errors.Wrap(err, 0)
+		return nil, false, errors.Wrap(err, 0)
 	}
 
-	return factory(name, datatypes.TypeType(typ), oid, datatypes.TypeCategory(category), arrayType,
-		oidArray, oidElem, recordType, parentOid, modifiers, enumValues, string(delimiter),
+	return factory(name, systemcatalog.PgKind(kind), oid, systemcatalog.PgCategory(category), arrayType, recordType,
+		oidArray, oidElement, parentOid, modifiers, enumValues, string(delimiter),
 	), true, nil
 }
 

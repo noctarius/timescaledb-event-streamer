@@ -387,25 +387,26 @@ func extendHypertableSchema(hypertableSchema schemamodel.Struct,
 	}
 }
 
-func column2field(colum systemcatalog.Column) schemamodel.Struct {
-	pgType := colum.PgType()
+func column2field(column systemcatalog.Column) schemamodel.Struct {
+	pgType := column.PgType()
 	schemaBuilder := pgType.SchemaBuilder()
 
-	field := schemamodel.Struct{
-		schemamodel.FieldNameType:     schemaBuilder.BaseSchemaType(),
-		schemamodel.FieldNameOptional: colum.IsNullable(),
-		schemamodel.FieldNameField:    colum.Name(),
-	}
-
+	var field schemamodel.Struct
 	if pgType.IsArray() {
-		field[schemamodel.FieldNameFields] = schemaBuilder.Schema()
+		field = schemaBuilder.Schema(column)
 	} else if pgType.IsRecord() {
 		//todo: not yet supported
 		panic("not yet implemented")
+	} else {
+		field = schemamodel.Struct{
+			schemamodel.FieldNameType:     schemaBuilder.BaseSchemaType(),
+			schemamodel.FieldNameOptional: column.IsNullable(),
+			schemamodel.FieldNameField:    column.Name(),
+		}
 	}
 
-	if colum.DefaultValue() != nil {
-		defaultValue := *colum.DefaultValue()
+	if column.DefaultValue() != nil {
+		defaultValue := *column.DefaultValue()
 		if v, err := strconv.ParseBool(defaultValue); err == nil {
 			field[schemamodel.FieldNameDefault] = v
 		} else if v, err := strconv.ParseInt(defaultValue, 10, 64); err == nil {

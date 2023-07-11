@@ -20,7 +20,6 @@ package systemcatalog
 import (
 	"fmt"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
-	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes/datatypes"
 	"strings"
 )
 
@@ -115,7 +114,7 @@ func (c Columns) ReplicaIdentityIndex() (index *Index, present bool) {
 type Column struct {
 	name         string
 	dataType     uint32
-	pgType       datatypes.Type
+	pgType       PgType
 	nullable     bool
 	primaryKey   bool
 	keySeq       *int
@@ -133,7 +132,7 @@ type Column struct {
 // NewColumn instantiates a new Column instance which isn't
 // part of any index. This method is a shorthand version of
 // NewIndexColumn
-func NewColumn(name string, dataType uint32, pgType datatypes.Type, nullable bool, defaultValue *string) Column {
+func NewColumn(name string, dataType uint32, pgType PgType, nullable bool, defaultValue *string) Column {
 	return NewIndexColumn(
 		name, dataType, pgType, nullable, false, nil,
 		defaultValue, false, nil, ASC, NULLS_LAST,
@@ -142,7 +141,7 @@ func NewColumn(name string, dataType uint32, pgType datatypes.Type, nullable boo
 }
 
 // NewIndexColumn instantiates a new Column instance
-func NewIndexColumn(name string, dataType uint32, pgType datatypes.Type, nullable, primaryKey bool,
+func NewIndexColumn(name string, dataType uint32, pgType PgType, nullable, primaryKey bool,
 	keySeq *int, defaultValue *string, isReplicaIdent bool, indexName *string,
 	sortOrder IndexSortOrder, nullsOrder IndexNullsOrder,
 	dimension bool, dimAligned bool, dimType *string, dimSeq *int) Column {
@@ -177,7 +176,7 @@ func (c Column) DataType() uint32 {
 }
 
 // TypeName returns the data type name of the column
-func (c Column) PgType() datatypes.Type {
+func (c Column) PgType() PgType {
 	return c.pgType
 }
 

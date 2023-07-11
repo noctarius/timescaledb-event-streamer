@@ -126,13 +126,15 @@ var dataTypeTable = []DataTypeTest{
 		expected:   quickCheckValue[string],
 	},
 	{
-		name:           "JSON Array",
-		oid:            pgtype.JSONArrayOID,
-		pgTypeName:     "json[]",
-		schemaType:     schemamodel.ARRAY,
-		value:          `{"foo":"bar"}`,
-		expected:       quickCheckValue[string],
-		missingSupport: true,
+		name:                  "JSON Array",
+		oid:                   pgtype.JSONArrayOID,
+		pgTypeName:            "json[]",
+		schemaType:            schemamodel.ARRAY,
+		elementSchemaType:     schemamodel.STRING,
+		value:                 `array['{"foo":"bar"}','{"bar":"foo"}']::json[]`,
+		insertPlain:           true,
+		expectedValueOverride: []string{`{"foo":"bar"}`, `{"bar":"foo"}`},
+		expected:              quickCheckValue[[]string],
 	},
 	{
 		name:           "Point",
@@ -313,29 +315,28 @@ var dataTypeTable = []DataTypeTest{
 		schemaType:        schemamodel.ARRAY,
 		elementSchemaType: schemamodel.BOOLEAN,
 		value:             []bool{true, false, true},
-		expected:          quickCheckValue[string],
-		missingSupport:    true,
+		expected:          quickCheckValue[[]bool],
 	},
 	{
-		name:               "Quoted Char Array",
-		oid:                pgtype.QCharArrayOID,
-		pgTypeName:         "\"char\"[]",
-		columnNameOverride: "qchar[]",
-		schemaType:         schemamodel.ARRAY,
-		elementSchemaType:  schemamodel.STRING,
-		value:              []int32{'F', 'T', 'O'},
-		expected:           quickCheckValue[string],
-		missingSupport:     true,
+		name:                  "Quoted Char Array",
+		oid:                   pgtype.QCharArrayOID,
+		pgTypeName:            "\"char\"[]",
+		columnNameOverride:    "qchar[]",
+		schemaType:            schemamodel.ARRAY,
+		elementSchemaType:     schemamodel.STRING,
+		value:                 []int32{70, 100, 79},
+		expectedValueOverride: []string{"F", "T", "O"},
+		expected:              quickCheckValue[[]string],
+		missingSupport:        true,
 	},
 	{
-		name:              "name Array",
+		name:              "PG Name Array",
 		oid:               pgtype.NameArrayOID,
 		pgTypeName:        "name[]",
 		schemaType:        schemamodel.ARRAY,
 		elementSchemaType: schemamodel.STRING,
-		value:             []int32{'F', 'T', 'O'},
-		expected:          quickCheckValue[string],
-		missingSupport:    true,
+		value:             []string{"F", "T", "O"},
+		expected:          quickCheckValue[[]string],
 	},
 	{
 		name:              "Int (16bit) Array",
@@ -344,8 +345,7 @@ var dataTypeTable = []DataTypeTest{
 		schemaType:        schemamodel.ARRAY,
 		elementSchemaType: schemamodel.INT16,
 		value:             []int16{5, 10, 15},
-		expected:          quickCheckValue[string],
-		missingSupport:    true,
+		expected:          quickCheckValue[[]int16],
 	},
 	{
 		name:              "Int (32bit) Array",
@@ -354,8 +354,7 @@ var dataTypeTable = []DataTypeTest{
 		schemaType:        schemamodel.ARRAY,
 		elementSchemaType: schemamodel.INT32,
 		value:             []int32{5, 10, 15},
-		expected:          quickCheckValue[string],
-		missingSupport:    true,
+		expected:          quickCheckValue[[]int32],
 	},
 	{
 		name:              "Text Array",
@@ -364,8 +363,7 @@ var dataTypeTable = []DataTypeTest{
 		schemaType:        schemamodel.ARRAY,
 		elementSchemaType: schemamodel.STRING,
 		value:             []string{"first", "second", "third"},
-		expected:          quickCheckValue[string],
-		missingSupport:    true,
+		expected:          quickCheckValue[[]string],
 	},
 	{
 		name:              "Bytea Array",
@@ -413,9 +411,8 @@ var dataTypeTable = []DataTypeTest{
 		pgTypeName:        "varchar[]",
 		schemaType:        schemamodel.ARRAY,
 		elementSchemaType: schemamodel.STRING,
-		value:             [][]byte{{0xDE, 0xAD, 0xBE, 0xEF}, {0xCA, 0xFE, 0xBA, 0xBE}},
-		expected:          quickCheckValue[string],
-		missingSupport:    true,
+		value:             []string{"first", "second", "third"},
+		expected:          quickCheckValue[[]string],
 	},
 	{
 		name:              "Int (64bit) Array",
@@ -424,8 +421,7 @@ var dataTypeTable = []DataTypeTest{
 		schemaType:        schemamodel.ARRAY,
 		elementSchemaType: schemamodel.INT64,
 		value:             []int64{5, 10, 15},
-		expected:          quickCheckValue[string],
-		missingSupport:    true,
+		expected:          quickCheckValue[[]int64],
 	},
 	{
 		name:              "Point Array",
@@ -474,8 +470,7 @@ var dataTypeTable = []DataTypeTest{
 		schemaType:        schemamodel.ARRAY,
 		elementSchemaType: schemamodel.FLOAT32,
 		value:             []float32{14.1, 12.7},
-		expected:          quickCheckValue[string],
-		missingSupport:    true,
+		expected:          quickCheckValue[[]float32],
 	},
 	{
 		name:              "Float (64bit) Array",
@@ -484,8 +479,7 @@ var dataTypeTable = []DataTypeTest{
 		schemaType:        schemamodel.ARRAY,
 		elementSchemaType: schemamodel.FLOAT64,
 		value:             []float64{14.1, 12.7},
-		expected:          quickCheckValue[string],
-		missingSupport:    true,
+		expected:          quickCheckValue[[]float64],
 	},
 	{
 		name:              "Polygon Array",
@@ -581,150 +575,148 @@ var dataTypeTable = []DataTypeTest{
 		expected:   quickCheckValue[string],
 	},
 	{
-		name:          "Timestamp Without Timezone",
-		oid:           pgtype.TimestampOID,
-		pgTypeName:    "timestamp",
-		schemaType:    schemamodel.INT64,
-		value:         "2023-01-01T12:00:12.054321",
-		valueOverride: int64(1672574412054),
-		expected:      quickCheckValue[int64],
+		name:                  "Timestamp Without Timezone",
+		oid:                   pgtype.TimestampOID,
+		pgTypeName:            "timestamp",
+		schemaType:            schemamodel.INT64,
+		value:                 "2023-01-01T12:00:12.054321",
+		expectedValueOverride: int64(1672574412054),
+		expected:              quickCheckValue[int64],
 	},
 	{
-		name:              "Timestamp Without Timezone Array",
-		oid:               pgtype.TimestampArrayOID,
-		pgTypeName:        "timestamp[]",
-		schemaType:        schemamodel.ARRAY,
-		elementSchemaType: schemamodel.INT64,
-		value:             "2023-01-01T12:00:12.054321",
-		valueOverride:     int64(1672574412054),
-		expected:          quickCheckValue[int64],
-		missingSupport:    true,
+		name:                  "Timestamp Without Timezone Array",
+		oid:                   pgtype.TimestampArrayOID,
+		pgTypeName:            "timestamp[]",
+		schemaType:            schemamodel.ARRAY,
+		elementSchemaType:     schemamodel.INT64,
+		value:                 []string{"2023-01-01T12:00:12.054321", "2022-01-01T12:00:12.054321"},
+		expectedValueOverride: []int64{1672574412054, 1641038412054},
+		expected:              quickCheckValue[[]int64],
 	},
 	{
-		name:              "Date Array",
-		oid:               pgtype.DateArrayOID,
-		pgTypeName:        "date[]",
-		schemaType:        schemamodel.ARRAY,
-		elementSchemaType: schemamodel.STRING,
-		value:             "2023-01-01T12:00:12.054321",
-		valueOverride:     int64(1672574412054),
-		expected:          quickCheckValue[int64],
-		missingSupport:    true,
+		name:                  "Date Array",
+		oid:                   pgtype.DateArrayOID,
+		pgTypeName:            "date[]",
+		schemaType:            schemamodel.ARRAY,
+		elementSchemaType:     schemamodel.STRING,
+		value:                 "2023-01-01T12:00:12.054321",
+		expectedValueOverride: int64(1672574412054),
+		expected:              quickCheckValue[int64],
+		missingSupport:        true,
 	},
 	{
-		name:              "Time Array",
-		oid:               pgtype.TimeArrayOID,
-		pgTypeName:        "time[]",
-		schemaType:        schemamodel.ARRAY,
-		elementSchemaType: schemamodel.STRING,
-		value:             "2023-01-01T12:00:12.054321",
-		valueOverride:     int64(1672574412054),
-		expected:          quickCheckValue[int64],
-		missingSupport:    true,
+		name:                  "Time Array",
+		oid:                   pgtype.TimeArrayOID,
+		pgTypeName:            "time[]",
+		schemaType:            schemamodel.ARRAY,
+		elementSchemaType:     schemamodel.STRING,
+		value:                 "2023-01-01T12:00:12.054321",
+		expectedValueOverride: int64(1672574412054),
+		expected:              quickCheckValue[int64],
+		missingSupport:        true,
 	},
 	{
-		name:          "Timestamp With Timezone",
-		oid:           pgtype.TimestamptzOID,
-		pgTypeName:    "timestamptz",
-		schemaType:    schemamodel.STRING,
-		value:         "2023-01-01T12:00:12.054321Z07:00",
-		valueOverride: "2023-01-01 19:00:12.054321 +0000 UTC",
-		expected:      quickCheckValue[string],
+		name:                  "Timestamp With Timezone",
+		oid:                   pgtype.TimestamptzOID,
+		pgTypeName:            "timestamptz",
+		schemaType:            schemamodel.STRING,
+		value:                 "2023-01-01T12:00:12.054321Z07:00",
+		expectedValueOverride: "2023-01-01T19:00:12.054321Z",
+		expected:              quickCheckValue[string],
 	},
 	{
-		name:              "Timestamp With Timezone Array",
-		oid:               pgtype.TimestamptzArrayOID,
-		pgTypeName:        "timestamptz[]",
-		schemaType:        schemamodel.ARRAY,
-		elementSchemaType: schemamodel.STRING,
-		value:             "2023-01-01T12:00:12.054321Z07:00",
-		valueOverride:     "2023-01-01 19:00:12.054321 +0000 UTC",
-		expected:          quickCheckValue[string],
-		missingSupport:    true,
+		name:                  "Timestamp With Timezone Array",
+		oid:                   pgtype.TimestamptzArrayOID,
+		pgTypeName:            "timestamptz[]",
+		schemaType:            schemamodel.ARRAY,
+		elementSchemaType:     schemamodel.STRING,
+		value:                 []string{"2023-01-01T12:00:12.054321Z07:00", "2027-03-01T12:01:12.000000Z03:00"},
+		expectedValueOverride: []string{"2023-01-01T19:00:12.054321Z", "2027-03-01T15:01:12Z"},
+		expected:              quickCheckValue[[]string],
 	},
 	{
-		name:          "Interval",
-		oid:           pgtype.IntervalOID,
-		pgTypeName:    "interval",
-		schemaType:    schemamodel.INT64,
-		value:         "interval '12h'",
-		insertPlain:   true,
-		valueOverride: int64(43200000000),
-		expected:      quickCheckValue[int64],
+		name:                  "Interval",
+		oid:                   pgtype.IntervalOID,
+		pgTypeName:            "interval",
+		schemaType:            schemamodel.INT64,
+		value:                 "interval '12h'",
+		insertPlain:           true,
+		expectedValueOverride: int64(43200000000),
+		expected:              quickCheckValue[int64],
 	},
 	{
-		name:           "Interval Array",
-		oid:            pgtype.IntervalArrayOID,
-		pgTypeName:     "interval[]",
-		schemaType:     schemamodel.INT64,
-		value:          "interval '12h'",
-		insertPlain:    true,
-		valueOverride:  int64(12),
-		expected:       quickCheckValue[int64],
-		missingSupport: true,
+		name:                  "Interval Array",
+		oid:                   pgtype.IntervalArrayOID,
+		pgTypeName:            "interval[]",
+		schemaType:            schemamodel.ARRAY,
+		elementSchemaType:     schemamodel.INT64,
+		value:                 "array[interval '12h', interval '6h']::interval[]",
+		insertPlain:           true,
+		expectedValueOverride: []int64{43200000000, 21600000000},
+		expected:              quickCheckValue[[]int64],
 	},
 	{
-		name:           "Numeric Array",
-		oid:            pgtype.NumericArrayOID,
-		pgTypeName:     "numeric[]",
-		schemaType:     schemamodel.INT64,
-		value:          "interval '12h'",
-		valueOverride:  int64(12),
-		expected:       quickCheckValue[int64],
-		missingSupport: true,
+		name:                  "Numeric Array",
+		oid:                   pgtype.NumericArrayOID,
+		pgTypeName:            "numeric[]",
+		schemaType:            schemamodel.INT64,
+		value:                 "interval '12h'",
+		expectedValueOverride: int64(12),
+		expected:              quickCheckValue[int64],
+		missingSupport:        true,
 	},
 	{
-		name:           "Bit",
-		oid:            pgtype.BitOID,
-		pgTypeName:     "bit",
-		schemaType:     schemamodel.BOOLEAN,
-		value:          "B'1'",
-		insertPlain:    true,
-		valueOverride:  true,
-		expected:       quickCheckValue[bool],
-		missingSupport: true,
+		name:                  "Bit",
+		oid:                   pgtype.BitOID,
+		pgTypeName:            "bit",
+		schemaType:            schemamodel.BOOLEAN,
+		value:                 "B'1'",
+		insertPlain:           true,
+		expectedValueOverride: true,
+		expected:              quickCheckValue[bool],
+		missingSupport:        true,
 	},
 	{
-		name:               "Bit Array",
-		oid:                pgtype.BitArrayOID,
-		pgTypeName:         "bit(3)",
-		columnNameOverride: "bits",
-		schemaType:         schemamodel.BYTES,
-		value:              "B'101'",
-		insertPlain:        true,
-		valueOverride:      []byte{0x05},
-		expected:           quickCheckValue[[]byte],
-		missingSupport:     true,
+		name:                  "Bit Array",
+		oid:                   pgtype.BitArrayOID,
+		pgTypeName:            "bit(3)",
+		columnNameOverride:    "bits",
+		schemaType:            schemamodel.BYTES,
+		value:                 "B'101'",
+		insertPlain:           true,
+		expectedValueOverride: []byte{0x05},
+		expected:              quickCheckValue[[]byte],
+		missingSupport:        true,
 	},
 	{
-		name:           "varbit",
-		oid:            pgtype.VarbitOID,
-		pgTypeName:     "bit varying",
-		schemaType:     schemamodel.BYTES,
-		value:          []bool{true, false, true},
-		valueOverride:  true,
-		expected:       quickCheckValue[[]byte],
-		missingSupport: true,
+		name:                  "varbit",
+		oid:                   pgtype.VarbitOID,
+		pgTypeName:            "bit varying",
+		schemaType:            schemamodel.BYTES,
+		value:                 []bool{true, false, true},
+		expectedValueOverride: true,
+		expected:              quickCheckValue[[]byte],
+		missingSupport:        true,
 	},
 	{
-		name:           "varbit Array",
-		oid:            pgtype.VarbitArrayOID,
-		pgTypeName:     "bit varying[]",
-		schemaType:     schemamodel.BYTES,
-		value:          []bool{true, false, true},
-		valueOverride:  true,
-		expected:       quickCheckValue[[]byte],
-		missingSupport: true,
+		name:                  "varbit Array",
+		oid:                   pgtype.VarbitArrayOID,
+		pgTypeName:            "bit varying[]",
+		schemaType:            schemamodel.BYTES,
+		value:                 []bool{true, false, true},
+		expectedValueOverride: true,
+		expected:              quickCheckValue[[]byte],
+		missingSupport:        true,
 	},
 	{
-		name:           "Numeric",
-		oid:            pgtype.NumericOID,
-		pgTypeName:     "numeric",
-		schemaType:     schemamodel.BYTES,
-		value:          "",
-		valueOverride:  true,
-		expected:       quickCheckValue[[]byte],
-		missingSupport: true,
+		name:                  "Numeric",
+		oid:                   pgtype.NumericOID,
+		pgTypeName:            "numeric",
+		schemaType:            schemamodel.BYTES,
+		value:                 "",
+		expectedValueOverride: true,
+		expected:              quickCheckValue[[]byte],
+		missingSupport:        true,
 	},
 	{
 		name:       "UUID",
@@ -735,15 +727,15 @@ var dataTypeTable = []DataTypeTest{
 		expected:   quickCheckValue[string],
 	},
 	{
-		name:              "UUID Array",
-		oid:               pgtype.UUIDArrayOID,
-		pgTypeName:        "uuid[]",
-		schemaType:        schemamodel.ARRAY,
-		elementSchemaType: schemamodel.STRING,
-		value:             "'{\"f6df43de-36ff-40a5-9d81-caf6a79eb3f8\",\"9151519c-a9c9-4550-9e14-3b9860b5edff\"}'::uuid[]",
-		insertPlain:       true,
-		expected:          quickCheckValue[[]string],
-		missingSupport:    true,
+		name:                  "UUID Array",
+		oid:                   pgtype.UUIDArrayOID,
+		pgTypeName:            "uuid[]",
+		schemaType:            schemamodel.ARRAY,
+		elementSchemaType:     schemamodel.STRING,
+		value:                 "'{\"f6df43de-36ff-40a5-9d81-caf6a79eb3f8\",\"9151519c-a9c9-4550-9e14-3b9860b5edff\"}'::uuid[]",
+		insertPlain:           true,
+		expectedValueOverride: []string{"f6df43de-36ff-40a5-9d81-caf6a79eb3f8", "9151519c-a9c9-4550-9e14-3b9860b5edff"},
+		expected:              quickCheckValue[[]string],
 	},
 	{
 		name:       "JSONB",
@@ -754,13 +746,15 @@ var dataTypeTable = []DataTypeTest{
 		expected:   quickCheckValue[string],
 	},
 	{
-		name:           "JSONB Array",
-		oid:            pgtype.JSONBArrayOID,
-		pgTypeName:     "jsonb[]",
-		schemaType:     schemamodel.ARRAY,
-		value:          `{"foo":"bar"}`,
-		expected:       quickCheckValue[string],
-		missingSupport: true,
+		name:                  "JSONB Array",
+		oid:                   pgtype.JSONBArrayOID,
+		pgTypeName:            "jsonb[]",
+		schemaType:            schemamodel.ARRAY,
+		elementSchemaType:     schemamodel.STRING,
+		value:                 `array['{"foo":"bar"}','{"bar":"foo"}']::jsonb[]`,
+		insertPlain:           true,
+		expectedValueOverride: []string{`{"foo":"bar"}`, `{"bar":"foo"}`},
+		expected:              quickCheckValue[[]string],
 	},
 }
 
@@ -868,17 +862,17 @@ func (dtt *DataTypeTestSuite) runDataTypeTest(testCase DataTypeTest) {
 }
 
 type DataTypeTest struct {
-	name               string
-	oid                uint32
-	pgTypeName         string
-	columnNameOverride string
-	schemaType         schemamodel.SchemaType
-	elementSchemaType  schemamodel.SchemaType
-	value              any
-	insertPlain        bool
-	valueOverride      any
-	expected           func(t *testing.T, test DataTypeTest, value any)
-	missingSupport     bool
+	name                  string
+	oid                   uint32
+	pgTypeName            string
+	columnNameOverride    string
+	schemaType            schemamodel.SchemaType
+	elementSchemaType     schemamodel.SchemaType
+	value                 any
+	insertPlain           bool
+	expectedValueOverride any
+	expected              func(t *testing.T, test DataTypeTest, value any)
+	missingSupport        bool
 }
 
 func checkByteArray(t *testing.T, testCase DataTypeTest, value any) {
@@ -903,9 +897,13 @@ func checkValue[T any](t *testing.T, expected, value T) {
 }
 
 func checkType[T any](t *testing.T, value any) T {
+	expectedType := reflect.TypeOf(*new(T))
+	return unwrapType(t, expectedType, value).(T)
+}
+
+func unwrapType(t *testing.T, expectedType reflect.Type, value any) any {
 	// Necessary adjustments due to JSON numbers only being float64
-	rType := reflect.TypeOf(*new(T))
-	switch rType.Kind() {
+	switch expectedType.Kind() {
 	case reflect.Int16:
 		value = int16(value.(float64))
 	case reflect.Int32:
@@ -914,17 +912,43 @@ func checkType[T any](t *testing.T, value any) T {
 		value = int64(value.(float64))
 	case reflect.Float32:
 		value = float32(value.(float64))
+	case reflect.Float64:
+		value = value.(float64)
+	case reflect.String:
+		value = value.(string)
+	case reflect.Bool:
+		value = value.(bool)
+	case reflect.Array:
+	case reflect.Slice:
+		elementType := expectedType.Elem()
+		sliceType := reflect.SliceOf(elementType)
+
+		// Source reflect value
+		sourceValue := reflect.ValueOf(value)
+		sourceLength := sourceValue.Len()
+
+		// Create target slice
+		targetValue := reflect.MakeSlice(sliceType, sourceLength, sourceLength)
+		for i := 0; i < sourceLength; i++ {
+			// Retrieve index value from source
+			sourceIndex := sourceValue.Index(i)
+
+			// Unwrap the source entry
+			v := unwrapType(t, elementType, sourceIndex.Interface())
+
+			// Set in target slice
+			targetValue.Index(i).Set(
+				reflect.ValueOf(v).Convert(elementType),
+			)
+		}
+		value = targetValue.Interface()
 	}
-	v, ok := value.(T)
-	if !ok {
-		t.Errorf("value is of type %s but was expected to be %s", reflect.TypeOf(value), rType)
-	}
-	return v
+	return value
 }
 
 func expectedValue(testCase DataTypeTest) any {
-	if testCase.valueOverride != nil {
-		return testCase.valueOverride
+	if testCase.expectedValueOverride != nil {
+		return testCase.expectedValueOverride
 	}
 	return testCase.value
 }

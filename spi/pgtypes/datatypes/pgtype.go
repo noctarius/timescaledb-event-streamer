@@ -1,38 +1,8 @@
 package datatypes
 
-import "github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
-
-type TypeCategory string
-
-const (
-	Array       TypeCategory = "A"
-	Boolean     TypeCategory = "B"
-	Composite   TypeCategory = "C"
-	DateTime    TypeCategory = "D"
-	Enum        TypeCategory = "E"
-	Geometric   TypeCategory = "G"
-	Network     TypeCategory = "I"
-	Numeric     TypeCategory = "N"
-	Pseudo      TypeCategory = "P"
-	Range       TypeCategory = "R"
-	String      TypeCategory = "S"
-	Timespan    TypeCategory = "T"
-	UserDefined TypeCategory = "D"
-	BitString   TypeCategory = "V"
-	Unknown     TypeCategory = "X"
-	InternalUse TypeCategory = "Z"
-)
-
-type TypeType string
-
-const (
-	BaseType       TypeType = "b"
-	CompositeType  TypeType = "c"
-	DomainType     TypeType = "d"
-	EnumType       TypeType = "e"
-	PseudoType     TypeType = "p"
-	RangeType      TypeType = "r"
-	MultiRangeType TypeType = "m"
+import (
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
+	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 )
 
 // Converter represents a conversion function to convert from
@@ -40,16 +10,16 @@ const (
 // to the stream definition
 type Converter func(oid uint32, value any) (any, error)
 
-type Type struct {
+type pgType struct {
 	name       string
-	typ        TypeType
+	kind       systemcatalog.PgKind
 	oid        uint32
-	category   TypeCategory
+	category   systemcatalog.PgCategory
 	arrayType  bool
-	arrayOid   uint32
-	elementOid uint32
 	recordType bool
-	parentOid  uint32
+	oidArray   uint32
+	oidElement uint32
+	oidParent  uint32
 	modifiers  int
 	enumValues []string
 	delimiter  string
@@ -57,139 +27,144 @@ type Type struct {
 
 	typeManager         *TypeManager
 	schemaBuilder       schemamodel.SchemaBuilder
-	resolvedArrayType   *Type
-	resolvedElementType *Type
-	resolvedParentType  *Type
+	resolvedArrayType   systemcatalog.PgType
+	resolvedElementType systemcatalog.PgType
+	resolvedParentType  systemcatalog.PgType
 }
 
-func NewType(name string, typ TypeType, oid uint32, category TypeCategory, arrayType bool, arrayOid uint32,
-	elementOid uint32, recordType bool, parentOid uint32, modifiers int, enumValues []string, delimiter string) Type {
+func newType(name string, kind systemcatalog.PgKind, oid uint32, category systemcatalog.PgCategory,
+	arrayType bool, recordType bool, oidArray uint32, oidElement uint32, oidParent uint32,
+	modifiers int, enumValues []string, delimiter string) *pgType {
 
-	return Type{
+	return &pgType{
 		name:       name,
-		typ:        typ,
+		kind:       kind,
 		oid:        oid,
 		category:   category,
 		arrayType:  arrayType,
-		arrayOid:   arrayOid,
-		elementOid: elementOid,
 		recordType: recordType,
-		parentOid:  parentOid,
+		oidArray:   oidArray,
+		oidElement: oidElement,
+		oidParent:  oidParent,
 		modifiers:  modifiers,
 		enumValues: enumValues,
 		delimiter:  delimiter,
-		schemaType: getSchemaType(oid, arrayType, typ),
+		schemaType: getSchemaType(oid, arrayType, kind),
 	}
 }
 
-func (t Type) Name() string {
+func (t *pgType) Name() string {
 	return t.name
 }
 
-func (t Type) Typ() TypeType {
-	return t.typ
+func (t *pgType) Kind() systemcatalog.PgKind {
+	return t.kind
 }
 
-func (t Type) Oid() uint32 {
+func (t *pgType) Oid() uint32 {
 	return t.oid
 }
 
-func (t Type) Category() TypeCategory {
+func (t *pgType) Category() systemcatalog.PgCategory {
 	return t.category
 }
 
-func (t Type) IsArray() bool {
+func (t *pgType) IsArray() bool {
 	return t.arrayType
 }
 
-func (t Type) ArrayType() Type {
-	if t.resolvedArrayType == nil {
-		arrayType, err := t.typeManager.DataType(t.arrayOid)
-		if err != nil {
-			panic(err)
-		}
-		t.resolvedArrayType = &arrayType
-	}
-	return *t.resolvedArrayType
-}
-
-func (t Type) ElementType() Type {
-	if t.resolvedElementType == nil {
-		elementType, err := t.typeManager.DataType(t.elementOid)
-		if err != nil {
-			panic(err)
-		}
-		t.resolvedElementType = &elementType
-	}
-	return *t.resolvedElementType
-}
-
-func (t Type) ParentType() Type {
-	if t.resolvedParentType == nil {
-		parentType, err := t.typeManager.DataType(t.parentOid)
-		if err != nil {
-			panic(err)
-		}
-		t.resolvedParentType = &parentType
-	}
-	return *t.resolvedParentType
-}
-
-func (t Type) OidArray() uint32 {
-	return t.arrayOid
-}
-
-func (t Type) OidElement() uint32 {
-	return t.elementOid
-}
-
-func (t Type) IsRecord() bool {
+func (t *pgType) IsRecord() bool {
 	return t.recordType
 }
 
-func (t Type) ParentOid() uint32 {
-	return t.parentOid
+func (t *pgType) ArrayType() systemcatalog.PgType {
+	if t.resolvedArrayType == nil {
+		arrayType, err := t.typeManager.DataType(t.oidArray)
+		if err != nil {
+			panic(err)
+		}
+		t.resolvedArrayType = arrayType
+	}
+	return t.resolvedArrayType
 }
 
-func (t Type) Modifiers() int {
+func (t *pgType) ElementType() systemcatalog.PgType {
+	if t.resolvedElementType == nil {
+		elementType, err := t.typeManager.DataType(t.oidElement)
+		if err != nil {
+			panic(err)
+		}
+		t.resolvedElementType = elementType
+	}
+	return t.resolvedElementType
+}
+
+func (t *pgType) ParentType() systemcatalog.PgType {
+	if t.resolvedParentType == nil {
+		parentType, err := t.typeManager.DataType(t.oidParent)
+		if err != nil {
+			panic(err)
+		}
+		t.resolvedParentType = parentType
+	}
+	return t.resolvedParentType
+}
+
+func (t *pgType) OidArray() uint32 {
+	return t.oidArray
+}
+
+func (t *pgType) OidElement() uint32 {
+	return t.oidElement
+}
+
+func (t *pgType) OidParent() uint32 {
+	return t.oidParent
+}
+
+func (t *pgType) Modifiers() int {
 	return t.modifiers
 }
 
-func (t Type) EnumValues() []string {
+func (t *pgType) EnumValues() []string {
 	if t.enumValues == nil {
 		return []string{}
 	}
 	return t.enumValues
 }
 
-func (t Type) SchemaType() schemamodel.SchemaType {
+func (t *pgType) Delimiter() string {
+	return t.delimiter
+}
+
+func (t *pgType) SchemaType() schemamodel.SchemaType {
 	return t.schemaType
 }
 
-func (t Type) SchemaBuilder() schemamodel.SchemaBuilder {
-	if t.schemaBuilder == nil {
-		t.schemaBuilder = t.typeManager.SchemaBuilder(t.oid)
-	}
+func (t *pgType) SchemaBuilder() schemamodel.SchemaBuilder {
 	return t.schemaBuilder
 }
 
-func (t Type) Equal(other Type) bool {
-	return t.name == other.name &&
-		t.typ == other.typ &&
-		t.oid == other.oid &&
-		t.category == other.category &&
-		t.arrayType == other.arrayType &&
-		t.arrayOid == other.arrayOid &&
-		t.elementOid == other.elementOid &&
-		t.recordType == other.recordType &&
-		t.parentOid == other.parentOid &&
-		t.modifiers == other.modifiers &&
-		t.delimiter == other.delimiter &&
-		t.schemaType == other.schemaType &&
-		stringArrayEqual(t.enumValues, other.enumValues)
+func (t *pgType) Equal(other systemcatalog.PgType) bool {
+	return t.name == other.Name() &&
+		t.kind == other.Kind() &&
+		t.oid == other.Oid() &&
+		t.category == other.Category() &&
+		t.arrayType == other.IsArray() &&
+		t.oidArray == other.OidArray() &&
+		t.oidElement == other.OidElement() &&
+		t.recordType == other.IsRecord() &&
+		t.oidParent == other.OidParent() &&
+		t.modifiers == other.Modifiers() &&
+		t.delimiter == other.Delimiter() &&
+		t.schemaType == other.SchemaType() &&
+		stringArrayEqual(t.enumValues, other.EnumValues())
 }
 
-func (t Type) resolveSchemaBuilder() schemamodel.SchemaBuilder {
+func (t *pgType) resolveSchemaBuilder() schemamodel.SchemaBuilder {
+	if t.IsArray() {
+		return &arraySchemaBuilder{pgType: t}
+	}
 	return nil //FIXME
 }
 

@@ -112,8 +112,7 @@ type TaskManager interface {
 }
 
 type TypeManager interface {
-	DataType(oid uint32) (datatypes.Type, error)
-	SchemaBuilder(oid uint32) schemamodel.SchemaBuilder
+	DataType(oid uint32) (systemcatalog.PgType, error)
 	Converter(oid uint32) (datatypes.Converter, error)
 	NumKnownTypes() int
 }

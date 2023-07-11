@@ -19,13 +19,11 @@ package systemcatalog
 
 import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
-	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes/datatypes"
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
 	"testing"
 )
 
-var fooType = datatypes.NewType(
-	"foo", datatypes.BaseType, 123, datatypes.Numeric, false, 0, 0, false, 0, -1, nil, ",",
-)
+var fooType = &testPgType{}
 
 func TestSchemaDifferences_Added_Column(t *testing.T) {
 	expected := "added: {name:test4 dataType:10 pgType:foo nullable:false primaryKey:false keySeq:<nil> indexName:<nil> replicaIdent:false defaultValue:<nil> dimension:false dimAligned:false dimType:<nil> dimSeq:<nil>}"
@@ -169,4 +167,79 @@ func TestSchemaDifferences_Dropped_Last_Column(t *testing.T) {
 		t.Fatalf("change was supposed to be '%s' but was '%s'", expected, d)
 	}
 	t.Fatalf("should have a difference for key 'test3' but doesn't")
+}
+
+type testPgType struct {
+}
+
+func (t *testPgType) Name() string {
+	return "foo"
+}
+
+func (t *testPgType) Kind() PgKind {
+	return BaseKind
+}
+
+func (t *testPgType) Oid() uint32 {
+	return 123
+}
+
+func (t *testPgType) Category() PgCategory {
+	return Numeric
+}
+
+func (t *testPgType) IsArray() bool {
+	return false
+}
+
+func (t *testPgType) IsRecord() bool {
+	return false
+}
+
+func (t *testPgType) ArrayType() PgType {
+	return nil
+}
+
+func (t *testPgType) ElementType() PgType {
+	return nil
+}
+
+func (t *testPgType) ParentType() PgType {
+	return nil
+}
+
+func (t *testPgType) OidArray() uint32 {
+	return 0
+}
+
+func (t *testPgType) OidElement() uint32 {
+	return 0
+}
+
+func (t *testPgType) OidParent() uint32 {
+	return 0
+}
+
+func (t *testPgType) Modifiers() int {
+	return -1
+}
+
+func (t *testPgType) EnumValues() []string {
+	return nil
+}
+
+func (t *testPgType) Delimiter() string {
+	return ","
+}
+
+func (t *testPgType) SchemaType() schemamodel.SchemaType {
+	return schemamodel.INT16
+}
+
+func (t *testPgType) SchemaBuilder() schemamodel.SchemaBuilder {
+	return nil
+}
+
+func (t *testPgType) Equal(_ PgType) bool {
+	return true
 }

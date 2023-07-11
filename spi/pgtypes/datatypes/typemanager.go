@@ -7,15 +7,17 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
+	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"sync"
 )
 
-type TypeFactory func(name string, typ TypeType, oid uint32, category TypeCategory, arrayType bool, oidArray uint32,
-	oidElement uint32, recordType bool, parentOid uint32, modifiers int, enumValues []string, delimiter string) Type
+type TypeFactory func(name string, kind systemcatalog.PgKind, oid uint32, category systemcatalog.PgCategory,
+	arrayType bool, recordType bool, oidArray uint32, oidElement uint32, oidParent uint32,
+	modifiers int, enumValues []string, delimiter string) systemcatalog.PgType
 
 type TypeResolver interface {
-	ReadPgTypes(factory TypeFactory, callback func(Type) error) error
-	ReadPgType(oid uint32, factory TypeFactory) (Type, bool, error)
+	ReadPgTypes(factory TypeFactory, callback func(systemcatalog.PgType) error) error
+	ReadPgType(oid uint32, factory TypeFactory) (systemcatalog.PgType, bool, error)
 }
 
 var coreTypes = map[uint32]schemamodel.SchemaType{
@@ -51,35 +53,51 @@ var coreTypes = map[uint32]schemamodel.SchemaType{
 }
 
 var converters = map[uint32]Converter{
-	pgtype.BoolOID:        nil,
-	pgtype.Int2OID:        nil,
-	pgtype.Int4OID:        nil,
-	pgtype.Int8OID:        nil,
-	pgtype.Float4OID:      nil,
-	pgtype.Float8OID:      nil,
-	pgtype.BPCharOID:      nil,
-	pgtype.QCharOID:       char2text,
-	pgtype.VarcharOID:     nil,
-	pgtype.TextOID:        nil,
-	pgtype.TimestampOID:   timestamp2int64,
-	pgtype.TimestamptzOID: timestamp2text,
-	pgtype.IntervalOID:    interval2int64,
-	pgtype.ByteaOID:       nil,
-	pgtype.JSONOID:        json2text,
-	pgtype.JSONBOID:       json2text,
-	pgtype.UUIDOID:        uuid2text,
-	pgtype.NameOID:        nil,
-	pgtype.OIDOID:         uint322int64,
-	pgtype.TIDOID:         uint322int64,
-	pgtype.XIDOID:         uint322int64,
-	pgtype.CIDOID:         uint322int64,
-	pgtype.CIDROID:        addr2text,
-	pgtype.MacaddrOID:     macaddr2text,
-	774:                   macaddr2text, // macaddr8
-	pgtype.InetOID:        addr2text,
-	pgtype.DateOID:        timestamp2text,
-	pgtype.TimeOID:        time2text,
-	pgtype.NumericOID:     numeric2variableScaleDecimal,
+	pgtype.BoolOID:             nil,
+	pgtype.BoolArrayOID:        nil,
+	pgtype.Int2OID:             nil,
+	pgtype.Int2ArrayOID:        nil,
+	pgtype.Int4OID:             nil,
+	pgtype.Int4ArrayOID:        nil,
+	pgtype.Int8OID:             nil,
+	pgtype.Int8ArrayOID:        nil,
+	pgtype.Float4OID:           nil,
+	pgtype.Float4ArrayOID:      nil,
+	pgtype.Float8OID:           nil,
+	pgtype.Float8ArrayOID:      nil,
+	pgtype.BPCharOID:           nil,
+	pgtype.QCharOID:            char2text,
+	pgtype.VarcharOID:          nil,
+	pgtype.VarcharArrayOID:     nil,
+	pgtype.TextOID:             nil,
+	pgtype.TextArrayOID:        nil,
+	pgtype.TimestampOID:        timestamp2int64,
+	pgtype.TimestampArrayOID:   arrayConverter[[]int64](pgtype.TimestampOID, timestamp2int64),
+	pgtype.TimestamptzOID:      timestamp2text,
+	pgtype.TimestamptzArrayOID: arrayConverter[[]string](pgtype.TimestamptzOID, timestamp2text),
+	pgtype.IntervalOID:         interval2int64,
+	pgtype.IntervalArrayOID:    arrayConverter[[]int64](pgtype.IntervalOID, interval2int64),
+	pgtype.ByteaOID:            nil,
+	pgtype.JSONOID:             json2text,
+	pgtype.JSONArrayOID:        arrayConverter[[]string](pgtype.JSONOID, json2text),
+	pgtype.JSONBOID:            json2text,
+	pgtype.JSONBArrayOID:       arrayConverter[[]string](pgtype.JSONBOID, json2text),
+	pgtype.UUIDOID:             uuid2text,
+	pgtype.UUIDArrayOID:        arrayConverter[[]string](pgtype.UUIDOID, uuid2text),
+	pgtype.NameOID:             nil,
+	pgtype.NameArrayOID:        nil,
+	pgtype.OIDOID:              uint322int64,
+	pgtype.TIDOID:              uint322int64,
+	pgtype.XIDOID:              uint322int64,
+	pgtype.CIDOID:              uint322int64,
+	pgtype.CIDROID:             addr2text,
+	pgtype.MacaddrOID:          macaddr2text,
+	774:                        macaddr2text, // macaddr8
+	pgtype.InetOID:             addr2text,
+	pgtype.DateOID:             timestamp2text,
+	pgtype.TimeOID:             time2text,
+	pgtype.NumericOID:          numeric2variableScaleDecimal,
+	//1002:                   arrayConverter[[]string](pgtype.QCharOID, char2text), // QCharArrayOID
 }
 
 var optimizedTypes = []string{
@@ -93,9 +111,9 @@ var ErrIllegalValue = fmt.Errorf("illegal value for data type conversion")
 type TypeManager struct {
 	logger              *logging.Logger
 	typeResolver        TypeResolver
-	typeCache           map[uint32]Type
+	typeCache           map[uint32]systemcatalog.PgType
 	typeCacheMutex      sync.Mutex
-	optimizedTypes      map[uint32]Type
+	optimizedTypes      map[uint32]systemcatalog.PgType
 	optimizedConverters map[uint32]Converter
 }
 
@@ -108,9 +126,9 @@ func NewTypeManager(typeResolver TypeResolver) (*TypeManager, error) {
 	typeManager := &TypeManager{
 		logger:              logger,
 		typeResolver:        typeResolver,
-		typeCache:           make(map[uint32]Type),
+		typeCache:           make(map[uint32]systemcatalog.PgType),
 		typeCacheMutex:      sync.Mutex{},
-		optimizedTypes:      make(map[uint32]Type),
+		optimizedTypes:      make(map[uint32]systemcatalog.PgType),
 		optimizedConverters: make(map[uint32]Converter),
 	}
 
@@ -124,12 +142,12 @@ func (tm *TypeManager) initialize() error {
 	tm.typeCacheMutex.Lock()
 	defer tm.typeCacheMutex.Unlock()
 
-	if err := tm.typeResolver.ReadPgTypes(tm.typeFactory, func(typ Type) error {
+	if err := tm.typeResolver.ReadPgTypes(tm.typeFactory, func(typ systemcatalog.PgType) error {
 		tm.typeCache[typ.Oid()] = typ
 
-		if supporting.IndexOf(optimizedTypes, typ.name) != -1 {
-			tm.optimizedTypes[typ.oid] = typ
-			tm.optimizedConverters[typ.oid] = nil // FIXME
+		if supporting.IndexOf(optimizedTypes, typ.Name()) != -1 {
+			tm.optimizedTypes[typ.Oid()] = typ
+			tm.optimizedConverters[typ.Oid()] = nil // FIXME
 		}
 
 		return nil
@@ -139,12 +157,12 @@ func (tm *TypeManager) initialize() error {
 	return nil
 }
 
-func (tm *TypeManager) typeFactory(name string, typ TypeType, oid uint32, category TypeCategory,
-	arrayType bool, oidArray uint32, oidElement uint32, recordType bool, parentOid uint32, modifiers int,
-	enumValues []string, delimiter string) Type {
+func (tm *TypeManager) typeFactory(name string, kind systemcatalog.PgKind, oid uint32,
+	category systemcatalog.PgCategory, arrayType bool, recordType bool, oidArray uint32, oidElement uint32,
+	oidParent uint32, modifiers int, enumValues []string, delimiter string) systemcatalog.PgType {
 
-	pgType := NewType(name, typ, oid, category, arrayType, oidArray, oidElement,
-		recordType, parentOid, modifiers, enumValues, delimiter)
+	pgType := newType(name, kind, oid, category, arrayType, recordType, oidArray,
+		oidElement, oidParent, modifiers, enumValues, delimiter)
 
 	pgType.typeManager = tm
 	pgType.schemaBuilder = resolveSchemaBuilder(pgType)
@@ -152,7 +170,7 @@ func (tm *TypeManager) typeFactory(name string, typ TypeType, oid uint32, catego
 	return pgType
 }
 
-func (tm *TypeManager) DataType(oid uint32) (Type, error) {
+func (tm *TypeManager) DataType(oid uint32) (systemcatalog.PgType, error) {
 	tm.typeCacheMutex.Lock()
 	defer tm.typeCacheMutex.Unlock()
 
@@ -164,21 +182,15 @@ func (tm *TypeManager) DataType(oid uint32) (Type, error) {
 
 	dataType, found, err := tm.typeResolver.ReadPgType(oid, tm.typeFactory)
 	if err != nil {
-		return Type{}, err
+		return nil, err
 	}
 
 	if !found {
-		return Type{}, errors.Errorf("illegal oid: %d", oid)
+		return nil, errors.Errorf("illegal oid: %d", oid)
 	}
 
 	tm.typeCache[oid] = dataType
 	return dataType, nil
-}
-
-func (tm *TypeManager) SchemaBuilder(oid uint32) schemamodel.SchemaBuilder {
-
-	//TODO implement me
-	panic("implement me")
 }
 
 func (tm *TypeManager) Converter(oid uint32) (Converter, error) {
@@ -197,19 +209,19 @@ func (tm *TypeManager) NumKnownTypes() int {
 	return len(tm.typeCache)
 }
 
-func getSchemaType(oid uint32, arrayType bool, typType TypeType) schemamodel.SchemaType {
+func getSchemaType(oid uint32, arrayType bool, kind systemcatalog.PgKind) schemamodel.SchemaType {
 	if coreType, present := coreTypes[oid]; present {
 		return coreType
 	}
 	if arrayType {
 		return schemamodel.ARRAY
-	} else if typType == EnumType {
+	} else if kind == systemcatalog.EnumKind {
 		return schemamodel.STRING
 	}
 	return schemamodel.STRUCT
 }
 
-func resolveSchemaBuilder(pgType Type) schemamodel.SchemaBuilder {
+func resolveSchemaBuilder(pgType *pgType) schemamodel.SchemaBuilder {
 	switch pgType.schemaType {
 	case schemamodel.INT8:
 		return schemamodel.Int8()
@@ -233,7 +245,7 @@ func resolveSchemaBuilder(pgType Type) schemamodel.SchemaBuilder {
 }
 
 type lazySchemaBuilder struct {
-	pgType        Type
+	pgType        *pgType
 	schemaBuilder schemamodel.SchemaBuilder
 }
 
@@ -241,9 +253,9 @@ func (l *lazySchemaBuilder) BaseSchemaType() schemamodel.SchemaType {
 	return l.pgType.schemaType
 }
 
-func (l *lazySchemaBuilder) Schema() schemamodel.Struct {
+func (l *lazySchemaBuilder) Schema(column schemamodel.ColumnDescriptor) schemamodel.Struct {
 	if l.schemaBuilder == nil {
 		l.schemaBuilder = l.pgType.resolveSchemaBuilder()
 	}
-	return l.schemaBuilder.Schema()
+	return l.schemaBuilder.Schema(column)
 }

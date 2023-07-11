@@ -2,7 +2,20 @@ package schemamodel
 
 type SchemaBuilder interface {
 	BaseSchemaType() SchemaType
-	Schema() Struct
+	Schema(column ColumnDescriptor) Struct
+}
+
+type ColumnDescriptor interface {
+	Name() string
+	DataType() uint32
+	IsNullable() bool
+	IsPrimaryKey() bool
+	IsReplicaIdent() bool
+	DefaultValue() *string
+	IsDimension() bool
+	IsDimensionAligned() bool
+	DimensionType() *string
+	String() string
 }
 
 var (
@@ -56,6 +69,6 @@ func (s *simpleTypeSchemaBuilder) BaseSchemaType() SchemaType {
 	return s.baseSchemaType
 }
 
-func (s *simpleTypeSchemaBuilder) Schema() Struct {
+func (s *simpleTypeSchemaBuilder) Schema(_ ColumnDescriptor) Struct {
 	return nil
 }
