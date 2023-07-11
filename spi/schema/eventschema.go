@@ -398,7 +398,7 @@ func column2field(colum systemcatalog.Column) schemamodel.Struct {
 	}
 
 	if pgType.IsArray() {
-
+		field[schemamodel.FieldNameFields] = schemaBuilder.Schema()
 	} else if pgType.IsRecord() {
 		//todo: not yet supported
 		panic("not yet implemented")

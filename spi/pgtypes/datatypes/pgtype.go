@@ -189,7 +189,7 @@ func (t Type) Equal(other Type) bool {
 		stringArrayEqual(t.enumValues, other.enumValues)
 }
 
-func (t Type) resolveSchemaBuilder(oid uint32, modifier int) schemamodel.SchemaBuilder {
+func (t Type) resolveSchemaBuilder() schemamodel.SchemaBuilder {
 	return nil //FIXME
 }
 

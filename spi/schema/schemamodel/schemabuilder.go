@@ -2,7 +2,7 @@ package schemamodel
 
 type SchemaBuilder interface {
 	BaseSchemaType() SchemaType
-	Schema(oid uint32, modifier int) Struct
+	Schema() Struct
 }
 
 var (
@@ -56,6 +56,6 @@ func (s *simpleTypeSchemaBuilder) BaseSchemaType() SchemaType {
 	return s.baseSchemaType
 }
 
-func (s *simpleTypeSchemaBuilder) Schema(_ uint32, _ int) Struct {
+func (s *simpleTypeSchemaBuilder) Schema() Struct {
 	return nil
 }

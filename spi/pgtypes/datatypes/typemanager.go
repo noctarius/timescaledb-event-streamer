@@ -241,9 +241,9 @@ func (l *lazySchemaBuilder) BaseSchemaType() schemamodel.SchemaType {
 	return l.pgType.schemaType
 }
 
-func (l *lazySchemaBuilder) Schema(oid uint32, modifier int) schemamodel.Struct {
+func (l *lazySchemaBuilder) Schema() schemamodel.Struct {
 	if l.schemaBuilder == nil {
-		l.schemaBuilder = l.pgType.resolveSchemaBuilder(oid, modifier)
+		l.schemaBuilder = l.pgType.resolveSchemaBuilder()
 	}
-	return l.schemaBuilder.Schema(oid, modifier)
+	return l.schemaBuilder.Schema()
 }

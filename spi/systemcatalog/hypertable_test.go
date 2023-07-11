@@ -24,7 +24,7 @@ import (
 )
 
 var fooType = datatypes.NewType(
-	"foo", datatypes.BaseType, 123, datatypes.Numeric, false, 0, 0, false, 0, -1, nil, ",", datatypes.INT64,
+	"foo", datatypes.BaseType, 123, datatypes.Numeric, false, 0, 0, false, 0, -1, nil, ",",
 )
 
 func TestSchemaDifferences_Added_Column(t *testing.T) {
