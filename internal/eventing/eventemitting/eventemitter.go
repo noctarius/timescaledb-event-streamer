@@ -29,6 +29,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
 	"github.com/noctarius/timescaledb-event-streamer/spi/sink"
 	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
@@ -88,28 +89,28 @@ func (ee *EventEmitter) NewEventHandler() eventhandlers.BaseReplicationEventHand
 	}
 }
 
-func (ee *EventEmitter) envelopeSchema(hypertable *systemcatalog.Hypertable) schema.Struct {
+func (ee *EventEmitter) envelopeSchema(hypertable *systemcatalog.Hypertable) schemamodel.Struct {
 	schemaTopicName := ee.schemaManager.HypertableEnvelopeSchemaName(hypertable)
-	return ee.schemaManager.GetSchemaOrCreate(schemaTopicName, func() schema.Struct {
+	return ee.schemaManager.GetSchemaOrCreate(schemaTopicName, func() schemamodel.Struct {
 		return schema.EnvelopeSchema(ee.schemaManager, ee.schemaManager, hypertable)
 	})
 }
 
-func (ee *EventEmitter) envelopeMessageSchema() schema.Struct {
+func (ee *EventEmitter) envelopeMessageSchema() schemamodel.Struct {
 	schemaTopicName := ee.schemaManager.MessageEnvelopeSchemaName()
-	return ee.schemaManager.GetSchemaOrCreate(schemaTopicName, func() schema.Struct {
+	return ee.schemaManager.GetSchemaOrCreate(schemaTopicName, func() schemamodel.Struct {
 		return schema.EnvelopeMessageSchema(ee.schemaManager, ee.schemaManager)
 	})
 }
 
-func (ee *EventEmitter) keySchema(hypertable *systemcatalog.Hypertable) schema.Struct {
+func (ee *EventEmitter) keySchema(hypertable *systemcatalog.Hypertable) schemamodel.Struct {
 	schemaTopicName := ee.schemaManager.HypertableKeySchemaName(hypertable)
-	return ee.schemaManager.GetSchemaOrCreate(schemaTopicName, func() schema.Struct {
+	return ee.schemaManager.GetSchemaOrCreate(schemaTopicName, func() schemamodel.Struct {
 		return schema.KeySchema(hypertable, ee.schemaManager)
 	})
 }
 
-func (ee *EventEmitter) emit(xld pgtypes.XLogData, eventTopicName string, key, envelope schema.Struct) error {
+func (ee *EventEmitter) emit(xld pgtypes.XLogData, eventTopicName string, key, envelope schemamodel.Struct) error {
 	// Retryable operation
 	operation := func() error {
 		ee.logger.Tracef("Publishing event: %+v", envelope)
@@ -145,10 +146,10 @@ func (e *eventEmitterEventHandler) OnReadEvent(lsn pgtypes.LSN, hypertable *syst
 	}
 
 	return e.emit0(xld, true, hypertable,
-		func(source schema.Struct) schema.Struct {
+		func(source schemamodel.Struct) schemamodel.Struct {
 			return schema.ReadEvent(cnValues, source)
 		},
-		func() (schema.Struct, error) {
+		func() (schemamodel.Struct, error) {
 			return e.hypertableEventKey(hypertable, newValues)
 		},
 	)
@@ -163,10 +164,10 @@ func (e *eventEmitterEventHandler) OnInsertEvent(xld pgtypes.XLogData, hypertabl
 	}
 
 	return e.emit(xld, hypertable,
-		func(source schema.Struct) schema.Struct {
+		func(source schemamodel.Struct) schemamodel.Struct {
 			return schema.CreateEvent(cnValues, source)
 		},
-		func() (schema.Struct, error) {
+		func() (schemamodel.Struct, error) {
 			return e.hypertableEventKey(hypertable, newValues)
 		},
 	)
@@ -185,10 +186,10 @@ func (e *eventEmitterEventHandler) OnUpdateEvent(xld pgtypes.XLogData, hypertabl
 	}
 
 	return e.emit(xld, hypertable,
-		func(source schema.Struct) schema.Struct {
+		func(source schemamodel.Struct) schemamodel.Struct {
 			return schema.UpdateEvent(coValues, cnValues, source)
 		},
-		func() (schema.Struct, error) {
+		func() (schemamodel.Struct, error) {
 			return e.hypertableEventKey(hypertable, newValues)
 		},
 	)
@@ -203,10 +204,10 @@ func (e *eventEmitterEventHandler) OnDeleteEvent(xld pgtypes.XLogData, hypertabl
 	}
 
 	return e.emit(xld, hypertable,
-		func(source schema.Struct) schema.Struct {
+		func(source schemamodel.Struct) schemamodel.Struct {
 			return schema.DeleteEvent(coValues, source, tombstone)
 		},
-		func() (schema.Struct, error) {
+		func() (schemamodel.Struct, error) {
 			return e.hypertableEventKey(hypertable, oldValues)
 		},
 	)
@@ -214,17 +215,17 @@ func (e *eventEmitterEventHandler) OnDeleteEvent(xld pgtypes.XLogData, hypertabl
 
 func (e *eventEmitterEventHandler) OnTruncateEvent(xld pgtypes.XLogData, hypertable *systemcatalog.Hypertable) error {
 	return e.emit(xld, hypertable,
-		func(source schema.Struct) schema.Struct {
+		func(source schemamodel.Struct) schemamodel.Struct {
 			return schema.TruncateEvent(source)
 		},
-		func() (schema.Struct, error) {
+		func() (schemamodel.Struct, error) {
 			return nil, nil
 		},
 	)
 }
 
 func (e *eventEmitterEventHandler) OnMessageEvent(xld pgtypes.XLogData, msg *pgtypes.LogicalReplicationMessage) error {
-	return e.emitMessageEvent(xld, msg, func(source schema.Struct) schema.Struct {
+	return e.emitMessageEvent(xld, msg, func(source schemamodel.Struct) schemamodel.Struct {
 		content := base64.StdEncoding.EncodeToString(msg.Content)
 		return schema.MessageEvent(msg.Prefix, content, source)
 	})
@@ -234,10 +235,10 @@ func (e *eventEmitterEventHandler) OnChunkCompressedEvent(
 	xld pgtypes.XLogData, hypertable *systemcatalog.Hypertable, _ *systemcatalog.Chunk) error {
 
 	return e.emit(xld, hypertable,
-		func(source schema.Struct) schema.Struct {
+		func(source schemamodel.Struct) schemamodel.Struct {
 			return schema.CompressionEvent(source)
 		},
-		func() (schema.Struct, error) {
+		func() (schemamodel.Struct, error) {
 			return e.timescaleEventKey(hypertable)
 		},
 	)
@@ -247,10 +248,10 @@ func (e *eventEmitterEventHandler) OnChunkDecompressedEvent(
 	xld pgtypes.XLogData, hypertable *systemcatalog.Hypertable, _ *systemcatalog.Chunk) error {
 
 	return e.emit(xld, hypertable,
-		func(source schema.Struct) schema.Struct {
+		func(source schemamodel.Struct) schemamodel.Struct {
 			return schema.DecompressionEvent(source)
 		},
-		func() (schema.Struct, error) {
+		func() (schemamodel.Struct, error) {
 			return e.timescaleEventKey(hypertable)
 		},
 	)
@@ -285,14 +286,15 @@ func (e *eventEmitterEventHandler) OnTransactionFinishedEvent(xld pgtypes.XLogDa
 }
 
 func (e *eventEmitterEventHandler) emit(xld pgtypes.XLogData, hypertable *systemcatalog.Hypertable,
-	eventProvider func(source schema.Struct) schema.Struct, keyProvider func() (schema.Struct, error)) error {
+	eventProvider func(source schemamodel.Struct) schemamodel.Struct, keyProvider func() (schemamodel.Struct, error),
+) error {
 
 	return e.emit0(xld, false, hypertable, eventProvider, keyProvider)
 }
 
 func (e *eventEmitterEventHandler) emit0(xld pgtypes.XLogData, snapshot bool,
-	hypertable *systemcatalog.Hypertable, eventProvider func(source schema.Struct) schema.Struct,
-	keyProvider func() (schema.Struct, error)) error {
+	hypertable *systemcatalog.Hypertable, eventProvider func(source schemamodel.Struct) schemamodel.Struct,
+	keyProvider func() (schemamodel.Struct, error)) error {
 
 	envelopeSchema := e.eventEmitter.envelopeSchema(hypertable)
 	eventTopicName := e.eventEmitter.schemaManager.EventTopicName(hypertable)
@@ -322,7 +324,7 @@ func (e *eventEmitterEventHandler) emit0(xld pgtypes.XLogData, snapshot bool,
 }
 
 func (e *eventEmitterEventHandler) emitMessageEvent(xld pgtypes.XLogData,
-	msg *pgtypes.LogicalReplicationMessage, eventProvider func(source schema.Struct) schema.Struct) error {
+	msg *pgtypes.LogicalReplicationMessage, eventProvider func(source schemamodel.Struct) schemamodel.Struct) error {
 
 	timestamp := time.Now()
 	if msg.IsTransactional() {
@@ -349,7 +351,7 @@ func (e *eventEmitterEventHandler) emitMessageEvent(xld pgtypes.XLogData,
 }
 
 func (e *eventEmitterEventHandler) hypertableEventKey(
-	hypertable *systemcatalog.Hypertable, values map[string]any) (schema.Struct, error) {
+	hypertable *systemcatalog.Hypertable, values map[string]any) (schemamodel.Struct, error) {
 
 	columns := make([]systemcatalog.Column, 0)
 	for _, column := range hypertable.Columns() {
@@ -361,7 +363,7 @@ func (e *eventEmitterEventHandler) hypertableEventKey(
 	return e.convertColumnValues(columns, values)
 }
 
-func (e *eventEmitterEventHandler) timescaleEventKey(hypertable *systemcatalog.Hypertable) (schema.Struct, error) {
+func (e *eventEmitterEventHandler) timescaleEventKey(hypertable *systemcatalog.Hypertable) (schemamodel.Struct, error) {
 	return schema.TimescaleKey(hypertable.SchemaName(), hypertable.TableName()), nil
 }
 

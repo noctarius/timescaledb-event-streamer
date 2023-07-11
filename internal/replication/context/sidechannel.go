@@ -893,9 +893,8 @@ func (sc *sideChannelImpl) scanPgType(row pgx.Row, factory datatypes.TypeFactory
 		return datatypes.Type{}, false, errors.Wrap(err, 0)
 	}
 
-	schemaType := datatypes.GetSchemaType(oid, arrayType, datatypes.TypeType(typ))
 	return factory(name, datatypes.TypeType(typ), oid, datatypes.TypeCategory(category), arrayType,
-		oidArray, oidElem, recordType, parentOid, modifiers, enumValues, string(delimiter), schemaType,
+		oidArray, oidElem, recordType, parentOid, modifiers, enumValues, string(delimiter),
 	), true, nil
 }
 

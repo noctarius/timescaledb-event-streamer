@@ -72,12 +72,15 @@ type Type struct {
 	delimiter  string
 	schemaType SchemaType
 
-	typeManager *TypeManager
+	typeManager         *TypeManager
+	schemaBuilder       SchemaBuilder
+	resolvedArrayType   *Type
+	resolvedElementType *Type
+	resolvedParentType  *Type
 }
 
 func NewType(name string, typ TypeType, oid uint32, category TypeCategory, arrayType bool, arrayOid uint32,
-	elementOid uint32, recordType bool, parentOid uint32, modifiers int, enumValues []string, delimiter string,
-	schemaType SchemaType) Type {
+	elementOid uint32, recordType bool, parentOid uint32, modifiers int, enumValues []string, delimiter string) Type {
 
 	return Type{
 		name:       name,
@@ -92,7 +95,7 @@ func NewType(name string, typ TypeType, oid uint32, category TypeCategory, array
 		modifiers:  modifiers,
 		enumValues: enumValues,
 		delimiter:  delimiter,
-		schemaType: schemaType,
+		schemaType: getSchemaType(oid, arrayType, typ),
 	}
 }
 
@@ -117,27 +120,36 @@ func (t Type) IsArray() bool {
 }
 
 func (t Type) ArrayType() Type {
-	arrayType, err := t.typeManager.DataType(t.arrayOid)
-	if err != nil {
-		panic(err)
+	if t.resolvedArrayType == nil {
+		arrayType, err := t.typeManager.DataType(t.arrayOid)
+		if err != nil {
+			panic(err)
+		}
+		t.resolvedArrayType = &arrayType
 	}
-	return arrayType
+	return *t.resolvedArrayType
 }
 
 func (t Type) ElementType() Type {
-	elementType, err := t.typeManager.DataType(t.elementOid)
-	if err != nil {
-		panic(err)
+	if t.resolvedElementType == nil {
+		elementType, err := t.typeManager.DataType(t.elementOid)
+		if err != nil {
+			panic(err)
+		}
+		t.resolvedElementType = &elementType
 	}
-	return elementType
+	return *t.resolvedElementType
 }
 
 func (t Type) ParentType() Type {
-	parentType, err := t.typeManager.DataType(t.parentOid)
-	if err != nil {
-		panic(err)
+	if t.resolvedParentType == nil {
+		parentType, err := t.typeManager.DataType(t.parentOid)
+		if err != nil {
+			panic(err)
+		}
+		t.resolvedParentType = &parentType
 	}
-	return parentType
+	return *t.resolvedParentType
 }
 
 func (t Type) OidArray() uint32 {
@@ -171,6 +183,13 @@ func (t Type) SchemaType() SchemaType {
 	return t.schemaType
 }
 
+func (t Type) SchemaBuilder() SchemaBuilder {
+	if t.schemaBuilder == nil {
+		t.schemaBuilder = t.typeManager.SchemaBuilder(t.oid)
+	}
+	return t.schemaBuilder
+}
+
 func (t Type) Equal(other Type) bool {
 	return t.name == other.name &&
 		t.typ == other.typ &&
@@ -187,8 +206,7 @@ func (t Type) Equal(other Type) bool {
 		stringArrayEqual(t.enumValues, other.enumValues)
 }
 
-// GetSchemaType returns the DataType for a given OID.
-func GetSchemaType(oid uint32, arrayType bool, typType TypeType) SchemaType {
+func getSchemaType(oid uint32, arrayType bool, typType TypeType) SchemaType {
 	if coreType, present := coreTypes[oid]; present {
 		return coreType
 	}

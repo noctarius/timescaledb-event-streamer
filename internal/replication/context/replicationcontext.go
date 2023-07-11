@@ -32,6 +32,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes/datatypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
 	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/topic/namingstrategy"
@@ -654,15 +655,15 @@ func (sm *schemaManager) MessageTopicName() string {
 	return sm.namingStrategy.MessageTopicName(sm.topicPrefix)
 }
 
-func (sm *schemaManager) RegisterSchema(schemaName string, schema schema.Struct) {
+func (sm *schemaManager) RegisterSchema(schemaName string, schema schemamodel.Struct) {
 	sm.schemaRegistry.RegisterSchema(schemaName, schema)
 }
 
-func (sm *schemaManager) GetSchema(schemaName string) schema.Struct {
+func (sm *schemaManager) GetSchema(schemaName string) schemamodel.Struct {
 	return sm.schemaRegistry.GetSchema(schemaName)
 }
 
-func (sm *schemaManager) GetSchemaOrCreate(schemaName string, creator func() schema.Struct) schema.Struct {
+func (sm *schemaManager) GetSchemaOrCreate(schemaName string, creator func() schemamodel.Struct) schemamodel.Struct {
 	return sm.schemaRegistry.GetSchemaOrCreate(schemaName, creator)
 }
 

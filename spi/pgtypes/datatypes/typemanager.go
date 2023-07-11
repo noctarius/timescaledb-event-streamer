@@ -1,6 +1,7 @@
 package datatypes
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"github.com/go-errors/errors"
@@ -8,15 +9,20 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
 	"net"
 	"net/netip"
 	"sync"
 	"time"
 )
 
+type SchemaBuilder interface {
+	BaseSchemaType() SchemaType
+	Schema(oid uint32, modifier int, value any) schemamodel.Struct
+}
+
 type TypeFactory func(name string, typ TypeType, oid uint32, category TypeCategory, arrayType bool, oidArray uint32,
-	oidElement uint32, recordType bool, parentOid uint32, modifiers int, enumValues []string, delimiter string,
-	schemaType SchemaType) Type
+	oidElement uint32, recordType bool, parentOid uint32, modifiers int, enumValues []string, delimiter string) Type
 
 type TypeResolver interface {
 	ReadPgTypes(factory TypeFactory, callback func(Type) error) error
@@ -52,6 +58,7 @@ var coreTypes = map[uint32]SchemaType{
 	pgtype.InetOID:        STRING,
 	pgtype.DateOID:        STRING,
 	pgtype.TimeOID:        STRING,
+	pgtype.NumericOID:     STRUCT,
 }
 
 var converters = map[uint32]Converter{
@@ -83,6 +90,7 @@ var converters = map[uint32]Converter{
 	pgtype.InetOID:        addr2text,
 	pgtype.DateOID:        timestamp2text,
 	pgtype.TimeOID:        time2text,
+	pgtype.NumericOID:     numeric2variableScaleDecimal,
 }
 
 var optimizedTypes = []string{
@@ -144,10 +152,10 @@ func (tm *TypeManager) initialize() error {
 
 func (tm *TypeManager) typeFactory(name string, typ TypeType, oid uint32, category TypeCategory,
 	arrayType bool, oidArray uint32, oidElement uint32, recordType bool, parentOid uint32, modifiers int,
-	enumValues []string, delimiter string, schemaType SchemaType) Type {
+	enumValues []string, delimiter string) Type {
 
 	nType := NewType(name, typ, oid, category, arrayType, oidArray, oidElement,
-		recordType, parentOid, modifiers, enumValues, delimiter, schemaType)
+		recordType, parentOid, modifiers, enumValues, delimiter)
 
 	nType.typeManager = tm
 	return nType
@@ -176,7 +184,7 @@ func (tm *TypeManager) DataType(oid uint32) (Type, error) {
 	return dataType, nil
 }
 
-func (tm *TypeManager) SchemaBuilder() {
+func (tm *TypeManager) SchemaBuilder(oid uint32) SchemaBuilder {
 	//TODO implement me
 	panic("implement me")
 }
@@ -306,6 +314,16 @@ func addr2text(_ uint32, value any) (any, error) {
 func interval2int64(_ uint32, value any) (any, error) {
 	if v, ok := value.(pgtype.Interval); ok {
 		return v.Microseconds, nil
+	}
+	return nil, ErrIllegalValue
+}
+
+func numeric2variableScaleDecimal(_ uint32, value any) (any, error) {
+	if v, ok := value.(pgtype.Numeric); ok {
+		return schemamodel.Struct{
+			"value": hex.EncodeToString(v.Int.Bytes()),
+			"scale": v.Exp,
+		}, nil
 	}
 	return nil, ErrIllegalValue
 }

@@ -6,7 +6,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes/datatypes"
-	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
 	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/version"
@@ -96,9 +96,9 @@ type SchemaManager interface {
 	EventTopicName(hypertable *systemcatalog.Hypertable) string
 	SchemaTopicName(hypertable *systemcatalog.Hypertable) string
 	MessageTopicName() string
-	RegisterSchema(schemaName string, schema schema.Struct)
-	GetSchema(schemaName string) schema.Struct
-	GetSchemaOrCreate(schemaName string, creator func() schema.Struct) schema.Struct
+	RegisterSchema(schemaName string, schema schemamodel.Struct)
+	GetSchema(schemaName string) schemamodel.Struct
+	GetSchemaOrCreate(schemaName string, creator func() schemamodel.Struct) schemamodel.Struct
 	HypertableEnvelopeSchemaName(hypertable *systemcatalog.Hypertable) string
 	HypertableKeySchemaName(hypertable *systemcatalog.Hypertable) string
 	MessageEnvelopeSchemaName() string
@@ -113,7 +113,7 @@ type TaskManager interface {
 
 type TypeManager interface {
 	DataType(oid uint32) (datatypes.Type, error)
-	SchemaBuilder()
+	SchemaBuilder(oid uint32) datatypes.SchemaBuilder
 	Converter(oid uint32) (datatypes.Converter, error)
 	NumKnownTypes() int
 }
