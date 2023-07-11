@@ -195,7 +195,9 @@ func (d *dispatcher) StartDispatcher() {
 			case <-d.shutdownAwaiter.AwaitShutdownChan():
 				goto finish
 			case task := <-d.taskQueue.ReadChannel():
-				task(notificator)
+				if task != nil {
+					task(notificator)
+				}
 			}
 		}
 
