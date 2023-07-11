@@ -44,6 +44,7 @@ func (its *IntegrationSnapshotTestSuite) TestInitialSnapshot_Hypertable() {
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
+				time.Sleep(time.Millisecond)
 				return envelope.Payload.Op == schema.OP_READ
 			},
 		),
@@ -57,6 +58,7 @@ func (its *IntegrationSnapshotTestSuite) TestInitialSnapshot_Hypertable() {
 	its.RunTest(
 		func(context testrunner.Context) error {
 			if err := waiter.Await(); err != nil {
+				its.T().Logf("Expected 8640 events but only received %d", len(testSink.Events()))
 				return err
 			}
 
