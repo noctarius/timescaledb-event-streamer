@@ -18,8 +18,8 @@
 package testing
 
 import (
-	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes/datatypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
 )
 
 type Source struct {
@@ -45,12 +45,12 @@ type Payload struct {
 }
 
 type Field struct {
-	Name     string               `json:"name"`
-	Field    string               `json:"field"`
-	Optional bool                 `json:"optional"`
-	Type     datatypes.SchemaType `json:"type"`
-	Fields   []Field              `json:"fields"`
-	Default  any                  `json:"default"`
+	Name     string                 `json:"name"`
+	Field    string                 `json:"field"`
+	Optional bool                   `json:"optional"`
+	Type     schemamodel.SchemaType `json:"type"`
+	Fields   []Field                `json:"fields"`
+	Default  any                    `json:"default"`
 }
 
 type Schema struct {
