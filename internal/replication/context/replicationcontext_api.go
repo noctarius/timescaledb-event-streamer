@@ -115,4 +115,5 @@ type TypeManager interface {
 	DataType(oid uint32) (datatypes.Type, error)
 	SchemaBuilder()
 	Converter(oid uint32) (datatypes.Converter, error)
+	NumKnownTypes() int
 }

@@ -99,6 +99,7 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 	r.logger.Infof("  * PostgreSQL System Identity %s", replicationContext.SystemId())
 	r.logger.Infof("  * PostgreSQL Timeline %d", replicationContext.Timeline())
 	r.logger.Infof("  * PostgreSQL Database %s", replicationContext.DatabaseName())
+	r.logger.Infof("  * PostgreSQL Types loaded %d", replicationContext.TypeManager().NumKnownTypes())
 
 	// Create replication channel and internal replication handler
 	replicationChannel, err := replicationchannel.NewReplicationChannel(replicationContext)

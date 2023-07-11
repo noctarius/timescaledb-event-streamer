@@ -139,7 +139,6 @@ func (tm *TypeManager) initialize() error {
 	}); err != nil {
 		return err
 	}
-	tm.logger.Debugf("Loaded %d types from PostgreSQL", len(tm.typeCache))
 	return nil
 }
 
@@ -190,6 +189,12 @@ func (tm *TypeManager) Converter(oid uint32) (Converter, error) {
 		return converter, nil
 	}
 	return nil, fmt.Errorf("unsupported OID: %d", oid)
+}
+
+func (tm *TypeManager) NumKnownTypes() int {
+	tm.typeCacheMutex.Lock()
+	defer tm.typeCacheMutex.Unlock()
+	return len(tm.typeCache)
 }
 
 func char2text(_ uint32, value any) (any, error) {
