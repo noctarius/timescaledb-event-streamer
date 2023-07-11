@@ -81,7 +81,7 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 
 	// Check version information
 	if !replicationContext.IsMinimumPostgresVersion() {
-		return cli.NewExitError("timescaledb-event-streamer requires PostgreSQL 14 or later", 11)
+		return cli.NewExitError("timescaledb-event-streamer requires PostgreSQL 13 or later", 11)
 	}
 	if !replicationContext.IsMinimumTimescaleVersion() {
 		return cli.NewExitError("timescaledb-event-streamer requires TimescaleDB 2.10 or later", 12)
