@@ -193,7 +193,6 @@ func (d *dispatcher) StartDispatcher() {
 				goto finish
 			case task := <-d.taskQueue.ReadChannel():
 				task(notificator)
-			default:
 			}
 		}
 

@@ -104,7 +104,9 @@ func start(*cli.Context) error {
 		if err != nil {
 			return err
 		}
-		pprof.StartCPUProfile(cpuProfile)
+		if err := pprof.StartCPUProfile(cpuProfile); err != nil {
+			return err
+		}
 		defer pprof.StopCPUProfile()
 	}
 
