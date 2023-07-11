@@ -108,7 +108,7 @@ func NewReplicationContext(config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
 		config, spiconfig.PropertyPostgresqlReplicationSlotAutoDrop, true,
 	)
 
-	taskDispatcher, err := newDispatcher()
+	taskDispatcher, err := newDispatcher(config)
 	if err != nil {
 		return nil, errors.Wrap(err, 0)
 	}

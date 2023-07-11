@@ -23,6 +23,7 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
+	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 )
 
@@ -50,15 +51,17 @@ type dispatcher struct {
 	shutdownActive      bool
 }
 
-func newDispatcher() (*dispatcher, error) {
+func newDispatcher(config *spiconfig.Config) (*dispatcher, error) {
 	logger, err := logging.NewLogger("TaskDispatcher")
 	if err != nil {
 		return nil, errors.Wrap(err, 0)
 	}
 
+	maxQueueSize := spiconfig.GetOrDefault[int](config, spiconfig.PropertyDispatcherMaxQueueSize, 4096)
+
 	d := &dispatcher{
 		logger:              logger,
-		taskQueue:           supporting.NewChannel[Task](4096),
+		taskQueue:           supporting.NewChannel[Task](maxQueueSize),
 		baseHandlers:        make([]eventhandlers.BaseReplicationEventHandler, 0),
 		catalogHandlers:     make([]eventhandlers.SystemCatalogReplicationEventHandler, 0),
 		compressionHandlers: make([]eventhandlers.CompressionReplicationEventHandler, 0),
