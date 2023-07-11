@@ -113,7 +113,7 @@ type TaskManager interface {
 
 type TypeManager interface {
 	DataType(oid uint32) (datatypes.Type, error)
-	SchemaBuilder(oid uint32) datatypes.SchemaBuilder
+	SchemaBuilder(oid uint32) schemamodel.SchemaBuilder
 	Converter(oid uint32) (datatypes.Converter, error)
 	NumKnownTypes() int
 }

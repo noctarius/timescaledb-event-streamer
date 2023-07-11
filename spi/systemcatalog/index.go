@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"github.com/go-errors/errors"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
-	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes/datatypes"
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
 	"reflect"
 	"strings"
 	"time"
@@ -188,16 +188,16 @@ func param2value(param any, column Column) string {
 	}
 
 	switch column.pgType.SchemaType() {
-	case datatypes.FLOAT32, datatypes.FLOAT64:
+	case schemamodel.FLOAT32, schemamodel.FLOAT64:
 		return fmt.Sprintf("%f", pv.Float())
-	case datatypes.INT8, datatypes.INT16, datatypes.INT32, datatypes.INT64:
+	case schemamodel.INT8, schemamodel.INT16, schemamodel.INT32, schemamodel.INT64:
 		return fmt.Sprintf("%d", pv.Int())
-	case datatypes.BOOLEAN:
+	case schemamodel.BOOLEAN:
 		if pv.Bool() {
 			return "TRUE"
 		}
 		return "FALSE"
-	case datatypes.STRING:
+	case schemamodel.STRING:
 		val := pv.String()
 		if pt.Kind() != reflect.String {
 			switch v := pv.Interface().(type) {
@@ -209,10 +209,10 @@ func param2value(param any, column Column) string {
 		}
 		return fmt.Sprintf("'%s'", sanitizeString(val))
 
-	case datatypes.BYTES:
+	case schemamodel.BYTES:
 		bytes := pv.Interface().([]byte)
 		return fmt.Sprintf("bytea '\\x%X'", bytes)
-	case datatypes.ARRAY:
+	case schemamodel.ARRAY:
 		numOfElements := pv.Len()
 		index := 0
 		iterator := func() (reflect.Value, bool) {

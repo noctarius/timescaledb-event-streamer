@@ -1,23 +1,6 @@
 package datatypes
 
-// SchemaType is a string like definition of the available
-// event stream data types
-type SchemaType string
-
-const (
-	INT8    SchemaType = "int8"
-	INT16   SchemaType = "int16"
-	INT32   SchemaType = "int32"
-	INT64   SchemaType = "int64"
-	FLOAT32 SchemaType = "float32"
-	FLOAT64 SchemaType = "float64"
-	BOOLEAN SchemaType = "boolean"
-	STRING  SchemaType = "string"
-	BYTES   SchemaType = "bytes"
-	ARRAY   SchemaType = "array"
-	MAP     SchemaType = "map"
-	STRUCT  SchemaType = "struct"
-)
+import "github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
 
 type TypeCategory string
 
@@ -70,10 +53,10 @@ type Type struct {
 	modifiers  int
 	enumValues []string
 	delimiter  string
-	schemaType SchemaType
+	schemaType schemamodel.SchemaType
 
 	typeManager         *TypeManager
-	schemaBuilder       SchemaBuilder
+	schemaBuilder       schemamodel.SchemaBuilder
 	resolvedArrayType   *Type
 	resolvedElementType *Type
 	resolvedParentType  *Type
@@ -179,11 +162,11 @@ func (t Type) EnumValues() []string {
 	return t.enumValues
 }
 
-func (t Type) SchemaType() SchemaType {
+func (t Type) SchemaType() schemamodel.SchemaType {
 	return t.schemaType
 }
 
-func (t Type) SchemaBuilder() SchemaBuilder {
+func (t Type) SchemaBuilder() schemamodel.SchemaBuilder {
 	if t.schemaBuilder == nil {
 		t.schemaBuilder = t.typeManager.SchemaBuilder(t.oid)
 	}
@@ -206,16 +189,16 @@ func (t Type) Equal(other Type) bool {
 		stringArrayEqual(t.enumValues, other.enumValues)
 }
 
-func getSchemaType(oid uint32, arrayType bool, typType TypeType) SchemaType {
+func getSchemaType(oid uint32, arrayType bool, typType TypeType) schemamodel.SchemaType {
 	if coreType, present := coreTypes[oid]; present {
 		return coreType
 	}
 	if arrayType {
-		return ARRAY
+		return schemamodel.ARRAY
 	} else if typType == EnumType {
-		return STRING
+		return schemamodel.STRING
 	}
-	return STRUCT
+	return schemamodel.STRUCT
 }
 
 func stringArrayEqual(this, that []string) bool {

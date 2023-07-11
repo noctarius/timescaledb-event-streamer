@@ -16,11 +16,6 @@ import (
 	"time"
 )
 
-type SchemaBuilder interface {
-	BaseSchemaType() SchemaType
-	Schema(oid uint32, modifier int, value any) schemamodel.Struct
-}
-
 type TypeFactory func(name string, typ TypeType, oid uint32, category TypeCategory, arrayType bool, oidArray uint32,
 	oidElement uint32, recordType bool, parentOid uint32, modifiers int, enumValues []string, delimiter string) Type
 
@@ -29,36 +24,36 @@ type TypeResolver interface {
 	ReadPgType(oid uint32, factory TypeFactory) (Type, bool, error)
 }
 
-var coreTypes = map[uint32]SchemaType{
-	pgtype.BoolOID:        BOOLEAN,
-	pgtype.Int2OID:        INT16,
-	pgtype.Int4OID:        INT32,
-	pgtype.Int8OID:        INT64,
-	pgtype.Float4OID:      FLOAT32,
-	pgtype.Float8OID:      FLOAT64,
-	pgtype.BPCharOID:      STRING,
-	pgtype.QCharOID:       STRING,
-	pgtype.VarcharOID:     STRING,
-	pgtype.TextOID:        STRING,
-	pgtype.TimestampOID:   INT64,
-	pgtype.TimestamptzOID: STRING,
-	pgtype.IntervalOID:    INT64,
-	pgtype.ByteaOID:       BYTES,
-	pgtype.JSONOID:        STRING,
-	pgtype.JSONBOID:       STRING,
-	pgtype.UUIDOID:        STRING,
-	pgtype.NameOID:        STRING,
-	pgtype.OIDOID:         INT64,
-	pgtype.TIDOID:         INT64,
-	pgtype.XIDOID:         INT64,
-	pgtype.CIDOID:         INT64,
-	pgtype.CIDROID:        STRING,
-	pgtype.MacaddrOID:     STRING,
-	774:                   STRING, //macaddr8
-	pgtype.InetOID:        STRING,
-	pgtype.DateOID:        STRING,
-	pgtype.TimeOID:        STRING,
-	pgtype.NumericOID:     STRUCT,
+var coreTypes = map[uint32]schemamodel.SchemaType{
+	pgtype.BoolOID:        schemamodel.BOOLEAN,
+	pgtype.Int2OID:        schemamodel.INT16,
+	pgtype.Int4OID:        schemamodel.INT32,
+	pgtype.Int8OID:        schemamodel.INT64,
+	pgtype.Float4OID:      schemamodel.FLOAT32,
+	pgtype.Float8OID:      schemamodel.FLOAT64,
+	pgtype.BPCharOID:      schemamodel.STRING,
+	pgtype.QCharOID:       schemamodel.STRING,
+	pgtype.VarcharOID:     schemamodel.STRING,
+	pgtype.TextOID:        schemamodel.STRING,
+	pgtype.TimestampOID:   schemamodel.INT64,
+	pgtype.TimestamptzOID: schemamodel.STRING,
+	pgtype.IntervalOID:    schemamodel.INT64,
+	pgtype.ByteaOID:       schemamodel.BYTES,
+	pgtype.JSONOID:        schemamodel.STRING,
+	pgtype.JSONBOID:       schemamodel.STRING,
+	pgtype.UUIDOID:        schemamodel.STRING,
+	pgtype.NameOID:        schemamodel.STRING,
+	pgtype.OIDOID:         schemamodel.INT64,
+	pgtype.TIDOID:         schemamodel.INT64,
+	pgtype.XIDOID:         schemamodel.INT64,
+	pgtype.CIDOID:         schemamodel.INT64,
+	pgtype.CIDROID:        schemamodel.STRING,
+	pgtype.MacaddrOID:     schemamodel.STRING,
+	774:                   schemamodel.STRING, //macaddr8
+	pgtype.InetOID:        schemamodel.STRING,
+	pgtype.DateOID:        schemamodel.STRING,
+	pgtype.TimeOID:        schemamodel.STRING,
+	pgtype.NumericOID:     schemamodel.STRUCT,
 }
 
 var converters = map[uint32]Converter{
@@ -184,7 +179,7 @@ func (tm *TypeManager) DataType(oid uint32) (Type, error) {
 	return dataType, nil
 }
 
-func (tm *TypeManager) SchemaBuilder(oid uint32) SchemaBuilder {
+func (tm *TypeManager) SchemaBuilder(oid uint32) schemamodel.SchemaBuilder {
 	//TODO implement me
 	panic("implement me")
 }
