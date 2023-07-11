@@ -1,5 +1,9 @@
 package supporting
 
+import (
+	"runtime"
+)
+
 // Channel is based on https://github.com/jtarchie/ringbuffer, but
 // extended with the option to skip waiting on an empty output channel
 type Channel[T any] struct {
@@ -9,7 +13,7 @@ type Channel[T any] struct {
 
 func NewChannel[T any](size int) *Channel[T] {
 	b := &Channel[T]{
-		input:  make(chan T),
+		input:  make(chan T, 1),
 		output: make(chan T, size),
 	}
 	go b.run()
@@ -23,8 +27,7 @@ func (c *Channel[T]) run() {
 		select {
 		case c.output <- v:
 		default:
-			<-c.output
-
+			runtime.Gosched()
 			goto retry
 		}
 	}
