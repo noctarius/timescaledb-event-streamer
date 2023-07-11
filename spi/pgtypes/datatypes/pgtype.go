@@ -189,16 +189,8 @@ func (t Type) Equal(other Type) bool {
 		stringArrayEqual(t.enumValues, other.enumValues)
 }
 
-func getSchemaType(oid uint32, arrayType bool, typType TypeType) schemamodel.SchemaType {
-	if coreType, present := coreTypes[oid]; present {
-		return coreType
-	}
-	if arrayType {
-		return schemamodel.ARRAY
-	} else if typType == EnumType {
-		return schemamodel.STRING
-	}
-	return schemamodel.STRUCT
+func (t Type) resolveSchemaBuilder(oid uint32, modifier int) schemamodel.SchemaBuilder {
+	return nil //FIXME
 }
 
 func stringArrayEqual(this, that []string) bool {
