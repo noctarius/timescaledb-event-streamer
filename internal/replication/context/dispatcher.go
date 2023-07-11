@@ -204,6 +204,7 @@ func (d *dispatcher) StartDispatcher() {
 func (d *dispatcher) StopDispatcher() error {
 	d.shutdownActive = true
 	d.shutdownAwaiter.SignalShutdown()
+	d.taskQueue.Close()
 	return d.shutdownAwaiter.AwaitDone()
 }
 
