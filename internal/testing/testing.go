@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
-	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"os"
 	"strings"
 	"time"
@@ -42,7 +41,7 @@ func CreateTempFile(pattern string) (string, error) {
 }
 
 func CreateHypertable(pool *pgxpool.Pool, timeDimension string,
-	chunkSize time.Duration, columns ...systemcatalog.Column) (string, string, error) {
+	chunkSize time.Duration, columns ...Column) (string, string, error) {
 
 	tableName := randomTableName()
 	tx, err := pool.Begin(context.Background())
@@ -81,11 +80,11 @@ func randomTableName() string {
 	return supporting.RandomTextString(20)
 }
 
-func toDefinition(column systemcatalog.Column) string {
+func toDefinition(column Column) string {
 	builder := strings.Builder{}
 	builder.WriteString(column.Name())
 	builder.WriteString(" ")
-	builder.WriteString(column.TypeName())
+	builder.WriteString(column.PgType())
 	if column.IsNullable() {
 		builder.WriteString(" NULL")
 	}

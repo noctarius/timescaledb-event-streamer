@@ -72,6 +72,15 @@ type PostgreSQLConfig struct {
 	ReplicationSlot ReplicationSlotConfig `toml:"replicationslot" yaml:"replicationSlot"`
 	Transaction     TransactionConfig     `toml:"transaction" yaml:"transaction"`
 	Snapshot        SnapshotConfig        `toml:"snapshot" yaml:"snapshot"`
+	Internal        InternalConfig        `toml:"internal" yaml:"internal"`
+}
+
+type InternalConfig struct {
+	Dispatcher DispatcherConfig `toml:"dispatcher" yaml:"dispatcher"`
+}
+
+type DispatcherConfig struct {
+	MaxQueueSize uint `toml:"maxqueuesize" yaml:"maxQueueSize"`
 }
 
 type SnapshotConfig struct {

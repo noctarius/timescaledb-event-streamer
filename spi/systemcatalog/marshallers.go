@@ -19,6 +19,7 @@ package systemcatalog
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/go-errors/errors"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/noctarius/timescaledb-event-streamer/spi/encoding"
@@ -78,6 +79,10 @@ var unmarshallers = map[uint32]BinaryUnmarshaller{
 	514836:                nil, // geometry, FIXME
 	516272:                nil, // ltree, FIXME
 }
+
+// ErrIllegalValue represents an illegal type conversion request
+// for the given value
+var ErrIllegalValue = fmt.Errorf("illegal value for data type conversion")
 
 func BinaryMarshall(buffer encoding.WriteBuffer, oid uint32, value any) error {
 	if marshaller, found := marshallers[oid]; found {

@@ -20,14 +20,12 @@ package integration
 import (
 	stdctx "context"
 	"fmt"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
 	inttest "github.com/noctarius/timescaledb-event-streamer/internal/testing"
 	"github.com/noctarius/timescaledb-event-streamer/internal/testing/testrunner"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
-	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/stretchr/testify/suite"
 	"os"
 	"testing"
@@ -111,8 +109,8 @@ func (irts *IntegrationRestartTestSuite) Test_Restart_Streamer() {
 
 		testrunner.WithSetup(func(context testrunner.SetupContext) error {
 			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
-				systemcatalog.NewColumn("ts", pgtype.TimestamptzOID, "timestamptz", false, nil),
-				systemcatalog.NewColumn("val", pgtype.Int4OID, "integer", false, nil),
+				inttest.NewColumn("ts", "timestamptz", false, false, nil),
+				inttest.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
@@ -229,8 +227,8 @@ func (irts *IntegrationRestartTestSuite) Test_Restart_Streamer_After_Backend_Kil
 
 		testrunner.WithSetup(func(context testrunner.SetupContext) error {
 			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
-				systemcatalog.NewColumn("ts", pgtype.TimestamptzOID, "timestamptz", false, nil),
-				systemcatalog.NewColumn("val", pgtype.Int4OID, "integer", false, nil),
+				inttest.NewColumn("ts", "timestamptz", false, false, nil),
+				inttest.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err

@@ -19,7 +19,7 @@ package testing
 
 import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
-	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
 )
 
 type Source struct {
@@ -48,7 +48,7 @@ type Field struct {
 	Name     string                 `json:"name"`
 	Field    string                 `json:"field"`
 	Optional bool                   `json:"optional"`
-	Type     systemcatalog.DataType `json:"type"`
+	Type     schemamodel.SchemaType `json:"type"`
 	Fields   []Field                `json:"fields"`
 	Default  any                    `json:"default"`
 }
@@ -72,4 +72,42 @@ func GetField(name string, fields []Field) (Field, bool) {
 		}
 	}
 	return Field{}, false
+}
+
+type Column struct {
+	name         string
+	pgType       string
+	nullable     bool
+	primaryKey   bool
+	defaultValue *string
+}
+
+func NewColumn(name, pgType string, nullable, primaryKey bool, defaultValue *string) Column {
+	return Column{
+		name:         name,
+		pgType:       pgType,
+		nullable:     nullable,
+		primaryKey:   primaryKey,
+		defaultValue: defaultValue,
+	}
+}
+
+func (c Column) Name() string {
+	return c.name
+}
+
+func (c Column) PgType() string {
+	return c.pgType
+}
+
+func (c Column) IsNullable() bool {
+	return c.nullable
+}
+
+func (c Column) IsPrimaryKey() bool {
+	return c.primaryKey
+}
+
+func (c Column) DefaultValue() *string {
+	return c.defaultValue
 }

@@ -27,7 +27,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/go-errors/errors"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
-	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
 	"github.com/noctarius/timescaledb-event-streamer/spi/sink"
 	"time"
 )
@@ -83,16 +83,16 @@ func (a *awsSqsSink) Stop() error {
 	return nil
 }
 
-func (a *awsSqsSink) Emit(_ sink.Context, _ time.Time, topicName string, _, envelope schema.Struct) error {
+func (a *awsSqsSink) Emit(_ sink.Context, _ time.Time, topicName string, _, envelope schemamodel.Struct) error {
 	envelopeData, err := json.Marshal(envelope)
 	if err != nil {
 		return err
 	}
 
-	payload := envelope["payload"].(schema.Struct)
-	source := payload["source"].(schema.Struct)
-	lsn := source["lsn"].(string)
-	txId, present := source["txId"]
+	payload := envelope[schemamodel.FieldNamePayload].(schemamodel.Struct)
+	source := payload[schemamodel.FieldNameSource].(schemamodel.Struct)
+	lsn := source[schemamodel.FieldNameLSN].(string)
+	txId, present := source[schemamodel.FieldNameTxId]
 
 	var msgDeduplicationIdContent string
 	if present {

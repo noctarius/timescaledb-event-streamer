@@ -3,7 +3,6 @@ package integration
 import (
 	stdctx "context"
 	"fmt"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
 	inttest "github.com/noctarius/timescaledb-event-streamer/internal/testing"
@@ -75,8 +74,8 @@ func (pts *PublicationTestSuite) Test_Preexisting_Chunks_Added_To_Publication() 
 
 		testrunner.WithSetup(func(context testrunner.SetupContext) error {
 			_, tn, err := context.CreateHypertable("ts", time.Hour,
-				systemcatalog.NewColumn("ts", pgtype.TimestamptzOID, "timestamptz", false, nil),
-				systemcatalog.NewColumn("val", pgtype.Int4OID, "integer", false, nil),
+				inttest.NewColumn("ts", "timestamptz", false, false, nil),
+				inttest.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
@@ -190,8 +189,8 @@ func (pts *PublicationTestSuite) Test_Reloading_From_Known_Chunks() {
 
 		testrunner.WithSetup(func(context testrunner.SetupContext) error {
 			_, tn, err := context.CreateHypertable("ts", time.Hour,
-				systemcatalog.NewColumn("ts", pgtype.TimestamptzOID, "timestamptz", false, nil),
-				systemcatalog.NewColumn("val", pgtype.Int4OID, "integer", false, nil),
+				inttest.NewColumn("ts", "timestamptz", false, false, nil),
+				inttest.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
@@ -349,8 +348,8 @@ func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_With_State_Stor
 
 		testrunner.WithSetup(func(context testrunner.SetupContext) error {
 			_, tn, err := context.CreateHypertable("ts", time.Hour,
-				systemcatalog.NewColumn("ts", pgtype.TimestamptzOID, "timestamptz", false, nil),
-				systemcatalog.NewColumn("val", pgtype.Int4OID, "integer", false, nil),
+				inttest.NewColumn("ts", "timestamptz", false, false, nil),
+				inttest.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
@@ -508,8 +507,8 @@ func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_Without_State_S
 
 		testrunner.WithSetup(func(context testrunner.SetupContext) error {
 			_, tn, err := context.CreateHypertable("ts", time.Hour,
-				systemcatalog.NewColumn("ts", pgtype.TimestamptzOID, "timestamptz", false, nil),
-				systemcatalog.NewColumn("val", pgtype.Int4OID, "integer", false, nil),
+				inttest.NewColumn("ts", "timestamptz", false, false, nil),
+				inttest.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err

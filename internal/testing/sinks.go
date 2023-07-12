@@ -21,23 +21,23 @@ import (
 	"encoding/json"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
-	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
 	"github.com/noctarius/timescaledb-event-streamer/spi/sink"
 	"sync"
 	"time"
 )
 
 type ForwarderSink struct {
-	fn func(timestamp time.Time, topicName string, envelope schema.Struct) error
+	fn func(timestamp time.Time, topicName string, envelope schemamodel.Struct) error
 }
 
-func NewForwarderSink(fn func(timestamp time.Time, topicName string, envelope schema.Struct) error) *ForwarderSink {
+func NewForwarderSink(fn func(timestamp time.Time, topicName string, envelope schemamodel.Struct) error) *ForwarderSink {
 	return &ForwarderSink{
 		fn: fn,
 	}
 }
 
-func (t *ForwarderSink) Emit(timestamp time.Time, topicName string, envelope schema.Struct) error {
+func (t *ForwarderSink) Emit(timestamp time.Time, topicName string, envelope schemamodel.Struct) error {
 	return t.fn(timestamp, topicName, envelope)
 }
 
@@ -50,7 +50,7 @@ type CollectedEvent struct {
 type EventCollectorSink struct {
 	mutex sync.Mutex
 
-	keys   []schema.Struct
+	keys   []schemamodel.Struct
 	events []CollectedEvent
 	filter func(timestamp time.Time, topicName string, envelope Envelope) bool
 
@@ -88,7 +88,7 @@ func WithPostHook(fn func(sink *EventCollectorSink)) EventCollectorSinkOption {
 
 func NewEventCollectorSink(options ...EventCollectorSinkOption) *EventCollectorSink {
 	eventCollectorSink := &EventCollectorSink{
-		keys:   make([]schema.Struct, 0),
+		keys:   make([]schemamodel.Struct, 0),
 		events: make([]CollectedEvent, 0),
 		mutex:  sync.Mutex{},
 	}
@@ -113,7 +113,7 @@ func (t *EventCollectorSink) Events() []CollectedEvent {
 func (t *EventCollectorSink) Clear() {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
-	t.keys = make([]schema.Struct, 0)
+	t.keys = make([]schemamodel.Struct, 0)
 	t.events = make([]CollectedEvent, 0)
 }
 
@@ -124,7 +124,7 @@ func (t *EventCollectorSink) NumOfEvents() int {
 }
 
 func (t *EventCollectorSink) Emit(_ sink.Context, timestamp time.Time,
-	topicName string, key, envelope schema.Struct) error {
+	topicName string, key, envelope schemamodel.Struct) error {
 
 	if t.preHook != nil {
 		t.preHook(t)

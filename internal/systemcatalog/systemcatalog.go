@@ -207,7 +207,7 @@ func (sc *SystemCatalog) UnregisterHypertable(hypertable *systemcatalog.Hypertab
 	delete(sc.hypertable2compressed, hypertable.Id())
 	delete(sc.compressed2hypertable, hypertable.Id())
 	delete(sc.hypertable2chunks, hypertable.Id())
-	sc.logger.Verbosef("REMOVED CATALOG ENTRY: HYPERTABLE %d", hypertable.Id())
+	sc.logger.Verbosef("Entry Dropped: Hypertable %d", hypertable.Id())
 	return nil
 }
 
@@ -255,7 +255,7 @@ func (sc *SystemCatalog) ApplySchemaUpdate(hypertable *systemcatalog.Hypertable,
 		hypertableSchemaName := fmt.Sprintf("%s.Value", schemaManager.SchemaTopicName(hypertable))
 		hypertableSchema := schema.HypertableSchema(hypertableSchemaName, hypertable.Columns())
 		schemaManager.RegisterSchema(hypertableSchemaName, hypertableSchema)
-		sc.logger.Verbosef("SCHEMA UPDATE: HYPERTABLE %d => %+v", hypertable.Id(), difference)
+		sc.logger.Verbosef("Schema Update: Hypertable %d => %+v", hypertable.Id(), difference)
 		return len(difference) > 0
 	}
 	return false
@@ -308,7 +308,7 @@ func initializeSystemCatalog(sc *SystemCatalog) (*SystemCatalog, error) {
 		if err := sc.RegisterHypertable(hypertable); err != nil {
 			return errors.Errorf("registering hypertable failed: %s (error: %+v)", hypertable, err)
 		}
-		sc.logger.Verbosef("ADDED CATALOG ENTRY: HYPERTABLE %d => %s", hypertable.Id(), hypertable.String())
+		sc.logger.Verbosef("Entry Added: Hypertable %d => %s", hypertable.Id(), hypertable.String())
 		return nil
 	}); err != nil {
 		return nil, errors.Wrap(err, 0)
@@ -320,7 +320,7 @@ func initializeSystemCatalog(sc *SystemCatalog) (*SystemCatalog, error) {
 		}
 		if h, present := sc.FindHypertableById(chunk.HypertableId()); present {
 			sc.logger.Verbosef(
-				"ADDED CATALOG ENTRY: CHUNK %d FOR HYPERTABLE %s => %s",
+				"Entry Added: Chunk %d for Hypertable %s => %s",
 				chunk.Id(), h.CanonicalName(), chunk.String(),
 			)
 		}

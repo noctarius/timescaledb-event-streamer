@@ -31,6 +31,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime/pprof"
 	"strings"
 	"syscall"
 )
@@ -41,6 +42,7 @@ var (
 	withCaller        bool
 	logToStdErr       bool
 	versionOnly       bool
+	profiling         bool
 )
 
 func main() {
@@ -74,6 +76,11 @@ func main() {
 				Usage:       "Prints the version and exits",
 				Destination: &versionOnly,
 			},
+			&cli.BoolFlag{
+				Name:        "profiling",
+				Usage:       "Enables the Go profiler",
+				Destination: &profiling,
+			},
 		},
 		Action: start,
 	}
@@ -90,6 +97,17 @@ func start(*cli.Context) error {
 
 	if versionOnly {
 		return nil
+	}
+
+	if profiling {
+		cpuProfile, err := os.Create("cpu.prof")
+		if err != nil {
+			return err
+		}
+		if err := pprof.StartCPUProfile(cpuProfile); err != nil {
+			return err
+		}
+		defer pprof.StopCPUProfile()
 	}
 
 	logging.WithCaller = withCaller

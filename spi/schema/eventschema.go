@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"github.com/jackc/pglogrepl"
 	"github.com/noctarius/timescaledb-event-streamer/internal/version"
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/topic/namegenerator"
 	"strconv"
@@ -52,208 +53,173 @@ const (
 	OP_DECOMPRESSION TimescaleOperation = "d"
 )
 
-type schemaField = string
-
-const (
-	fieldNameBefore      schemaField = "before"
-	fieldNameAfter       schemaField = "after"
-	fieldNameOperation   schemaField = "op"
-	fieldNameSource      schemaField = "source"
-	fieldNameTransaction schemaField = "transaction"
-	fieldNameTimestamp   schemaField = "ts_ms"
-	fieldNameTimescaleOp schemaField = "tsdb_op"
-	fieldNameVersion     schemaField = "version"
-	fieldNameSchema      schemaField = "schema"
-	fieldNamePayload     schemaField = "payload"
-	fieldNameConnector   schemaField = "connector"
-	fieldNameName        schemaField = "name"
-	fieldNameSnapshot    schemaField = "snapshot"
-	fieldNameDatabase    schemaField = "db"
-	fieldNameSequence    schemaField = "sequence"
-	fieldNameTable       schemaField = "table"
-	fieldNameTxId        schemaField = "txId"
-	fieldNameLSN         schemaField = "lsn"
-	fieldNameXmin        schemaField = "xmin"
-	fieldNameType        schemaField = "type"
-	fieldNameOptional    schemaField = "optional"
-	fieldNameField       schemaField = "field"
-	fieldNameFields      schemaField = "fields"
-	fieldNameDefault     schemaField = "default"
-	fieldNamePrefix      schemaField = "prefix"
-	fieldNameContent     schemaField = "content"
-	fieldNameMessage     schemaField = "message"
-	fieldNameIndex       schemaField = "index"
-)
-
-type Struct = map[schemaField]any
-
-func ReadEvent(record Struct, source Struct) Struct {
-	event := make(Struct, 0)
-	event[fieldNameOperation] = string(OP_READ)
-	event[fieldNameAfter] = record
+func ReadEvent(record schemamodel.Struct, source schemamodel.Struct) schemamodel.Struct {
+	event := make(schemamodel.Struct, 0)
+	event[schemamodel.FieldNameOperation] = string(OP_READ)
+	event[schemamodel.FieldNameAfter] = record
 	if source != nil {
-		event[fieldNameSource] = source
+		event[schemamodel.FieldNameSource] = source
 	}
-	event[fieldNameTimestamp] = time.Now().UnixMilli()
+	event[schemamodel.FieldNameTimestamp] = time.Now().UnixMilli()
 	return event
 }
 
-func CreateEvent(record Struct, source Struct) Struct {
-	event := make(Struct, 0)
-	event[fieldNameOperation] = string(OP_CREATE)
-	event[fieldNameAfter] = record
+func CreateEvent(record schemamodel.Struct, source schemamodel.Struct) schemamodel.Struct {
+	event := make(schemamodel.Struct, 0)
+	event[schemamodel.FieldNameOperation] = string(OP_CREATE)
+	event[schemamodel.FieldNameAfter] = record
 	if source != nil {
-		event[fieldNameSource] = source
+		event[schemamodel.FieldNameSource] = source
 	}
-	event[fieldNameTimestamp] = time.Now().UnixMilli()
+	event[schemamodel.FieldNameTimestamp] = time.Now().UnixMilli()
 	return event
 }
 
-func UpdateEvent(before, after, source Struct) Struct {
-	event := make(Struct, 0)
-	event[fieldNameOperation] = string(OP_UPDATE)
+func UpdateEvent(before, after, source schemamodel.Struct) schemamodel.Struct {
+	event := make(schemamodel.Struct, 0)
+	event[schemamodel.FieldNameOperation] = string(OP_UPDATE)
 	if before != nil {
-		event[fieldNameBefore] = before
+		event[schemamodel.FieldNameBefore] = before
 	}
 	if after != nil {
-		event[fieldNameAfter] = after
+		event[schemamodel.FieldNameAfter] = after
 	}
 	if source != nil {
-		event[fieldNameSource] = source
+		event[schemamodel.FieldNameSource] = source
 	}
-	event[fieldNameTimestamp] = time.Now().UnixMilli()
+	event[schemamodel.FieldNameTimestamp] = time.Now().UnixMilli()
 	return event
 }
 
-func DeleteEvent(before, source Struct, tombstone bool) Struct {
-	event := make(Struct, 0)
-	event[fieldNameOperation] = string(OP_DELETE)
+func DeleteEvent(before, source schemamodel.Struct, tombstone bool) schemamodel.Struct {
+	event := make(schemamodel.Struct, 0)
+	event[schemamodel.FieldNameOperation] = string(OP_DELETE)
 	if before != nil {
-		event[fieldNameBefore] = before
+		event[schemamodel.FieldNameBefore] = before
 	}
 	if tombstone {
-		event[fieldNameAfter] = nil
+		event[schemamodel.FieldNameAfter] = nil
 	}
 	if source != nil {
-		event[fieldNameSource] = source
+		event[schemamodel.FieldNameSource] = source
 	}
-	event[fieldNameTimestamp] = time.Now().UnixMilli()
+	event[schemamodel.FieldNameTimestamp] = time.Now().UnixMilli()
 	return event
 }
 
-func TruncateEvent(source Struct) Struct {
-	event := make(Struct, 0)
-	event[fieldNameOperation] = string(OP_TRUNCATE)
+func TruncateEvent(source schemamodel.Struct) schemamodel.Struct {
+	event := make(schemamodel.Struct, 0)
+	event[schemamodel.FieldNameOperation] = string(OP_TRUNCATE)
 	if source != nil {
-		event[fieldNameSource] = source
+		event[schemamodel.FieldNameSource] = source
 	}
-	event[fieldNameTimestamp] = time.Now().UnixMilli()
+	event[schemamodel.FieldNameTimestamp] = time.Now().UnixMilli()
 	return event
 }
 
-func MessageEvent(prefix, content string, source Struct) Struct {
-	event := make(Struct, 0)
-	event[fieldNameOperation] = string(OP_MESSAGE)
-	event[fieldNameMessage] = Struct{
-		fieldNamePrefix:  prefix,
-		fieldNameContent: content,
+func MessageEvent(prefix, content string, source schemamodel.Struct) schemamodel.Struct {
+	event := make(schemamodel.Struct, 0)
+	event[schemamodel.FieldNameOperation] = string(OP_MESSAGE)
+	event[schemamodel.FieldNameMessage] = schemamodel.Struct{
+		schemamodel.FieldNamePrefix:  prefix,
+		schemamodel.FieldNameContent: content,
 	}
 	if source != nil {
-		event[fieldNameSource] = source
+		event[schemamodel.FieldNameSource] = source
 	}
-	event[fieldNameTimestamp] = time.Now().UnixMilli()
+	event[schemamodel.FieldNameTimestamp] = time.Now().UnixMilli()
 	return event
 }
 
-func CompressionEvent(source Struct) Struct {
-	event := make(Struct, 0)
-	event[fieldNameOperation] = string(OP_TIMESCALE)
-	event[fieldNameTimescaleOp] = string(OP_COMPRESSION)
+func CompressionEvent(source schemamodel.Struct) schemamodel.Struct {
+	event := make(schemamodel.Struct, 0)
+	event[schemamodel.FieldNameOperation] = string(OP_TIMESCALE)
+	event[schemamodel.FieldNameTimescaleOp] = string(OP_COMPRESSION)
 	if source != nil {
-		event[fieldNameSource] = source
+		event[schemamodel.FieldNameSource] = source
 	}
-	event[fieldNameTimestamp] = time.Now().UnixMilli()
+	event[schemamodel.FieldNameTimestamp] = time.Now().UnixMilli()
 	return event
 }
 
-func DecompressionEvent(source Struct) Struct {
-	event := make(Struct, 0)
-	event[fieldNameOperation] = string(OP_TIMESCALE)
-	event[fieldNameTimescaleOp] = string(OP_DECOMPRESSION)
+func DecompressionEvent(source schemamodel.Struct) schemamodel.Struct {
+	event := make(schemamodel.Struct, 0)
+	event[schemamodel.FieldNameOperation] = string(OP_TIMESCALE)
+	event[schemamodel.FieldNameTimescaleOp] = string(OP_DECOMPRESSION)
 	if source != nil {
-		event[fieldNameSource] = source
+		event[schemamodel.FieldNameSource] = source
 	}
-	event[fieldNameTimestamp] = time.Now().UnixMilli()
+	event[schemamodel.FieldNameTimestamp] = time.Now().UnixMilli()
 	return event
 }
 
-func MessageKey(prefix string) Struct {
-	return Struct{
-		fieldNamePrefix: prefix,
+func MessageKey(prefix string) schemamodel.Struct {
+	return schemamodel.Struct{
+		schemamodel.FieldNamePrefix: prefix,
 	}
 }
 
-func TimescaleKey(schemaName, tableName string) Struct {
-	return Struct{
-		fieldNameSchema: schemaName,
-		fieldNameTable:  tableName,
+func TimescaleKey(schemaName, tableName string) schemamodel.Struct {
+	return schemamodel.Struct{
+		schemamodel.FieldNameSchema: schemaName,
+		schemamodel.FieldNameTable:  tableName,
 	}
 }
 
-func Envelope(schema, payload Struct) Struct {
-	return Struct{
-		fieldNameSchema:  schema,
-		fieldNamePayload: payload,
+func Envelope(schema, payload schemamodel.Struct) schemamodel.Struct {
+	return schemamodel.Struct{
+		schemamodel.FieldNameSchema:  schema,
+		schemamodel.FieldNamePayload: payload,
 	}
 }
 
 func Source(lsn pglogrepl.LSN, timestamp time.Time, snapshot bool,
-	databaseName, schemaName, hypertableName string, transactionId *uint32) Struct {
+	databaseName, schemaName, hypertableName string, transactionId *uint32) schemamodel.Struct {
 
-	return Struct{
-		fieldNameVersion:   version.Version,
-		fieldNameConnector: "timescaledb-event-streamer",
-		fieldNameName:      databaseName,
-		fieldNameTimestamp: timestamp.UnixMilli(),
-		fieldNameSnapshot:  snapshot,
-		fieldNameDatabase:  databaseName,
-		fieldNameSchema:    schemaName,
-		fieldNameTable:     hypertableName,
-		fieldNameTxId:      transactionId,
-		fieldNameLSN:       lsn.String(),
+	return schemamodel.Struct{
+		schemamodel.FieldNameVersion:   version.Version,
+		schemamodel.FieldNameConnector: "timescaledb-event-streamer",
+		schemamodel.FieldNameName:      databaseName,
+		schemamodel.FieldNameTimestamp: timestamp.UnixMilli(),
+		schemamodel.FieldNameSnapshot:  snapshot,
+		schemamodel.FieldNameDatabase:  databaseName,
+		schemamodel.FieldNameSchema:    schemaName,
+		schemamodel.FieldNameTable:     hypertableName,
+		schemamodel.FieldNameTxId:      transactionId,
+		schemamodel.FieldNameLSN:       lsn.String(),
 	}
 }
 
-func HypertableSchema(hypertableSchemaName string, columns []systemcatalog.Column) Struct {
-	return Struct{
-		fieldNameType: string(systemcatalog.STRUCT),
-		fieldNameFields: func() []Struct {
-			fields := make([]Struct, len(columns))
+func HypertableSchema(hypertableSchemaName string, columns []systemcatalog.Column) schemamodel.Struct {
+	return schemamodel.Struct{
+		schemamodel.FieldNameType: string(schemamodel.STRUCT),
+		schemamodel.FieldNameFields: func() []schemamodel.Struct {
+			fields := make([]schemamodel.Struct, len(columns))
 			for i, column := range columns {
 				fields[i] = column2field(column)
 			}
 			return fields
 		}(),
-		fieldNameName: hypertableSchemaName,
+		schemamodel.FieldNameName: hypertableSchemaName,
 	}
 }
 
-func KeySchema(hypertable *systemcatalog.Hypertable, topicSchemaGenerator namegenerator.NameGenerator) Struct {
+func KeySchema(hypertable *systemcatalog.Hypertable, topicSchemaGenerator namegenerator.NameGenerator) schemamodel.Struct {
 	schemaTopicName := topicSchemaGenerator.SchemaTopicName(hypertable)
 	hypertableKeySchemaName := fmt.Sprintf("%s.Key", schemaTopicName)
 
-	return Struct{
-		fieldNameType:     string(systemcatalog.STRUCT),
-		fieldNameName:     hypertableKeySchemaName,
-		fieldNameOptional: false,
-		fieldNameFields: func() []Struct {
-			keys := make([]Struct, 0)
+	return schemamodel.Struct{
+		schemamodel.FieldNameType:     string(schemamodel.STRUCT),
+		schemamodel.FieldNameName:     hypertableKeySchemaName,
+		schemamodel.FieldNameOptional: false,
+		schemamodel.FieldNameFields: func() []schemamodel.Struct {
+			keys := make([]schemamodel.Struct, 0)
 			fieldIndex := 0
 			for _, column := range hypertable.Columns() {
 				if !column.IsPrimaryKey() {
 					continue
 				}
-				keys = append(keys, keySchemaElement(column.Name(), fieldIndex, column.TypeName(), false))
+				keys = append(keys, keySchemaElement(column.Name(), fieldIndex, column.PgType().SchemaType(), false))
 				fieldIndex++
 			}
 			return keys
@@ -261,176 +227,194 @@ func KeySchema(hypertable *systemcatalog.Hypertable, topicSchemaGenerator namege
 	}
 }
 
-func TimescaleEventKeySchema() Struct {
-	return Struct{
-		fieldNameType:     string(systemcatalog.STRUCT),
-		fieldNameName:     TimescaleEventSchemaName,
-		fieldNameOptional: false,
-		fieldNameFields: []Struct{
-			simpleSchemaElement(fieldNameSchema, systemcatalog.STRING, false),
-			simpleSchemaElement(fieldNameTable, systemcatalog.STRING, false),
+func TimescaleEventKeySchema() schemamodel.Struct {
+	return schemamodel.Struct{
+		schemamodel.FieldNameType:     string(schemamodel.STRUCT),
+		schemamodel.FieldNameName:     TimescaleEventSchemaName,
+		schemamodel.FieldNameOptional: false,
+		schemamodel.FieldNameFields: []schemamodel.Struct{
+			simpleSchemaElement(schemamodel.FieldNameSchema, schemamodel.STRING, false),
+			simpleSchemaElement(schemamodel.FieldNameTable, schemamodel.STRING, false),
 		},
 	}
 }
 
 func EnvelopeSchema(schemaRegistry Registry, topicSchemaGenerator namegenerator.NameGenerator,
-	hypertable *systemcatalog.Hypertable) Struct {
+	hypertable *systemcatalog.Hypertable) schemamodel.Struct {
 
 	schemaTopicName := topicSchemaGenerator.SchemaTopicName(hypertable)
 	hypertableSchemaName := fmt.Sprintf("%s.Value", schemaTopicName)
 	envelopeSchemaName := fmt.Sprintf("%s.Envelope", schemaTopicName)
-	hypertableSchema := schemaRegistry.GetSchemaOrCreate(hypertableSchemaName, func() Struct {
+	hypertableSchema := schemaRegistry.GetSchemaOrCreate(hypertableSchemaName, func() schemamodel.Struct {
 		return HypertableSchema(hypertableSchemaName, hypertable.Columns())
 	})
 
-	return Struct{
-		fieldNameType: string(systemcatalog.STRUCT),
-		fieldNameFields: []Struct{
-			extendHypertableSchema(hypertableSchema, fieldNameBefore, true),
-			extendHypertableSchema(hypertableSchema, fieldNameAfter, false),
+	return schemamodel.Struct{
+		schemamodel.FieldNameType: string(schemamodel.STRUCT),
+		schemamodel.FieldNameFields: []schemamodel.Struct{
+			extendHypertableSchema(hypertableSchema, schemamodel.FieldNameBefore, true),
+			extendHypertableSchema(hypertableSchema, schemamodel.FieldNameAfter, false),
 			schemaRegistry.GetSchema(SourceSchemaName),
-			simpleSchemaElement(fieldNameOperation, systemcatalog.STRING, false),
-			simpleSchemaElement(fieldNameTimescaleOp, systemcatalog.STRING, true),
-			simpleSchemaElement(fieldNameTimestamp, systemcatalog.INT64, true),
+			simpleSchemaElement(schemamodel.FieldNameOperation, schemamodel.STRING, false),
+			simpleSchemaElement(schemamodel.FieldNameTimescaleOp, schemamodel.STRING, true),
+			simpleSchemaElement(schemamodel.FieldNameTimestamp, schemamodel.INT64, true),
 		},
-		fieldNameOptional: false,
-		fieldNameName:     envelopeSchemaName,
+		schemamodel.FieldNameOptional: false,
+		schemamodel.FieldNameName:     envelopeSchemaName,
 	}
 }
 
-func EnvelopeMessageSchema(schemaRegistry Registry, topicSchemaGenerator namegenerator.NameGenerator) Struct {
+func EnvelopeMessageSchema(schemaRegistry Registry, topicSchemaGenerator namegenerator.NameGenerator) schemamodel.Struct {
 	schemaTopicName := topicSchemaGenerator.MessageTopicName()
 	envelopeSchemaName := fmt.Sprintf("%s.Envelope", schemaTopicName)
 
-	return Struct{
-		fieldNameType: string(systemcatalog.STRUCT),
-		fieldNameFields: []Struct{
+	return schemamodel.Struct{
+		schemamodel.FieldNameType: string(schemamodel.STRUCT),
+		schemamodel.FieldNameFields: []schemamodel.Struct{
 			schemaRegistry.GetSchema(MessageValueSchemaName),
 			schemaRegistry.GetSchema(SourceSchemaName),
-			simpleSchemaElement(fieldNameOperation, systemcatalog.STRING, false),
-			simpleSchemaElement(fieldNameTimescaleOp, systemcatalog.STRING, true),
-			simpleSchemaElement(fieldNameTimestamp, systemcatalog.INT64, true),
+			simpleSchemaElement(schemamodel.FieldNameOperation, schemamodel.STRING, false),
+			simpleSchemaElement(schemamodel.FieldNameTimescaleOp, schemamodel.STRING, true),
+			simpleSchemaElement(schemamodel.FieldNameTimestamp, schemamodel.INT64, true),
 		},
-		fieldNameOptional: false,
-		fieldNameName:     envelopeSchemaName,
+		schemamodel.FieldNameOptional: false,
+		schemamodel.FieldNameName:     envelopeSchemaName,
 	}
 }
 
-func SourceSchema() Struct {
-	return Struct{
-		fieldNameType: string(systemcatalog.STRUCT),
-		fieldNameFields: []Struct{
-			simpleSchemaElement(fieldNameVersion, systemcatalog.STRING, false),
-			simpleSchemaElement(fieldNameConnector, systemcatalog.STRING, false),
-			simpleSchemaElement(fieldNameName, systemcatalog.STRING, false),
-			simpleSchemaElement(fieldNameTimestamp, systemcatalog.STRING, false),
-			simpleSchemaElementWithDefault(fieldNameSnapshot, systemcatalog.BOOLEAN, true, false),
-			simpleSchemaElement(fieldNameSchema, systemcatalog.STRING, false),
-			simpleSchemaElement(fieldNameTable, systemcatalog.STRING, false),
-			simpleSchemaElement(fieldNameTxId, systemcatalog.INT64, true),
-			simpleSchemaElement(fieldNameLSN, systemcatalog.INT64, true),
-			simpleSchemaElement(fieldNameXmin, systemcatalog.INT64, true),
+func SourceSchema() schemamodel.Struct {
+	return schemamodel.Struct{
+		schemamodel.FieldNameType: string(schemamodel.STRUCT),
+		schemamodel.FieldNameFields: []schemamodel.Struct{
+			simpleSchemaElement(schemamodel.FieldNameVersion, schemamodel.STRING, false),
+			simpleSchemaElement(schemamodel.FieldNameConnector, schemamodel.STRING, false),
+			simpleSchemaElement(schemamodel.FieldNameName, schemamodel.STRING, false),
+			simpleSchemaElement(schemamodel.FieldNameTimestamp, schemamodel.STRING, false),
+			simpleSchemaElementWithDefault(schemamodel.FieldNameSnapshot, schemamodel.BOOLEAN, true, false),
+			simpleSchemaElement(schemamodel.FieldNameSchema, schemamodel.STRING, false),
+			simpleSchemaElement(schemamodel.FieldNameTable, schemamodel.STRING, false),
+			simpleSchemaElement(schemamodel.FieldNameTxId, schemamodel.INT64, true),
+			simpleSchemaElement(schemamodel.FieldNameLSN, schemamodel.INT64, true),
+			simpleSchemaElement(schemamodel.FieldNameXmin, schemamodel.INT64, true),
 		},
-		fieldNameOptional: false,
-		fieldNameName:     SourceSchemaName,
-		fieldNameField:    fieldNameSource,
+		schemamodel.FieldNameOptional: false,
+		schemamodel.FieldNameName:     SourceSchemaName,
+		schemamodel.FieldNameField:    schemamodel.FieldNameSource,
 	}
 }
 
-func MessageValueSchema(schemaRegistry Registry) Struct {
-	return Struct{
-		fieldNameVersion: 1,
-		fieldNameName:    MessageValueSchemaName,
-		fieldNameFields: []Struct{
-			simpleSchemaElement(fieldNameOperation, systemcatalog.STRING, false),
-			simpleSchemaElement(fieldNameTimestamp, systemcatalog.INT64, true),
+func MessageValueSchema(schemaRegistry Registry) schemamodel.Struct {
+	return schemamodel.Struct{
+		schemamodel.FieldNameVersion: 1,
+		schemamodel.FieldNameName:    MessageValueSchemaName,
+		schemamodel.FieldNameFields: []schemamodel.Struct{
+			simpleSchemaElement(schemamodel.FieldNameOperation, schemamodel.STRING, false),
+			simpleSchemaElement(schemamodel.FieldNameTimestamp, schemamodel.INT64, true),
 			schemaRegistry.GetSchema(SourceSchemaName),
 			{
-				fieldNameField:    fieldNameMessage,
-				fieldNameOptional: false,
-				fieldNameMessage:  messageBlockSchema(),
+				schemamodel.FieldNameField:    schemamodel.FieldNameMessage,
+				schemamodel.FieldNameOptional: false,
+				schemamodel.FieldNameMessage:  messageBlockSchema(),
 			},
 		},
 	}
 }
 
-func MessageKeySchema() Struct {
-	return Struct{
-		fieldNameVersion: 1,
-		fieldNameName:    MessageKeySchemaName,
-		fieldNameFields: []Struct{
-			simpleSchemaElement(fieldNamePrefix, systemcatalog.STRING, true),
+func MessageKeySchema() schemamodel.Struct {
+	return schemamodel.Struct{
+		schemamodel.FieldNameVersion: 1,
+		schemamodel.FieldNameName:    MessageKeySchemaName,
+		schemamodel.FieldNameFields: []schemamodel.Struct{
+			simpleSchemaElement(schemamodel.FieldNamePrefix, schemamodel.STRING, true),
 		},
 	}
 }
 
-func messageBlockSchema() Struct {
-	return Struct{
-		fieldNameVersion: 1,
-		fieldNameName:    MessageBlockSchemaName,
-		fieldNameFields: []Struct{
-			simpleSchemaElement(fieldNamePrefix, systemcatalog.STRING, true),
-			simpleSchemaElement(fieldNameContent, systemcatalog.STRING, true),
+func messageBlockSchema() schemamodel.Struct {
+	return schemamodel.Struct{
+		schemamodel.FieldNameVersion: 1,
+		schemamodel.FieldNameName:    MessageBlockSchemaName,
+		schemamodel.FieldNameFields: []schemamodel.Struct{
+			simpleSchemaElement(schemamodel.FieldNamePrefix, schemamodel.STRING, true),
+			simpleSchemaElement(schemamodel.FieldNameContent, schemamodel.STRING, true),
 		},
 	}
 }
 
-func simpleSchemaElement(fieldName schemaField, typeName systemcatalog.DataType, optional bool) Struct {
-	return Struct{
-		fieldNameType:     string(typeName),
-		fieldNameOptional: optional,
-		fieldNameField:    fieldName,
+func simpleSchemaElement(fieldName schemamodel.SchemaField,
+	schemaType schemamodel.SchemaType, optional bool) schemamodel.Struct {
+
+	return schemamodel.Struct{
+		schemamodel.FieldNameType:     string(schemaType),
+		schemamodel.FieldNameOptional: optional,
+		schemamodel.FieldNameField:    fieldName,
 	}
 }
 
-func keySchemaElement(fieldName schemaField, index int, typeName string, optional bool) Struct {
-	return Struct{
-		fieldNameName:  fieldName,
-		fieldNameIndex: index,
-		fieldNameSchema: Struct{
-			fieldNameType:     typeName,
-			fieldNameOptional: optional,
+func keySchemaElement(fieldName schemamodel.SchemaField, index int,
+	schemaType schemamodel.SchemaType, optional bool) schemamodel.Struct {
+
+	return schemamodel.Struct{
+		schemamodel.FieldNameName:  fieldName,
+		schemamodel.FieldNameIndex: index,
+		schemamodel.FieldNameSchema: schemamodel.Struct{
+			schemamodel.FieldNameType:     string(schemaType),
+			schemamodel.FieldNameOptional: optional,
 		},
 	}
 }
 
-func simpleSchemaElementWithDefault(fieldName schemaField,
-	typeName systemcatalog.DataType, optional bool, defaultValue any) Struct {
+func simpleSchemaElementWithDefault(fieldName schemamodel.SchemaField,
+	schemaType schemamodel.SchemaType, optional bool, defaultValue any) schemamodel.Struct {
 
-	return Struct{
-		fieldNameType:     string(typeName),
-		fieldNameOptional: optional,
-		fieldNameDefault:  defaultValue,
-		fieldNameField:    fieldName,
+	return schemamodel.Struct{
+		schemamodel.FieldNameType:     string(schemaType),
+		schemamodel.FieldNameOptional: optional,
+		schemamodel.FieldNameDefault:  defaultValue,
+		schemamodel.FieldNameField:    fieldName,
 	}
 }
 
-func extendHypertableSchema(hypertableSchema Struct, fieldName schemaField, optional bool) Struct {
-	return Struct{
-		fieldNameType:     string(systemcatalog.STRUCT),
-		fieldNameFields:   hypertableSchema[fieldNameFields],
-		fieldNameName:     hypertableSchema[fieldNameName],
-		fieldNameOptional: optional,
-		fieldNameField:    fieldName,
+func extendHypertableSchema(hypertableSchema schemamodel.Struct,
+	fieldName schemamodel.SchemaField, optional bool) schemamodel.Struct {
+
+	return schemamodel.Struct{
+		schemamodel.FieldNameType:     string(schemamodel.STRUCT),
+		schemamodel.FieldNameFields:   hypertableSchema[schemamodel.FieldNameFields],
+		schemamodel.FieldNameName:     hypertableSchema[schemamodel.FieldNameName],
+		schemamodel.FieldNameOptional: optional,
+		schemamodel.FieldNameField:    fieldName,
 	}
 }
 
-func column2field(colum systemcatalog.Column) Struct {
-	field := Struct{
-		fieldNameType:     colum.TypeName(),
-		fieldNameOptional: colum.IsNullable(),
-		fieldNameField:    colum.Name(),
+func column2field(column systemcatalog.Column) schemamodel.Struct {
+	pgType := column.PgType()
+	schemaBuilder := pgType.SchemaBuilder()
+
+	var field schemamodel.Struct
+	if pgType.IsArray() {
+		field = schemaBuilder.Schema(column)
+	} else if pgType.IsRecord() {
+		//todo: not yet supported
+		panic("not yet implemented")
+	} else {
+		field = schemamodel.Struct{
+			schemamodel.FieldNameType:     schemaBuilder.BaseSchemaType(),
+			schemamodel.FieldNameOptional: column.IsNullable(),
+			schemamodel.FieldNameField:    column.Name(),
+		}
 	}
-	if colum.DefaultValue() != nil {
-		defaultValue := *colum.DefaultValue()
+
+	if column.DefaultValue() != nil {
+		defaultValue := *column.DefaultValue()
 		if v, err := strconv.ParseBool(defaultValue); err == nil {
-			field[fieldNameDefault] = v
+			field[schemamodel.FieldNameDefault] = v
 		} else if v, err := strconv.ParseInt(defaultValue, 10, 64); err == nil {
-			field[fieldNameDefault] = v
+			field[schemamodel.FieldNameDefault] = v
 		} else if v, err := strconv.ParseFloat(defaultValue, 64); err == nil {
-			field[fieldNameDefault] = v
+			field[schemamodel.FieldNameDefault] = v
 		} else {
-			field[fieldNameDefault] = defaultValue
+			field[schemamodel.FieldNameDefault] = defaultValue
 		}
 	}
 	return field

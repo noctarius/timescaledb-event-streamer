@@ -21,7 +21,6 @@ import (
 	stdctx "context"
 	"fmt"
 	"github.com/jackc/pglogrepl"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
@@ -87,8 +86,8 @@ func (its *IntegrationTestSuite) TestInitialSnapshot_Single_Chunk() {
 
 		testrunner.WithSetup(func(context testrunner.SetupContext) error {
 			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
-				systemcatalog.NewColumn("ts", pgtype.TimestamptzOID, "timestamptz", false, nil),
-				systemcatalog.NewColumn("val", pgtype.Int4OID, "integer", false, nil),
+				inttest.NewColumn("ts", "timestamptz", false, false, nil),
+				inttest.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
@@ -145,8 +144,8 @@ func (its *IntegrationTestSuite) TestInitialSnapshot_Multi_Chunk() {
 
 		testrunner.WithSetup(func(context testrunner.SetupContext) error {
 			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
-				systemcatalog.NewColumn("ts", pgtype.TimestamptzOID, "timestamptz", false, nil),
-				systemcatalog.NewColumn("val", pgtype.Int4OID, "integer", false, nil),
+				inttest.NewColumn("ts", "timestamptz", false, false, nil),
+				inttest.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
@@ -238,8 +237,8 @@ func (its *IntegrationTestSuite) TestCreateEvents() {
 
 		testrunner.WithSetup(func(context testrunner.SetupContext) error {
 			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
-				systemcatalog.NewColumn("ts", pgtype.TimestamptzOID, "timestamptz", false, nil),
-				systemcatalog.NewColumn("val", pgtype.Int4OID, "integer", false, nil),
+				inttest.NewColumn("ts", "timestamptz", false, false, nil),
+				inttest.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
@@ -331,12 +330,8 @@ func (its *IntegrationTestSuite) TestUpdateEvents() {
 
 		testrunner.WithSetup(func(context testrunner.SetupContext) error {
 			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
-				systemcatalog.NewIndexColumn(
-					"ts", pgtype.TimestamptzOID, "timestamptz", false, true,
-					supporting.AddrOf(1), nil, false, supporting.AddrOf("primary"),
-					systemcatalog.ASC, systemcatalog.NULLS_LAST, false, false, nil, nil,
-				),
-				systemcatalog.NewColumn("val", pgtype.Int4OID, "integer", false, nil),
+				inttest.NewColumn("ts", "timestamptz", false, true, nil),
+				inttest.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
@@ -422,12 +417,8 @@ func (its *IntegrationTestSuite) TestDeleteEvents() {
 
 		testrunner.WithSetup(func(context testrunner.SetupContext) error {
 			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
-				systemcatalog.NewIndexColumn(
-					"ts", pgtype.TimestamptzOID, "timestamptz", false, true,
-					supporting.AddrOf(1), nil, false, supporting.AddrOf("primary"),
-					systemcatalog.ASC, systemcatalog.NULLS_LAST, false, false, nil, nil,
-				),
-				systemcatalog.NewColumn("val", pgtype.Int4OID, "integer", false, nil),
+				inttest.NewColumn("ts", "timestamptz", false, true, nil),
+				inttest.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
@@ -514,8 +505,8 @@ func (its *IntegrationTestSuite) TestTruncateEvents() {
 
 		testrunner.WithSetup(func(context testrunner.SetupContext) error {
 			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
-				systemcatalog.NewColumn("ts", pgtype.TimestamptzOID, "timestamptz", false, nil),
-				systemcatalog.NewColumn("val", pgtype.Int4OID, "integer", false, nil),
+				inttest.NewColumn("ts", "timestamptz", false, false, nil),
+				inttest.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
@@ -614,8 +605,8 @@ func (its *IntegrationTestSuite) TestCompressionEvents() {
 
 		testrunner.WithSetup(func(context testrunner.SetupContext) error {
 			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
-				systemcatalog.NewColumn("ts", pgtype.TimestamptzOID, "timestamptz", false, nil),
-				systemcatalog.NewColumn("val", pgtype.Int4OID, "integer", false, nil),
+				inttest.NewColumn("ts", "timestamptz", false, false, nil),
+				inttest.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
@@ -735,8 +726,8 @@ func (its *IntegrationTestSuite) TestCompressionPartialInsertEvents() {
 
 		testrunner.WithSetup(func(context testrunner.SetupContext) error {
 			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
-				systemcatalog.NewColumn("ts", pgtype.TimestamptzOID, "timestamptz", false, nil),
-				systemcatalog.NewColumn("val", pgtype.Int4OID, "integer", false, nil),
+				inttest.NewColumn("ts", "timestamptz", false, false, nil),
+				inttest.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
@@ -859,8 +850,8 @@ func (its *IntegrationTestSuite) TestDecompressionEvents() {
 
 		testrunner.WithSetup(func(context testrunner.SetupContext) error {
 			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
-				systemcatalog.NewColumn("ts", pgtype.TimestamptzOID, "timestamptz", false, nil),
-				systemcatalog.NewColumn("val", pgtype.Int4OID, "integer", false, nil),
+				inttest.NewColumn("ts", "timestamptz", false, false, nil),
+				inttest.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
@@ -983,8 +974,8 @@ func (its *IntegrationTestSuite) TestCompression_Decompression_SingleTransaction
 
 		testrunner.WithSetup(func(context testrunner.SetupContext) error {
 			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
-				systemcatalog.NewColumn("ts", pgtype.TimestamptzOID, "timestamptz", false, nil),
-				systemcatalog.NewColumn("val", pgtype.Int4OID, "integer", false, nil),
+				inttest.NewColumn("ts", "timestamptz", false, false, nil),
+				inttest.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
@@ -1059,8 +1050,8 @@ func (its *IntegrationTestSuite) TestContinuousAggregateCreateEvents() {
 
 		testrunner.WithSetup(func(context testrunner.SetupContext) error {
 			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
-				systemcatalog.NewColumn("ts", pgtype.TimestamptzOID, "timestamptz", false, nil),
-				systemcatalog.NewColumn("val", pgtype.Int4OID, "integer", false, nil),
+				inttest.NewColumn("ts", "timestamptz", false, false, nil),
+				inttest.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
@@ -1160,8 +1151,8 @@ func (its *IntegrationTestSuite) TestContinuousAggregate_Scheduled_Refresh_Creat
 
 		testrunner.WithSetup(func(context testrunner.SetupContext) error {
 			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
-				systemcatalog.NewColumn("ts", pgtype.TimestamptzOID, "timestamptz", false, nil),
-				systemcatalog.NewColumn("val", pgtype.Int4OID, "integer", false, nil),
+				inttest.NewColumn("ts", "timestamptz", false, false, nil),
+				inttest.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
@@ -1252,8 +1243,8 @@ func (its *IntegrationTestSuite) Ignore_TestRollbackEvents() {
 
 		testrunner.WithSetup(func(context testrunner.SetupContext) error {
 			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
-				systemcatalog.NewColumn("ts", pgtype.TimestamptzOID, "timestamptz", false, nil),
-				systemcatalog.NewColumn("val", pgtype.Int4OID, "integer", false, nil),
+				inttest.NewColumn("ts", "timestamptz", false, false, nil),
+				inttest.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
@@ -1360,12 +1351,8 @@ func (its *IntegrationTestSuite) Test_Acknowledge_To_PG_With_Only_Begin_Commit()
 
 		testrunner.WithSetup(func(context testrunner.SetupContext) error {
 			_, tn, err := context.CreateHypertable("ts", time.Hour*6,
-				systemcatalog.NewIndexColumn(
-					"ts", pgtype.TimestamptzOID, "timestamptz", false, true,
-					supporting.AddrOf(1), nil, false, supporting.AddrOf("primary"),
-					systemcatalog.ASC, systemcatalog.NULLS_LAST, false, false, nil, nil,
-				),
-				systemcatalog.NewColumn("val", pgtype.Int4OID, "integer", false, nil),
+				inttest.NewColumn("ts", "timestamptz", false, true, nil),
+				inttest.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err

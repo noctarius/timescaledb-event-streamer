@@ -23,8 +23,8 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
+	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
-	"time"
 )
 
 type Task = func(notificator Notificator)
@@ -40,7 +40,7 @@ type Notificator interface {
 
 type dispatcher struct {
 	logger              *logging.Logger
-	taskQueue           *supporting.Queue[Task]
+	taskQueue           *supporting.Channel[Task]
 	baseHandlers        []eventhandlers.BaseReplicationEventHandler
 	catalogHandlers     []eventhandlers.SystemCatalogReplicationEventHandler
 	compressionHandlers []eventhandlers.CompressionReplicationEventHandler
@@ -51,15 +51,17 @@ type dispatcher struct {
 	shutdownActive      bool
 }
 
-func newDispatcher() (*dispatcher, error) {
+func newDispatcher(config *spiconfig.Config) (*dispatcher, error) {
 	logger, err := logging.NewLogger("TaskDispatcher")
 	if err != nil {
 		return nil, errors.Wrap(err, 0)
 	}
 
+	maxQueueSize := spiconfig.GetOrDefault[int](config, spiconfig.PropertyDispatcherMaxQueueSize, 4096)
+
 	d := &dispatcher{
 		logger:              logger,
-		taskQueue:           supporting.NewQueue[Task](),
+		taskQueue:           supporting.NewChannel[Task](maxQueueSize),
 		baseHandlers:        make([]eventhandlers.BaseReplicationEventHandler, 0),
 		catalogHandlers:     make([]eventhandlers.SystemCatalogReplicationEventHandler, 0),
 		compressionHandlers: make([]eventhandlers.CompressionReplicationEventHandler, 0),
@@ -192,14 +194,10 @@ func (d *dispatcher) StartDispatcher() {
 			select {
 			case <-d.shutdownAwaiter.AwaitShutdownChan():
 				goto finish
-			default:
-			}
-
-			task := d.taskQueue.Pop()
-			if task != nil {
-				task(notificator)
-			} else {
-				time.Sleep(time.Millisecond * 10)
+			case task := <-d.taskQueue.ReadChannel():
+				if task != nil {
+					task(notificator)
+				}
 			}
 		}
 
@@ -211,6 +209,7 @@ func (d *dispatcher) StartDispatcher() {
 func (d *dispatcher) StopDispatcher() error {
 	d.shutdownActive = true
 	d.shutdownAwaiter.SignalShutdown()
+	d.taskQueue.Close()
 	return d.shutdownAwaiter.AwaitDone()
 }
 
@@ -218,7 +217,7 @@ func (d *dispatcher) EnqueueTask(task Task) error {
 	if d.shutdownActive {
 		return fmt.Errorf("shutdown active, draining only")
 	}
-	d.taskQueue.Push(task)
+	d.taskQueue.Write(task)
 	return nil
 }
 
@@ -227,7 +226,7 @@ func (d *dispatcher) EnqueueTaskAndWait(task Task) error {
 		return fmt.Errorf("shutdown active, draining only")
 	}
 	done := supporting.NewWaiter()
-	d.taskQueue.Push(func(notificator Notificator) {
+	d.taskQueue.Write(func(notificator Notificator) {
 		task(notificator)
 		done.Signal()
 	})

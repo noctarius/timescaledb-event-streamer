@@ -29,6 +29,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
+	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes/datatypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/version"
 	"github.com/noctarius/timescaledb-event-streamer/spi/watermark"
@@ -59,6 +60,35 @@ FROM pg_control_system() pcs, pg_control_checkpoint() pcc`
 const addTableToPublicationQuery = "ALTER PUBLICATION %s ADD TABLE %s"
 
 const dropTableFromPublicationQuery = "ALTER PUBLICATION %s DROP TABLE %s"
+
+const readPgTypeQuery = `
+SELECT DISTINCT ON (t.typname) t.typname, t.typinput='array_in'::REGPROC,
+                               t.typinput='record_in'::REGPROC,
+                               t.typtype, t.oid, t.typarray, t.typelem,
+                               t.typcategory, t.typbasetype, t.typtypmod,
+                               e.enum_values, t.typdelim
+FROM pg_catalog.pg_type t
+LEFT JOIN (
+    SELECT ns.oid AS nspoid, ns.nspname, r.rank
+    FROM pg_catalog.pg_namespace ns
+    JOIN (
+        SELECT row_number() OVER () AS rank, s.s AS nspname
+        FROM (
+            SELECT r.r AS s FROM unnest(current_schemas(TRUE)) r
+            UNION ALL
+            SELECT '_timescaledb_internal' AS s
+        ) s
+    ) r ON ns.nspname = r.nspname
+) sp ON sp.nspoid = t.typnamespace
+LEFT JOIN (
+    SELECT e.enumtypid AS id, array_agg(e.enumlabel) AS enum_values
+    FROM pg_catalog.pg_enum e
+    GROUP BY 1 
+) e ON e.id = t.oid 
+WHERE sp.rank IS NOT NULL
+  AND t.typtype != 'p'
+%s
+ORDER BY t.typname, sp.rank, t.oid;`
 
 const initialHypertableQuery = `
 SELECT h1.id, h1.schema_name, h1.table_name, h1.associated_schema_name, h1.associated_table_prefix,
@@ -772,13 +802,13 @@ func (sc *sideChannelImpl) readHypertableSchema0(
 			return errors.Wrap(err, 0)
 		}
 
-		dataType, err := systemcatalog.DataTypeByOID(oid)
+		dataType, err := sc.replicationContext.typeManager.DataType(oid)
 		if err != nil {
 			return errors.Wrap(err, 0)
 		}
 
 		column := systemcatalog.NewIndexColumn(
-			name, oid, string(dataType), nullable, primaryKey, keySeq, defaultValue, isReplicaIdent, indexName,
+			name, oid, dataType, nullable, primaryKey, keySeq, defaultValue, isReplicaIdent, indexName,
 			systemcatalog.IndexSortOrder(sortOrder), systemcatalog.IndexNullsOrder(nullsOrder),
 			dimension, dimAligned, dimType, dimSeq,
 		)
@@ -793,6 +823,79 @@ func (sc *sideChannelImpl) readHypertableSchema0(
 	}
 
 	return nil
+}
+
+func (sc *sideChannelImpl) ReadPgTypes(factory datatypes.TypeFactory, cb func(pgType systemcatalog.PgType) error) error {
+	return sc.newSession(time.Second*30, func(session *session) error {
+		return session.queryFunc(func(row pgx.Row) error {
+			typ, found, err := sc.scanPgType(row, factory)
+			if err != nil {
+				return err
+			}
+
+			if !found {
+				return nil
+			}
+
+			// Record types aren't supported at the moment, so we can simply skip them
+			if typ.IsRecord() {
+				return nil
+			}
+
+			return cb(typ)
+		}, fmt.Sprintf(readPgTypeQuery, "") /* no limitation*/)
+	})
+}
+
+func (sc *sideChannelImpl) ReadPgType(
+	oid uint32, factory datatypes.TypeFactory,
+) (typ systemcatalog.PgType, found bool, err error) {
+
+	if err := sc.newSession(time.Second*30, func(session *session) error {
+		return session.queryFunc(func(row pgx.Row) error {
+			typ, found, err = sc.scanPgType(row, factory)
+			if err != nil {
+				return err
+			}
+			return nil
+		}, fmt.Sprintf(readPgTypeQuery, "AND t.oid = $1"), oid)
+	}); err != nil {
+		return nil, false, errors.Wrap(err, 0)
+	}
+
+	if !found {
+		return nil, false, nil
+	}
+
+	// Record types aren't supported at the moment, so we can simply skip them
+	if typ.IsRecord() {
+		return nil, false, nil
+	}
+
+	return typ, true, nil
+}
+
+func (sc *sideChannelImpl) scanPgType(row pgx.Row, factory datatypes.TypeFactory) (systemcatalog.PgType, bool, error) {
+	var name string
+	var kind, category, delimiter int32
+	var arrayType, recordType bool
+	var oid, oidArray, oidElement, parentOid uint32
+	var modifiers int
+	var enumValues []string
+
+	if err := row.Scan(
+		&name, &arrayType, &recordType, &kind, &oid, &oidArray, &oidElement,
+		&category, &parentOid, &modifiers, &enumValues, &delimiter,
+	); err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, false, nil
+		}
+		return nil, false, errors.Wrap(err, 0)
+	}
+
+	return factory(name, systemcatalog.PgKind(kind), oid, systemcatalog.PgCategory(category), arrayType, recordType,
+		oidArray, oidElement, parentOid, modifiers, enumValues, string(delimiter),
+	), true, nil
 }
 
 func (sc *sideChannelImpl) entitiesToTableList(entities []systemcatalog.SystemEntity) string {
