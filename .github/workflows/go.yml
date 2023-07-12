@@ -54,10 +54,6 @@ jobs:
     - name: Check out code into the Go module directory
       uses: actions/checkout@v3
 
-    - name: Install colima on MacOS
-      if: ${{ matrix.os == 'macos-latest' }}
-      run: brew install colima docker && colima start
-
     - name: Set up Go
       uses: actions/setup-go@v4
       with:
@@ -65,15 +61,7 @@ jobs:
       id: go
 
     - name: Test
-      if: ${{ matrix.os != 'macos-latest' }}
       run: TSES_TEST_PG_VERSION=${{ matrix.pg_version }} make test > unit-run.log  2>&1
-
-    - name: Test
-      if: ${{ matrix.os == 'macos-latest' }}
-      run: TSES_TEST_PG_VERSION=${{ matrix.pg_version }} make test > unit-run.log  2>&1
-      env:
-        DOCKER_HOST: 'unix:///Users/runner/.colima/default/docker.sock'
-        TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE: '/var/run/docker.sock'
 
     - name: 'Print failure logs'
       if: ${{ failure() }}
