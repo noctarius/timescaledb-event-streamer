@@ -20,14 +20,12 @@ package integration
 import (
 	stdctx "context"
 	"fmt"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
 	inttest "github.com/noctarius/timescaledb-event-streamer/internal/testing"
 	"github.com/noctarius/timescaledb-event-streamer/internal/testing/testrunner"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
-	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/stretchr/testify/suite"
 	"testing"
 	"time"
@@ -46,6 +44,7 @@ func (its *IntegrationSnapshotTestSuite) TestInitialSnapshot_Hypertable() {
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
+				time.Sleep(time.Millisecond)
 				return envelope.Payload.Op == schema.OP_READ
 			},
 		),
@@ -59,6 +58,7 @@ func (its *IntegrationSnapshotTestSuite) TestInitialSnapshot_Hypertable() {
 	its.RunTest(
 		func(context testrunner.Context) error {
 			if err := waiter.Await(); err != nil {
+				its.T().Logf("Expected 8640 events but only received %d", len(testSink.Events()))
 				return err
 			}
 
@@ -82,8 +82,8 @@ func (its *IntegrationSnapshotTestSuite) TestInitialSnapshot_Hypertable() {
 
 		testrunner.WithSetup(func(context testrunner.SetupContext) error {
 			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
-				systemcatalog.NewColumn("ts", pgtype.TimestamptzOID, "timestamptz", false, nil),
-				systemcatalog.NewColumn("val", pgtype.Int4OID, "integer", false, nil),
+				inttest.NewColumn("ts", "timestamptz", false, false, nil),
+				inttest.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err

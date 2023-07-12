@@ -38,6 +38,8 @@ const (
 	PropertyStateStorageType     = "statestorage.type"
 	PropertyFileStateStoragePath = "statestorage.file.path"
 
+	PropertyDispatcherMaxQueueSize = "internal.dispatcher.maxqueuesize"
+
 	PropertyEventsRead          = "timescaledb.events.read"
 	PropertyEventsInsert        = "timescaledb.events.insert"
 	PropertyEventsUpdate        = "timescaledb.events.update"

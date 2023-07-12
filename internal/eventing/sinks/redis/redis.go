@@ -22,7 +22,7 @@ import (
 	"encoding/json"
 	"github.com/go-redis/redis"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
-	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
 	"github.com/noctarius/timescaledb-event-streamer/spi/sink"
 	"time"
 )
@@ -102,7 +102,7 @@ func (r *redisSink) Stop() error {
 	return r.client.Close()
 }
 
-func (r *redisSink) Emit(_ sink.Context, _ time.Time, topicName string, key, envelope schema.Struct) error {
+func (r *redisSink) Emit(_ sink.Context, _ time.Time, topicName string, key, envelope schemamodel.Struct) error {
 	keyData, err := json.Marshal(key)
 	if err != nil {
 		return err

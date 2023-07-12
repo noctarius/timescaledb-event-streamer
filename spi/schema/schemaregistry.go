@@ -18,13 +18,14 @@
 package schema
 
 import (
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 )
 
 type Registry interface {
-	RegisterSchema(schemaName string, schema Struct)
-	GetSchema(schemaName string) Struct
-	GetSchemaOrCreate(schemaName string, creator func() Struct) Struct
+	RegisterSchema(schemaName string, schema schemamodel.Struct)
+	GetSchema(schemaName string) schemamodel.Struct
+	GetSchemaOrCreate(schemaName string, creator func() schemamodel.Struct) schemamodel.Struct
 	HypertableEnvelopeSchemaName(hypertable *systemcatalog.Hypertable) string
 	HypertableKeySchemaName(hypertable *systemcatalog.Hypertable) string
 	MessageEnvelopeSchemaName() string

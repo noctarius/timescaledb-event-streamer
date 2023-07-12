@@ -23,6 +23,10 @@ stateStorage:
   file:
     path: '/tmp/statestorage.dat'
 
+#internal:
+#  dispatcher:
+#    maxQueueSize: 4096
+
 sink:
   #filters:
     #filterName:

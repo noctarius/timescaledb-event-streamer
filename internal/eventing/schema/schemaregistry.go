@@ -20,6 +20,7 @@ package schema
 import (
 	"fmt"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/topic/namegenerator"
 	"github.com/reugn/async"
@@ -27,33 +28,33 @@ import (
 
 type Registry struct {
 	topicNameGenerator namegenerator.NameGenerator
-	schemaRegistry     map[string]schema.Struct
+	schemaRegistry     map[string]schemamodel.Struct
 	mutex              *async.ReentrantLock
 }
 
 func NewRegistry(topicNameGenerator namegenerator.NameGenerator) schema.Registry {
 	r := &Registry{
 		topicNameGenerator: topicNameGenerator,
-		schemaRegistry:     make(map[string]schema.Struct),
+		schemaRegistry:     make(map[string]schemamodel.Struct),
 		mutex:              async.NewReentrantLock(),
 	}
 	initializeSourceSchemas(r)
 	return r
 }
 
-func (r *Registry) RegisterSchema(schemaName string, schema schema.Struct) {
+func (r *Registry) RegisterSchema(schemaName string, schema schemamodel.Struct) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 	r.schemaRegistry[schemaName] = schema
 }
 
-func (r *Registry) GetSchema(schemaName string) schema.Struct {
+func (r *Registry) GetSchema(schemaName string) schemamodel.Struct {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 	return r.schemaRegistry[schemaName]
 }
 
-func (r *Registry) GetSchemaOrCreate(schemaName string, creator func() schema.Struct) schema.Struct {
+func (r *Registry) GetSchemaOrCreate(schemaName string, creator func() schemamodel.Struct) schemamodel.Struct {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 	if schema, ok := r.schemaRegistry[schemaName]; ok {

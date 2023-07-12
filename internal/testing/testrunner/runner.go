@@ -50,7 +50,7 @@ type PrivilegedContext interface {
 type Context interface {
 	PrivilegedContext
 	PrivilegedContext(fn func(context PrivilegedContext) error) error
-	CreateHypertable(timeDimension string, chunkSize time.Duration, columns ...systemcatalog.Column) (string, string, error)
+	CreateHypertable(timeDimension string, chunkSize time.Duration, columns ...inttest.Column) (string, string, error)
 	PauseReplicator() error
 	ResumeReplicator() error
 	PostgresqlVersion() version.PostgresVersion
@@ -184,7 +184,7 @@ func (t *testContext) PrivilegedContext(fn func(context PrivilegedContext) error
 }
 
 func (t *testContext) CreateHypertable(timeDimension string,
-	chunkSize time.Duration, columns ...systemcatalog.Column) (string, string, error) {
+	chunkSize time.Duration, columns ...inttest.Column) (string, string, error) {
 
 	schemaName, tableName, err := inttest.CreateHypertable(t.pool, timeDimension, chunkSize, columns...)
 	if err != nil {

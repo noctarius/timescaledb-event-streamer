@@ -81,7 +81,7 @@ func (s *systemCatalogReplicationEventHandler) OnHypertableAddedEvent(
 			if err := s.systemCatalog.RegisterHypertable(h); err != nil {
 				return errors.Errorf("registering hypertable failed: %v (error: %+v)", h, err)
 			}
-			s.systemCatalog.logger.Verbosef("ADDED CATALOG ENTRY: HYPERTABLE %d => %s", h.Id(), h.String())
+			s.systemCatalog.logger.Verbosef("Entry Added: Hypertable %d => %s", h.Id(), h.String())
 
 			return s.systemCatalog.replicationContext.ReadHypertableSchema(s.systemCatalog.ApplySchemaUpdate, h)
 		},
@@ -107,7 +107,7 @@ func (s *systemCatalogReplicationEventHandler) OnHypertableUpdatedEvent(
 				if err := s.systemCatalog.RegisterHypertable(h); err != nil {
 					return errors.Errorf("registering hypertable failed: %v (error: %+v)", h, err)
 				}
-				s.systemCatalog.logger.Verbosef("UPDATED CATALOG ENTRY: HYPERTABLE %d => %v", id, differences)
+				s.systemCatalog.logger.Verbosef("Entry Updated: Hypertable %d => %v", id, differences)
 			}
 			return nil
 		},
@@ -140,7 +140,7 @@ func (s *systemCatalogReplicationEventHandler) OnChunkAddedEvent(
 
 			if h, present := s.systemCatalog.FindHypertableById(hypertableId); present {
 				s.systemCatalog.logger.Verbosef(
-					"ADDED CATALOG ENTRY: CHUNK %d FOR HYPERTABLE %s => %s",
+					"Entry Added: Chunk %d for Hypertable %s => %s",
 					c.Id(), h.CanonicalName(), c.String(),
 				)
 
@@ -191,11 +191,11 @@ func (s *systemCatalogReplicationEventHandler) OnChunkUpdatedEvent(
 					return errors.Errorf("registering chunk failed: %v (error: %+v)", c, err)
 				}
 				if c.Dropped() && !chunk.Dropped() {
-					s.systemCatalog.logger.Verbosef("UPDATED CATALOG ENTRY: CHUNK %d DROPPED FOR HYPERTABLE %s => %v",
+					s.systemCatalog.logger.Verbosef("Entry Dropped: Chunk %d for Hypertable %s => %v",
 						id, hypertableName, differences)
 				} else {
 					s.systemCatalog.logger.Verbosef(
-						"UPDATED CATALOG ENTRY: CHUNK %d FOR HYPERTABLE %s => %v",
+						"Entry Updated: Chunk %d for Hypertable %s => %v",
 						id, hypertableName, differences)
 				}
 			}
@@ -222,7 +222,7 @@ func (s *systemCatalogReplicationEventHandler) OnChunkDeletedEvent(
 		if err != nil {
 			s.systemCatalog.logger.Fatalf("detaching chunk failed: %d => %v", chunkId, err)
 		}
-		s.systemCatalog.logger.Verbosef("REMOVED CATALOG ENTRY: CHUNK %d FOR HYPERTABLE %s", chunkId, hypertableName)
+		s.systemCatalog.logger.Verbosef("Entry Dropped: Chunk %d for Hypertable %s", chunkId, hypertableName)
 	}
 	return nil
 }

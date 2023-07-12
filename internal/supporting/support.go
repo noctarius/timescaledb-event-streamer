@@ -65,13 +65,13 @@ func AddrOf[T any](value T) *T {
 	return &value
 }
 
-func Sort[I comparable](collection []I, less func(this, other I) bool) {
+func Sort[I any](collection []I, less func(this, other I) bool) {
 	sort.Slice(collection, func(i, j int) bool {
 		return less(collection[i], collection[j])
 	})
 }
 
-func IndexOfWithMatcher[I comparable](collection []I, matcher func(other I) bool) int {
+func IndexOfWithMatcher[I any](collection []I, matcher func(other I) bool) int {
 	for i, candidate := range collection {
 		if matcher(candidate) {
 			return i
@@ -89,7 +89,7 @@ func IndexOf[I comparable](collection []I, item I) int {
 	return -1
 }
 
-func ContainsWithMatcher[I comparable](collection []I, matcher func(other I) bool) bool {
+func ContainsWithMatcher[I any](collection []I, matcher func(other I) bool) bool {
 	return IndexOfWithMatcher(collection, matcher) != -1
 }
 
@@ -97,7 +97,7 @@ func Contains[I comparable](collection []I, item I) bool {
 	return IndexOf(collection, item) != -1
 }
 
-func Filter[I comparable](collection []I, filter func(item I) bool) []I {
+func Filter[I any](collection []I, filter func(item I) bool) []I {
 	result := make([]I, 0)
 	for _, candidate := range collection {
 		if filter(candidate) {

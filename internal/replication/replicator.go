@@ -20,6 +20,7 @@ package replication
 import (
 	"bytes"
 	stderrors "errors"
+	"fmt"
 	"github.com/go-errors/errors"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
 	logrepresolver "github.com/noctarius/timescaledb-event-streamer/internal/replication/logicalreplicationresolver"
@@ -80,7 +81,7 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 
 	// Check version information
 	if !replicationContext.IsMinimumPostgresVersion() {
-		return cli.NewExitError("timescaledb-event-streamer requires PostgreSQL 14 or later", 11)
+		return cli.NewExitError("timescaledb-event-streamer requires PostgreSQL 13 or later", 11)
 	}
 	if !replicationContext.IsMinimumTimescaleVersion() {
 		return cli.NewExitError("timescaledb-event-streamer requires TimescaleDB 2.10 or later", 12)
@@ -98,6 +99,7 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 	r.logger.Infof("  * PostgreSQL System Identity %s", replicationContext.SystemId())
 	r.logger.Infof("  * PostgreSQL Timeline %d", replicationContext.Timeline())
 	r.logger.Infof("  * PostgreSQL Database %s", replicationContext.DatabaseName())
+	r.logger.Infof("  * PostgreSQL Types loaded %d", replicationContext.TypeManager().NumKnownTypes())
 
 	// Create replication channel and internal replication handler
 	replicationChannel, err := replicationchannel.NewReplicationChannel(replicationContext)
@@ -143,7 +145,7 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 
 	// Start internal dispatching
 	if err := replicationContext.StartReplicationContext(); err != nil {
-		return cli.NewExitError("failed to start replication context", 18)
+		return cli.NewExitError(fmt.Sprintf("failed to start replication context: %s", err.Error()), 18)
 	}
 
 	// Start event emitter
