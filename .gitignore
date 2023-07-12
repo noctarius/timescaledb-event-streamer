@@ -1,4 +1,4 @@
-config.chris.toml
+config.test.*.toml
 dist/
 .idea/
 .DS_Store
