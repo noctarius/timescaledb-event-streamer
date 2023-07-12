@@ -31,14 +31,18 @@ func arrayConverter[T any](oidElement uint32, elementConverter Converter) Conver
 			sourceIndex := sourceValue.Index(i)
 
 			// Unwrap the source entry
-			v, err := elementConverter(oidElement, sourceIndex.Interface())
-			if err != nil {
-				return nil, err
+			var element = sourceIndex.Interface()
+			if elementConverter != nil {
+				v, err := elementConverter(oidElement, element)
+				if err != nil {
+					return nil, err
+				}
+				element = v
 			}
 
 			// Set in target slice
 			targetValue.Index(i).Set(
-				reflect.ValueOf(v).Convert(targetElementType),
+				reflect.ValueOf(element).Convert(targetElementType),
 			)
 		}
 		return targetValue.Interface(), nil

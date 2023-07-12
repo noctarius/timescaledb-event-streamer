@@ -78,6 +78,7 @@ var converters = map[uint32]Converter{
 	pgtype.IntervalOID:         interval2int64,
 	pgtype.IntervalArrayOID:    arrayConverter[[]int64](pgtype.IntervalOID, interval2int64),
 	pgtype.ByteaOID:            nil,
+	pgtype.ByteaArrayOID:       arrayConverter[[][]byte](pgtype.ByteaOID, nil),
 	pgtype.JSONOID:             json2text,
 	pgtype.JSONArrayOID:        arrayConverter[[]string](pgtype.JSONOID, json2text),
 	pgtype.JSONBOID:            json2text,
@@ -91,11 +92,17 @@ var converters = map[uint32]Converter{
 	pgtype.XIDOID:              uint322int64,
 	pgtype.CIDOID:              uint322int64,
 	pgtype.CIDROID:             addr2text,
+	pgtype.CIDRArrayOID:        arrayConverter[[]string](pgtype.CIDROID, addr2text),
 	pgtype.MacaddrOID:          macaddr2text,
-	774:                        macaddr2text, // macaddr8
+	pgtype.MacaddrArrayOID:     arrayConverter[[]string](pgtype.MacaddrOID, macaddr2text),
+	774:                        macaddr2text,                                // macaddr8
+	775:                        arrayConverter[[]string](774, macaddr2text), // macaddr8[]
 	pgtype.InetOID:             addr2text,
+	pgtype.InetArrayOID:        arrayConverter[[]string](pgtype.InetOID, addr2text),
 	pgtype.DateOID:             timestamp2text,
+	pgtype.DateArrayOID:        arrayConverter[[]string](pgtype.DateOID, timestamp2text),
 	pgtype.TimeOID:             time2text,
+	pgtype.TimeArrayOID:        arrayConverter[[]string](pgtype.TimeOID, time2text),
 	pgtype.NumericOID:          numeric2variableScaleDecimal,
 	//1002:                   arrayConverter[[]string](pgtype.QCharOID, char2text), // QCharArrayOID
 }
