@@ -64,14 +64,6 @@ jobs:
         go-version: ${{ env.golang-version }}
       id: go
 
-    - name: Use Go module caching
-      uses: actions/cache@v3
-      with:
-        path: ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-
-
     - name: Test
       if: ${{ matrix.os != 'macos-latest' }}
       run: TSES_TEST_PG_VERSION=${{ matrix.pg_version }} make test > unit-run.log  2>&1
