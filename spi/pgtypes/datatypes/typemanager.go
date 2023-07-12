@@ -21,35 +21,56 @@ type TypeResolver interface {
 }
 
 var coreTypes = map[uint32]schemamodel.SchemaType{
-	pgtype.BoolOID:        schemamodel.BOOLEAN,
-	pgtype.Int2OID:        schemamodel.INT16,
-	pgtype.Int4OID:        schemamodel.INT32,
-	pgtype.Int8OID:        schemamodel.INT64,
-	pgtype.Float4OID:      schemamodel.FLOAT32,
-	pgtype.Float8OID:      schemamodel.FLOAT64,
-	pgtype.BPCharOID:      schemamodel.STRING,
-	pgtype.QCharOID:       schemamodel.STRING,
-	pgtype.VarcharOID:     schemamodel.STRING,
-	pgtype.TextOID:        schemamodel.STRING,
-	pgtype.TimestampOID:   schemamodel.INT64,
-	pgtype.TimestamptzOID: schemamodel.STRING,
-	pgtype.IntervalOID:    schemamodel.INT64,
-	pgtype.ByteaOID:       schemamodel.BYTES,
-	pgtype.JSONOID:        schemamodel.STRING,
-	pgtype.JSONBOID:       schemamodel.STRING,
-	pgtype.UUIDOID:        schemamodel.STRING,
-	pgtype.NameOID:        schemamodel.STRING,
-	pgtype.OIDOID:         schemamodel.INT64,
-	pgtype.TIDOID:         schemamodel.INT64,
-	pgtype.XIDOID:         schemamodel.INT64,
-	pgtype.CIDOID:         schemamodel.INT64,
-	pgtype.CIDROID:        schemamodel.STRING,
-	pgtype.MacaddrOID:     schemamodel.STRING,
-	774:                   schemamodel.STRING, //macaddr8
-	pgtype.InetOID:        schemamodel.STRING,
-	pgtype.DateOID:        schemamodel.STRING,
-	pgtype.TimeOID:        schemamodel.STRING,
-	pgtype.NumericOID:     schemamodel.STRUCT,
+	pgtype.BoolOID:             schemamodel.BOOLEAN,
+	pgtype.BoolArrayOID:        schemamodel.ARRAY,
+	pgtype.Int2OID:             schemamodel.INT16,
+	pgtype.Int2ArrayOID:        schemamodel.ARRAY,
+	pgtype.Int4OID:             schemamodel.INT32,
+	pgtype.Int4ArrayOID:        schemamodel.ARRAY,
+	pgtype.Int8OID:             schemamodel.INT64,
+	pgtype.Int8ArrayOID:        schemamodel.ARRAY,
+	pgtype.Float4OID:           schemamodel.FLOAT32,
+	pgtype.Float4ArrayOID:      schemamodel.ARRAY,
+	pgtype.Float8OID:           schemamodel.FLOAT64,
+	pgtype.Float8ArrayOID:      schemamodel.ARRAY,
+	pgtype.BPCharOID:           schemamodel.STRING,
+	pgtype.QCharOID:            schemamodel.STRING,
+	pgtype.VarcharOID:          schemamodel.STRING,
+	pgtype.VarcharArrayOID:     schemamodel.ARRAY,
+	pgtype.TextOID:             schemamodel.STRING,
+	pgtype.TextArrayOID:        schemamodel.ARRAY,
+	pgtype.TimestampOID:        schemamodel.INT64,
+	pgtype.TimestampArrayOID:   schemamodel.ARRAY,
+	pgtype.TimestamptzOID:      schemamodel.STRING,
+	pgtype.TimestamptzArrayOID: schemamodel.ARRAY,
+	pgtype.IntervalOID:         schemamodel.INT64,
+	pgtype.IntervalArrayOID:    schemamodel.ARRAY,
+	pgtype.ByteaOID:            schemamodel.BYTES,
+	pgtype.ByteaArrayOID:       schemamodel.ARRAY,
+	pgtype.JSONOID:             schemamodel.STRING,
+	pgtype.JSONArrayOID:        schemamodel.ARRAY,
+	pgtype.JSONBOID:            schemamodel.STRING,
+	pgtype.JSONBArrayOID:       schemamodel.ARRAY,
+	pgtype.UUIDOID:             schemamodel.STRING,
+	pgtype.UUIDArrayOID:        schemamodel.ARRAY,
+	pgtype.NameOID:             schemamodel.STRING,
+	pgtype.NameArrayOID:        schemamodel.ARRAY,
+	pgtype.OIDOID:              schemamodel.INT64,
+	pgtype.TIDOID:              schemamodel.INT64,
+	pgtype.XIDOID:              schemamodel.INT64,
+	pgtype.CIDOID:              schemamodel.INT64,
+	pgtype.CIDROID:             schemamodel.STRING,
+	pgtype.MacaddrOID:          schemamodel.STRING,
+	pgtype.MacaddrArrayOID:     schemamodel.ARRAY,
+	774:                        schemamodel.STRING, // macaddr8
+	775:                        schemamodel.ARRAY,  // macaddr8[]
+	pgtype.InetOID:             schemamodel.STRING,
+	pgtype.InetArrayOID:        schemamodel.ARRAY,
+	pgtype.DateOID:             schemamodel.STRING,
+	pgtype.DateArrayOID:        schemamodel.ARRAY,
+	pgtype.TimeOID:             schemamodel.STRING,
+	pgtype.TimeArrayOID:        schemamodel.ARRAY,
+	pgtype.NumericOID:          schemamodel.STRUCT,
 }
 
 var converters = map[uint32]Converter{
@@ -149,7 +170,15 @@ func (tm *TypeManager) initialize() error {
 	tm.typeCacheMutex.Lock()
 	defer tm.typeCacheMutex.Unlock()
 
+	coreTypesSlice := supporting.MapMapper(coreTypes, func(key uint32, _ schemamodel.SchemaType) uint32 {
+		return key
+	})
+
 	if err := tm.typeResolver.ReadPgTypes(tm.typeFactory, func(typ systemcatalog.PgType) error {
+		if supporting.IndexOf(coreTypesSlice, typ.Oid()) != -1 {
+			return nil
+		}
+
 		tm.typeCache[typ.Oid()] = typ
 
 		if supporting.IndexOf(optimizedTypes, typ.Name()) != -1 {
