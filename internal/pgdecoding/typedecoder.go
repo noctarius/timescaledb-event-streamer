@@ -18,6 +18,7 @@
 package pgdecoding
 
 import (
+	"fmt"
 	"github.com/go-errors/errors"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -28,11 +29,17 @@ var typeMap *pgtype.Map
 
 func init() {
 	typeMap = pgtype.NewMap()
-	typeMap.RegisterType(&pgtype.Type{Name: "macaddr8", OID: 774, Codec: pgtype.MacaddrCodec{}})
 
-	macaddr8Type, _ := typeMap.TypeForOID(774)
+	macaddr8Type := &pgtype.Type{Name: "macaddr8", OID: 774, Codec: pgtype.MacaddrCodec{}}
+	typeMap.RegisterType(macaddr8Type)
 	typeMap.RegisterType(
 		&pgtype.Type{Name: "_macaddr8", OID: 775, Codec: &pgtype.ArrayCodec{ElementType: macaddr8Type}},
+	)
+
+	timetzType := &pgtype.Type{Name: "timetz", OID: 1266, Codec: &TimetzCodec{}}
+	typeMap.RegisterType(timetzType)
+	typeMap.RegisterType(
+		&pgtype.Type{Name: "_timetz", OID: 1270, Codec: &pgtype.ArrayCodec{ElementType: timetzType}},
 	)
 
 	qcharType, _ := typeMap.TypeForOID(pgtype.QCharOID)
@@ -220,4 +227,12 @@ func asTypeDecoder(t *pgtype.Type, field pgconn.FieldDescription) func(src []byt
 	return func(src []byte) (any, error) {
 		return t.Codec.DecodeValue(typeMap, field.DataTypeOID, field.Format, src)
 	}
+}
+
+func codecScan(codec pgtype.Codec, m *pgtype.Map, oid uint32, format int16, src []byte, dst any) error {
+	scanPlan := codec.PlanScan(m, oid, format, dst)
+	if scanPlan == nil {
+		return fmt.Errorf("PlanScan did not find a plan")
+	}
+	return scanPlan.Scan(src, dst)
 }

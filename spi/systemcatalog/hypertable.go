@@ -19,6 +19,7 @@ package systemcatalog
 
 import (
 	"fmt"
+	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"strings"
 )
@@ -225,7 +226,7 @@ func (h *Hypertable) ApplyTableSchema(newColumns []Column) (changes map[string]s
 			} else {
 				// potentially renamed, run look ahead
 				lookAheadSuccessful := false
-				for o := i; o < min(len(oldColumns), len(newColumns)); o++ {
+				for o := i; o < supporting.Min(len(oldColumns), len(newColumns)); o++ {
 					if oldColumns[o].equals(newColumns[o]) {
 						lookAheadSuccessful = true
 					}

@@ -130,6 +130,17 @@ func RandomNumber(min, max int) int {
 	return min + rand.Intn(max-min)
 }
 
+type Numbers interface {
+	int | int8 | int16 | int32 | int64 | uint | uint8 | uint16 | uint32 | uint64
+}
+
+func Min[T Numbers](i, o T) T {
+	if i < o {
+		return i
+	}
+	return o
+}
+
 func DistinctItems[V any](items []V, identityFn func(item V) string) []V {
 	distincting := make(map[string]V, 0)
 	for _, item := range items {

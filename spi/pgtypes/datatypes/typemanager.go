@@ -43,9 +43,9 @@ var coreTypes = map[uint32]schemamodel.SchemaType{
 	pgtype.TimestampArrayOID:   schemamodel.ARRAY,
 	pgtype.TimestamptzOID:      schemamodel.STRING,
 	pgtype.TimestamptzArrayOID: schemamodel.ARRAY,
-	pgtype.IntervalOID:         schemamodel.INT64,
+	pgtype.IntervalOID:         schemamodel.INT64, // could also be a string: P1Y2M3DT4H5M6.78S
 	pgtype.IntervalArrayOID:    schemamodel.ARRAY,
-	pgtype.ByteaOID:            schemamodel.BYTES,
+	pgtype.ByteaOID:            schemamodel.STRING,
 	pgtype.ByteaArrayOID:       schemamodel.ARRAY,
 	pgtype.JSONOID:             schemamodel.STRING,
 	pgtype.JSONArrayOID:        schemamodel.ARRAY,
@@ -66,11 +66,28 @@ var coreTypes = map[uint32]schemamodel.SchemaType{
 	775:                        schemamodel.ARRAY,  // macaddr8[]
 	pgtype.InetOID:             schemamodel.STRING,
 	pgtype.InetArrayOID:        schemamodel.ARRAY,
-	pgtype.DateOID:             schemamodel.STRING,
+	pgtype.DateOID:             schemamodel.INT32,
 	pgtype.DateArrayOID:        schemamodel.ARRAY,
 	pgtype.TimeOID:             schemamodel.STRING,
 	pgtype.TimeArrayOID:        schemamodel.ARRAY,
-	pgtype.NumericOID:          schemamodel.STRUCT,
+	pgtype.NumericOID:          schemamodel.FLOAT64,
+	pgtype.NumericArrayOID:     schemamodel.ARRAY,
+	pgtype.Int4rangeOID:        schemamodel.STRING,
+	pgtype.Int4rangeArrayOID:   schemamodel.ARRAY,
+	pgtype.Int8rangeOID:        schemamodel.STRING,
+	pgtype.Int8rangeArrayOID:   schemamodel.ARRAY,
+	pgtype.NumrangeOID:         schemamodel.STRING,
+	pgtype.NumrangeArrayOID:    schemamodel.ARRAY,
+	pgtype.TsrangeOID:          schemamodel.STRING,
+	pgtype.TsrangeArrayOID:     schemamodel.ARRAY,
+	pgtype.TstzrangeOID:        schemamodel.STRING,
+	pgtype.TstzrangeArrayOID:   schemamodel.ARRAY,
+	pgtype.DaterangeOID:        schemamodel.STRING,
+	pgtype.DaterangeArrayOID:   schemamodel.ARRAY,
+	pgtype.BitOID:              schemamodel.STRING,
+	pgtype.VarbitOID:           schemamodel.STRING,
+	1266:                       schemamodel.STRING, // timetz
+	1270:                       schemamodel.ARRAY,  // timetz array
 }
 
 var converters = map[uint32]Converter{
@@ -88,6 +105,7 @@ var converters = map[uint32]Converter{
 	pgtype.Float8ArrayOID:      nil,
 	pgtype.BPCharOID:           nil,
 	pgtype.QCharOID:            char2text,
+	1002:                       arrayConverter[[]string](pgtype.QCharOID, char2text), // QCharArrayOID
 	pgtype.VarcharOID:          nil,
 	pgtype.VarcharArrayOID:     nil,
 	pgtype.TextOID:             nil,
@@ -98,8 +116,8 @@ var converters = map[uint32]Converter{
 	pgtype.TimestamptzArrayOID: arrayConverter[[]string](pgtype.TimestamptzOID, timestamp2text),
 	pgtype.IntervalOID:         interval2int64,
 	pgtype.IntervalArrayOID:    arrayConverter[[]int64](pgtype.IntervalOID, interval2int64),
-	pgtype.ByteaOID:            nil,
-	pgtype.ByteaArrayOID:       arrayConverter[[][]byte](pgtype.ByteaOID, nil),
+	pgtype.ByteaOID:            bytes2hexstring,
+	pgtype.ByteaArrayOID:       arrayConverter[[]string](pgtype.ByteaOID, bytes2hexstring),
 	pgtype.JSONOID:             json2text,
 	pgtype.JSONArrayOID:        arrayConverter[[]string](pgtype.JSONOID, json2text),
 	pgtype.JSONBOID:            json2text,
@@ -120,12 +138,30 @@ var converters = map[uint32]Converter{
 	775:                        arrayConverter[[]string](774, macaddr2text), // macaddr8[]
 	pgtype.InetOID:             addr2text,
 	pgtype.InetArrayOID:        arrayConverter[[]string](pgtype.InetOID, addr2text),
-	pgtype.DateOID:             timestamp2text,
-	pgtype.DateArrayOID:        arrayConverter[[]string](pgtype.DateOID, timestamp2text),
+	pgtype.DateOID:             date2int32,
+	pgtype.DateArrayOID:        arrayConverter[[]int32](pgtype.DateOID, date2int32),
 	pgtype.TimeOID:             time2text,
 	pgtype.TimeArrayOID:        arrayConverter[[]string](pgtype.TimeOID, time2text),
-	pgtype.NumericOID:          numeric2variableScaleDecimal,
-	//1002:                   arrayConverter[[]string](pgtype.QCharOID, char2text), // QCharArrayOID
+	pgtype.NumericOID:          numeric2float64,
+	pgtype.NumericArrayOID:     arrayConverter[[]float64](pgtype.NumericOID, numeric2float64),
+	pgtype.Int4rangeOID:        intrange2string,
+	pgtype.Int4rangeArrayOID:   arrayConverter[[]string](pgtype.Int4rangeOID, intrange2string),
+	pgtype.Int8rangeOID:        intrange2string,
+	pgtype.Int8rangeArrayOID:   arrayConverter[[]string](pgtype.Int8rangeOID, intrange2string),
+	pgtype.NumrangeOID:         numrange2string,
+	pgtype.NumrangeArrayOID:    arrayConverter[[]string](pgtype.NumrangeOID, numrange2string),
+	pgtype.TsrangeOID:          timestamprange2string,
+	pgtype.TsrangeArrayOID:     arrayConverter[[]string](pgtype.TsrangeOID, timestamprange2string),
+	pgtype.TstzrangeOID:        timestamprange2string,
+	pgtype.TstzrangeArrayOID:   arrayConverter[[]string](pgtype.TstzrangeOID, timestamprange2string),
+	pgtype.DaterangeOID:        timestamprange2string,
+	pgtype.DaterangeArrayOID:   arrayConverter[[]string](pgtype.DaterangeOID, timestamprange2string),
+	pgtype.BitOID:              bits2string,
+	pgtype.BitArrayOID:         arrayConverter[[]string](pgtype.BitOID, bits2string),
+	pgtype.VarbitOID:           bits2string,
+	pgtype.VarbitArrayOID:      arrayConverter[[]string](pgtype.VarbitOID, bits2string),
+	1266:                       time2text,                                 // timetz
+	1270:                       arrayConverter[[]string](1266, time2text), // timetz array
 }
 
 var optimizedTypes = []string{
