@@ -43,154 +43,324 @@ type typeRegistration struct {
 	codec      pgtype.Codec
 }
 
-var coreTypes = map[uint32]schemamodel.SchemaType{
-	pgtype.BoolOID:             schemamodel.BOOLEAN,
-	pgtype.BoolArrayOID:        schemamodel.ARRAY,
-	pgtype.Int2OID:             schemamodel.INT16,
-	pgtype.Int2ArrayOID:        schemamodel.ARRAY,
-	pgtype.Int4OID:             schemamodel.INT32,
-	pgtype.Int4ArrayOID:        schemamodel.ARRAY,
-	pgtype.Int8OID:             schemamodel.INT64,
-	pgtype.Int8ArrayOID:        schemamodel.ARRAY,
-	pgtype.Float4OID:           schemamodel.FLOAT32,
-	pgtype.Float4ArrayOID:      schemamodel.ARRAY,
-	pgtype.Float8OID:           schemamodel.FLOAT64,
-	pgtype.Float8ArrayOID:      schemamodel.ARRAY,
-	pgtype.BPCharOID:           schemamodel.STRING,
-	pgtype.QCharOID:            schemamodel.STRING,
-	pgtype.VarcharOID:          schemamodel.STRING,
-	pgtype.VarcharArrayOID:     schemamodel.ARRAY,
-	pgtype.TextOID:             schemamodel.STRING,
-	pgtype.TextArrayOID:        schemamodel.ARRAY,
-	pgtype.TimestampOID:        schemamodel.INT64,
-	pgtype.TimestampArrayOID:   schemamodel.ARRAY,
-	pgtype.TimestamptzOID:      schemamodel.STRING,
-	pgtype.TimestamptzArrayOID: schemamodel.ARRAY,
-	pgtype.IntervalOID:         schemamodel.INT64, // could also be a string: P1Y2M3DT4H5M6.78S
-	pgtype.IntervalArrayOID:    schemamodel.ARRAY,
-	pgtype.ByteaOID:            schemamodel.STRING,
-	pgtype.ByteaArrayOID:       schemamodel.ARRAY,
-	pgtype.JSONOID:             schemamodel.STRING,
-	pgtype.JSONArrayOID:        schemamodel.ARRAY,
-	pgtype.JSONBOID:            schemamodel.STRING,
-	pgtype.JSONBArrayOID:       schemamodel.ARRAY,
-	pgtype.UUIDOID:             schemamodel.STRING,
-	pgtype.UUIDArrayOID:        schemamodel.ARRAY,
-	pgtype.NameOID:             schemamodel.STRING,
-	pgtype.NameArrayOID:        schemamodel.ARRAY,
-	pgtype.OIDOID:              schemamodel.INT64,
-	pgtype.OIDArrayOID:         schemamodel.ARRAY,
-	pgtype.XIDOID:              schemamodel.INT64,
-	pgtype.XIDArrayOID:         schemamodel.ARRAY,
-	pgtype.CIDOID:              schemamodel.INT64,
-	pgtype.CIDArrayOID:         schemamodel.ARRAY,
-	pgtype.CIDROID:             schemamodel.STRING,
-	pgtype.MacaddrOID:          schemamodel.STRING,
-	pgtype.MacaddrArrayOID:     schemamodel.ARRAY,
-	774:                        schemamodel.STRING, // macaddr8
-	775:                        schemamodel.ARRAY,  // macaddr8[]
-	pgtype.InetOID:             schemamodel.STRING,
-	pgtype.InetArrayOID:        schemamodel.ARRAY,
-	pgtype.DateOID:             schemamodel.INT32,
-	pgtype.DateArrayOID:        schemamodel.ARRAY,
-	pgtype.TimeOID:             schemamodel.STRING,
-	pgtype.TimeArrayOID:        schemamodel.ARRAY,
-	pgtype.NumericOID:          schemamodel.FLOAT64,
-	pgtype.NumericArrayOID:     schemamodel.ARRAY,
-	pgtype.Int4rangeOID:        schemamodel.STRING,
-	pgtype.Int4rangeArrayOID:   schemamodel.ARRAY,
-	pgtype.Int8rangeOID:        schemamodel.STRING,
-	pgtype.Int8rangeArrayOID:   schemamodel.ARRAY,
-	pgtype.NumrangeOID:         schemamodel.STRING,
-	pgtype.NumrangeArrayOID:    schemamodel.ARRAY,
-	pgtype.TsrangeOID:          schemamodel.STRING,
-	pgtype.TsrangeArrayOID:     schemamodel.ARRAY,
-	pgtype.TstzrangeOID:        schemamodel.STRING,
-	pgtype.TstzrangeArrayOID:   schemamodel.ARRAY,
-	pgtype.DaterangeOID:        schemamodel.STRING,
-	pgtype.DaterangeArrayOID:   schemamodel.ARRAY,
-	pgtype.BitOID:              schemamodel.STRING,
-	pgtype.BitArrayOID:         schemamodel.ARRAY,
-	pgtype.VarbitOID:           schemamodel.STRING,
-	pgtype.VarbitArrayOID:      schemamodel.ARRAY,
-	1266:                       schemamodel.STRING, // timetz
-	1270:                       schemamodel.ARRAY,  // timetz array
-}
-
-var converters = map[uint32]Converter{
-	pgtype.BoolOID:             nil,
-	pgtype.BoolArrayOID:        nil,
-	pgtype.Int2OID:             nil,
-	pgtype.Int2ArrayOID:        nil,
-	pgtype.Int4OID:             nil,
-	pgtype.Int4ArrayOID:        nil,
-	pgtype.Int8OID:             nil,
-	pgtype.Int8ArrayOID:        nil,
-	pgtype.Float4OID:           float42float,
-	pgtype.Float4ArrayOID:      arrayConverter[[]float32](pgtype.Float4OID, float42float),
-	pgtype.Float8OID:           float82float,
-	pgtype.Float8ArrayOID:      arrayConverter[[]float64](pgtype.Float8OID, float82float),
-	pgtype.BPCharOID:           nil,
-	pgtype.QCharOID:            char2text,
-	1002:                       arrayConverter[[]string](pgtype.QCharOID, char2text), // QCharArrayOID
-	pgtype.VarcharOID:          nil,
-	pgtype.VarcharArrayOID:     nil,
-	pgtype.TextOID:             nil,
-	pgtype.TextArrayOID:        nil,
-	pgtype.TimestampOID:        timestamp2int64,
-	pgtype.TimestampArrayOID:   arrayConverter[[]int64](pgtype.TimestampOID, timestamp2int64),
-	pgtype.TimestamptzOID:      timestamp2text,
-	pgtype.TimestamptzArrayOID: arrayConverter[[]string](pgtype.TimestamptzOID, timestamp2text),
-	pgtype.IntervalOID:         interval2int64,
-	pgtype.IntervalArrayOID:    arrayConverter[[]int64](pgtype.IntervalOID, interval2int64),
-	pgtype.ByteaOID:            bytes2hexstring,
-	pgtype.ByteaArrayOID:       arrayConverter[[]string](pgtype.ByteaOID, bytes2hexstring),
-	pgtype.JSONOID:             json2text,
-	pgtype.JSONArrayOID:        arrayConverter[[]string](pgtype.JSONOID, json2text),
-	pgtype.JSONBOID:            json2text,
-	pgtype.JSONBArrayOID:       arrayConverter[[]string](pgtype.JSONBOID, json2text),
-	pgtype.UUIDOID:             uuid2text,
-	pgtype.UUIDArrayOID:        arrayConverter[[]string](pgtype.UUIDOID, uuid2text),
-	pgtype.NameOID:             nil,
-	pgtype.NameArrayOID:        arrayConverter[[]string](pgtype.NameOID, nil),
-	pgtype.OIDOID:              uint322int64,
-	pgtype.OIDArrayOID:         arrayConverter[[]int64](pgtype.OIDOID, uint322int64),
-	pgtype.XIDOID:              uint322int64,
-	pgtype.XIDArrayOID:         arrayConverter[[]int64](pgtype.XIDOID, uint322int64),
-	pgtype.CIDOID:              uint322int64,
-	pgtype.CIDArrayOID:         arrayConverter[[]int64](pgtype.CIDOID, uint322int64),
-	pgtype.CIDROID:             addr2text,
-	pgtype.CIDRArrayOID:        arrayConverter[[]string](pgtype.CIDROID, addr2text),
-	pgtype.MacaddrOID:          macaddr2text,
-	pgtype.MacaddrArrayOID:     arrayConverter[[]string](pgtype.MacaddrOID, macaddr2text),
-	774:                        macaddr2text,                                // macaddr8
-	775:                        arrayConverter[[]string](774, macaddr2text), // macaddr8[]
-	pgtype.InetOID:             addr2text,
-	pgtype.InetArrayOID:        arrayConverter[[]string](pgtype.InetOID, addr2text),
-	pgtype.DateOID:             date2int32,
-	pgtype.DateArrayOID:        arrayConverter[[]int32](pgtype.DateOID, date2int32),
-	pgtype.TimeOID:             time2text,
-	pgtype.TimeArrayOID:        arrayConverter[[]string](pgtype.TimeOID, time2text),
-	pgtype.NumericOID:          numeric2float64,
-	pgtype.NumericArrayOID:     arrayConverter[[]float64](pgtype.NumericOID, numeric2float64),
-	pgtype.Int4rangeOID:        intrange2string,
-	pgtype.Int4rangeArrayOID:   arrayConverter[[]string](pgtype.Int4rangeOID, intrange2string),
-	pgtype.Int8rangeOID:        intrange2string,
-	pgtype.Int8rangeArrayOID:   arrayConverter[[]string](pgtype.Int8rangeOID, intrange2string),
-	pgtype.NumrangeOID:         numrange2string,
-	pgtype.NumrangeArrayOID:    arrayConverter[[]string](pgtype.NumrangeOID, numrange2string),
-	pgtype.TsrangeOID:          timestamprange2string,
-	pgtype.TsrangeArrayOID:     arrayConverter[[]string](pgtype.TsrangeOID, timestamprange2string),
-	pgtype.TstzrangeOID:        timestamprange2string,
-	pgtype.TstzrangeArrayOID:   arrayConverter[[]string](pgtype.TstzrangeOID, timestamprange2string),
-	pgtype.DaterangeOID:        timestamprange2string,
-	pgtype.DaterangeArrayOID:   arrayConverter[[]string](pgtype.DaterangeOID, timestamprange2string),
-	pgtype.BitOID:              bits2string,
-	pgtype.BitArrayOID:         arrayConverter[[]string](pgtype.BitOID, bits2string),
-	pgtype.VarbitOID:           bits2string,
-	pgtype.VarbitArrayOID:      arrayConverter[[]string](pgtype.VarbitOID, bits2string),
-	1266:                       time2text,                                 // timetz
-	1270:                       arrayConverter[[]string](1266, time2text), // timetz array
+var coreTypes = map[uint32]typeRegistration{
+	pgtype.BoolOID: {
+		schemaType: schemamodel.BOOLEAN,
+	},
+	pgtype.BoolArrayOID: {
+		schemaType: schemamodel.ARRAY,
+		oidElement: pgtype.BoolOID,
+	},
+	pgtype.Int2OID: {
+		schemaType: schemamodel.INT16,
+	},
+	pgtype.Int2ArrayOID: {
+		schemaType: schemamodel.ARRAY,
+		oidElement: pgtype.Int2OID,
+	},
+	pgtype.Int4OID: {
+		schemaType: schemamodel.INT32,
+	},
+	pgtype.Int4ArrayOID: {
+		schemaType: schemamodel.ARRAY,
+		oidElement: pgtype.Int4OID,
+	},
+	pgtype.Int8OID: {
+		schemaType: schemamodel.INT64,
+	},
+	pgtype.Int8ArrayOID: {
+		schemaType: schemamodel.ARRAY,
+		oidElement: pgtype.Int8OID,
+	},
+	pgtype.Float4OID: {
+		schemaType: schemamodel.FLOAT32,
+		converter:  float42float,
+	},
+	pgtype.Float4ArrayOID: {
+		schemaType: schemamodel.ARRAY,
+		oidElement: pgtype.Float4OID,
+		converter:  arrayConverter[[]float32](pgtype.Float4OID, float42float),
+	},
+	pgtype.Float8OID: {
+		schemaType: schemamodel.FLOAT64,
+		converter:  float82float,
+	},
+	pgtype.Float8ArrayOID: {
+		schemaType: schemamodel.ARRAY,
+		oidElement: pgtype.Float8OID,
+		converter:  arrayConverter[[]float64](pgtype.Float8OID, float82float),
+	},
+	pgtype.BPCharOID: {
+		schemaType: schemamodel.STRING,
+	},
+	pgtype.BPCharArrayOID: {
+		schemaType: schemamodel.ARRAY,
+		oidElement: pgtype.BPCharOID,
+	},
+	pgtype.QCharOID: {
+		schemaType: schemamodel.STRING,
+		converter:  char2text,
+	},
+	1002: { // QCharArrayOID
+		schemaType: schemamodel.ARRAY,
+		oidElement: pgtype.QCharOID,
+		converter:  arrayConverter[[]string](pgtype.QCharOID, char2text),
+	},
+	pgtype.VarcharOID: {
+		schemaType: schemamodel.STRING,
+	},
+	pgtype.VarcharArrayOID: {
+		schemaType: schemamodel.ARRAY,
+		oidElement: pgtype.VarcharOID,
+	},
+	pgtype.TextOID: {
+		schemaType: schemamodel.STRING,
+	},
+	pgtype.TextArrayOID: {
+		schemaType: schemamodel.ARRAY,
+		oidElement: pgtype.TextOID,
+	},
+	pgtype.TimestampOID: {
+		schemaType: schemamodel.INT64,
+		converter:  timestamp2int64,
+	},
+	pgtype.TimestampArrayOID: {
+		schemaType: schemamodel.ARRAY,
+		oidElement: pgtype.TimestampOID,
+		converter:  arrayConverter[[]int64](pgtype.TimestampOID, timestamp2int64),
+	},
+	pgtype.TimestamptzOID: {
+		schemaType: schemamodel.STRING,
+		converter:  timestamp2text,
+	},
+	pgtype.TimestamptzArrayOID: {
+		schemaType: schemamodel.ARRAY,
+		oidElement: pgtype.TimestamptzOID,
+		converter:  arrayConverter[[]string](pgtype.TimestamptzOID, timestamp2text),
+	},
+	pgtype.IntervalOID: {
+		schemaType: schemamodel.INT64,
+		converter:  interval2int64,
+	},
+	pgtype.IntervalArrayOID: {
+		schemaType: schemamodel.ARRAY,
+		oidElement: pgtype.IntervalOID,
+		converter:  arrayConverter[[]int64](pgtype.IntervalOID, interval2int64),
+	},
+	pgtype.ByteaOID: {
+		schemaType: schemamodel.STRING,
+		converter:  bytes2hexstring,
+	},
+	pgtype.ByteaArrayOID: {
+		schemaType: schemamodel.ARRAY,
+		oidElement: pgtype.ByteaOID,
+		converter:  arrayConverter[[]string](pgtype.ByteaOID, bytes2hexstring),
+	},
+	pgtype.JSONOID: {
+		schemaType: schemamodel.STRING,
+		converter:  json2text,
+	},
+	pgtype.JSONArrayOID: {
+		schemaType: schemamodel.ARRAY,
+		oidElement: pgtype.JSONOID,
+		converter:  arrayConverter[[]string](pgtype.JSONOID, json2text),
+	},
+	pgtype.JSONBOID: {
+		schemaType: schemamodel.STRING,
+		converter:  json2text,
+	},
+	pgtype.JSONBArrayOID: {
+		schemaType: schemamodel.ARRAY,
+		oidElement: pgtype.JSONBOID,
+		converter:  arrayConverter[[]string](pgtype.JSONBOID, json2text),
+	},
+	pgtype.UUIDOID: {
+		schemaType: schemamodel.STRING,
+		converter:  uuid2text,
+	},
+	pgtype.UUIDArrayOID: {
+		schemaType: schemamodel.ARRAY,
+		oidElement: pgtype.UUIDOID,
+		converter:  arrayConverter[[]string](pgtype.UUIDOID, uuid2text),
+	},
+	pgtype.NameOID: {
+		schemaType: schemamodel.STRING,
+	},
+	pgtype.NameArrayOID: {
+		schemaType: schemamodel.ARRAY,
+		oidElement: pgtype.NameOID,
+	},
+	pgtype.OIDOID: {
+		schemaType: schemamodel.INT64,
+		converter:  uint322int64,
+	},
+	pgtype.OIDArrayOID: {
+		schemaType: schemamodel.ARRAY,
+		oidElement: pgtype.OIDOID,
+		converter:  arrayConverter[[]int64](pgtype.OIDOID, uint322int64),
+	},
+	pgtype.XIDOID: {
+		schemaType: schemamodel.INT64,
+		converter:  uint322int64,
+	},
+	pgtype.XIDArrayOID: {
+		schemaType: schemamodel.ARRAY,
+		oidElement: pgtype.XIDOID,
+		converter:  arrayConverter[[]int64](pgtype.XIDOID, uint322int64),
+	},
+	pgtype.CIDOID: {
+		schemaType: schemamodel.INT64,
+		converter:  uint322int64,
+	},
+	pgtype.CIDArrayOID: {
+		schemaType: schemamodel.ARRAY,
+		oidElement: pgtype.CIDOID,
+		converter:  arrayConverter[[]int64](pgtype.CIDOID, uint322int64),
+	},
+	pgtype.CIDROID: {
+		schemaType: schemamodel.STRING,
+		converter:  addr2text,
+	},
+	pgtype.CIDRArrayOID: {
+		schemaType: schemamodel.ARRAY,
+		oidElement: pgtype.CIDROID,
+		converter:  arrayConverter[[]string](pgtype.CIDROID, addr2text),
+	},
+	pgtype.MacaddrOID: {
+		schemaType: schemamodel.STRING,
+		converter:  macaddr2text,
+	},
+	pgtype.MacaddrArrayOID: {
+		schemaType: schemamodel.ARRAY,
+		oidElement: pgtype.MacaddrOID,
+		converter:  arrayConverter[[]string](pgtype.MacaddrOID, macaddr2text),
+	},
+	774: { // macaddr8
+		schemaType: schemamodel.STRING,
+		converter:  macaddr2text,
+	},
+	775: { // macaddr8[]
+		schemaType: schemamodel.ARRAY,
+		oidElement: 774,
+		converter:  arrayConverter[[]string](774, macaddr2text),
+	},
+	pgtype.InetOID: {
+		schemaType: schemamodel.STRING,
+		converter:  addr2text,
+	},
+	pgtype.InetArrayOID: {
+		schemaType: schemamodel.ARRAY,
+		oidElement: pgtype.InetOID,
+		converter:  arrayConverter[[]string](pgtype.InetOID, addr2text),
+	},
+	pgtype.DateOID: {
+		schemaType: schemamodel.INT32,
+		converter:  date2int32,
+	},
+	pgtype.DateArrayOID: {
+		schemaType: schemamodel.ARRAY,
+		oidElement: pgtype.DateOID,
+		converter:  arrayConverter[[]int32](pgtype.DateOID, date2int32),
+	},
+	pgtype.TimeOID: {
+		schemaType: schemamodel.STRING,
+		converter:  time2text,
+	},
+	pgtype.TimeArrayOID: {
+		schemaType: schemamodel.ARRAY,
+		oidElement: pgtype.TimeOID,
+		converter:  arrayConverter[[]string](pgtype.TimeOID, time2text),
+	},
+	pgtype.NumericOID: {
+		schemaType: schemamodel.FLOAT64,
+		converter:  numeric2float64,
+	},
+	pgtype.NumericArrayOID: {
+		schemaType: schemamodel.ARRAY,
+		oidElement: pgtype.NumericOID,
+		converter:  arrayConverter[[]float64](pgtype.NumericOID, numeric2float64),
+	},
+	pgtype.Int4rangeOID: {
+		schemaType: schemamodel.STRING,
+		converter:  intrange2string,
+	},
+	pgtype.Int4rangeArrayOID: {
+		schemaType: schemamodel.ARRAY,
+		oidElement: pgtype.Int4rangeOID,
+		converter:  arrayConverter[[]string](pgtype.Int4rangeOID, intrange2string),
+	},
+	pgtype.Int8rangeOID: {
+		schemaType: schemamodel.STRING,
+		converter:  intrange2string,
+	},
+	pgtype.Int8rangeArrayOID: {
+		schemaType: schemamodel.ARRAY,
+		oidElement: pgtype.Int8rangeOID,
+		converter:  arrayConverter[[]string](pgtype.Int8rangeOID, intrange2string),
+	},
+	pgtype.NumrangeOID: {
+		schemaType: schemamodel.STRING,
+		converter:  numrange2string,
+	},
+	pgtype.NumrangeArrayOID: {
+		schemaType: schemamodel.ARRAY,
+		oidElement: pgtype.NumrangeOID,
+		converter:  arrayConverter[[]string](pgtype.NumrangeOID, numrange2string),
+	},
+	pgtype.TsrangeOID: {
+		schemaType: schemamodel.STRING,
+		converter:  timestamprange2string,
+	},
+	pgtype.TsrangeArrayOID: {
+		schemaType: schemamodel.ARRAY,
+		oidElement: pgtype.TsrangeOID,
+		converter:  arrayConverter[[]string](pgtype.TsrangeOID, timestamprange2string),
+	},
+	pgtype.TstzrangeOID: {
+		schemaType: schemamodel.STRING,
+		converter:  timestamprange2string,
+	},
+	pgtype.TstzrangeArrayOID: {
+		schemaType: schemamodel.ARRAY,
+		oidElement: pgtype.TstzrangeOID,
+		converter:  arrayConverter[[]string](pgtype.TstzrangeOID, timestamprange2string),
+	},
+	pgtype.DaterangeOID: {
+		schemaType: schemamodel.STRING,
+		converter:  timestamprange2string,
+	},
+	pgtype.DaterangeArrayOID: {
+		schemaType: schemamodel.ARRAY,
+		oidElement: pgtype.DaterangeOID,
+		converter:  arrayConverter[[]string](pgtype.DaterangeOID, timestamprange2string),
+	},
+	pgtype.BitOID: {
+		schemaType: schemamodel.STRING,
+		converter:  bits2string,
+	},
+	pgtype.BitArrayOID: {
+		schemaType: schemamodel.ARRAY,
+		oidElement: pgtype.BitOID,
+		converter:  arrayConverter[[]string](pgtype.BitOID, bits2string),
+	},
+	pgtype.VarbitOID: {
+		schemaType: schemamodel.STRING,
+		converter:  bits2string,
+	},
+	pgtype.VarbitArrayOID: {
+		schemaType: schemamodel.ARRAY,
+		oidElement: pgtype.VarbitOID,
+		converter:  arrayConverter[[]string](pgtype.VarbitOID, bits2string),
+	},
+	1266: { // timetz
+		schemaType: schemamodel.STRING,
+		converter:  time2text,
+	},
+	1270: { // timetz[]
+		schemaType: schemamodel.ARRAY,
+		oidElement: 1266,
+		converter:  arrayConverter[[]string](1266, time2text),
+	},
 }
 
 var optimizedTypes = map[string]typeRegistration{
@@ -253,7 +423,7 @@ func (tm *TypeManager) initialize() error {
 	tm.typeCacheMutex.Lock()
 	defer tm.typeCacheMutex.Unlock()
 
-	coreTypesSlice := supporting.MapMapper(coreTypes, func(key uint32, _ schemamodel.SchemaType) uint32 {
+	coreTypesSlice := supporting.MapMapper(coreTypes, func(key uint32, _ typeRegistration) uint32 {
 		return key
 	})
 
@@ -349,8 +519,8 @@ func (tm *TypeManager) DataType(oid uint32) (systemcatalog.PgType, error) {
 }
 
 func (tm *TypeManager) Converter(oid uint32) (Converter, error) {
-	if converter, present := converters[oid]; present {
-		return converter, nil
+	if registration, present := coreTypes[oid]; present {
+		return registration.converter, nil
 	}
 	if registration, present := tm.optimizedConverters[oid]; present {
 		return registration.converter, nil
@@ -375,8 +545,8 @@ func (tm *TypeManager) OidByName(name string) uint32 {
 }
 
 func (tm *TypeManager) getSchemaType(oid uint32, arrayType bool, kind systemcatalog.PgKind) schemamodel.SchemaType {
-	if coreType, present := coreTypes[oid]; present {
-		return coreType
+	if registration, present := coreTypes[oid]; present {
+		return registration.schemaType
 	}
 	if registration, present := tm.optimizedConverters[oid]; present {
 		return registration.schemaType
