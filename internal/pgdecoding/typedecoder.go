@@ -223,6 +223,14 @@ func FindTypeDecoder(field pgconn.FieldDescription) (func(src []byte) (any, erro
 	return nil, errors.Errorf("Unsupported type oid: %d", field.DataTypeOID)
 }
 
+func RegisterType(t *pgtype.Type) {
+	typeMap.RegisterType(t)
+}
+
+func GetType(oid uint32) (*pgtype.Type, bool) {
+	return typeMap.TypeForOID(oid)
+}
+
 func asTypeDecoder(t *pgtype.Type, field pgconn.FieldDescription) func(src []byte) (any, error) {
 	return func(src []byte) (any, error) {
 		return t.Codec.DecodeValue(typeMap, field.DataTypeOID, field.Format, src)

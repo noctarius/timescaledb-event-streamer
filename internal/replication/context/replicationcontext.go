@@ -26,7 +26,6 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	intschema "github.com/noctarius/timescaledb-event-streamer/internal/eventing/schema"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
-	intversion "github.com/noctarius/timescaledb-event-streamer/internal/version"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
@@ -377,19 +376,19 @@ func (rc *replicationContext) TimescaleVersion() version.TimescaleVersion {
 }
 
 func (rc *replicationContext) IsMinimumPostgresVersion() bool {
-	return rc.pgVersion >= intversion.PG_MIN_VERSION
+	return rc.pgVersion >= version.PG_MIN_VERSION
 }
 
 func (rc *replicationContext) IsPG14GE() bool {
-	return rc.pgVersion >= intversion.PG_14_VERSION
+	return rc.pgVersion >= version.PG_14_VERSION
 }
 
 func (rc *replicationContext) IsMinimumTimescaleVersion() bool {
-	return rc.tsdbVersion >= intversion.TSDB_MIN_VERSION
+	return rc.tsdbVersion >= version.TSDB_MIN_VERSION
 }
 
 func (rc *replicationContext) IsTSDB212GE() bool {
-	return rc.tsdbVersion >= intversion.TSDB_212_VERSION
+	return rc.tsdbVersion >= version.TSDB_212_VERSION
 }
 
 func (rc *replicationContext) IsLogicalReplicationEnabled() bool {

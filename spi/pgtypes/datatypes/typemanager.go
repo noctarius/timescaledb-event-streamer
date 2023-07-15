@@ -4,11 +4,26 @@ import (
 	"fmt"
 	"github.com/go-errors/errors"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/noctarius/timescaledb-event-streamer/internal/pgdecoding"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
+	"reflect"
 	"sync"
+)
+
+var (
+	int8Type    = reflect.TypeOf(int8(0))
+	int16Type   = reflect.TypeOf(int16(0))
+	int32Type   = reflect.TypeOf(int32(0))
+	int64Type   = reflect.TypeOf(int64(0))
+	float32Type = reflect.TypeOf(float32(0))
+	float64Type = reflect.TypeOf(float64(0))
+	booleanType = reflect.TypeOf(true)
+	stringType  = reflect.TypeOf("")
+	byteaType   = reflect.TypeOf([]byte{})
+	mapType     = reflect.TypeOf(map[string]any{})
 )
 
 type TypeFactory func(name string, kind systemcatalog.PgKind, oid uint32, category systemcatalog.PgCategory,
@@ -18,6 +33,14 @@ type TypeFactory func(name string, kind systemcatalog.PgKind, oid uint32, catego
 type TypeResolver interface {
 	ReadPgTypes(factory TypeFactory, callback func(systemcatalog.PgType) error) error
 	ReadPgType(oid uint32, factory TypeFactory) (systemcatalog.PgType, bool, error)
+}
+
+type typeRegistration struct {
+	schemaType schemamodel.SchemaType
+	isArray    bool
+	oidElement uint32
+	converter  Converter
+	codec      pgtype.Codec
 }
 
 var coreTypes = map[uint32]schemamodel.SchemaType{
@@ -56,9 +79,11 @@ var coreTypes = map[uint32]schemamodel.SchemaType{
 	pgtype.NameOID:             schemamodel.STRING,
 	pgtype.NameArrayOID:        schemamodel.ARRAY,
 	pgtype.OIDOID:              schemamodel.INT64,
-	pgtype.TIDOID:              schemamodel.INT64,
+	pgtype.OIDArrayOID:         schemamodel.ARRAY,
 	pgtype.XIDOID:              schemamodel.INT64,
+	pgtype.XIDArrayOID:         schemamodel.ARRAY,
 	pgtype.CIDOID:              schemamodel.INT64,
+	pgtype.CIDArrayOID:         schemamodel.ARRAY,
 	pgtype.CIDROID:             schemamodel.STRING,
 	pgtype.MacaddrOID:          schemamodel.STRING,
 	pgtype.MacaddrArrayOID:     schemamodel.ARRAY,
@@ -85,7 +110,9 @@ var coreTypes = map[uint32]schemamodel.SchemaType{
 	pgtype.DaterangeOID:        schemamodel.STRING,
 	pgtype.DaterangeArrayOID:   schemamodel.ARRAY,
 	pgtype.BitOID:              schemamodel.STRING,
+	pgtype.BitArrayOID:         schemamodel.ARRAY,
 	pgtype.VarbitOID:           schemamodel.STRING,
+	pgtype.VarbitArrayOID:      schemamodel.ARRAY,
 	1266:                       schemamodel.STRING, // timetz
 	1270:                       schemamodel.ARRAY,  // timetz array
 }
@@ -99,10 +126,10 @@ var converters = map[uint32]Converter{
 	pgtype.Int4ArrayOID:        nil,
 	pgtype.Int8OID:             nil,
 	pgtype.Int8ArrayOID:        nil,
-	pgtype.Float4OID:           nil,
-	pgtype.Float4ArrayOID:      nil,
-	pgtype.Float8OID:           nil,
-	pgtype.Float8ArrayOID:      nil,
+	pgtype.Float4OID:           float42float,
+	pgtype.Float4ArrayOID:      arrayConverter[[]float32](pgtype.Float4OID, float42float),
+	pgtype.Float8OID:           float82float,
+	pgtype.Float8ArrayOID:      arrayConverter[[]float64](pgtype.Float8OID, float82float),
 	pgtype.BPCharOID:           nil,
 	pgtype.QCharOID:            char2text,
 	1002:                       arrayConverter[[]string](pgtype.QCharOID, char2text), // QCharArrayOID
@@ -125,11 +152,13 @@ var converters = map[uint32]Converter{
 	pgtype.UUIDOID:             uuid2text,
 	pgtype.UUIDArrayOID:        arrayConverter[[]string](pgtype.UUIDOID, uuid2text),
 	pgtype.NameOID:             nil,
-	pgtype.NameArrayOID:        nil,
+	pgtype.NameArrayOID:        arrayConverter[[]string](pgtype.NameOID, nil),
 	pgtype.OIDOID:              uint322int64,
-	pgtype.TIDOID:              uint322int64,
+	pgtype.OIDArrayOID:         arrayConverter[[]int64](pgtype.OIDOID, uint322int64),
 	pgtype.XIDOID:              uint322int64,
+	pgtype.XIDArrayOID:         arrayConverter[[]int64](pgtype.XIDOID, uint322int64),
 	pgtype.CIDOID:              uint322int64,
+	pgtype.CIDArrayOID:         arrayConverter[[]int64](pgtype.CIDOID, uint322int64),
 	pgtype.CIDROID:             addr2text,
 	pgtype.CIDRArrayOID:        arrayConverter[[]string](pgtype.CIDROID, addr2text),
 	pgtype.MacaddrOID:          macaddr2text,
@@ -164,8 +193,24 @@ var converters = map[uint32]Converter{
 	1270:                       arrayConverter[[]string](1266, time2text), // timetz array
 }
 
-var optimizedTypes = []string{
-	"geometry", "ltree",
+var optimizedTypes = map[string]typeRegistration{
+	/*"geometry": {
+		schemaType: schemamodel.STRUCT,
+		converter: nil,
+	},
+	"_geometry": {
+		schemaType: schemamodel.ARRAY,
+		isArray:    true,
+	},*/
+	"ltree": {
+		schemaType: schemamodel.STRING,
+		converter:  ltree2string,
+		codec:      pgdecoding.LtreeCodec{},
+	},
+	"_ltree": {
+		schemaType: schemamodel.ARRAY,
+		isArray:    true,
+	},
 }
 
 // ErrIllegalValue represents an illegal type conversion request
@@ -176,9 +221,10 @@ type TypeManager struct {
 	logger              *logging.Logger
 	typeResolver        TypeResolver
 	typeCache           map[uint32]systemcatalog.PgType
+	typeNameCache       map[string]uint32
 	typeCacheMutex      sync.Mutex
 	optimizedTypes      map[uint32]systemcatalog.PgType
-	optimizedConverters map[uint32]Converter
+	optimizedConverters map[uint32]typeRegistration
 }
 
 func NewTypeManager(typeResolver TypeResolver) (*TypeManager, error) {
@@ -191,9 +237,10 @@ func NewTypeManager(typeResolver TypeResolver) (*TypeManager, error) {
 		logger:              logger,
 		typeResolver:        typeResolver,
 		typeCache:           make(map[uint32]systemcatalog.PgType),
+		typeNameCache:       make(map[string]uint32),
 		typeCacheMutex:      sync.Mutex{},
 		optimizedTypes:      make(map[uint32]systemcatalog.PgType),
-		optimizedConverters: make(map[uint32]Converter),
+		optimizedConverters: make(map[uint32]typeRegistration),
 	}
 
 	if err := typeManager.initialize(); err != nil {
@@ -216,10 +263,47 @@ func (tm *TypeManager) initialize() error {
 		}
 
 		tm.typeCache[typ.Oid()] = typ
+		tm.typeNameCache[typ.Name()] = typ.Oid()
 
-		if supporting.IndexOf(optimizedTypes, typ.Name()) != -1 {
+		if registration, present := optimizedTypes[typ.Name()]; present {
+			if t, ok := typ.(*pgType); ok {
+				t.schemaType = registration.schemaType
+			}
+
 			tm.optimizedTypes[typ.Oid()] = typ
-			tm.optimizedConverters[typ.Oid()] = nil // FIXME
+
+			var converter Converter
+			if registration.isArray {
+				lazyConverter := &lazyArrayConverter{
+					typeManager: tm,
+					oidElement:  typ.OidElement(),
+				}
+				converter = lazyConverter.convert
+			} else {
+				converter = registration.converter
+			}
+
+			if converter == nil {
+				return errors.Errorf("Type %s has no assigned value converter", typ.Name())
+			}
+
+			tm.optimizedConverters[typ.Oid()] = typeRegistration{
+				schemaType: registration.schemaType,
+				isArray:    registration.isArray,
+				oidElement: typ.OidElement(),
+				converter:  converter,
+				codec:      registration.codec,
+			}
+
+			if typ.IsArray() {
+				if elementType, present := pgdecoding.GetType(typ.OidElement()); present {
+					pgdecoding.RegisterType(&pgtype.Type{
+						Name: typ.Name(), OID: typ.Oid(), Codec: &pgtype.ArrayCodec{ElementType: elementType},
+					})
+				}
+			} else {
+				pgdecoding.RegisterType(&pgtype.Type{Name: typ.Name(), OID: typ.Oid(), Codec: registration.codec})
+			}
 		}
 
 		return nil
@@ -233,10 +317,9 @@ func (tm *TypeManager) typeFactory(name string, kind systemcatalog.PgKind, oid u
 	category systemcatalog.PgCategory, arrayType bool, recordType bool, oidArray uint32, oidElement uint32,
 	oidParent uint32, modifiers int, enumValues []string, delimiter string) systemcatalog.PgType {
 
-	pgType := newType(name, kind, oid, category, arrayType, recordType, oidArray,
-		oidElement, oidParent, modifiers, enumValues, delimiter)
+	pgType := newType(tm, name, kind, oid, category, arrayType, recordType,
+		oidArray, oidElement, oidParent, modifiers, enumValues, delimiter)
 
-	pgType.typeManager = tm
 	pgType.schemaBuilder = resolveSchemaBuilder(pgType)
 
 	return pgType
@@ -269,8 +352,8 @@ func (tm *TypeManager) Converter(oid uint32) (Converter, error) {
 	if converter, present := converters[oid]; present {
 		return converter, nil
 	}
-	if converter, present := tm.optimizedConverters[oid]; present {
-		return converter, nil
+	if registration, present := tm.optimizedConverters[oid]; present {
+		return registration.converter, nil
 	}
 	return nil, fmt.Errorf("unsupported OID: %d", oid)
 }
@@ -281,9 +364,22 @@ func (tm *TypeManager) NumKnownTypes() int {
 	return len(tm.typeCache)
 }
 
-func getSchemaType(oid uint32, arrayType bool, kind systemcatalog.PgKind) schemamodel.SchemaType {
+func (tm *TypeManager) OidByName(name string) uint32 {
+	tm.typeCacheMutex.Lock()
+	defer tm.typeCacheMutex.Unlock()
+	oid, present := tm.typeNameCache[name]
+	if !present {
+		panic(fmt.Sprintf("Type %s isn't registered"))
+	}
+	return oid
+}
+
+func (tm *TypeManager) getSchemaType(oid uint32, arrayType bool, kind systemcatalog.PgKind) schemamodel.SchemaType {
 	if coreType, present := coreTypes[oid]; present {
 		return coreType
+	}
+	if registration, present := tm.optimizedConverters[oid]; present {
+		return registration.schemaType
 	}
 	if arrayType {
 		return schemamodel.ARRAY
@@ -330,4 +426,61 @@ func (l *lazySchemaBuilder) Schema(column schemamodel.ColumnDescriptor) schemamo
 		l.schemaBuilder = l.pgType.resolveSchemaBuilder()
 	}
 	return l.schemaBuilder.Schema(column)
+}
+
+type lazyArrayConverter struct {
+	typeManager *TypeManager
+	oidElement  uint32
+	converter   Converter
+}
+
+func (lac *lazyArrayConverter) convert(oid uint32, value any) (any, error) {
+	if lac.converter == nil {
+		elementType, err := lac.typeManager.DataType(lac.oidElement)
+		if err != nil {
+			return nil, err
+		}
+
+		elementConverter, err := lac.typeManager.Converter(lac.oidElement)
+		if err != nil {
+			return nil, err
+		}
+
+		reflectiveType, err := schemaType2ReflectiveType(elementType.SchemaType())
+		if err != nil {
+			return nil, err
+		}
+
+		targetType := reflect.SliceOf(reflectiveType)
+		lac.converter = reflectiveArrayConverter(lac.oidElement, targetType, elementConverter)
+	}
+
+	return lac.converter(oid, value)
+}
+
+func schemaType2ReflectiveType(schemaType schemamodel.SchemaType) (reflect.Type, error) {
+	switch schemaType {
+	case schemamodel.INT8:
+		return int8Type, nil
+	case schemamodel.INT16:
+		return int16Type, nil
+	case schemamodel.INT32:
+		return int32Type, nil
+	case schemamodel.INT64:
+		return int64Type, nil
+	case schemamodel.FLOAT32:
+		return float32Type, nil
+	case schemamodel.FLOAT64:
+		return float64Type, nil
+	case schemamodel.BOOLEAN:
+		return booleanType, nil
+	case schemamodel.STRING:
+		return stringType, nil
+	case schemamodel.BYTES:
+		return byteaType, nil
+	case schemamodel.MAP:
+		return mapType, nil
+	default:
+		return nil, errors.Errorf("Unsupported schema type %s", string(schemaType))
+	}
 }

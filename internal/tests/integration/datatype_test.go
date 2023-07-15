@@ -85,7 +85,7 @@ var dataTypeTable = []DataTypeTest{
 		pgTypeName:        "int2[]",
 		schemaType:        schemamodel.ARRAY,
 		elementSchemaType: schemamodel.INT16,
-		value:             []int16{5, 10, 15},
+		value:             []int16{5, 10, 15, -32768, 32767},
 		expected:          quickCheckValue[[]int16],
 	},
 	{
@@ -102,7 +102,7 @@ var dataTypeTable = []DataTypeTest{
 		pgTypeName:        "int4[]",
 		schemaType:        schemamodel.ARRAY,
 		elementSchemaType: schemamodel.INT32,
-		value:             []int32{5, 10, 15},
+		value:             []int32{5, 10, 15, -2147483648, 2147483647},
 		expected:          quickCheckValue[[]int32],
 	},
 	{
@@ -119,7 +119,7 @@ var dataTypeTable = []DataTypeTest{
 		pgTypeName:        "int8[]",
 		schemaType:        schemamodel.ARRAY,
 		elementSchemaType: schemamodel.INT64,
-		value:             []int64{5, 10, 15},
+		value:             []int64{5, 10, 15, -9223372036854775808},
 		expected:          quickCheckValue[[]int64],
 	},
 	{
@@ -610,10 +610,9 @@ var dataTypeTable = []DataTypeTest{
 		oid:               pgtype.OIDArrayOID,
 		pgTypeName:        "oid[]",
 		schemaType:        schemamodel.ARRAY,
-		elementSchemaType: schemamodel.STRUCT,
-		value:             []float64{14.1, 12.7},
-		expected:          quickCheckValue[string],
-		missingSupport:    true,
+		elementSchemaType: schemamodel.INT64,
+		value:             []int64{10, 11, 12},
+		expected:          quickCheckValue[[]int64],
 	},
 	{
 		name:       "XID",
@@ -628,10 +627,9 @@ var dataTypeTable = []DataTypeTest{
 		oid:               pgtype.XIDArrayOID,
 		pgTypeName:        "xid[]",
 		schemaType:        schemamodel.ARRAY,
-		elementSchemaType: schemamodel.BYTES,
-		value:             [][]byte{{0xDE, 0xAD, 0xBE, 0xEF}, {0xCA, 0xFE, 0xBA, 0xBE}},
-		expected:          quickCheckValue[string],
-		missingSupport:    true,
+		elementSchemaType: schemamodel.INT64,
+		value:             []int64{10, 11, 12},
+		expected:          quickCheckValue[[]int64],
 	},
 	{
 		name:       "CID",
@@ -646,10 +644,9 @@ var dataTypeTable = []DataTypeTest{
 		oid:               pgtype.XIDArrayOID,
 		pgTypeName:        "cid[]",
 		schemaType:        schemamodel.ARRAY,
-		elementSchemaType: schemamodel.BYTES,
-		value:             [][]byte{{0xDE, 0xAD, 0xBE, 0xEF}, {0xCA, 0xFE, 0xBA, 0xBE}},
-		expected:          quickCheckValue[string],
-		missingSupport:    true,
+		elementSchemaType: schemamodel.INT64,
+		value:             []int64{10, 11, 12},
+		expected:          quickCheckValue[[]int64],
 	},
 	{
 		name:           "Point",
@@ -881,7 +878,25 @@ var dataTypeTable = []DataTypeTest{
 		expectedValueOverride: []float64{12.1, 1.23},
 		expected:              quickCheckValue[[]float64],
 	},
+	{
+		name:       "Ltree",
+		dynamicOid: true,
+		pgTypeName: "ltree",
+		schemaType: schemamodel.STRING,
+		value:      "foo.bar",
+		expected:   quickCheckValue[string],
+	},
+	{
+		name:       "Ltree Array",
+		dynamicOid: true,
+		pgTypeName: "ltree[]",
+		schemaType: schemamodel.ARRAY,
+		value:      []string{"foo.bar", "bar.foo"},
+		expected:   quickCheckValue[[]string],
+	},
 }
+
+const lookupTypeOidQuery = "SELECT oid FROM pg_catalog.pg_type where typname = $1"
 
 type DataTypeTestSuite struct {
 	testrunner.TestRunner
@@ -898,12 +913,34 @@ func (dtt *DataTypeTestSuite) Test_DataType_Support() {
 				dtt.T().Skipf("Datatype %s unsupported", testCase.pgTypeName)
 			}
 
-			dtt.runDataTypeTest(testCase)
+			if testCase.dynamicOid {
+				dtt.runDynamicDataTypeTest(&testCase)
+			} else {
+				dtt.runDataTypeTest(&testCase, nil)
+			}
 		})
 	}
 }
 
-func (dtt *DataTypeTestSuite) runDataTypeTest(testCase DataTypeTest) {
+func (dtt *DataTypeTestSuite) runDynamicDataTypeTest(testCase *DataTypeTest) {
+	typeName := testCase.pgTypeName
+	if strings.HasSuffix(typeName, "[]") {
+		typeName = fmt.Sprintf("_%s", typeName[:len(typeName)-2])
+	}
+
+	dtt.runDataTypeTest(testCase, func(setupContext testrunner.SetupContext) error {
+		if err := setupContext.QueryRow(
+			stdctx.Background(), lookupTypeOidQuery, typeName,
+		).Scan(&testCase.oid); err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
+func (dtt *DataTypeTestSuite) runDataTypeTest(testCase *DataTypeTest,
+	setupFn func(setupContext testrunner.SetupContext) error) {
+
 	columnName := makeColumnName(testCase)
 
 	waiter := supporting.NewWaiterWithTimeout(time.Second * 10)
@@ -981,18 +1018,20 @@ func (dtt *DataTypeTestSuite) runDataTypeTest(testCase DataTypeTest) {
 		},
 
 		testrunner.WithSetup(func(setupContext testrunner.SetupContext) error {
-			_, err := setupContext.Exec(stdctx.Background(), "CREATE EXTENSION IF NOT EXISTS ltree")
-			if err != nil {
-				return err
+			if setupFn != nil {
+				if err := setupFn(setupContext); err != nil {
+					return err
+				}
 			}
 
-			_, tableName, err = setupContext.CreateHypertable("ts", time.Hour*24,
+			_, tn, err := setupContext.CreateHypertable("ts", time.Hour*24,
 				inttest.NewColumn("ts", "timestamptz", false, false, nil),
 				inttest.NewColumn(columnName, testCase.pgTypeName, false, false, nil),
 			)
 			if err != nil {
 				return err
 			}
+			tableName = tn
 
 			setupContext.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
 			return nil
@@ -1010,11 +1049,12 @@ type DataTypeTest struct {
 	value                 any
 	insertPlain           bool
 	expectedValueOverride any
-	expected              func(t *testing.T, test DataTypeTest, value any)
+	dynamicOid            bool
+	expected              func(t *testing.T, test *DataTypeTest, value any)
 	missingSupport        bool
 }
 
-func quickCheckValue[T any](t *testing.T, testCase DataTypeTest, value any) {
+func quickCheckValue[T any](t *testing.T, testCase *DataTypeTest, value any) {
 	v := checkType[T](t, value)
 	checkValue[T](t, expectedValue(testCase).(T), v)
 }
@@ -1073,14 +1113,14 @@ func unwrapType(t *testing.T, expectedType reflect.Type, value any) any {
 	return value
 }
 
-func expectedValue(testCase DataTypeTest) any {
+func expectedValue(testCase *DataTypeTest) any {
 	if testCase.expectedValueOverride != nil {
 		return testCase.expectedValueOverride
 	}
 	return testCase.value
 }
 
-func makeColumnName(testCase DataTypeTest) string {
+func makeColumnName(testCase *DataTypeTest) string {
 	name := testCase.pgTypeName
 	if testCase.columnNameOverride != "" {
 		name = testCase.columnNameOverride

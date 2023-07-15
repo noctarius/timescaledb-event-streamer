@@ -28,6 +28,10 @@ type rangeValueTransformer = func(value any) (string, error)
 
 func arrayConverter[T any](oidElement uint32, elementConverter Converter) Converter {
 	targetType := reflect.TypeOf(*new(T))
+	return reflectiveArrayConverter(oidElement, targetType, elementConverter)
+}
+
+func reflectiveArrayConverter(oidElement uint32, targetType reflect.Type, elementConverter Converter) Converter {
 	if targetType.Kind() != reflect.Array && targetType.Kind() != reflect.Slice {
 		panic(fmt.Sprintf("arrayConverter needs array / slice type but got %s", targetType.String()))
 	}
@@ -60,6 +64,30 @@ func arrayConverter[T any](oidElement uint32, elementConverter Converter) Conver
 		}
 		return targetValue.Interface(), nil
 	}
+}
+
+func float42float(_ uint32, value any) (any, error) {
+	switch v := value.(type) {
+	case pgtype.Float4:
+		return v.Float32, nil
+	case float32:
+		return v, nil
+	case float64:
+		return float32(v), nil
+	}
+	return nil, ErrIllegalValue
+}
+
+func float82float(_ uint32, value any) (any, error) {
+	switch v := value.(type) {
+	case pgtype.Float8:
+		return v.Float64, nil
+	case float32:
+		return float64(v), nil
+	case float64:
+		return v, nil
+	}
+	return nil, ErrIllegalValue
 }
 
 func date2int32(_ uint32, value any) (any, error) {
@@ -217,6 +245,16 @@ func numeric2float64(_ uint32, value any) (any, error) {
 func bytes2hexstring(_ uint32, value any) (any, error) {
 	if v, ok := value.([]byte); ok {
 		return hex.EncodeToString(v), nil
+	}
+	return nil, ErrIllegalValue
+}
+
+func ltree2string(_ uint32, value any) (any, error) {
+	if v, ok := value.(pgdecoding.Ltree); ok {
+		if !v.Valid {
+			return nil, nil
+		}
+		return v.Path, nil
 	}
 	return nil, ErrIllegalValue
 }

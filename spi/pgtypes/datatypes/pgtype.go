@@ -32,24 +32,26 @@ type pgType struct {
 	resolvedParentType  systemcatalog.PgType
 }
 
-func newType(name string, kind systemcatalog.PgKind, oid uint32, category systemcatalog.PgCategory,
-	arrayType bool, recordType bool, oidArray uint32, oidElement uint32, oidParent uint32,
+func newType(typeManager *TypeManager, name string, kind systemcatalog.PgKind, oid uint32,
+	category systemcatalog.PgCategory, arrayType bool, recordType bool,
+	oidArray uint32, oidElement uint32, oidParent uint32,
 	modifiers int, enumValues []string, delimiter string) *pgType {
 
 	return &pgType{
-		name:       name,
-		kind:       kind,
-		oid:        oid,
-		category:   category,
-		arrayType:  arrayType,
-		recordType: recordType,
-		oidArray:   oidArray,
-		oidElement: oidElement,
-		oidParent:  oidParent,
-		modifiers:  modifiers,
-		enumValues: enumValues,
-		delimiter:  delimiter,
-		schemaType: getSchemaType(oid, arrayType, kind),
+		name:        name,
+		kind:        kind,
+		oid:         oid,
+		category:    category,
+		arrayType:   arrayType,
+		recordType:  recordType,
+		oidArray:    oidArray,
+		oidElement:  oidElement,
+		oidParent:   oidParent,
+		modifiers:   modifiers,
+		enumValues:  enumValues,
+		delimiter:   delimiter,
+		typeManager: typeManager,
+		schemaType:  typeManager.getSchemaType(oid, arrayType, kind),
 	}
 }
 

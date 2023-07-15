@@ -88,7 +88,7 @@ LEFT JOIN (
 WHERE sp.rank IS NOT NULL
   AND t.typtype != 'p'
 %s
-ORDER BY t.typname, sp.rank, t.oid;`
+ORDER BY t.typname DESC, sp.rank, t.oid;`
 
 const initialHypertableQuery = `
 SELECT h1.id, h1.schema_name, h1.table_name, h1.associated_schema_name, h1.associated_table_prefix,

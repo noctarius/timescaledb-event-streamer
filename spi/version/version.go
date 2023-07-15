@@ -29,6 +29,21 @@ var (
 	timescaledbVersionRegex = regexp.MustCompile(`([0-9]+)\.([0-9]+)(\.([0-9]+))?`)
 )
 
+const (
+	TSDB_MIN_VERSION TimescaleVersion = 21000
+	TSDB_212_VERSION TimescaleVersion = 21200
+	PG_MIN_VERSION   PostgresVersion  = 130000
+	PG_14_VERSION    PostgresVersion  = 140000
+	PG_15_VERSION    PostgresVersion  = 150000
+)
+
+var (
+	BinName    = "timescaledb-event-streamer"
+	Version    = "0.2.1-dev"
+	CommitHash = "unknown"
+	Branch     = "unknown"
+)
+
 // PostgresVersion represents the parsed and comparable
 // version number of the connected PostgreSQL server
 type PostgresVersion uint

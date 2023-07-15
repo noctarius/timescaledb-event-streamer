@@ -20,10 +20,10 @@ package schema
 import (
 	"fmt"
 	"github.com/jackc/pglogrepl"
-	"github.com/noctarius/timescaledb-event-streamer/internal/version"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/topic/namegenerator"
+	"github.com/noctarius/timescaledb-event-streamer/spi/version"
 	"strconv"
 	"time"
 )
