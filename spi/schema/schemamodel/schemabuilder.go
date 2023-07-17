@@ -1,6 +1,6 @@
 package schemamodel
 
-type SchemaBuilder interface {
+type Schema interface {
 	SchemaType() Type
 	Schema(column ColumnDescriptor) Struct
 }
@@ -19,56 +19,56 @@ type ColumnDescriptor interface {
 }
 
 var (
-	schemaBuilderInt8    = &simpleTypeSchemaBuilder{schemaType: INT8}
-	schemaBuilderInt16   = &simpleTypeSchemaBuilder{schemaType: INT16}
-	schemaBuilderInt32   = &simpleTypeSchemaBuilder{schemaType: INT32}
-	schemaBuilderInt64   = &simpleTypeSchemaBuilder{schemaType: INT64}
-	schemaBuilderFloat32 = &simpleTypeSchemaBuilder{schemaType: FLOAT32}
-	schemaBuilderFloat64 = &simpleTypeSchemaBuilder{schemaType: FLOAT64}
-	schemaBuilderBoolean = &simpleTypeSchemaBuilder{schemaType: BOOLEAN}
-	schemaBuilderString  = &simpleTypeSchemaBuilder{schemaType: STRING}
+	schemaInt8    = &simpleTypeSchema{schemaType: INT8}
+	schemaInt16   = &simpleTypeSchema{schemaType: INT16}
+	schemaInt32   = &simpleTypeSchema{schemaType: INT32}
+	schemaInt64   = &simpleTypeSchema{schemaType: INT64}
+	schemaFloat32 = &simpleTypeSchema{schemaType: FLOAT32}
+	schemaFloat64 = &simpleTypeSchema{schemaType: FLOAT64}
+	schemaBoolean = &simpleTypeSchema{schemaType: BOOLEAN}
+	schemaString  = &simpleTypeSchema{schemaType: STRING}
 )
 
-func Int8() SchemaBuilder {
-	return schemaBuilderInt8
+func Int8() Schema {
+	return schemaInt8
 }
 
-func Int16() SchemaBuilder {
-	return schemaBuilderInt16
+func Int16() Schema {
+	return schemaInt16
 }
 
-func Int32() SchemaBuilder {
-	return schemaBuilderInt32
+func Int32() Schema {
+	return schemaInt32
 }
 
-func Int64() SchemaBuilder {
-	return schemaBuilderInt64
+func Int64() Schema {
+	return schemaInt64
 }
 
-func Float32() SchemaBuilder {
-	return schemaBuilderFloat32
+func Float32() Schema {
+	return schemaFloat32
 }
 
-func Float64() SchemaBuilder {
-	return schemaBuilderFloat64
+func Float64() Schema {
+	return schemaFloat64
 }
 
-func Boolean() SchemaBuilder {
-	return schemaBuilderBoolean
+func Boolean() Schema {
+	return schemaBoolean
 }
 
-func String() SchemaBuilder {
-	return schemaBuilderString
+func String() Schema {
+	return schemaString
 }
 
-type simpleTypeSchemaBuilder struct {
+type simpleTypeSchema struct {
 	schemaType Type
 }
 
-func (s *simpleTypeSchemaBuilder) SchemaType() Type {
+func (s *simpleTypeSchema) SchemaType() Type {
 	return s.schemaType
 }
 
-func (s *simpleTypeSchemaBuilder) Schema(_ ColumnDescriptor) Struct {
+func (s *simpleTypeSchema) Schema(_ ColumnDescriptor) Struct {
 	return nil
 }

@@ -490,7 +490,7 @@ func (tm *TypeManager) typeFactory(namespace, name string, kind systemcatalog.Pg
 	pgType := newType(tm, namespace, name, kind, oid, category, arrayType, recordType,
 		oidArray, oidElement, oidParent, modifiers, enumValues, delimiter)
 
-	pgType.schemaBuilder = resolveSchemaBuilder(pgType)
+	pgType.schema = resolveSchema(pgType)
 
 	return pgType
 }
@@ -559,7 +559,7 @@ func (tm *TypeManager) getSchemaType(oid uint32, arrayType bool, kind systemcata
 	return schemamodel.STRUCT
 }
 
-func resolveSchemaBuilder(pgType *pgType) schemamodel.SchemaBuilder {
+func resolveSchema(pgType *pgType) schemamodel.Schema {
 	switch pgType.schemaType {
 	case schemamodel.INT8:
 		return schemamodel.Int8()
@@ -578,24 +578,24 @@ func resolveSchemaBuilder(pgType *pgType) schemamodel.SchemaBuilder {
 	case schemamodel.STRING:
 		return schemamodel.String()
 	default:
-		return &lazySchemaBuilder{pgType: pgType}
+		return &lazySchema{pgType: pgType}
 	}
 }
 
-type lazySchemaBuilder struct {
-	pgType        *pgType
-	schemaBuilder schemamodel.SchemaBuilder
+type lazySchema struct {
+	pgType *pgType
+	schema schemamodel.Schema
 }
 
-func (l *lazySchemaBuilder) SchemaType() schemamodel.Type {
+func (l *lazySchema) SchemaType() schemamodel.Type {
 	return l.pgType.schemaType
 }
 
-func (l *lazySchemaBuilder) Schema(column schemamodel.ColumnDescriptor) schemamodel.Struct {
-	if l.schemaBuilder == nil {
-		l.schemaBuilder = l.pgType.resolveSchemaBuilder()
+func (l *lazySchema) Schema(column schemamodel.ColumnDescriptor) schemamodel.Struct {
+	if l.schema == nil {
+		l.schema = l.pgType.resolveSchema()
 	}
-	return l.schemaBuilder.Schema(column)
+	return l.schema.Schema(column)
 }
 
 type lazyArrayConverter struct {

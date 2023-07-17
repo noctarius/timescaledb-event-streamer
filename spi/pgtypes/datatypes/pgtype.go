@@ -26,9 +26,9 @@ type pgType struct {
 	delimiter  string
 	schemaType schemamodel.Type
 
-	typeManager         *TypeManager
-	schemaBuilder       schemamodel.SchemaBuilder
-	resolvedArrayType   systemcatalog.PgType
+	typeManager       *TypeManager
+	schema            schemamodel.Schema
+	resolvedArrayType systemcatalog.PgType
 	resolvedElementType systemcatalog.PgType
 	resolvedParentType  systemcatalog.PgType
 }
@@ -149,8 +149,8 @@ func (t *pgType) SchemaType() schemamodel.Type {
 	return t.schemaType
 }
 
-func (t *pgType) SchemaBuilder() schemamodel.SchemaBuilder {
-	return t.schemaBuilder
+func (t *pgType) Schema() schemamodel.Schema {
+	return t.schema
 }
 
 func (t *pgType) Equal(other systemcatalog.PgType) bool {
@@ -170,9 +170,9 @@ func (t *pgType) Equal(other systemcatalog.PgType) bool {
 		stringArrayEqual(t.enumValues, other.EnumValues())
 }
 
-func (t *pgType) resolveSchemaBuilder() schemamodel.SchemaBuilder {
+func (t *pgType) resolveSchema() schemamodel.Schema {
 	if t.IsArray() {
-		return &arraySchemaBuilder{pgType: t}
+		return &arraySchema{pgType: t}
 	}
 	return nil //FIXME
 }

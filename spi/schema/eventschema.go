@@ -389,17 +389,17 @@ func extendHypertableSchema(hypertableSchema schemamodel.Struct,
 
 func column2field(column systemcatalog.Column) schemamodel.Struct {
 	pgType := column.PgType()
-	schemaBuilder := pgType.SchemaBuilder()
+	schema := pgType.Schema()
 
 	var field schemamodel.Struct
 	if pgType.IsArray() {
-		field = schemaBuilder.Schema(column)
+		field = schema.Schema(column)
 	} else if pgType.IsRecord() {
 		//todo: not yet supported
 		panic("not yet implemented")
 	} else {
 		field = schemamodel.Struct{
-			schemamodel.FieldNameType:     schemaBuilder.SchemaType(),
+			schemamodel.FieldNameType:     schema.SchemaType(),
 			schemamodel.FieldNameOptional: column.IsNullable(),
 			schemamodel.FieldNameField:    column.Name(),
 		}

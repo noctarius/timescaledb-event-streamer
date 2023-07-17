@@ -6,15 +6,15 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 )
 
-type arraySchemaBuilder struct {
+type arraySchema struct {
 	pgType systemcatalog.PgType
 }
 
-func (a *arraySchemaBuilder) SchemaType() schemamodel.Type {
+func (a *arraySchema) SchemaType() schemamodel.Type {
 	return a.pgType.SchemaType()
 }
 
-func (a *arraySchemaBuilder) Schema(column schemamodel.ColumnDescriptor) schemamodel.Struct {
+func (a *arraySchema) Schema(column schemamodel.ColumnDescriptor) schemamodel.Struct {
 	elementType := a.pgType.ElementType()
 
 	elementColumnName := fmt.Sprintf("%s-element", column.Name())

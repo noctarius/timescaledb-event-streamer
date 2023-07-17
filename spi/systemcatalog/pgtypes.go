@@ -53,6 +53,6 @@ type PgType interface {
 	EnumValues() []string
 	Delimiter() string
 	SchemaType() schemamodel.Type
-	SchemaBuilder() schemamodel.SchemaBuilder
+	Schema() schemamodel.Schema
 	Equal(other PgType) bool
 }
