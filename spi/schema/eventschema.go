@@ -342,7 +342,7 @@ func messageBlockSchema() schemamodel.Struct {
 }
 
 func simpleSchemaElement(fieldName schemamodel.SchemaField,
-	schemaType schemamodel.SchemaType, optional bool) schemamodel.Struct {
+	schemaType schemamodel.Type, optional bool) schemamodel.Struct {
 
 	return schemamodel.Struct{
 		schemamodel.FieldNameType:     string(schemaType),
@@ -352,7 +352,7 @@ func simpleSchemaElement(fieldName schemamodel.SchemaField,
 }
 
 func keySchemaElement(fieldName schemamodel.SchemaField, index int,
-	schemaType schemamodel.SchemaType, optional bool) schemamodel.Struct {
+	schemaType schemamodel.Type, optional bool) schemamodel.Struct {
 
 	return schemamodel.Struct{
 		schemamodel.FieldNameName:  fieldName,
@@ -365,7 +365,7 @@ func keySchemaElement(fieldName schemamodel.SchemaField, index int,
 }
 
 func simpleSchemaElementWithDefault(fieldName schemamodel.SchemaField,
-	schemaType schemamodel.SchemaType, optional bool, defaultValue any) schemamodel.Struct {
+	schemaType schemamodel.Type, optional bool, defaultValue any) schemamodel.Struct {
 
 	return schemamodel.Struct{
 		schemamodel.FieldNameType:     string(schemaType),

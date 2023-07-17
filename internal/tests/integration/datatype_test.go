@@ -1044,8 +1044,8 @@ type DataTypeTest struct {
 	oid                   uint32
 	pgTypeName            string
 	columnNameOverride    string
-	schemaType            schemamodel.SchemaType
-	elementSchemaType     schemamodel.SchemaType
+	schemaType            schemamodel.Type
+	elementSchemaType     schemamodel.Type
 	value                 any
 	insertPlain           bool
 	expectedValueOverride any

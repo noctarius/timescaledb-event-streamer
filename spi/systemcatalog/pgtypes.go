@@ -52,7 +52,7 @@ type PgType interface {
 	Modifiers() int
 	EnumValues() []string
 	Delimiter() string
-	SchemaType() schemamodel.SchemaType
+	SchemaType() schemamodel.Type
 	SchemaBuilder() schemamodel.SchemaBuilder
 	Equal(other PgType) bool
 }

@@ -236,7 +236,7 @@ func (t *testPgType) Delimiter() string {
 	return ","
 }
 
-func (t *testPgType) SchemaType() schemamodel.SchemaType {
+func (t *testPgType) SchemaType() schemamodel.Type {
 	return schemamodel.INT16
 }
 

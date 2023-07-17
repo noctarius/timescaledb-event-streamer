@@ -24,7 +24,7 @@ type pgType struct {
 	modifiers  int
 	enumValues []string
 	delimiter  string
-	schemaType schemamodel.SchemaType
+	schemaType schemamodel.Type
 
 	typeManager         *TypeManager
 	schemaBuilder       schemamodel.SchemaBuilder
@@ -145,7 +145,7 @@ func (t *pgType) Delimiter() string {
 	return t.delimiter
 }
 
-func (t *pgType) SchemaType() schemamodel.SchemaType {
+func (t *pgType) SchemaType() schemamodel.Type {
 	return t.schemaType
 }
 

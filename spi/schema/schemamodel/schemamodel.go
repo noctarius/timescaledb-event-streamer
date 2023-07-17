@@ -1,22 +1,22 @@
 package schemamodel
 
-// SchemaType is a string like definition of the available
+// Type is a string like definition of the available
 // event stream data types
-type SchemaType string
+type Type string
 
 const (
-	INT8    SchemaType = "int8"
-	INT16   SchemaType = "int16"
-	INT32   SchemaType = "int32"
-	INT64   SchemaType = "int64"
-	FLOAT32 SchemaType = "float32"
-	FLOAT64 SchemaType = "float64"
-	BOOLEAN SchemaType = "boolean"
-	STRING  SchemaType = "string"
-	BYTES   SchemaType = "bytes"
-	ARRAY   SchemaType = "array"
-	MAP     SchemaType = "map"
-	STRUCT  SchemaType = "struct"
+	INT8    Type = "int8"
+	INT16   Type = "int16"
+	INT32   Type = "int32"
+	INT64   Type = "int64"
+	FLOAT32 Type = "float32"
+	FLOAT64 Type = "float64"
+	BOOLEAN Type = "boolean"
+	STRING  Type = "string"
+	BYTES   Type = "bytes"
+	ARRAY   Type = "array"
+	MAP     Type = "map"
+	STRUCT  Type = "struct"
 )
 
 type SchemaField = string

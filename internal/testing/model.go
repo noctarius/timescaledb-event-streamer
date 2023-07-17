@@ -45,12 +45,12 @@ type Payload struct {
 }
 
 type Field struct {
-	Name     string                 `json:"name"`
-	Field    string                 `json:"field"`
-	Optional bool                   `json:"optional"`
-	Type     schemamodel.SchemaType `json:"type"`
-	Fields   []Field                `json:"fields"`
-	Default  any                    `json:"default"`
+	Name     string           `json:"name"`
+	Field    string           `json:"field"`
+	Optional bool             `json:"optional"`
+	Type     schemamodel.Type `json:"type"`
+	Fields   []Field          `json:"fields"`
+	Default  any              `json:"default"`
 }
 
 type Schema struct {

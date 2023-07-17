@@ -36,7 +36,7 @@ type TypeResolver interface {
 }
 
 type typeRegistration struct {
-	schemaType schemamodel.SchemaType
+	schemaType schemamodel.Type
 	isArray    bool
 	oidElement uint32
 	converter  Converter
@@ -544,7 +544,7 @@ func (tm *TypeManager) OidByName(name string) uint32 {
 	return oid
 }
 
-func (tm *TypeManager) getSchemaType(oid uint32, arrayType bool, kind systemcatalog.PgKind) schemamodel.SchemaType {
+func (tm *TypeManager) getSchemaType(oid uint32, arrayType bool, kind systemcatalog.PgKind) schemamodel.Type {
 	if registration, present := coreTypes[oid]; present {
 		return registration.schemaType
 	}
@@ -587,7 +587,7 @@ type lazySchemaBuilder struct {
 	schemaBuilder schemamodel.SchemaBuilder
 }
 
-func (l *lazySchemaBuilder) SchemaType() schemamodel.SchemaType {
+func (l *lazySchemaBuilder) SchemaType() schemamodel.Type {
 	return l.pgType.schemaType
 }
 
@@ -628,7 +628,7 @@ func (lac *lazyArrayConverter) convert(oid uint32, value any) (any, error) {
 	return lac.converter(oid, value)
 }
 
-func schemaType2ReflectiveType(schemaType schemamodel.SchemaType) (reflect.Type, error) {
+func schemaType2ReflectiveType(schemaType schemamodel.Type) (reflect.Type, error) {
 	switch schemaType {
 	case schemamodel.INT8:
 		return int8Type, nil

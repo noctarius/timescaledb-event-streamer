@@ -1,7 +1,7 @@
 package schemamodel
 
 type SchemaBuilder interface {
-	SchemaType() SchemaType
+	SchemaType() Type
 	Schema(column ColumnDescriptor) Struct
 }
 
@@ -62,10 +62,10 @@ func String() SchemaBuilder {
 }
 
 type simpleTypeSchemaBuilder struct {
-	schemaType SchemaType
+	schemaType Type
 }
 
-func (s *simpleTypeSchemaBuilder) SchemaType() SchemaType {
+func (s *simpleTypeSchemaBuilder) SchemaType() Type {
 	return s.schemaType
 }
 
