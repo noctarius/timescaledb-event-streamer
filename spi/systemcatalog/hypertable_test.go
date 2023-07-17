@@ -172,6 +172,10 @@ func TestSchemaDifferences_Dropped_Last_Column(t *testing.T) {
 type testPgType struct {
 }
 
+func (t *testPgType) Namespace() string {
+	return "namespace"
+}
+
 func (t *testPgType) Name() string {
 	return "foo"
 }

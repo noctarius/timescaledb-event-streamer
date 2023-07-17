@@ -399,7 +399,7 @@ func column2field(column systemcatalog.Column) schemamodel.Struct {
 		panic("not yet implemented")
 	} else {
 		field = schemamodel.Struct{
-			schemamodel.FieldNameType:     schemaBuilder.BaseSchemaType(),
+			schemamodel.FieldNameType:     schemaBuilder.SchemaType(),
 			schemamodel.FieldNameOptional: column.IsNullable(),
 			schemamodel.FieldNameField:    column.Name(),
 		}

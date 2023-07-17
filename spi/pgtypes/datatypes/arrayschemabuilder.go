@@ -10,7 +10,7 @@ type arraySchemaBuilder struct {
 	pgType systemcatalog.PgType
 }
 
-func (a *arraySchemaBuilder) BaseSchemaType() schemamodel.SchemaType {
+func (a *arraySchemaBuilder) SchemaType() schemamodel.SchemaType {
 	return a.pgType.SchemaType()
 }
 

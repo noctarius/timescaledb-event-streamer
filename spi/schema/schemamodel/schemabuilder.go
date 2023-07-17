@@ -1,7 +1,7 @@
 package schemamodel
 
 type SchemaBuilder interface {
-	BaseSchemaType() SchemaType
+	SchemaType() SchemaType
 	Schema(column ColumnDescriptor) Struct
 }
 
@@ -19,14 +19,14 @@ type ColumnDescriptor interface {
 }
 
 var (
-	schemaBuilderInt8    = &simpleTypeSchemaBuilder{baseSchemaType: INT8}
-	schemaBuilderInt16   = &simpleTypeSchemaBuilder{baseSchemaType: INT16}
-	schemaBuilderInt32   = &simpleTypeSchemaBuilder{baseSchemaType: INT32}
-	schemaBuilderInt64   = &simpleTypeSchemaBuilder{baseSchemaType: INT64}
-	schemaBuilderFloat32 = &simpleTypeSchemaBuilder{baseSchemaType: FLOAT32}
-	schemaBuilderFloat64 = &simpleTypeSchemaBuilder{baseSchemaType: FLOAT64}
-	schemaBuilderBoolean = &simpleTypeSchemaBuilder{baseSchemaType: BOOLEAN}
-	schemaBuilderString  = &simpleTypeSchemaBuilder{baseSchemaType: STRING}
+	schemaBuilderInt8    = &simpleTypeSchemaBuilder{schemaType: INT8}
+	schemaBuilderInt16   = &simpleTypeSchemaBuilder{schemaType: INT16}
+	schemaBuilderInt32   = &simpleTypeSchemaBuilder{schemaType: INT32}
+	schemaBuilderInt64   = &simpleTypeSchemaBuilder{schemaType: INT64}
+	schemaBuilderFloat32 = &simpleTypeSchemaBuilder{schemaType: FLOAT32}
+	schemaBuilderFloat64 = &simpleTypeSchemaBuilder{schemaType: FLOAT64}
+	schemaBuilderBoolean = &simpleTypeSchemaBuilder{schemaType: BOOLEAN}
+	schemaBuilderString  = &simpleTypeSchemaBuilder{schemaType: STRING}
 )
 
 func Int8() SchemaBuilder {
@@ -62,11 +62,11 @@ func String() SchemaBuilder {
 }
 
 type simpleTypeSchemaBuilder struct {
-	baseSchemaType SchemaType
+	schemaType SchemaType
 }
 
-func (s *simpleTypeSchemaBuilder) BaseSchemaType() SchemaType {
-	return s.baseSchemaType
+func (s *simpleTypeSchemaBuilder) SchemaType() SchemaType {
+	return s.schemaType
 }
 
 func (s *simpleTypeSchemaBuilder) Schema(_ ColumnDescriptor) Struct {

@@ -587,7 +587,7 @@ type lazySchemaBuilder struct {
 	schemaBuilder schemamodel.SchemaBuilder
 }
 
-func (l *lazySchemaBuilder) BaseSchemaType() schemamodel.SchemaType {
+func (l *lazySchemaBuilder) SchemaType() schemamodel.SchemaType {
 	return l.pgType.schemaType
 }
 
