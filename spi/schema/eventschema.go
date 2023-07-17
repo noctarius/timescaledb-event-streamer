@@ -341,7 +341,7 @@ func messageBlockSchema() schemamodel.Struct {
 	}
 }
 
-func simpleSchemaElement(fieldName schemamodel.SchemaField,
+func simpleSchemaElement(fieldName schemamodel.FieldName,
 	schemaType schemamodel.Type, optional bool) schemamodel.Struct {
 
 	return schemamodel.Struct{
@@ -351,7 +351,7 @@ func simpleSchemaElement(fieldName schemamodel.SchemaField,
 	}
 }
 
-func keySchemaElement(fieldName schemamodel.SchemaField, index int,
+func keySchemaElement(fieldName schemamodel.FieldName, index int,
 	schemaType schemamodel.Type, optional bool) schemamodel.Struct {
 
 	return schemamodel.Struct{
@@ -364,7 +364,7 @@ func keySchemaElement(fieldName schemamodel.SchemaField, index int,
 	}
 }
 
-func simpleSchemaElementWithDefault(fieldName schemamodel.SchemaField,
+func simpleSchemaElementWithDefault(fieldName schemamodel.FieldName,
 	schemaType schemamodel.Type, optional bool, defaultValue any) schemamodel.Struct {
 
 	return schemamodel.Struct{
@@ -376,7 +376,7 @@ func simpleSchemaElementWithDefault(fieldName schemamodel.SchemaField,
 }
 
 func extendHypertableSchema(hypertableSchema schemamodel.Struct,
-	fieldName schemamodel.SchemaField, optional bool) schemamodel.Struct {
+	fieldName schemamodel.FieldName, optional bool) schemamodel.Struct {
 
 	return schemamodel.Struct{
 		schemamodel.FieldNameType:     string(schemamodel.STRUCT),
