@@ -26,7 +26,7 @@ var (
 	mapType     = reflect.TypeOf(map[string]any{})
 )
 
-type TypeFactory func(name string, kind systemcatalog.PgKind, oid uint32, category systemcatalog.PgCategory,
+type TypeFactory func(namespace, name string, kind systemcatalog.PgKind, oid uint32, category systemcatalog.PgCategory,
 	arrayType bool, recordType bool, oidArray uint32, oidElement uint32, oidParent uint32,
 	modifiers int, enumValues []string, delimiter string) systemcatalog.PgType
 
@@ -483,11 +483,11 @@ func (tm *TypeManager) initialize() error {
 	return nil
 }
 
-func (tm *TypeManager) typeFactory(name string, kind systemcatalog.PgKind, oid uint32,
+func (tm *TypeManager) typeFactory(namespace, name string, kind systemcatalog.PgKind, oid uint32,
 	category systemcatalog.PgCategory, arrayType bool, recordType bool, oidArray uint32, oidElement uint32,
 	oidParent uint32, modifiers int, enumValues []string, delimiter string) systemcatalog.PgType {
 
-	pgType := newType(tm, name, kind, oid, category, arrayType, recordType,
+	pgType := newType(tm, namespace, name, kind, oid, category, arrayType, recordType,
 		oidArray, oidElement, oidParent, modifiers, enumValues, delimiter)
 
 	pgType.schemaBuilder = resolveSchemaBuilder(pgType)

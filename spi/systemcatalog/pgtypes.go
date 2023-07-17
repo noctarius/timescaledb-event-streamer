@@ -36,6 +36,7 @@ const (
 )
 
 type PgType interface {
+	Namespace() string
 	Name() string
 	Kind() PgKind
 	Oid() uint32

@@ -62,7 +62,7 @@ const addTableToPublicationQuery = "ALTER PUBLICATION %s ADD TABLE %s"
 const dropTableFromPublicationQuery = "ALTER PUBLICATION %s DROP TABLE %s"
 
 const readPgTypeQuery = `
-SELECT DISTINCT ON (t.typname) t.typname, t.typinput='array_in'::REGPROC,
+SELECT DISTINCT ON (t.typname) sp.nspname, t.typname, t.typinput='array_in'::REGPROC,
                                t.typinput='record_in'::REGPROC,
                                t.typtype, t.oid, t.typarray, t.typelem,
                                t.typcategory, t.typbasetype, t.typtypmod,
@@ -876,7 +876,7 @@ func (sc *sideChannelImpl) ReadPgType(
 }
 
 func (sc *sideChannelImpl) scanPgType(row pgx.Row, factory datatypes.TypeFactory) (systemcatalog.PgType, bool, error) {
-	var name string
+	var namespace, name string
 	var kind, category, delimiter int32
 	var arrayType, recordType bool
 	var oid, oidArray, oidElement, parentOid uint32
@@ -884,7 +884,7 @@ func (sc *sideChannelImpl) scanPgType(row pgx.Row, factory datatypes.TypeFactory
 	var enumValues []string
 
 	if err := row.Scan(
-		&name, &arrayType, &recordType, &kind, &oid, &oidArray, &oidElement,
+		&namespace, &name, &arrayType, &recordType, &kind, &oid, &oidArray, &oidElement,
 		&category, &parentOid, &modifiers, &enumValues, &delimiter,
 	); err != nil {
 		if err == pgx.ErrNoRows {
@@ -893,8 +893,8 @@ func (sc *sideChannelImpl) scanPgType(row pgx.Row, factory datatypes.TypeFactory
 		return nil, false, errors.Wrap(err, 0)
 	}
 
-	return factory(name, systemcatalog.PgKind(kind), oid, systemcatalog.PgCategory(category), arrayType, recordType,
-		oidArray, oidElement, parentOid, modifiers, enumValues, string(delimiter),
+	return factory(namespace, name, systemcatalog.PgKind(kind), oid, systemcatalog.PgCategory(category),
+		arrayType, recordType, oidArray, oidElement, parentOid, modifiers, enumValues, string(delimiter),
 	), true, nil
 }
 

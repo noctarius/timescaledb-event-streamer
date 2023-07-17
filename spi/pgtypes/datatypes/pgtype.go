@@ -11,6 +11,7 @@ import (
 type Converter func(oid uint32, value any) (any, error)
 
 type pgType struct {
+	namespace  string
 	name       string
 	kind       systemcatalog.PgKind
 	oid        uint32
@@ -32,12 +33,13 @@ type pgType struct {
 	resolvedParentType  systemcatalog.PgType
 }
 
-func newType(typeManager *TypeManager, name string, kind systemcatalog.PgKind, oid uint32,
+func newType(typeManager *TypeManager, namespace, name string, kind systemcatalog.PgKind, oid uint32,
 	category systemcatalog.PgCategory, arrayType bool, recordType bool,
 	oidArray uint32, oidElement uint32, oidParent uint32,
 	modifiers int, enumValues []string, delimiter string) *pgType {
 
 	return &pgType{
+		namespace:   namespace,
 		name:        name,
 		kind:        kind,
 		oid:         oid,
@@ -53,6 +55,10 @@ func newType(typeManager *TypeManager, name string, kind systemcatalog.PgKind, o
 		typeManager: typeManager,
 		schemaType:  typeManager.getSchemaType(oid, arrayType, kind),
 	}
+}
+
+func (t *pgType) Namespace() string {
+	return t.namespace
 }
 
 func (t *pgType) Name() string {
@@ -148,7 +154,8 @@ func (t *pgType) SchemaBuilder() schemamodel.SchemaBuilder {
 }
 
 func (t *pgType) Equal(other systemcatalog.PgType) bool {
-	return t.name == other.Name() &&
+	return t.namespace == other.Namespace() &&
+		t.name == other.Name() &&
 		t.kind == other.Kind() &&
 		t.oid == other.Oid() &&
 		t.category == other.Category() &&
