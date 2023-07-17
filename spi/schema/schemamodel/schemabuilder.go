@@ -27,6 +27,7 @@ var (
 	schemaFloat64 = &simpleTypeSchema{schemaType: FLOAT64}
 	schemaBoolean = &simpleTypeSchema{schemaType: BOOLEAN}
 	schemaString  = &simpleTypeSchema{schemaType: STRING}
+	schemaBytes   = &simpleTypeSchema{schemaType: BYTES}
 )
 
 func Int8() Schema {
@@ -59,6 +60,10 @@ func Boolean() Schema {
 
 func String() Schema {
 	return schemaString
+}
+
+func Bytes() Schema {
+	return schemaBytes
 }
 
 type simpleTypeSchema struct {
