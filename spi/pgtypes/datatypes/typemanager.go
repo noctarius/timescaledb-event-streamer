@@ -539,7 +539,7 @@ func (tm *TypeManager) OidByName(name string) uint32 {
 	defer tm.typeCacheMutex.Unlock()
 	oid, present := tm.typeNameCache[name]
 	if !present {
-		panic(fmt.Sprintf("Type %s isn't registered"))
+		panic(fmt.Sprintf("Type %s isn't registered", name))
 	}
 	return oid
 }
