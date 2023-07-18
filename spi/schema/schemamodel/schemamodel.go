@@ -4,6 +4,22 @@ package schemamodel
 // event stream data types
 type Type string
 
+func (st Type) IsPrimitive() bool {
+	switch st {
+	case INT8:
+	case INT16:
+	case INT32:
+	case INT64:
+	case FLOAT32:
+	case FLOAT64:
+	case BOOLEAN:
+	case STRING:
+	case BYTES:
+		return true
+	}
+	return false
+}
+
 const (
 	INT8    Type = "int8"
 	INT16   Type = "int16"
