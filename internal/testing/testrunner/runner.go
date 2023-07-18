@@ -261,18 +261,21 @@ func (tr *TestRunner) SetupSuite() {
 	container, configProvider, err := containers.SetupTimescaleContainer()
 	if err != nil {
 		tr.logger.Fatalf("failed setting up container: %+v", err)
+		tr.T().FailNow()
 	}
 	tr.container = container
 
 	userConfig, err := configProvider.UserConnConfig()
 	if err != nil {
 		tr.logger.Fatalf("failed setting up user connection config: %+v", err)
+		tr.T().FailNow()
 	}
 	tr.userConfig = userConfig
 
 	replPgxConfig, err := configProvider.ReplicationConnConfig()
 	if err != nil {
 		tr.logger.Fatalf("failed setting up replication connection config: %+v", err)
+		tr.T().FailNow()
 	}
 	tr.replPgxConfig = replPgxConfig
 
