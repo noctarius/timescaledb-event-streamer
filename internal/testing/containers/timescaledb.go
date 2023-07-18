@@ -233,7 +233,7 @@ func SetupTimescaleContainer() (testcontainers.Container, *ConfigProvider, error
 	if err := exec("CREATE EXTENSION IF NOT EXISTS ltree"); err != nil {
 		return nil, nil, err
 	}
-	timescaledbLogger.Verbosef("Drop existing publication")
+	timescaledbLogger.Verbosef("Create PostGIS extension")
 	if err := exec("CREATE EXTENSION IF NOT EXISTS postgis"); err != nil {
 		return nil, nil, err
 	}
