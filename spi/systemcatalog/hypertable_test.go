@@ -244,6 +244,10 @@ func (t *testPgType) Schema() schemamodel.Schema {
 	return nil
 }
 
+func (t *testPgType) SchemaBuilder() schemamodel.SchemaBuilder {
+	return nil
+}
+
 func (t *testPgType) Equal(_ PgType) bool {
 	return true
 }

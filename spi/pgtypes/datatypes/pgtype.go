@@ -27,7 +27,7 @@ type pgType struct {
 	schemaType schemamodel.Type
 
 	typeManager         *TypeManager
-	schema              schemamodel.Schema
+	schemaBuilder       schemamodel.SchemaBuilder
 	resolvedArrayType   systemcatalog.PgType
 	resolvedElementType systemcatalog.PgType
 	resolvedParentType  systemcatalog.PgType
@@ -37,7 +37,7 @@ func newType(typeManager *TypeManager, namespace, name string, kind systemcatalo
 	category systemcatalog.PgCategory, arrayType, recordType bool, oidArray, oidElement, oidParent uint32,
 	modifiers int, enumValues []string, delimiter string) *pgType {
 
-	return &pgType{
+	t := &pgType{
 		namespace:   namespace,
 		name:        name,
 		kind:        kind,
@@ -54,6 +54,13 @@ func newType(typeManager *TypeManager, namespace, name string, kind systemcatalo
 		typeManager: typeManager,
 		schemaType:  typeManager.getSchemaType(oid, arrayType, kind),
 	}
+
+	// If this is a primitive type we can resolve early
+	if t.schemaType.IsPrimitive() {
+		t.schemaBuilder = resolveSchemaBuilder(t)
+	}
+
+	return t
 }
 
 func (t *pgType) Namespace() string {
@@ -148,8 +155,11 @@ func (t *pgType) SchemaType() schemamodel.Type {
 	return t.schemaType
 }
 
-func (t *pgType) Schema() schemamodel.Schema {
-	return t.schema
+func (t *pgType) SchemaBuilder() schemamodel.SchemaBuilder {
+	if t.schemaBuilder == nil {
+		t.schemaBuilder = resolveSchemaBuilder(t)
+	}
+	return t.schemaBuilder.Clone()
 }
 
 func (t *pgType) Equal(other systemcatalog.PgType) bool {
@@ -167,13 +177,6 @@ func (t *pgType) Equal(other systemcatalog.PgType) bool {
 		t.delimiter == other.Delimiter() &&
 		t.schemaType == other.SchemaType() &&
 		stringArrayEqual(t.enumValues, other.EnumValues())
-}
-
-func (t *pgType) resolveSchema() schemamodel.Schema {
-	if t.IsArray() {
-		return &arraySchema{pgType: t}
-	}
-	return nil //FIXME
 }
 
 func stringArrayEqual(this, that []string) bool {

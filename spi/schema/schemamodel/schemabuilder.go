@@ -25,8 +25,8 @@ type SchemaBuilder interface {
 	Parameters() map[string]any
 	Field(name FieldName, index int, schemaBuilder SchemaBuilder) SchemaBuilder
 	Fields() map[string]Field
-	KeySchema(schema Schema) SchemaBuilder
-	ValueSchema(schema Schema) SchemaBuilder
+	KeySchema(schema Struct) SchemaBuilder
+	ValueSchema(schema Struct) SchemaBuilder
 	Clone() SchemaBuilder
 	Build() Struct
 }
@@ -66,8 +66,8 @@ type schemaBuilderImpl struct {
 	index         int
 	parameters    map[string]any
 	fields        map[string]Field
-	keySchema     Schema
-	valueSchema   Schema
+	keySchema     Struct
+	valueSchema   Struct
 }
 
 func NewSchemaBuilder(schemaType Type) SchemaBuilder {
@@ -173,18 +173,19 @@ func (s *schemaBuilderImpl) Fields() map[string]Field {
 	return s.fields
 }
 
-func (s *schemaBuilderImpl) KeySchema(schema Schema) SchemaBuilder {
+func (s *schemaBuilderImpl) KeySchema(schema Struct) SchemaBuilder {
 	s.keySchema = schema
 	return s
 }
 
-func (s *schemaBuilderImpl) ValueSchema(schema Schema) SchemaBuilder {
+func (s *schemaBuilderImpl) ValueSchema(schema Struct) SchemaBuilder {
 	s.valueSchema = schema
 	return s
 }
 
 func (s *schemaBuilderImpl) Clone() SchemaBuilder {
 	return &schemaBuilderImpl{
+		name:          s.name,
 		schemaType:    s.schemaType,
 		version:       s.version,
 		optional:      s.optional,
@@ -203,10 +204,10 @@ func (s *schemaBuilderImpl) Build() Struct {
 	}
 	switch s.schemaType {
 	case ARRAY:
-		schemaStruct[FieldNameValueSchema] = s.valueSchema.Schema(nil)
+		schemaStruct[FieldNameValueSchema] = s.valueSchema
 	case MAP:
-		schemaStruct[FieldNameKeySchema] = s.keySchema.Schema(nil)
-		schemaStruct[FieldNameValueSchema] = s.valueSchema.Schema(nil)
+		schemaStruct[FieldNameKeySchema] = s.keySchema
+		schemaStruct[FieldNameValueSchema] = s.valueSchema
 	case STRUCT:
 		fields := supporting.MapMapper(s.fields, func(key string, element Field) Field {
 			return element
@@ -229,7 +230,7 @@ func (s *schemaBuilderImpl) Build() Struct {
 	}
 
 	if s.name != "" {
-		schemaStruct[FieldNameName] = s.name
+		schemaStruct[FieldNameField] = s.name
 	}
 
 	if s.index > -1 {

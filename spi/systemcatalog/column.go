@@ -20,6 +20,7 @@ package systemcatalog
 import (
 	"fmt"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
 	"strings"
 )
 
@@ -221,6 +222,16 @@ func (c Column) IsDimensionAligned() bool {
 // returns nil.
 func (c Column) DimensionType() *string {
 	return c.dimType
+}
+
+// SchemaBuilder returns a schema builder based on the
+// column's PgType and internal state (default value,
+// nullable, name, etc).
+func (c Column) SchemaBuilder() schemamodel.SchemaBuilder {
+	return c.pgType.SchemaBuilder().
+		Name(c.Name()).
+		DefaultValue(c.defaultValue).
+		SetOptional(c.IsNullable()).Clone()
 }
 
 func (c Column) String() string {

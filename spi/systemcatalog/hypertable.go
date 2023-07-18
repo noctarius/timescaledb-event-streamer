@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
 	"strings"
 )
 
@@ -154,6 +155,18 @@ func (h *Hypertable) CanonicalContinuousAggregateName() string {
 // otherwise a pgtypes.UNKNOWN is returned
 func (h *Hypertable) ReplicaIdentity() pgtypes.ReplicaIdentity {
 	return h.replicaIdentity
+}
+
+// SchemaBuilder returns a SchemaBuilder instance, preconfigured
+// for this hypertable instance
+func (h *Hypertable) SchemaBuilder() schemamodel.SchemaBuilder {
+	schemaBuilder := schemamodel.NewSchemaBuilder(schemamodel.STRUCT).
+		Name(h.CanonicalName())
+
+	for i, column := range h.columns {
+		schemaBuilder.Field(column.Name(), i, column.SchemaBuilder())
+	}
+	return schemaBuilder
 }
 
 func (h *Hypertable) String() string {

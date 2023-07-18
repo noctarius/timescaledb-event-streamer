@@ -24,7 +24,6 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/topic/namegenerator"
 	"github.com/noctarius/timescaledb-event-streamer/spi/version"
-	"strconv"
 	"time"
 )
 
@@ -196,7 +195,7 @@ func HypertableSchema(hypertableSchemaName string, columns []systemcatalog.Colum
 		schemamodel.FieldNameFields: func() []schemamodel.Struct {
 			fields := make([]schemamodel.Struct, len(columns))
 			for i, column := range columns {
-				fields[i] = column2field(column)
+				fields[i] = column.SchemaBuilder().Build()
 			}
 			return fields
 		}(),
@@ -385,37 +384,4 @@ func extendHypertableSchema(hypertableSchema schemamodel.Struct,
 		schemamodel.FieldNameOptional: optional,
 		schemamodel.FieldNameField:    fieldName,
 	}
-}
-
-func column2field(column systemcatalog.Column) schemamodel.Struct {
-	pgType := column.PgType()
-	schema := pgType.Schema()
-
-	var field schemamodel.Struct
-	if pgType.IsArray() {
-		field = schema.Schema(column)
-	} else if pgType.IsRecord() {
-		//todo: not yet supported
-		panic("not yet implemented")
-	} else {
-		field = schemamodel.Struct{
-			schemamodel.FieldNameType:     schema.SchemaType(),
-			schemamodel.FieldNameOptional: column.IsNullable(),
-			schemamodel.FieldNameField:    column.Name(),
-		}
-	}
-
-	if column.DefaultValue() != nil {
-		defaultValue := *column.DefaultValue()
-		if v, err := strconv.ParseBool(defaultValue); err == nil {
-			field[schemamodel.FieldNameDefault] = v
-		} else if v, err := strconv.ParseInt(defaultValue, 10, 64); err == nil {
-			field[schemamodel.FieldNameDefault] = v
-		} else if v, err := strconv.ParseFloat(defaultValue, 64); err == nil {
-			field[schemamodel.FieldNameDefault] = v
-		} else {
-			field[schemamodel.FieldNameDefault] = defaultValue
-		}
-	}
-	return field
 }
