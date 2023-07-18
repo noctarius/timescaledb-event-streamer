@@ -96,7 +96,10 @@ func SetupTimescaleContainer() (testcontainers.Container, *ConfigProvider, error
 		Image:        fmt.Sprintf("timescale/timescaledb-ha:pg%d-all", pgVersion),
 		ExposedPorts: []string{"5432/tcp"},
 		Cmd:          []string{"-c", "fsync=off", "-c", "wal_level=logical"},
-		WaitingFor:   wait.ForListeningPort("5432/tcp"),
+		WaitingFor: wait.ForAll(
+			wait.ForLog("PostgreSQL init process complete; ready for start up."),
+			wait.ForListeningPort("5432/tcp"),
+		),
 		Env: map[string]string{
 			"POSTGRES_DB":       databaseName,
 			"POSTGRES_PASSWORD": postgresPass,
