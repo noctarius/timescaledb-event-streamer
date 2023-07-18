@@ -101,16 +101,10 @@ func start(*cli.Context) error {
 	}
 
 	if profiling {
-		/*cpuProfile, err := os.Create("cpu.prof")
-		if err != nil {
-			return err
-		}
-		if err := pprof.StartCPUProfile(cpuProfile); err != nil {
-			return err
-		}
-		defer pprof.StopCPUProfile()*/
 		go func() {
-			http.ListenAndServe("localhost:8080", nil)
+			if err := http.ListenAndServe("localhost:8080", nil); err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to initialize the profiler. %+v\n", err)
+			}
 		}()
 	}
 

@@ -68,6 +68,8 @@ const (
 	FieldNameIndex       FieldName = "index"
 	FieldNameKeySchema   FieldName = "keySchema"
 	FieldNameValueSchema FieldName = "valueSchema"
+	FieldNameAllowed     FieldName = "allowed"
+	FieldNameLength      FieldName = "length"
 )
 
 type Struct = map[FieldName]any

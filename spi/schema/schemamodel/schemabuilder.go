@@ -5,6 +5,18 @@ import (
 	"strconv"
 )
 
+const (
+	BitsSchemaName      = "io.debezium.data.Bits"
+	EnumSchemaName      = "io.debezium.data.Enum"
+	LtreeSchemaName     = "io.debezium.data.Lree"
+	JsonSchemaName      = "io.debezium.data.Json"
+	UuidSchemaName      = "io.debezium.data.Uuid"
+	XmlSchemaName       = "io.debezium.data.Xml"
+	GeographySchemaName = "io.debezium.data.geometry.Geography"
+	GeometrySchemaName  = "io.debezium.data.geometry.Geometry"
+	PointSchemaName     = "io.debezium.data.geometry.Point"
+)
+
 type SchemaBuilder interface {
 	SchemaType() Type
 	FieldName(fieldName string) SchemaBuilder
@@ -37,6 +49,80 @@ type Field interface {
 	Index() int
 	SchemaStruct() Struct
 	SchemaBuilder() SchemaBuilder
+}
+
+func Int8() SchemaBuilder {
+	return NewSchemaBuilder(INT8)
+}
+
+func Int16() SchemaBuilder {
+	return NewSchemaBuilder(INT16)
+}
+
+func Int32() SchemaBuilder {
+	return NewSchemaBuilder(INT32)
+}
+
+func Int64() SchemaBuilder {
+	return NewSchemaBuilder(INT64)
+}
+
+func Float32() SchemaBuilder {
+	return NewSchemaBuilder(FLOAT32)
+}
+
+func Float64() SchemaBuilder {
+	return NewSchemaBuilder(FLOAT64)
+}
+
+func Boolean() SchemaBuilder {
+	return NewSchemaBuilder(BOOLEAN)
+}
+
+func String() SchemaBuilder {
+	return NewSchemaBuilder(STRING)
+}
+
+func Bytes() SchemaBuilder {
+	return NewSchemaBuilder(BYTES)
+}
+
+func Enum(enumValues []string) SchemaBuilder {
+	return String().
+		SchemaName(EnumSchemaName).
+		Version(1).
+		Parameter(FieldNameAllowed, enumValues)
+}
+
+func Bits(length int) SchemaBuilder {
+	return String().
+		SchemaName(BitsSchemaName).
+		Parameter(FieldNameLength, strconv.FormatInt(int64(length), 10)).
+		Version(1)
+}
+
+func Ltree() SchemaBuilder {
+	return String().
+		SchemaName(LtreeSchemaName).
+		Version(1)
+}
+
+func Json() SchemaBuilder {
+	return String().
+		SchemaName(JsonSchemaName).
+		Version(1)
+}
+
+func Uuid() SchemaBuilder {
+	return String().
+		SchemaName(UuidSchemaName).
+		Version(1)
+}
+
+func Xml() SchemaBuilder {
+	return String().
+		SchemaName(XmlSchemaName).
+		Version(1)
 }
 
 type fieldImpl struct {

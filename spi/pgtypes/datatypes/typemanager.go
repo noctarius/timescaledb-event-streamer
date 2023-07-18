@@ -36,11 +36,12 @@ type TypeResolver interface {
 }
 
 type typeRegistration struct {
-	schemaType schemamodel.Type
-	isArray    bool
-	oidElement uint32
-	converter  Converter
-	codec      pgtype.Codec
+	schemaType    schemamodel.Type
+	schemaBuilder schemamodel.SchemaBuilder
+	isArray       bool
+	oidElement    uint32
+	converter     Converter
+	codec         pgtype.Codec
 }
 
 var coreTypes = map[uint32]typeRegistration{
@@ -373,9 +374,10 @@ var optimizedTypes = map[string]typeRegistration{
 		isArray:    true,
 	},*/
 	"ltree": {
-		schemaType: schemamodel.STRING,
-		converter:  ltree2string,
-		codec:      pgdecoding.LtreeCodec{},
+		schemaType:    schemamodel.STRING,
+		schemaBuilder: schemamodel.Ltree(),
+		converter:     ltree2string,
+		codec:         pgdecoding.LtreeCodec{},
 	},
 	"_ltree": {
 		schemaType: schemamodel.ARRAY,
@@ -458,11 +460,12 @@ func (tm *TypeManager) initialize() error {
 			}
 
 			tm.optimizedConverters[typ.Oid()] = typeRegistration{
-				schemaType: registration.schemaType,
-				isArray:    registration.isArray,
-				oidElement: typ.OidElement(),
-				converter:  converter,
-				codec:      registration.codec,
+				schemaType:    registration.schemaType,
+				schemaBuilder: registration.schemaBuilder,
+				isArray:       registration.isArray,
+				oidElement:    typ.OidElement(),
+				converter:     converter,
+				codec:         registration.codec,
 			}
 
 			if typ.IsArray() {
@@ -555,32 +558,66 @@ func (tm *TypeManager) getSchemaType(oid uint32, arrayType bool, kind systemcata
 	return schemamodel.STRUCT
 }
 
-func resolveSchemaBuilder(pgType *pgType) schemamodel.SchemaBuilder {
+func (tm *TypeManager) resolveSchemaBuilder(pgType *pgType) schemamodel.SchemaBuilder {
+	if registration, present := tm.optimizedConverters[pgType.oid]; present {
+		if registration.schemaBuilder != nil {
+			return registration.schemaBuilder
+		}
+	}
+
 	switch pgType.schemaType {
 	case schemamodel.INT8:
 		return schemamodel.Int8()
+
 	case schemamodel.INT16:
 		return schemamodel.Int16()
+
 	case schemamodel.INT32:
 		return schemamodel.Int32()
+
 	case schemamodel.INT64:
 		return schemamodel.Int64()
+
 	case schemamodel.FLOAT32:
 		return schemamodel.Float32()
+
 	case schemamodel.FLOAT64:
 		return schemamodel.Float64()
+
 	case schemamodel.BOOLEAN:
 		return schemamodel.Boolean()
+
 	case schemamodel.STRING:
+		if pgType.kind == systemcatalog.EnumKind {
+			return schemamodel.Enum(pgType.EnumValues())
+		}
+		switch pgType.oid {
+		case pgtype.JSONOID:
+		case pgtype.JSONBOID:
+			return schemamodel.Json()
+
+		case pgtype.UUIDOID:
+			return schemamodel.Uuid()
+
+		case pgtype.BitOID:
+			// TODO: needs better handling
+
+		case 142: // XML
+			return schemamodel.Xml()
+		}
 		return schemamodel.String()
+
 	case schemamodel.BYTES:
 		return schemamodel.Bytes()
+
 	case schemamodel.ARRAY:
 		elementType := pgType.ElementType()
 		elementSchema := elementType.SchemaBuilder().Build()
 		return schemamodel.NewSchemaBuilder(pgType.schemaType).ValueSchema(elementSchema)
+
 	case schemamodel.MAP:
 		return nil
+
 	default:
 		return nil
 	}

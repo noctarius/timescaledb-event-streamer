@@ -117,6 +117,21 @@ func FilterMap[K, V comparable](source map[K]V, filter func(key K, value V) bool
 	return result
 }
 
+func ArrayEqual[T comparable](this, that []T) bool {
+	if (this == nil && that != nil) || (this != nil && that == nil) {
+		return false
+	}
+	if len(this) != len(that) {
+		return false
+	}
+	for i := 0; i < len(this); i++ {
+		if this[i] != that[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func RandomTextString(length int) string {
 	builder := strings.Builder{}
 	for i := 0; i < length; i++ {

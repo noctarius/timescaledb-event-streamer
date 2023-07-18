@@ -1,6 +1,7 @@
 package datatypes
 
 import (
+	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 )
@@ -57,7 +58,7 @@ func newType(typeManager *TypeManager, namespace, name string, kind systemcatalo
 
 	// If this is a primitive type we can resolve early
 	if t.schemaType.IsPrimitive() {
-		t.schemaBuilder = resolveSchemaBuilder(t)
+		t.schemaBuilder = typeManager.resolveSchemaBuilder(t)
 	}
 
 	return t
@@ -144,7 +145,9 @@ func (t *pgType) EnumValues() []string {
 	if t.enumValues == nil {
 		return []string{}
 	}
-	return t.enumValues
+	enumValues := make([]string, 0, len(t.enumValues))
+	copy(enumValues, t.enumValues)
+	return enumValues
 }
 
 func (t *pgType) Delimiter() string {
@@ -157,7 +160,7 @@ func (t *pgType) SchemaType() schemamodel.Type {
 
 func (t *pgType) SchemaBuilder() schemamodel.SchemaBuilder {
 	if t.schemaBuilder == nil {
-		t.schemaBuilder = resolveSchemaBuilder(t)
+		t.schemaBuilder = t.typeManager.resolveSchemaBuilder(t)
 	}
 	return t.schemaBuilder.Clone()
 }
@@ -176,20 +179,5 @@ func (t *pgType) Equal(other systemcatalog.PgType) bool {
 		t.modifiers == other.Modifiers() &&
 		t.delimiter == other.Delimiter() &&
 		t.schemaType == other.SchemaType() &&
-		stringArrayEqual(t.enumValues, other.EnumValues())
-}
-
-func stringArrayEqual(this, that []string) bool {
-	if (this == nil && that != nil) || (this != nil && that == nil) {
-		return false
-	}
-	if len(this) != len(that) {
-		return false
-	}
-	for i := 0; i < len(this); i++ {
-		if this[i] != that[i] {
-			return false
-		}
-	}
-	return true
+		supporting.ArrayEqual(t.enumValues, other.EnumValues())
 }
