@@ -26,16 +26,15 @@ type pgType struct {
 	delimiter  string
 	schemaType schemamodel.Type
 
-	typeManager       *TypeManager
-	schema            schemamodel.Schema
-	resolvedArrayType systemcatalog.PgType
+	typeManager         *TypeManager
+	schema              schemamodel.Schema
+	resolvedArrayType   systemcatalog.PgType
 	resolvedElementType systemcatalog.PgType
 	resolvedParentType  systemcatalog.PgType
 }
 
 func newType(typeManager *TypeManager, namespace, name string, kind systemcatalog.PgKind, oid uint32,
-	category systemcatalog.PgCategory, arrayType bool, recordType bool,
-	oidArray uint32, oidElement uint32, oidParent uint32,
+	category systemcatalog.PgCategory, arrayType, recordType bool, oidArray, oidElement, oidParent uint32,
 	modifiers int, enumValues []string, delimiter string) *pgType {
 
 	return &pgType{
