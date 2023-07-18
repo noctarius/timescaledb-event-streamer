@@ -161,7 +161,7 @@ func (h *Hypertable) ReplicaIdentity() pgtypes.ReplicaIdentity {
 // for this hypertable instance
 func (h *Hypertable) SchemaBuilder() schemamodel.SchemaBuilder {
 	schemaBuilder := schemamodel.NewSchemaBuilder(schemamodel.STRUCT).
-		Name(h.CanonicalName())
+		FieldName(h.CanonicalName())
 
 	for i, column := range h.columns {
 		schemaBuilder.Field(column.Name(), i, column.SchemaBuilder())

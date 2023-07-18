@@ -92,7 +92,7 @@ func (ee *EventEmitter) NewEventHandler() eventhandlers.BaseReplicationEventHand
 func (ee *EventEmitter) envelopeSchema(hypertable *systemcatalog.Hypertable) schemamodel.Struct {
 	schemaTopicName := ee.schemaManager.HypertableEnvelopeSchemaName(hypertable)
 	return ee.schemaManager.GetSchemaOrCreate(schemaTopicName, func() schemamodel.Struct {
-		return schema.EnvelopeSchema(ee.schemaManager, ee.schemaManager, hypertable)
+		return schema.EnvelopeSchema(ee.schemaManager, hypertable)
 	})
 }
 

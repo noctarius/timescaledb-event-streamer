@@ -20,6 +20,7 @@ package schema
 import (
 	"fmt"
 	"github.com/jackc/pglogrepl"
+	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/topic/namegenerator"
@@ -238,29 +239,24 @@ func TimescaleEventKeySchema() schemamodel.Struct {
 	}
 }
 
-func EnvelopeSchema(schemaRegistry Registry, topicSchemaGenerator namegenerator.NameGenerator,
+func EnvelopeSchema(topicSchemaGenerator namegenerator.NameGenerator,
 	hypertable *systemcatalog.Hypertable) schemamodel.Struct {
 
 	schemaTopicName := topicSchemaGenerator.SchemaTopicName(hypertable)
 	hypertableSchemaName := fmt.Sprintf("%s.Value", schemaTopicName)
 	envelopeSchemaName := fmt.Sprintf("%s.Envelope", schemaTopicName)
-	hypertableSchema := schemaRegistry.GetSchemaOrCreate(hypertableSchemaName, func() schemamodel.Struct {
-		return HypertableSchema(hypertableSchemaName, hypertable.Columns())
-	})
+	hypertableSchema := hypertable.SchemaBuilder().SchemaName(hypertableSchemaName)
 
-	return schemamodel.Struct{
-		schemamodel.FieldNameType: string(schemamodel.STRUCT),
-		schemamodel.FieldNameFields: []schemamodel.Struct{
-			extendHypertableSchema(hypertableSchema, schemamodel.FieldNameBefore, true),
-			extendHypertableSchema(hypertableSchema, schemamodel.FieldNameAfter, false),
-			schemaRegistry.GetSchema(SourceSchemaName),
-			simpleSchemaElement(schemamodel.FieldNameOperation, schemamodel.STRING, false),
-			simpleSchemaElement(schemamodel.FieldNameTimescaleOp, schemamodel.STRING, true),
-			simpleSchemaElement(schemamodel.FieldNameTimestamp, schemamodel.INT64, true),
-		},
-		schemamodel.FieldNameOptional: false,
-		schemamodel.FieldNameName:     envelopeSchemaName,
-	}
+	return schemamodel.NewSchemaBuilder(schemamodel.STRUCT).
+		SchemaName(envelopeSchemaName).
+		Required().
+		Field(schemamodel.FieldNameBefore, -1, hypertableSchema.Clone()).
+		Field(schemamodel.FieldNameAfter, -1, hypertableSchema.Clone().Required()).
+		Field(schemamodel.FieldNameSource, -1, SourceSchema()).
+		Field(schemamodel.FieldNameOperation, -1, schemamodel.String().Required()).
+		Field(schemamodel.FieldNameTimescaleOp, -1, schemamodel.String()).
+		Field(schemamodel.FieldNameTimestamp, -1, schemamodel.Int64()).
+		Build()
 }
 
 func EnvelopeMessageSchema(schemaRegistry Registry, topicSchemaGenerator namegenerator.NameGenerator) schemamodel.Struct {
@@ -281,25 +277,21 @@ func EnvelopeMessageSchema(schemaRegistry Registry, topicSchemaGenerator namegen
 	}
 }
 
-func SourceSchema() schemamodel.Struct {
-	return schemamodel.Struct{
-		schemamodel.FieldNameType: string(schemamodel.STRUCT),
-		schemamodel.FieldNameFields: []schemamodel.Struct{
-			simpleSchemaElement(schemamodel.FieldNameVersion, schemamodel.STRING, false),
-			simpleSchemaElement(schemamodel.FieldNameConnector, schemamodel.STRING, false),
-			simpleSchemaElement(schemamodel.FieldNameName, schemamodel.STRING, false),
-			simpleSchemaElement(schemamodel.FieldNameTimestamp, schemamodel.STRING, false),
-			simpleSchemaElementWithDefault(schemamodel.FieldNameSnapshot, schemamodel.BOOLEAN, true, false),
-			simpleSchemaElement(schemamodel.FieldNameSchema, schemamodel.STRING, false),
-			simpleSchemaElement(schemamodel.FieldNameTable, schemamodel.STRING, false),
-			simpleSchemaElement(schemamodel.FieldNameTxId, schemamodel.INT64, true),
-			simpleSchemaElement(schemamodel.FieldNameLSN, schemamodel.INT64, true),
-			simpleSchemaElement(schemamodel.FieldNameXmin, schemamodel.INT64, true),
-		},
-		schemamodel.FieldNameOptional: false,
-		schemamodel.FieldNameName:     SourceSchemaName,
-		schemamodel.FieldNameField:    schemamodel.FieldNameSource,
-	}
+func SourceSchema() schemamodel.SchemaBuilder {
+	return schemamodel.NewSchemaBuilder(schemamodel.STRUCT).
+		FieldName(schemamodel.FieldNameSource).
+		SchemaName(SourceSchemaName).
+		Required().
+		Field(schemamodel.FieldNameVersion, -1, schemamodel.String().Required()).
+		Field(schemamodel.FieldNameConnector, -1, schemamodel.String().Required()).
+		Field(schemamodel.FieldNameName, -1, schemamodel.String().Required()).
+		Field(schemamodel.FieldNameTimestamp, -1, schemamodel.String().Required()).
+		Field(schemamodel.FieldNameSnapshot, -1, schemamodel.Boolean().DefaultValue(supporting.AddrOf("false"))).
+		Field(schemamodel.FieldNameSchema, -1, schemamodel.String().Required()).
+		Field(schemamodel.FieldNameTable, -1, schemamodel.String().Required()).
+		Field(schemamodel.FieldNameTxId, -1, schemamodel.Int64()).
+		Field(schemamodel.FieldNameLSN, -1, schemamodel.Int64()).
+		Field(schemamodel.FieldNameXmin, -1, schemamodel.Int64())
 }
 
 func MessageValueSchema(schemaRegistry Registry) schemamodel.Struct {
@@ -360,28 +352,5 @@ func keySchemaElement(fieldName schemamodel.FieldName, index int,
 			schemamodel.FieldNameType:     string(schemaType),
 			schemamodel.FieldNameOptional: optional,
 		},
-	}
-}
-
-func simpleSchemaElementWithDefault(fieldName schemamodel.FieldName,
-	schemaType schemamodel.Type, optional bool, defaultValue any) schemamodel.Struct {
-
-	return schemamodel.Struct{
-		schemamodel.FieldNameType:     string(schemaType),
-		schemamodel.FieldNameOptional: optional,
-		schemamodel.FieldNameDefault:  defaultValue,
-		schemamodel.FieldNameField:    fieldName,
-	}
-}
-
-func extendHypertableSchema(hypertableSchema schemamodel.Struct,
-	fieldName schemamodel.FieldName, optional bool) schemamodel.Struct {
-
-	return schemamodel.Struct{
-		schemamodel.FieldNameType:     string(schemamodel.STRUCT),
-		schemamodel.FieldNameFields:   hypertableSchema[schemamodel.FieldNameFields],
-		schemamodel.FieldNameName:     hypertableSchema[schemamodel.FieldNameName],
-		schemamodel.FieldNameOptional: optional,
-		schemamodel.FieldNameField:    fieldName,
 	}
 }

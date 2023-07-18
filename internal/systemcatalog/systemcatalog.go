@@ -28,7 +28,6 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
-	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/watermark"
 	"sync"
@@ -253,7 +252,7 @@ func (sc *SystemCatalog) ApplySchemaUpdate(hypertable *systemcatalog.Hypertable,
 	if difference := hypertable.ApplyTableSchema(columns); difference != nil {
 		schemaManager := sc.replicationContext.SchemaManager()
 		hypertableSchemaName := fmt.Sprintf("%s.Value", schemaManager.SchemaTopicName(hypertable))
-		hypertableSchema := schema.HypertableSchema(hypertableSchemaName, hypertable.Columns())
+		hypertableSchema := hypertable.SchemaBuilder().SchemaName(hypertableSchemaName).Build()
 		schemaManager.RegisterSchema(hypertableSchemaName, hypertableSchema)
 		sc.logger.Verbosef("Schema Update: Hypertable %d => %+v", hypertable.Id(), difference)
 		return len(difference) > 0

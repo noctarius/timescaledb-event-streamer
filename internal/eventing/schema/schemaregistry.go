@@ -78,7 +78,6 @@ func (r *Registry) MessageEnvelopeSchemaName() string {
 }
 
 func initializeSourceSchemas(registry schema.Registry) {
-	registry.RegisterSchema(schema.SourceSchemaName, schema.SourceSchema())
 	registry.RegisterSchema(schema.MessageValueSchemaName, schema.MessageValueSchema(registry))
 	registry.RegisterSchema(schema.MessageKeySchemaName, schema.MessageKeySchema())
 }

@@ -229,7 +229,7 @@ func (c Column) DimensionType() *string {
 // nullable, name, etc).
 func (c Column) SchemaBuilder() schemamodel.SchemaBuilder {
 	return c.pgType.SchemaBuilder().
-		Name(c.Name()).
+		FieldName(c.Name()).
 		DefaultValue(c.defaultValue).
 		SetOptional(c.IsNullable()).Clone()
 }

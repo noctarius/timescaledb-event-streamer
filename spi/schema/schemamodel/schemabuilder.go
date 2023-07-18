@@ -7,8 +7,10 @@ import (
 
 type SchemaBuilder interface {
 	SchemaType() Type
-	Name(name string) SchemaBuilder
-	GetName() string
+	FieldName(fieldName string) SchemaBuilder
+	GetFieldName() string
+	SchemaName(schemaName string) SchemaBuilder
+	GetSchemaName() string
 	Optional() SchemaBuilder
 	Required() SchemaBuilder
 	SetOptional(optional bool) SchemaBuilder
@@ -57,7 +59,8 @@ func (f *fieldImpl) SchemaBuilder() SchemaBuilder {
 }
 
 type schemaBuilderImpl struct {
-	name          string
+	fieldName     string
+	schemaName    string
 	schemaType    Type
 	version       int
 	optional      bool
@@ -81,13 +84,22 @@ func (s *schemaBuilderImpl) SchemaType() Type {
 	return s.schemaType
 }
 
-func (s *schemaBuilderImpl) Name(name string) SchemaBuilder {
-	s.name = name
+func (s *schemaBuilderImpl) FieldName(fieldName string) SchemaBuilder {
+	s.fieldName = fieldName
 	return s
 }
 
-func (s *schemaBuilderImpl) GetName() string {
-	return s.name
+func (s *schemaBuilderImpl) GetFieldName() string {
+	return s.fieldName
+}
+
+func (s *schemaBuilderImpl) SchemaName(schemaName string) SchemaBuilder {
+	s.schemaName = schemaName
+	return s
+}
+
+func (s *schemaBuilderImpl) GetSchemaName() string {
+	return s.schemaName
 }
 
 func (s *schemaBuilderImpl) Optional() SchemaBuilder {
@@ -164,7 +176,7 @@ func (s *schemaBuilderImpl) Field(name FieldName, index int, schemaBuilder Schem
 	s.fields[name] = &fieldImpl{
 		name:          name,
 		index:         index,
-		schemaBuilder: schemaBuilder.Clone().Name(name),
+		schemaBuilder: schemaBuilder.Clone().FieldName(name),
 	}
 	return s
 }
@@ -185,7 +197,8 @@ func (s *schemaBuilderImpl) ValueSchema(schema Struct) SchemaBuilder {
 
 func (s *schemaBuilderImpl) Clone() SchemaBuilder {
 	return &schemaBuilderImpl{
-		name:          s.name,
+		fieldName:     s.fieldName,
+		schemaName:    s.schemaName,
 		schemaType:    s.schemaType,
 		version:       s.version,
 		optional:      s.optional,
@@ -229,8 +242,12 @@ func (s *schemaBuilderImpl) Build() Struct {
 		schemaStruct[FieldNameFields] = fieldSchemas
 	}
 
-	if s.name != "" {
-		schemaStruct[FieldNameField] = s.name
+	if s.fieldName != "" {
+		schemaStruct[FieldNameField] = s.fieldName
+	}
+
+	if s.schemaName != "" {
+		schemaStruct[FieldNameName] = s.schemaName
 	}
 
 	if s.index > -1 {
