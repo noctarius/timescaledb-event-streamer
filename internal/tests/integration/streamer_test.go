@@ -1294,7 +1294,7 @@ func (its *IntegrationTestSuite) Test_Acknowledge_To_PG_With_Only_Begin_Commit()
 		func(context testrunner.Context) error {
 			pgVersion := context.PostgresqlVersion()
 			if pgVersion >= version.PG_15_VERSION {
-				fmt.Printf("Skipped test, because of PostgreSQL version <15.0 (%s)", pgVersion.String())
+				fmt.Printf("Skipped test, because of PostgreSQL version <15.0 (%s)", pgVersion)
 				return nil
 			}
 
@@ -1341,8 +1341,7 @@ func (its *IntegrationTestSuite) Test_Acknowledge_To_PG_With_Only_Begin_Commit()
 
 			if lsn2 <= lsn1 {
 				its.T().Errorf(
-					"LSN2 must be larger than LSN1 - LSN1: %s, LSN2: %s",
-					lsn1.String(), lsn2.String(),
+					"LSN2 must be larger than LSN1 - LSN1: %s, LSN2: %s", lsn1, lsn2,
 				)
 			}
 

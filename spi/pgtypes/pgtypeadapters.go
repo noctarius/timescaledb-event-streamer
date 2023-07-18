@@ -45,7 +45,7 @@ func (m BeginMessage) String() string {
 	builder := strings.Builder{}
 	builder.WriteString("{")
 	builder.WriteString(fmt.Sprintf("messageType:%s ", m.Type().String()))
-	builder.WriteString(fmt.Sprintf("finalLSN:%s ", m.FinalLSN.String()))
+	builder.WriteString(fmt.Sprintf("finalLSN:%s ", m.FinalLSN))
 	builder.WriteString(fmt.Sprintf("commitTime:%s ", m.CommitTime.String()))
 	builder.WriteString(fmt.Sprintf("xid:%d", m.Xid))
 	builder.WriteString("}")
@@ -59,8 +59,8 @@ func (m CommitMessage) String() string {
 	builder.WriteString("{")
 	builder.WriteString(fmt.Sprintf("messageType:%s ", m.Type().String()))
 	builder.WriteString(fmt.Sprintf("flags:%d ", m.Flags))
-	builder.WriteString(fmt.Sprintf("commitLSN:%s ", m.CommitLSN.String()))
-	builder.WriteString(fmt.Sprintf("transactionEndLSN:%s ", m.TransactionEndLSN.String()))
+	builder.WriteString(fmt.Sprintf("commitLSN:%s ", m.CommitLSN))
+	builder.WriteString(fmt.Sprintf("transactionEndLSN:%s ", m.TransactionEndLSN))
 	builder.WriteString(fmt.Sprintf("commitTime:%s", m.CommitTime.String()))
 	builder.WriteString("}")
 	return builder.String()
@@ -73,7 +73,7 @@ func (m OriginMessage) String() string {
 	builder.WriteString("{")
 	builder.WriteString(fmt.Sprintf("messageType:%s ", m.Type().String()))
 	builder.WriteString(fmt.Sprintf("name:%s ", m.Name))
-	builder.WriteString(fmt.Sprintf("commitLSN:%s", m.CommitLSN.String()))
+	builder.WriteString(fmt.Sprintf("commitLSN:%s", m.CommitLSN))
 	builder.WriteString("}")
 	return builder.String()
 }

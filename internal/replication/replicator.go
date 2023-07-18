@@ -94,8 +94,8 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 
 	// Log system information
 	r.logger.Infof("Discovered System Information:")
-	r.logger.Infof("  * PostgreSQL version %s", replicationContext.PostgresVersion().String())
-	r.logger.Infof("  * TimescaleDB version %s", replicationContext.TimescaleVersion().String())
+	r.logger.Infof("  * PostgreSQL version %s", replicationContext.PostgresVersion())
+	r.logger.Infof("  * TimescaleDB version %s", replicationContext.TimescaleVersion())
 	r.logger.Infof("  * PostgreSQL System Identity %s", replicationContext.SystemId())
 	r.logger.Infof("  * PostgreSQL Timeline %d", replicationContext.Timeline())
 	r.logger.Infof("  * PostgreSQL Database %s", replicationContext.DatabaseName())

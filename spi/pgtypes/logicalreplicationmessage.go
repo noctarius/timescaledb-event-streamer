@@ -74,7 +74,7 @@ func (m *LogicalReplicationMessage) String() string {
 	builder.WriteString(fmt.Sprintf("prefix:%s ", m.Prefix))
 	builder.WriteString(fmt.Sprintf("content:%x ", m.Content))
 	builder.WriteString(fmt.Sprintf("flags:%d ", m.Flags))
-	builder.WriteString(fmt.Sprintf("lsn:%s ", m.LSN.String()))
+	builder.WriteString(fmt.Sprintf("lsn:%s ", m.LSN))
 	builder.WriteString(fmt.Sprintf("xid:%d ", m.Xid))
 	builder.WriteString("}")
 	return builder.String()

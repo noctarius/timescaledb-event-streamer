@@ -1,23 +1,5 @@
 package schemamodel
 
-type Schema interface {
-	SchemaType() Type
-	Schema(column ColumnDescriptor) Struct
-}
-
-type ColumnDescriptor interface {
-	Name() string
-	DataType() uint32
-	IsNullable() bool
-	IsPrimaryKey() bool
-	IsReplicaIdent() bool
-	DefaultValue() *string
-	IsDimension() bool
-	IsDimensionAligned() bool
-	DimensionType() *string
-	String() string
-}
-
 func Int8() SchemaBuilder {
 	return NewSchemaBuilder(INT8)
 }

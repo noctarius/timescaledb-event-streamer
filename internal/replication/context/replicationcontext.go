@@ -308,7 +308,7 @@ func (rc *replicationContext) AcknowledgeProcessed(xld pgtypes.XLogData, process
 
 	newLastProcessedLSN := pgtypes.LSN(xld.WALStart + pglogrepl.LSN(len(xld.WALData)))
 	if processedLSN != nil {
-		rc.dispatcher.logger.Debugf("Acknowledge transaction end: %s", processedLSN.String())
+		rc.dispatcher.logger.Debugf("Acknowledge transaction end: %s", processedLSN)
 		newLastProcessedLSN = *processedLSN
 	}
 

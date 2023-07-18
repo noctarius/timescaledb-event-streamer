@@ -23,20 +23,20 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/topic/namegenerator"
-	"github.com/reugn/async"
+	"sync"
 )
 
 type Registry struct {
 	topicNameGenerator namegenerator.NameGenerator
 	schemaRegistry     map[string]schemamodel.Struct
-	mutex              *async.ReentrantLock
+	mutex              sync.Mutex
 }
 
 func NewRegistry(topicNameGenerator namegenerator.NameGenerator) schema.Registry {
 	r := &Registry{
 		topicNameGenerator: topicNameGenerator,
 		schemaRegistry:     make(map[string]schemamodel.Struct),
-		mutex:              async.NewReentrantLock(),
+		mutex:              sync.Mutex{},
 	}
 	initializeSourceSchemas(r)
 	return r

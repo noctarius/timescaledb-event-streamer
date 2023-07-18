@@ -279,7 +279,7 @@ func (e *eventEmitterEventHandler) OnOriginEvent(_ pgtypes.XLogData, _ *pgtypes.
 
 func (e *eventEmitterEventHandler) OnTransactionFinishedEvent(xld pgtypes.XLogData, msg *pgtypes.CommitMessage) error {
 	e.eventEmitter.logger.Debugf(
-		"Transaction xid=%d (LSN: %s) marked as processed", xld.Xid, msg.TransactionEndLSN.String(),
+		"Transaction xid=%d (LSN: %s) marked as processed", xld.Xid, msg.TransactionEndLSN,
 	)
 	transactionEndLSN := pgtypes.LSN(msg.TransactionEndLSN)
 	return e.eventEmitter.replicationContext.AcknowledgeProcessed(xld, &transactionEndLSN)

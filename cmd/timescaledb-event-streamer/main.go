@@ -28,10 +28,11 @@ import (
 	"github.com/urfave/cli"
 	"io"
 	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"path/filepath"
-	"runtime/pprof"
 	"strings"
 	"syscall"
 )
@@ -100,14 +101,17 @@ func start(*cli.Context) error {
 	}
 
 	if profiling {
-		cpuProfile, err := os.Create("cpu.prof")
+		/*cpuProfile, err := os.Create("cpu.prof")
 		if err != nil {
 			return err
 		}
 		if err := pprof.StartCPUProfile(cpuProfile); err != nil {
 			return err
 		}
-		defer pprof.StopCPUProfile()
+		defer pprof.StopCPUProfile()*/
+		go func() {
+			http.ListenAndServe("localhost:8080", nil)
+		}()
 	}
 
 	logging.WithCaller = withCaller

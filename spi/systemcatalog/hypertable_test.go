@@ -240,10 +240,6 @@ func (t *testPgType) SchemaType() schemamodel.Type {
 	return schemamodel.INT16
 }
 
-func (t *testPgType) Schema() schemamodel.Schema {
-	return nil
-}
-
 func (t *testPgType) SchemaBuilder() schemamodel.SchemaBuilder {
 	return nil
 }

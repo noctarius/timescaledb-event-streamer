@@ -307,7 +307,7 @@ func initializeSystemCatalog(sc *SystemCatalog) (*SystemCatalog, error) {
 		if err := sc.RegisterHypertable(hypertable); err != nil {
 			return errors.Errorf("registering hypertable failed: %s (error: %+v)", hypertable, err)
 		}
-		sc.logger.Verbosef("Entry Added: Hypertable %d => %s", hypertable.Id(), hypertable.String())
+		sc.logger.Verbosef("Entry Added: Hypertable %d => %s", hypertable.Id(), hypertable)
 		return nil
 	}); err != nil {
 		return nil, errors.Wrap(err, 0)
@@ -320,7 +320,7 @@ func initializeSystemCatalog(sc *SystemCatalog) (*SystemCatalog, error) {
 		if h, present := sc.FindHypertableById(chunk.HypertableId()); present {
 			sc.logger.Verbosef(
 				"Entry Added: Chunk %d for Hypertable %s => %s",
-				chunk.Id(), h.CanonicalName(), chunk.String(),
+				chunk.Id(), h.CanonicalName(), chunk,
 			)
 		}
 		return nil

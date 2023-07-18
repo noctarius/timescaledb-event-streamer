@@ -29,8 +29,9 @@ type SystemEntity interface {
 }
 
 type baseSystemEntity struct {
-	schemaName string
-	tableName  string
+	schemaName            string
+	tableName             string
+	resolvedCanonicalName *string
 }
 
 // NewSystemEntity instantiates a new basic SystemEntity
@@ -50,5 +51,9 @@ func (bse *baseSystemEntity) TableName() string {
 }
 
 func (bse *baseSystemEntity) CanonicalName() string {
-	return MakeRelationKey(bse.schemaName, bse.tableName)
+	if bse.resolvedCanonicalName == nil {
+		relationKey := MakeRelationKey(bse.schemaName, bse.tableName)
+		bse.resolvedCanonicalName = &relationKey
+	}
+	return *bse.resolvedCanonicalName
 }

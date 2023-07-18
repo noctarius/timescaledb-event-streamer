@@ -239,7 +239,7 @@ func (rc *ReplicationConnection) locateRestartLSN(readReplicationSlot readReplic
 	if restartLSN == confirmedFlushLSN && !rc.replicationSlotCreated {
 		addMsg := ""
 		if offset != nil {
-			addMsg = fmt.Sprintf(" (lower offset LSN: %s)", offset.LSN.String())
+			addMsg = fmt.Sprintf(" (lower offset LSN: %s)", offset.LSN)
 		}
 		rc.logger.Infof("Restarting replication at last confirmed flush LSN: %s%s", restartLSN, addMsg)
 	} else if offset != nil && restartLSN == offset.LSN {
