@@ -28,7 +28,7 @@ type SchemaBuilder interface {
 	KeySchema(schema Schema) SchemaBuilder
 	ValueSchema(schema Schema) SchemaBuilder
 	Clone() SchemaBuilder
-	Build() Schema
+	Build() Struct
 }
 
 type Field interface {
@@ -197,7 +197,7 @@ func (s *schemaBuilderImpl) Clone() SchemaBuilder {
 	}
 }
 
-func (s *schemaBuilderImpl) Build() Schema {
+func (s *schemaBuilderImpl) Build() Struct {
 	schemaStruct := Struct{
 		FieldNameType: s.schemaType,
 	}
@@ -221,7 +221,7 @@ func (s *schemaBuilderImpl) Build() Schema {
 			if field.SchemaStruct() != nil {
 				fieldSchemas = append(fieldSchemas, field.SchemaStruct())
 			} else {
-				fieldSchemas = append(fieldSchemas, field.SchemaBuilder().Build().Schema(nil))
+				fieldSchemas = append(fieldSchemas, field.SchemaBuilder().Build())
 			}
 		}
 
@@ -256,21 +256,5 @@ func (s *schemaBuilderImpl) Build() Schema {
 		schemaStruct[key] = value
 	}
 
-	return &schemaImpl{
-		schemaType: s.schemaType,
-		schema:     schemaStruct,
-	}
-}
-
-type schemaImpl struct {
-	schemaType Type
-	schema     Struct
-}
-
-func (s *schemaImpl) SchemaType() Type {
-	return s.schemaType
-}
-
-func (s *schemaImpl) Schema(_ ColumnDescriptor) Struct {
-	return s.schema
+	return schemaStruct
 }
