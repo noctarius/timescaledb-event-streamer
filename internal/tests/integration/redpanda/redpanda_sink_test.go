@@ -27,6 +27,7 @@ import (
 	inttest "github.com/noctarius/timescaledb-event-streamer/internal/testing"
 	"github.com/noctarius/timescaledb-event-streamer/internal/testing/containers"
 	"github.com/noctarius/timescaledb-event-streamer/internal/testing/testrunner"
+	"github.com/noctarius/timescaledb-event-streamer/internal/tests/integration"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -64,7 +65,7 @@ func (kits *RedPandaIntegrationTestSuite) Test_RedPanda_Sink() {
 				return err
 			}
 
-			consumer, ready := newKafkaConsumer(kits.T())
+			consumer, ready := integration.NewKafkaConsumer(kits.T())
 			go func() {
 				if err := client.Consume(context.Background(), []string{topicName}, consumer); err != nil {
 					kits.T().Error(err)
@@ -82,9 +83,9 @@ func (kits *RedPandaIntegrationTestSuite) Test_RedPanda_Sink() {
 				return err
 			}
 
-			<-consumer.collected
+			<-consumer.Collected()
 
-			for i, envelope := range consumer.envelopes {
+			for i, envelope := range consumer.Envelopes() {
 				assert.Equal(kits.T(), i+1, int(envelope.Payload.After["val"].(float64)))
 			}
 			return nil

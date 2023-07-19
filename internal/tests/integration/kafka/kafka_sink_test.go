@@ -19,16 +19,15 @@ package kafka
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/Shopify/sarama"
 	"github.com/go-errors/errors"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
 	inttest "github.com/noctarius/timescaledb-event-streamer/internal/testing"
 	"github.com/noctarius/timescaledb-event-streamer/internal/testing/containers"
 	"github.com/noctarius/timescaledb-event-streamer/internal/testing/testrunner"
+	"github.com/noctarius/timescaledb-event-streamer/internal/tests/integration"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -66,7 +65,7 @@ func (kits *KafkaIntegrationTestSuite) Test_Kafka_Sink() {
 				return err
 			}
 
-			consumer, ready := newKafkaConsumer(kits.T())
+			consumer, ready := integration.NewKafkaConsumer(kits.T())
 			go func() {
 				if err := client.Consume(context.Background(), []string{topicName}, consumer); err != nil {
 					kits.T().Error(err)
@@ -84,9 +83,9 @@ func (kits *KafkaIntegrationTestSuite) Test_Kafka_Sink() {
 				return err
 			}
 
-			<-consumer.collected
+			<-consumer.Collected()
 
-			for i, envelope := range consumer.envelopes {
+			for i, envelope := range consumer.Envelopes() {
 				assert.Equal(kits.T(), i+1, int(envelope.Payload.After["val"].(float64)))
 			}
 			return nil
@@ -128,56 +127,4 @@ func (kits *KafkaIntegrationTestSuite) Test_Kafka_Sink() {
 			return nil
 		}),
 	)
-}
-
-type kafkaConsumer struct {
-	t         *testing.T
-	ready     chan bool
-	collected chan bool
-	envelopes []inttest.Envelope
-}
-
-func newKafkaConsumer(t *testing.T) (*kafkaConsumer, <-chan bool) {
-	kc := &kafkaConsumer{
-		t:         t,
-		ready:     make(chan bool, 1),
-		collected: make(chan bool, 1),
-		envelopes: make([]inttest.Envelope, 0),
-	}
-	return kc, kc.ready
-}
-
-func (k *kafkaConsumer) Setup(_ sarama.ConsumerGroupSession) error {
-	return nil
-}
-
-func (k *kafkaConsumer) Cleanup(_ sarama.ConsumerGroupSession) error {
-	return nil
-}
-
-func (k *kafkaConsumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
-	kafkaLogger, err := logging.NewLogger("Test_Kafka_Sink")
-	if err != nil {
-		return err
-	}
-
-	k.ready <- true
-	for {
-		select {
-		case message := <-claim.Messages():
-			envelope := inttest.Envelope{}
-			if err := json.Unmarshal(message.Value, &envelope); err != nil {
-				k.t.Error(err)
-			}
-			kafkaLogger.Infof("EVENT: %+v", envelope)
-			k.envelopes = append(k.envelopes, envelope)
-			if len(k.envelopes) >= 10 {
-				k.collected <- true
-			}
-			session.MarkMessage(message, "")
-
-		case <-session.Context().Done():
-			return nil
-		}
-	}
 }
