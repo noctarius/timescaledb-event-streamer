@@ -35,7 +35,7 @@ lint:
 	golangci-lint run
 
 .PHONY: test
-full-test: unit-test pg-test
+test: unit-test pg-test
 
 .PHONY: full-test
 full-test: unit-test pg-test integration-test
