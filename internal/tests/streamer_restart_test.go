@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package integration
+package tests
 
 import (
 	stdctx "context"

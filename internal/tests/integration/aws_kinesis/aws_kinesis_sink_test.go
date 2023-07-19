@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package integration
+package aws_kinesis
 
 import (
 	"context"

@@ -35,15 +35,45 @@ lint:
 	golangci-lint run
 
 .PHONY: test
-test: unit-test integration-test
+full-test: unit-test pg-test
+
+.PHONY: full-test
+full-test: unit-test pg-test integration-test
 
 .PHONY: unit-test
 unit-test:
-	go test -v -race $(shell go list ./... | grep -v 'testing' | grep -v 'tests/integration') -timeout 10m
+	go test -v -race $(shell go list ./... | grep -v 'testing' | grep -v 'tests') -timeout 10m
+
+.PHONY: pg-test
+pg-test:
+	go test -v -race $(shell go list ./... | grep 'tests' | grep -v 'tests/integration') -timeout 40m
 
 .PHONY: integration-test
-integration-test:
-	go test -v -race $(shell go list ./... | grep 'tests/integration') -timeout 40m
+integration-test: integration-test-aws-kinesis integration-test-aws-sqs integration-test-kafka integration-test-nats integration-test-redis integration-test-redpanda
+
+.PHONY: integration-test-aws-kinesis-test
+integration-test-aws-kinesis:
+	go test -v -race $(shell go list ./... | grep 'tests/integration/aws_kinesis') -timeout 10m
+
+.PHONY: integration-test-aws-sqs
+integration-test-aws-sqs:
+	go test -v -race $(shell go list ./... | grep 'tests/integration/aws_sqs') -timeout 10m
+
+.PHONY: integration-test-kafka
+integration-test-kafka:
+	go test -v -race $(shell go list ./... | grep 'tests/integration/kafka') -timeout 10m
+
+.PHONY: integration-test-nats
+integration-test-nats:
+	go test -v -race $(shell go list ./... | grep 'tests/integration/nats') -timeout 10m
+
+.PHONY: integration-test-redis
+integration-test-redis:
+	go test -v -race $(shell go list ./... | grep 'tests/integration/redis') -timeout 10m
+
+.PHONY: integration-test-redpanda
+integration-test-redpanda:
+	go test -v -race $(shell go list ./... | grep 'tests/integration/redpanda') -timeout 10m
 
 .PHONY: all
 all: build test fmt lint

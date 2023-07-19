@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-package integration
+package kafka
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/Shopify/sarama"
 	"github.com/go-errors/errors"
-	"github.com/go-redis/redis"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
@@ -37,79 +37,43 @@ import (
 	"time"
 )
 
-type RedisIntegrationTestSuite struct {
+type KafkaIntegrationTestSuite struct {
 	testrunner.TestRunner
 }
 
-func TestRedisIntegrationTestSuite(t *testing.T) {
-	suite.Run(t, new(RedisIntegrationTestSuite))
+func TestKafkaIntegrationTestSuite(t *testing.T) {
+	suite.Run(t, new(KafkaIntegrationTestSuite))
 }
 
-func (rits *RedisIntegrationTestSuite) Test_Redis_Sink() {
+func (kits *KafkaIntegrationTestSuite) Test_Kafka_Sink() {
 	topicPrefix := supporting.RandomTextString(10)
 
-	redisLogger, err := logging.NewLogger("Test_Redis_Sink")
-	if err != nil {
-		rits.T().Error(err)
-	}
-
-	var address string
 	var container testcontainers.Container
 
-	rits.RunTest(
+	kits.RunTest(
 		func(ctx testrunner.Context) error {
-			client := redis.NewClient(&redis.Options{
-				Addr: address,
-			})
-
-			subjectName := fmt.Sprintf(
+			topicName := fmt.Sprintf(
 				"%s.%s.%s", topicPrefix,
 				testrunner.GetAttribute[string](ctx, "schemaName"),
 				testrunner.GetAttribute[string](ctx, "tableName"),
 			)
 
 			groupName := supporting.RandomTextString(10)
-			consumerName := supporting.RandomTextString(10)
 
-			if err := client.XGroupCreateMkStream(subjectName, groupName, "0").Err(); err != nil {
+			config := sarama.NewConfig()
+			client, err := sarama.NewConsumerGroup(testrunner.GetAttribute[[]string](ctx, "brokers"), groupName, config)
+			if err != nil {
 				return err
 			}
 
-			collected := make(chan bool, 1)
-			envelopes := make([]inttest.Envelope, 0)
+			consumer, ready := newKafkaConsumer(kits.T())
 			go func() {
-				for {
-					results, err := client.XReadGroup(&redis.XReadGroupArgs{
-						Group:    groupName,
-						Consumer: consumerName,
-						Streams:  []string{subjectName, ">"},
-						Count:    1,
-						Block:    0,
-						NoAck:    false,
-					}).Result()
-					if err != nil {
-						redisLogger.Errorf("failed reading from redis: %+v", err)
-						collected <- true
-						return
-					}
-
-					for _, message := range results[0].Messages {
-						envelope := inttest.Envelope{}
-						if err := json.Unmarshal([]byte(message.Values["envelope"].(string)), &envelope); err != nil {
-							rits.T().Error(err)
-						}
-
-						redisLogger.Debugf("EVENT: %+v", envelope)
-						envelopes = append(envelopes, envelope)
-						if len(envelopes) >= 10 {
-							collected <- true
-							return
-						}
-
-						client.XAck(subjectName, groupName, message.ID)
-					}
+				if err := client.Consume(context.Background(), []string{topicName}, consumer); err != nil {
+					kits.T().Error(err)
 				}
 			}()
+
+			<-ready
 
 			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
@@ -120,10 +84,10 @@ func (rits *RedisIntegrationTestSuite) Test_Redis_Sink() {
 				return err
 			}
 
-			<-collected
+			<-consumer.collected
 
-			for i, envelope := range envelopes {
-				assert.Equal(rits.T(), i+1, int(envelope.Payload.After["val"].(float64)))
+			for i, envelope := range consumer.envelopes {
+				assert.Equal(kits.T(), i+1, int(envelope.Payload.After["val"].(float64)))
 			}
 			return nil
 		},
@@ -139,21 +103,21 @@ func (rits *RedisIntegrationTestSuite) Test_Redis_Sink() {
 			testrunner.Attribute(setupContext, "schemaName", sn)
 			testrunner.Attribute(setupContext, "tableName", tn)
 
-			rC, rA, err := containers.SetupRedisContainer()
+			kC, brokers, err := containers.SetupKafkaContainer()
 			if err != nil {
 				return errors.Wrap(err, 0)
 			}
-			address = rA
-			container = rC
+			container = kC
+			testrunner.Attribute(setupContext, "brokers", brokers)
 
 			setupContext.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
 				config.Topic.Prefix = topicPrefix
-				config.Sink.Type = spiconfig.Redis
-				config.Sink.Redis = spiconfig.RedisConfig{
-					Address: address,
+				config.Sink.Type = spiconfig.Kafka
+				config.Sink.Kafka = spiconfig.KafkaConfig{
+					Brokers:    brokers,
+					Idempotent: false,
 				}
 			})
-
 			return nil
 		}),
 
@@ -164,4 +128,56 @@ func (rits *RedisIntegrationTestSuite) Test_Redis_Sink() {
 			return nil
 		}),
 	)
+}
+
+type kafkaConsumer struct {
+	t         *testing.T
+	ready     chan bool
+	collected chan bool
+	envelopes []inttest.Envelope
+}
+
+func newKafkaConsumer(t *testing.T) (*kafkaConsumer, <-chan bool) {
+	kc := &kafkaConsumer{
+		t:         t,
+		ready:     make(chan bool, 1),
+		collected: make(chan bool, 1),
+		envelopes: make([]inttest.Envelope, 0),
+	}
+	return kc, kc.ready
+}
+
+func (k *kafkaConsumer) Setup(_ sarama.ConsumerGroupSession) error {
+	return nil
+}
+
+func (k *kafkaConsumer) Cleanup(_ sarama.ConsumerGroupSession) error {
+	return nil
+}
+
+func (k *kafkaConsumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
+	kafkaLogger, err := logging.NewLogger("Test_Kafka_Sink")
+	if err != nil {
+		return err
+	}
+
+	k.ready <- true
+	for {
+		select {
+		case message := <-claim.Messages():
+			envelope := inttest.Envelope{}
+			if err := json.Unmarshal(message.Value, &envelope); err != nil {
+				k.t.Error(err)
+			}
+			kafkaLogger.Infof("EVENT: %+v", envelope)
+			k.envelopes = append(k.envelopes, envelope)
+			if len(k.envelopes) >= 10 {
+				k.collected <- true
+			}
+			session.MarkMessage(message, "")
+
+		case <-session.Context().Done():
+			return nil
+		}
+	}
 }

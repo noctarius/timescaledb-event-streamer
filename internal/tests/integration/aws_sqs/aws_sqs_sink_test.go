@@ -15,13 +15,16 @@
  * limitations under the License.
  */
 
-package integration
+package aws_sqs
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/Shopify/sarama"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/go-errors/errors"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
@@ -37,43 +40,90 @@ import (
 	"time"
 )
 
-type KafkaIntegrationTestSuite struct {
+type AwsSqsIntegrationTestSuite struct {
 	testrunner.TestRunner
 }
 
-func TestKafkaIntegrationTestSuite(t *testing.T) {
-	suite.Run(t, new(KafkaIntegrationTestSuite))
+func TestAwsSqsIntegrationTestSuite(t *testing.T) {
+	suite.Run(t, new(AwsSqsIntegrationTestSuite))
 }
 
-func (kits *KafkaIntegrationTestSuite) Test_Kafka_Sink() {
+func (asits *AwsSqsIntegrationTestSuite) Test_Aws_Sqs_Sink() {
+	awsRegion := "us-east-1"
 	topicPrefix := supporting.RandomTextString(10)
+	queueName := fmt.Sprintf("%s.fifo", supporting.RandomTextString(10))
 
+	sqsLogger, err := logging.NewLogger("Test_Aws_Sqs_Sink")
+	if err != nil {
+		asits.T().Error(err)
+	}
+
+	var address, endpoint string
 	var container testcontainers.Container
 
-	kits.RunTest(
+	asits.RunTest(
 		func(ctx testrunner.Context) error {
-			topicName := fmt.Sprintf(
-				"%s.%s.%s", topicPrefix,
-				testrunner.GetAttribute[string](ctx, "schemaName"),
-				testrunner.GetAttribute[string](ctx, "tableName"),
-			)
+			awsConfig := aws.NewConfig().
+				WithRegion(awsRegion).
+				WithEndpoint(endpoint).
+				WithCredentials(credentials.NewStaticCredentials("tesst", "test", "test"))
 
-			groupName := supporting.RandomTextString(10)
-
-			config := sarama.NewConfig()
-			client, err := sarama.NewConsumerGroup(testrunner.GetAttribute[[]string](ctx, "brokers"), groupName, config)
+			awsSession, err := session.NewSession(awsConfig)
 			if err != nil {
 				return err
 			}
 
-			consumer, ready := newKafkaConsumer(kits.T())
+			awsSqs := sqs.New(awsSession)
+			_, err = awsSqs.CreateQueue(&sqs.CreateQueueInput{
+				QueueName: aws.String(queueName),
+				Attributes: map[string]*string{
+					"FifoQueue": aws.String("true"),
+				},
+			})
+			if err != nil {
+				return errors.Wrap(err, 0)
+			}
+
+			collected := make(chan bool, 1)
+			envelopes := make([]inttest.Envelope, 0)
 			go func() {
-				if err := client.Consume(context.Background(), []string{topicName}, consumer); err != nil {
-					kits.T().Error(err)
+				for {
+					msgResult, err := awsSqs.ReceiveMessage(&sqs.ReceiveMessageInput{
+						AttributeNames: []*string{
+							aws.String(sqs.MessageSystemAttributeNameSentTimestamp),
+						},
+						MessageAttributeNames: []*string{
+							aws.String(sqs.QueueAttributeNameAll),
+						},
+						QueueUrl:            aws.String(address),
+						MaxNumberOfMessages: aws.Int64(1),
+						VisibilityTimeout:   aws.Int64(60),
+					})
+					if err != nil {
+						sqsLogger.Errorf("failed reading from sqs: %+v", err)
+						collected <- true
+						return
+					}
+
+					for _, message := range msgResult.Messages {
+						envelope := inttest.Envelope{}
+						if message.Body == nil {
+							continue
+						}
+
+						if err := json.Unmarshal([]byte(*message.Body), &envelope); err != nil {
+							asits.T().Error(err)
+						}
+
+						sqsLogger.Debugf("EVENT: %+v", envelope)
+						envelopes = append(envelopes, envelope)
+						if len(envelopes) >= 10 {
+							collected <- true
+							return
+						}
+					}
 				}
 			}()
-
-			<-ready
 
 			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
@@ -84,10 +134,10 @@ func (kits *KafkaIntegrationTestSuite) Test_Kafka_Sink() {
 				return err
 			}
 
-			<-consumer.collected
+			<-collected
 
-			for i, envelope := range consumer.envelopes {
-				assert.Equal(kits.T(), i+1, int(envelope.Payload.After["val"].(float64)))
+			for i, envelope := range envelopes {
+				assert.Equal(asits.T(), i+1, int(envelope.Payload.After["val"].(float64)))
 			}
 			return nil
 		},
@@ -103,21 +153,28 @@ func (kits *KafkaIntegrationTestSuite) Test_Kafka_Sink() {
 			testrunner.Attribute(setupContext, "schemaName", sn)
 			testrunner.Attribute(setupContext, "tableName", tn)
 
-			kC, brokers, err := containers.SetupKafkaContainer()
+			container, endpoint, address, err = containers.SetupLocalStackWithSQS(awsRegion, queueName)
 			if err != nil {
 				return errors.Wrap(err, 0)
 			}
-			container = kC
-			testrunner.Attribute(setupContext, "brokers", brokers)
 
 			setupContext.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
 				config.Topic.Prefix = topicPrefix
-				config.Sink.Type = spiconfig.Kafka
-				config.Sink.Kafka = spiconfig.KafkaConfig{
-					Brokers:    brokers,
-					Idempotent: false,
+				config.Sink.Type = spiconfig.AwsSQS
+				config.Sink.AwsSqs = spiconfig.AwsSqsConfig{
+					Queue: spiconfig.AwsSqsQueueConfig{
+						Url: aws.String(address),
+					},
+					Aws: spiconfig.AwsConnectionConfig{
+						Region:          aws.String(awsRegion),
+						AccessKeyId:     "test",
+						SecretAccessKey: "test",
+						SessionToken:    "test",
+						Endpoint:        endpoint,
+					},
 				}
 			})
+
 			return nil
 		}),
 
@@ -128,56 +185,4 @@ func (kits *KafkaIntegrationTestSuite) Test_Kafka_Sink() {
 			return nil
 		}),
 	)
-}
-
-type kafkaConsumer struct {
-	t         *testing.T
-	ready     chan bool
-	collected chan bool
-	envelopes []inttest.Envelope
-}
-
-func newKafkaConsumer(t *testing.T) (*kafkaConsumer, <-chan bool) {
-	kc := &kafkaConsumer{
-		t:         t,
-		ready:     make(chan bool, 1),
-		collected: make(chan bool, 1),
-		envelopes: make([]inttest.Envelope, 0),
-	}
-	return kc, kc.ready
-}
-
-func (k *kafkaConsumer) Setup(_ sarama.ConsumerGroupSession) error {
-	return nil
-}
-
-func (k *kafkaConsumer) Cleanup(_ sarama.ConsumerGroupSession) error {
-	return nil
-}
-
-func (k *kafkaConsumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
-	kafkaLogger, err := logging.NewLogger("Test_Kafka_Sink")
-	if err != nil {
-		return err
-	}
-
-	k.ready <- true
-	for {
-		select {
-		case message := <-claim.Messages():
-			envelope := inttest.Envelope{}
-			if err := json.Unmarshal(message.Value, &envelope); err != nil {
-				k.t.Error(err)
-			}
-			kafkaLogger.Infof("EVENT: %+v", envelope)
-			k.envelopes = append(k.envelopes, envelope)
-			if len(k.envelopes) >= 10 {
-				k.collected <- true
-			}
-			session.MarkMessage(message, "")
-
-		case <-session.Context().Done():
-			return nil
-		}
-	}
 }

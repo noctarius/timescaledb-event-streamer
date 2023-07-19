@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package integration
+package nats
 
 import (
 	"context"
