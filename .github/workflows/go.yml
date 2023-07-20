@@ -50,7 +50,7 @@ jobs:
         pg_version: [13, 14, 15]
 
     name: Tests (Unit / PG) - PG ${{ matrix.pg_version }}
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
     - name: Check out code into the Go module directory
       uses: actions/checkout@v3
