@@ -85,7 +85,7 @@ func (LtreeCodec) PreferredFormat() int16 {
 }
 
 func (LtreeCodec) PlanEncode(_ *pgtype.Map, _ uint32, format int16, value any) pgtype.EncodePlan {
-	if _, ok := value.(LtreeValuer); !ok {
+	if _, ok := value.(TimetzValuer); !ok {
 		return nil
 	}
 
