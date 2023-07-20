@@ -118,6 +118,102 @@ $ timescaledb-event-streamer -config=./config.toml
 The tool will connect to your TimescaleDB database, and start replicating incoming
 events.
 
+# Supported PostgreSQL Data Type
+
+`timescaledb-event-streamer` supports almost all default data types available in
+PostgreSQL, which some exception that shouldn't be seen in real-world scenarios.
+Apart from that, it lacks support for structural data types (composite types,
+and similar), as well as Enum types. Support is planned though.
+
+The following list describes all available data types and their schema type
+mappings. For Array data types, the element type of array children is also
+named.
+
+| Type Name                              | PostgreSQL Type         | Schema Type | Schema Element Type |
+|----------------------------------------|-------------------------|-------------|---------------------|
+| Bit                                    | bit, bit(n)             | STRING      |                     |
+| Bit Array                              | bit[], bit(n)[]         | ARRAY       | STRING              |
+| Bit Varying                            | varbit, varbit(n)       | STRING      |                     |
+| Bit Varying Array                      | varbit[], varbit(n)[]   | ARRAY       | STRING              |
+| Boolean                                | boolean                 | BOOLEAN     |                     |
+| Boolean Array                          | boolean[]               | ARRAY       | BOOLEAN             |
+| Byte Array (bytea)                     | bytea                   | STRING      |                     |
+| Byte Array (bytea) Array               | bytea[]                 | ARRAY       | STRING              |
+| CID                                    | cid                     | INT64       |                     |
+| CID Array                              | cid[]                   | ARRAY       | INT64               |
+| CIDR (IPv4)                            | cidr                    | STRING      |                     |
+| CIDR (IPv4) Array                      | cidr[]                  | ARRAY       | STRING              |
+| CIDR (IPv6)                            | cidr                    | STRING      |                     |
+| CIDR (IPv6) Array                      | cidr[]                  | ARRAY       | STRING              |
+| Date                                   | date                    | INT32       |                     |
+| Date Array                             | date[]                  | ARRAY       | INT32               |
+| Date Range                             | daterange               | STRING      |                     |
+| Date Range Array                       | daterange[]             | ARRAY       | STRING              |
+| Fixed Length Char                      | char(x)                 | STRING      |                     |
+| Fixed Length Char Array                | char(x)[]               | ARRAY       | STRING              |
+| Float (32bit)                          | float4                  | FLOAT32     |                     |
+| Float (32bit) Array                    | float4[]                | ARRAY       | FLOAT32             |
+| Float (64bit)                          | float8                  | FLOAT64     |                     |
+| Float (64bit) Array                    | float8[]                | ARRAY       | FLOAT64             |
+| Inet (IPv4)                            | inet                    | STRING      |                     |
+| Inet (IPv4) Array                      | inet[]                  | ARRAY       | STRING              |
+| Inet (IPv6)                            | inet                    | STRING      |                     |
+| Inet (IPv6) Array                      | inet[]                  | ARRAY       | STRING              |
+| Int (16bit)                            | int2                    | INT16       |                     |
+| Int (16bit) Array                      | int2[]                  | ARRAY       | INT16               |
+| Int (32bit)                            | int4                    | INT32       |                     |
+| Int (32bit) Array                      | int4[]                  | ARRAY       | INT32               |
+| Int (64bit)                            | int8                    | INT64       |                     |
+| Int (64bit) Array                      | int8[]                  | ARRAY       | INT64               |
+| Int4Range                              | int4range               | STRING      |                     |
+| Int4Range Array                        | int4range[]             | ARRAY       | STRING              |
+| Int8Range                              | int8range               | STRING      |                     |
+| Int8Range Array                        | int8range[]             | ARRAY       | STRING              |
+| Interval                               | interval                | INT64       |                     |
+| Interval Array                         | interval[]              | ARRAY       | INT64               |
+| JSON                                   | json                    | STRING      |                     |
+| JSON Array                             | json[]                  | ARRAY       | STRING              |
+| JSONB                                  | jsonb                   | STRING      |                     |
+| JSONB Array                            | jsonb[]                 | ARRAY       | STRING              |
+| Ltree                                  | ltree                   | STRING      |                     |
+| Ltree Array                            | ltree[]                 | ARRAY       | STRING              |
+| MAC Address                            | macaddr                 | STRING      |                     |
+| MAC Address Array                      | macaddr[]               | ARRAY       | STRING              |
+| MAC Address (EUI-64)                   | macaddr8                | STRING      |                     |
+| MAC Address (EUI-64) Array             | macaddr8[]              | ARRAY       | STRING              |
+| Numeric                                | numeric                 | FLOAT64     |                     |
+| Numeric Array                          | numeric[]               | ARRAY       | FLOAT64             |
+| Numeric Range                          | numrange                | STRING      |                     |
+| Numeric Range Array                    | numrange[]              | ARRAY       | STRING              |
+| OID                                    | oid                     | INT64       |                     |
+| OID Array                              | oid[]                   | ARRAY       | INT64               |
+| Name                                   | name                    | STRING      |                     |
+| Name Array                             | name[]                  | ARRAY       | STRING              |
+| Quoted Char                            | char                    | STRING      |                     |                     
+| Quoted Char Array                      | char[]                  | ARRAY       | STRING              |
+| Text                                   | text                    | STRING      |                     |
+| Text Array                             | text[]                  | ARRAY       | STRING              |
+| Time With Timezone                     | timetz                  | STRING      |                     |
+| Time With Timezone Array               | timetz[]                | ARRAY       | STRING              |
+| Time Without Timezone                  | time                    | STRING      |                     |
+| Time Without Timezone Array            | time[]                  | ARRAY       | STRING              |
+| Timestamp With Timezone                | timestamptz             | STRING      |                     |
+| Timestamp With Timezone Array          | timestamptz[]           | ARRAY       | STRING              |
+| Timestamp With Timezone Range          | tstzrange               | STRING      |                     |
+| Timestamp With Timezone Range Array    | tstzrange[]             | ARRAY       | STRING              |
+| Timestamp Without Timezone             | timestamp               | INT64       |                     |
+| Timestamp Without Timezone Array       | timestamp[]             | ARRAY       | INT64               |
+| Timestamp Without Timezone Range       | tsrange                 | STRING      |                     |
+| Timestamp Without Timezone Range Array | tsrange[]               | ARRAY       | STRING              |
+| UUID                                   | uuid                    | STRING      |                     |
+| UUID Array                             | uuid[]                  | ARRAY       | STRING              |
+| Varchar                                | varchar, varchar(n)     | STRING      |                     |
+| Varchar Array                          | varchar[], varchar(n)[] | ARRAY       | STRING              |
+| XID                                    | xid                     | INT64       |                     |
+| XID Array                              | xid[]                   | ARRAY       | INT64               |
+| XML                                    | xml                     | STRING      |                     |
+| XML Array                              | xml[]                   | ARRAY       | STRING              |
+
 # Configuration
 
 `timescaledb-event-streamer` utilizes [TOML](https://toml.io/en/v1.0.0), or
