@@ -55,7 +55,7 @@ var dataTypeTable = []DataTypeTest{
 		expected:              quickCheckValue[[]string],
 	},
 	{
-		name:       "PG Name",
+		name:       "Name",
 		oid:        pgtype.NameOID,
 		pgTypeName: "name",
 		schemaType: schemamodel.STRING,
@@ -63,7 +63,7 @@ var dataTypeTable = []DataTypeTest{
 		expected:   quickCheckValue[string],
 	},
 	{
-		name:              "PG Name Array",
+		name:              "Name Array",
 		oid:               pgtype.NameArrayOID,
 		pgTypeName:        "name[]",
 		schemaType:        schemamodel.ARRAY,
