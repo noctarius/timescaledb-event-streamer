@@ -7,205 +7,199 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type LtreeScanner interface {
-	ScanLtree(v Ltree) error
+type XmlScanner interface {
+	ScanXml(v Xml) error
 }
 
-type LtreeValuer interface {
-	LtreeValue() (Ltree, error)
+type XmlValuer interface {
+	XmlValue() (Xml, error)
 }
 
-type Ltree struct {
-	Path  string
+type Xml struct {
+	Xml   string
 	Valid bool
 }
 
-func (l *Ltree) ScanLtree(v Ltree) error {
-	*l = v
+func (x *Xml) ScanXml(v Xml) error {
+	*x = v
 	return nil
 }
 
-func (l Ltree) LtreeValue() (Ltree, error) {
-	return l, nil
+func (x Xml) XmlValue() (Xml, error) {
+	return x, nil
 }
 
-func (l *Ltree) Scan(src any) error {
+func (x *Xml) Scan(src any) error {
 	if src == nil {
-		*l = Ltree{}
+		*x = Xml{}
 		return nil
 	}
 
 	switch src := src.(type) {
 	case string:
-		return scanPlanTextLtreeToLtreeScanner{}.Scan([]byte(src), l)
+		return scanPlanTextXmlToXmlScanner{}.Scan([]byte(src), x)
 	}
 
 	return fmt.Errorf("cannot scan %T", src)
 }
 
-func (l Ltree) Value() (driver.Value, error) {
-	if !l.Valid {
+func (x Xml) Value() (driver.Value, error) {
+	if !x.Valid {
 		return nil, nil
 	}
 
-	return l.Path, nil
+	return x.Xml, nil
 }
 
-func (l Ltree) MarshalJSON() ([]byte, error) {
-	if !l.Valid {
+func (x Xml) MarshalJSON() ([]byte, error) {
+	if !x.Valid {
 		return []byte("null"), nil
 	}
 
-	return json.Marshal(l.Path)
+	return json.Marshal(x.Xml)
 }
 
-func (l *Ltree) UnmarshalJSON(b []byte) error {
+func (x *Xml) UnmarshalJSON(b []byte) error {
 	var s *string
 	if err := json.Unmarshal(b, &s); err != nil {
 		return err
 	}
 
 	if s == nil {
-		*l = Ltree{}
+		*x = Xml{}
 		return nil
 	}
 
-	*l = Ltree{Path: *s, Valid: true}
+	*x = Xml{Xml: *s, Valid: true}
 	return nil
 }
 
-type LtreeCodec struct{}
+type XmlCodec struct{}
 
-func (LtreeCodec) FormatSupported(format int16) bool {
+func (XmlCodec) FormatSupported(format int16) bool {
 	return format == pgtype.TextFormatCode || format == pgtype.BinaryFormatCode
 }
 
-func (LtreeCodec) PreferredFormat() int16 {
+func (XmlCodec) PreferredFormat() int16 {
 	return pgtype.BinaryFormatCode
 }
 
-func (LtreeCodec) PlanEncode(_ *pgtype.Map, _ uint32, format int16, value any) pgtype.EncodePlan {
-	if _, ok := value.(TimetzValuer); !ok {
+func (XmlCodec) PlanEncode(_ *pgtype.Map, _ uint32, format int16, value any) pgtype.EncodePlan {
+	if _, ok := value.(XmlValuer); !ok {
 		return nil
 	}
 
 	switch format {
 	case pgtype.BinaryFormatCode:
-		return encodePlanLtreeCodecBinary{}
+		return encodePlanXmlCodecBinary{}
 	case pgtype.TextFormatCode:
-		return encodePlanLtreeCodecText{}
+		return encodePlanXmlCodecText{}
 	}
 
 	return nil
 }
 
-type encodePlanLtreeCodecBinary struct{}
+type encodePlanXmlCodecBinary struct{}
 
-func (encodePlanLtreeCodecBinary) Encode(value any, buf []byte) (newBuf []byte, err error) {
-	ltree, err := value.(LtreeValuer).LtreeValue()
+func (encodePlanXmlCodecBinary) Encode(value any, buf []byte) (newBuf []byte, err error) {
+	xml, err := value.(XmlValuer).XmlValue()
 	if err != nil {
 		return nil, err
 	}
 
-	if !ltree.Valid {
+	if !xml.Valid {
 		return nil, nil
 	}
 
-	buf = append(buf, byte(1)) // version
-	buf = append(buf, ltree.Path...)
+	buf = append(buf, xml.Xml...)
 
 	return buf, nil
 }
 
-type encodePlanLtreeCodecText struct{}
+type encodePlanXmlCodecText struct{}
 
-func (encodePlanLtreeCodecText) Encode(value any, buf []byte) (newBuf []byte, err error) {
-	ltree, err := value.(LtreeValuer).LtreeValue()
+func (encodePlanXmlCodecText) Encode(value any, buf []byte) (newBuf []byte, err error) {
+	xml, err := value.(XmlValuer).XmlValue()
 	if err != nil {
 		return nil, err
 	}
 
-	if !ltree.Valid {
+	if !xml.Valid {
 		return nil, nil
 	}
 
-	buf = append(buf, ltree.Path...)
+	buf = append(buf, xml.Xml...)
 
 	return buf, nil
 }
 
-func (LtreeCodec) PlanScan(_ *pgtype.Map, _ uint32, format int16, target any) pgtype.ScanPlan {
+func (XmlCodec) PlanScan(_ *pgtype.Map, _ uint32, format int16, target any) pgtype.ScanPlan {
 	switch format {
 	case pgtype.BinaryFormatCode:
 		switch target.(type) {
-		case LtreeScanner:
-			return scanPlanBinaryLtreeToLtreeScanner{}
+		case XmlScanner:
+			return scanPlanBinaryXmlToXmlScanner{}
 		}
 	case pgtype.TextFormatCode:
 		switch target.(type) {
-		case LtreeScanner:
-			return scanPlanTextLtreeToLtreeScanner{}
+		case XmlScanner:
+			return scanPlanTextXmlToXmlScanner{}
 		}
 	}
 
 	return nil
 }
 
-type scanPlanBinaryLtreeToLtreeScanner struct{}
+type scanPlanBinaryXmlToXmlScanner struct{}
 
-func (scanPlanBinaryLtreeToLtreeScanner) Scan(src []byte, dst any) error {
-	scanner := (dst).(LtreeScanner)
+func (scanPlanBinaryXmlToXmlScanner) Scan(src []byte, dst any) error {
+	scanner := (dst).(XmlScanner)
 
 	if src == nil {
-		return scanner.ScanLtree(Ltree{})
+		return scanner.ScanXml(Xml{})
 	}
 
 	if len(src) < 2 {
-		return fmt.Errorf("invalid length for ltree: %v", len(src))
+		return fmt.Errorf("invalid length for xml: %v", len(src))
 	}
 
-	version := src[0]
-	if version != 1 {
-		return fmt.Errorf("unsupported version for ltree: %v", version)
-	}
-
-	return scanner.ScanLtree(Ltree{Path: string(src[1:]), Valid: true})
+	return scanner.ScanXml(Xml{Xml: string(src), Valid: true})
 }
 
-type scanPlanTextLtreeToLtreeScanner struct{}
+type scanPlanTextXmlToXmlScanner struct{}
 
-func (scanPlanTextLtreeToLtreeScanner) Scan(src []byte, dst any) error {
-	scanner := (dst).(LtreeScanner)
+func (scanPlanTextXmlToXmlScanner) Scan(src []byte, dst any) error {
+	scanner := (dst).(XmlScanner)
 
 	if src == nil {
-		return scanner.ScanLtree(Ltree{})
+		return scanner.ScanXml(Xml{})
 	}
 
-	return scanner.ScanLtree(Ltree{Path: string(src), Valid: true})
+	return scanner.ScanXml(Xml{Xml: string(src), Valid: true})
 }
 
-func (c LtreeCodec) DecodeDatabaseSQLValue(m *pgtype.Map, oid uint32, format int16, src []byte) (driver.Value, error) {
+func (c XmlCodec) DecodeDatabaseSQLValue(m *pgtype.Map, oid uint32, format int16, src []byte) (driver.Value, error) {
 	if src == nil {
 		return nil, nil
 	}
 
-	var ltree Ltree
-	err := codecScan(c, m, oid, format, src, &ltree)
+	var xml Xml
+	err := codecScan(c, m, oid, format, src, &xml)
 	if err != nil {
 		return nil, err
 	}
-	return ltree, nil
+	return xml, nil
 }
 
-func (c LtreeCodec) DecodeValue(m *pgtype.Map, oid uint32, format int16, src []byte) (any, error) {
+func (c XmlCodec) DecodeValue(m *pgtype.Map, oid uint32, format int16, src []byte) (any, error) {
 	if src == nil {
 		return nil, nil
 	}
 
-	var ltree Ltree
-	err := codecScan(c, m, oid, format, src, &ltree)
+	var xml Xml
+	err := codecScan(c, m, oid, format, src, &xml)
 	if err != nil {
 		return nil, err
 	}
-	return ltree, nil
+	return xml, nil
 }

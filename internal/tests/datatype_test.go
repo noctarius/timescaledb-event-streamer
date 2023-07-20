@@ -894,6 +894,25 @@ var dataTypeTable = []DataTypeTest{
 		value:      []string{"foo.bar", "bar.foo"},
 		expected:   quickCheckValue[[]string],
 	},
+	{
+		name:       "Xml",
+		oid:        124,
+		pgTypeName: "xml",
+		schemaType: schemamodel.STRING,
+		value:      "<test><simple>foo</simple></test>",
+		expected:   quickCheckValue[string],
+	},
+	{
+		name:                  "Xml Array",
+		oid:                   125,
+		pgTypeName:            "xml[]",
+		schemaType:            schemamodel.ARRAY,
+		elementSchemaType:     schemamodel.STRING,
+		value:                 "'{\"<test><simple>foo</simple></test>\",\"<teeeeest></teeeeest>\"}'::xml[]",
+		insertPlain:           true,
+		expectedValueOverride: []string{"<test><simple>foo</simple></test>", "<teeeeest></teeeeest>"},
+		expected:              quickCheckValue[[]string],
+	},
 }
 
 const lookupTypeOidQuery = "SELECT oid FROM pg_catalog.pg_type where typname = $1"

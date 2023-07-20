@@ -36,6 +36,12 @@ func init() {
 		&pgtype.Type{Name: "_macaddr8", OID: 775, Codec: &pgtype.ArrayCodec{ElementType: macaddr8Type}},
 	)
 
+	xmlType := &pgtype.Type{Name: "xml", OID: 142, Codec: XmlCodec{}}
+	typeMap.RegisterType(xmlType)
+	typeMap.RegisterType(
+		&pgtype.Type{Name: "_xml", OID: 143, Codec: &pgtype.ArrayCodec{ElementType: xmlType}},
+	)
+
 	timetzType := &pgtype.Type{Name: "timetz", OID: 1266, Codec: &TimetzCodec{}}
 	typeMap.RegisterType(timetzType)
 	typeMap.RegisterType(

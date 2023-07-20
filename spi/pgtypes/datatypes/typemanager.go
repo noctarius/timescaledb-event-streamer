@@ -362,6 +362,13 @@ var coreTypes = map[uint32]typeRegistration{
 		oidElement: 1266,
 		converter:  arrayConverter[[]string](1266, time2text),
 	},
+	142: { // xml
+		schemaType: schemamodel.STRING,
+	},
+	143: { // timetz[]
+		schemaType: schemamodel.ARRAY,
+		oidElement: 142,
+	},
 }
 
 var optimizedTypes = map[string]typeRegistration{
