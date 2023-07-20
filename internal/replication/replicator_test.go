@@ -151,3 +151,67 @@ func Test_Replicator_Select_Missing_Tables_Random_Selection(t *testing.T) {
 		}
 	}
 }
+
+func Test_Replicator_Filter_Old_Tables_In_State(t *testing.T) {
+	knownTables := make([]systemcatalog.SystemEntity, 0, 11)
+	for i := 0; i < 10; i++ {
+		knownTables = append(
+			knownTables, systemcatalog.NewSystemEntity(
+				"_timescaledb_internal", fmt.Sprintf("_hyper_1_%d", i+1),
+			),
+		)
+	}
+	knownTables = append(
+		knownTables, systemcatalog.NewSystemEntity(
+			"_timescaledb_internal", "_hyper_2_1",
+		),
+	)
+
+	allTables := make([]systemcatalog.SystemEntity, 0, 10)
+	for i := 0; i < 10; i++ {
+		allTables = append(allTables, knownTables[i])
+	}
+
+	logger, err := logging.NewLogger("TestLogger")
+	if err != nil {
+		t.Error(err)
+	}
+
+	replicator := &Replicator{
+		logger: logger,
+	}
+
+	state, err := encodeKnownChunks(knownTables)
+	if err != nil {
+		t.Error(err)
+	}
+
+	encodedState := func(name string) ([]byte, bool) {
+		return state, true
+	}
+
+	getAllChunks := func() []systemcatalog.SystemEntity {
+		return allTables
+	}
+
+	readPublishedTables := func() ([]systemcatalog.SystemEntity, error) {
+		return nil, nil
+	}
+
+	neededChunkTables, err := replicator.collectChunksForPublication(
+		encodedState, getAllChunks, readPublishedTables,
+	)
+	if err != nil {
+		t.Error(err)
+	}
+
+	assert.Equal(t, 10, len(neededChunkTables))
+	for i := 0; i < 10; i++ {
+		if neededChunkTables[i].CanonicalName() != allTables[i].CanonicalName() {
+			t.Errorf(
+				"Chunk %s doesn't match %s at index %d",
+				neededChunkTables[i].CanonicalName(), allTables[i].CanonicalName(), i,
+			)
+		}
+	}
+}

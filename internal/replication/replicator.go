@@ -243,11 +243,22 @@ func (r *Replicator) collectChunksForPublication(encodedState func(name string) 
 func getKnownChunks(encodedState func(name string) ([]byte, bool),
 	getAllChunks func() []systemcatalog.SystemEntity) ([]systemcatalog.SystemEntity, error) {
 
+	allChunks := getAllChunks()
 	if state, present := encodedState(esPreviouslyKnownChunks); present {
-		return decodeKnownChunks(state)
+		candidates, err := decodeKnownChunks(state)
+		if err != nil {
+			return nil, err
+		}
+
+		// Filter potentially deleted chunks
+		return supporting.Filter(candidates, func(item systemcatalog.SystemEntity) bool {
+			return supporting.IndexOfWithMatcher(allChunks, func(other systemcatalog.SystemEntity) bool {
+				return item.CanonicalName() == other.CanonicalName()
+			}) > -1
+		}), nil
 	}
 
-	return getAllChunks(), nil
+	return allChunks, nil
 }
 
 func decodeKnownChunks(data []byte) ([]systemcatalog.SystemEntity, error) {
