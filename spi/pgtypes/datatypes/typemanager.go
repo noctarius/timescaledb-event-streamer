@@ -102,7 +102,7 @@ var coreTypes = map[uint32]typeRegistration{
 		schemaType: schemamodel.STRING,
 		converter:  char2text,
 	},
-	QCharArrayOID: { // QCharArrayOID
+	pgdecoding.QCharArrayOID: { // QCharArrayOID
 		schemaType: schemamodel.ARRAY,
 		oidElement: pgtype.QCharOID,
 		converter:  arrayConverter[[]string](pgtype.QCharOID, char2text),
@@ -236,14 +236,14 @@ var coreTypes = map[uint32]typeRegistration{
 		oidElement: pgtype.MacaddrOID,
 		converter:  arrayConverter[[]string](pgtype.MacaddrOID, macaddr2text),
 	},
-	MacAddr8OID: {
+	pgdecoding.MacAddr8OID: {
 		schemaType: schemamodel.STRING,
 		converter:  macaddr2text,
 	},
-	MacAddrArray8OID: {
+	pgdecoding.MacAddrArray8OID: {
 		schemaType: schemamodel.ARRAY,
-		oidElement: MacAddr8OID,
-		converter:  arrayConverter[[]string](MacAddr8OID, macaddr2text),
+		oidElement: pgdecoding.MacAddr8OID,
+		converter:  arrayConverter[[]string](pgdecoding.MacAddr8OID, macaddr2text),
 	},
 	pgtype.InetOID: {
 		schemaType: schemamodel.STRING,
@@ -353,21 +353,21 @@ var coreTypes = map[uint32]typeRegistration{
 		oidElement: pgtype.VarbitOID,
 		converter:  arrayConverter[[]string](pgtype.VarbitOID, bits2string),
 	},
-	TimeTZOID: { // timetz
+	pgdecoding.TimeTZOID: { // timetz
 		schemaType: schemamodel.STRING,
 		converter:  time2text,
 	},
-	TimeTZArrayOID: { // timetz[]
+	pgdecoding.TimeTZArrayOID: { // timetz[]
 		schemaType: schemamodel.ARRAY,
-		oidElement: TimeTZOID,
-		converter:  arrayConverter[[]string](TimeTZOID, time2text),
+		oidElement: pgdecoding.TimeTZOID,
+		converter:  arrayConverter[[]string](pgdecoding.TimeTZOID, time2text),
 	},
-	XmlOID: { // xml
+	pgdecoding.XmlOID: { // xml
 		schemaType: schemamodel.STRING,
 	},
-	XmlArrayOID: { // timetz[]
+	pgdecoding.XmlArrayOID: { // timetz[]
 		schemaType: schemamodel.ARRAY,
-		oidElement: XmlOID,
+		oidElement: pgdecoding.XmlOID,
 	},
 }
 
