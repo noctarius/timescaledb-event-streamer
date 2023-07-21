@@ -4,10 +4,10 @@ import (
 	stdctx "context"
 	"fmt"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/noctarius/timescaledb-event-streamer/internal/pgdecoding"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	inttest "github.com/noctarius/timescaledb-event-streamer/internal/testing"
 	"github.com/noctarius/timescaledb-event-streamer/internal/testing/testrunner"
-	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes/datatypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
 	"github.com/stretchr/testify/assert"
@@ -247,7 +247,7 @@ var dataTypeTable = []DataTypeTest{
 	},
 	{
 		name:                  "MAC Address (EUI-64)",
-		oid:                   datatypes.MacAddr8OID,
+		oid:                   pgdecoding.MacAddr8OID,
 		pgTypeName:            "macaddr8",
 		schemaType:            schemamodel.STRING,
 		value:                 "08:00:2B:01:02:03:04:05",
@@ -256,7 +256,7 @@ var dataTypeTable = []DataTypeTest{
 	},
 	{
 		name:              "MAC Address (EUI-64) Array",
-		oid:               datatypes.MacAddrArray8OID,
+		oid:               pgdecoding.MacAddrArray8OID,
 		pgTypeName:        "macaddr8[]",
 		schemaType:        schemamodel.ARRAY,
 		elementSchemaType: schemamodel.STRING,
@@ -336,7 +336,7 @@ var dataTypeTable = []DataTypeTest{
 	},
 	{
 		name:                  "Time With Timezone",
-		oid:                   datatypes.TimeTZOID,
+		oid:                   pgdecoding.TimeTZOID,
 		pgTypeName:            "timetz",
 		schemaType:            schemamodel.STRING,
 		value:                 "12:00:12.054321Z07:30",
@@ -345,7 +345,7 @@ var dataTypeTable = []DataTypeTest{
 	},
 	{
 		name:                  "Time With Timezone Array",
-		oid:                   datatypes.TimeTZArrayOID,
+		oid:                   pgdecoding.TimeTZArrayOID,
 		pgTypeName:            "timetz[]",
 		schemaType:            schemamodel.ARRAY,
 		elementSchemaType:     schemamodel.STRING,
@@ -588,7 +588,7 @@ var dataTypeTable = []DataTypeTest{
 	},
 	{
 		name:                  "Quoted Char Array",
-		oid:                   datatypes.QCharArrayOID,
+		oid:                   pgdecoding.QCharArrayOID,
 		pgTypeName:            "\"char\"[]",
 		columnNameOverride:    "qchar[]",
 		schemaType:            schemamodel.ARRAY,
@@ -897,7 +897,7 @@ var dataTypeTable = []DataTypeTest{
 	},
 	{
 		name:       "Xml",
-		oid:        datatypes.XmlOID,
+		oid:        pgdecoding.XmlOID,
 		pgTypeName: "xml",
 		schemaType: schemamodel.STRING,
 		value:      "<test><simple>foo</simple></test>",
@@ -905,7 +905,7 @@ var dataTypeTable = []DataTypeTest{
 	},
 	{
 		name:                  "Xml Array",
-		oid:                   datatypes.XmlArrayOID,
+		oid:                   pgdecoding.XmlArrayOID,
 		pgTypeName:            "xml[]",
 		schemaType:            schemamodel.ARRAY,
 		elementSchemaType:     schemamodel.STRING,
