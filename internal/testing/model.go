@@ -60,9 +60,11 @@ type Schema struct {
 	Name     string           `json:"name"`
 	Optional bool             `json:"optional"`
 	Type     schemamodel.Type `json:"type"`
+	Length   *int             `json:"length"`
 }
 
 type Envelope struct {
+	Raw     map[string]any
 	Payload Payload `json:"payload"`
 	Schema  Schema  `json:"schema"`
 }

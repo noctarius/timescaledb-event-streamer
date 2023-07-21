@@ -599,8 +599,7 @@ func (tm *TypeManager) resolveSchemaBuilder(pgType *pgType) schemamodel.SchemaBu
 			return schemamodel.Enum(pgType.EnumValues())
 		}
 		switch pgType.oid {
-		case pgtype.JSONOID:
-		case pgtype.JSONBOID:
+		case pgtype.JSONOID, pgtype.JSONBOID:
 			return schemamodel.Json()
 
 		case pgtype.UUIDOID:
@@ -619,8 +618,7 @@ func (tm *TypeManager) resolveSchemaBuilder(pgType *pgType) schemamodel.SchemaBu
 
 	case schemamodel.ARRAY:
 		elementType := pgType.ElementType()
-		elementSchema := elementType.SchemaBuilder().Build()
-		return schemamodel.NewSchemaBuilder(pgType.schemaType).ValueSchema(elementSchema)
+		return schemamodel.NewSchemaBuilder(pgType.schemaType).ValueSchema(elementType.SchemaBuilder())
 
 	case schemamodel.MAP:
 		return nil

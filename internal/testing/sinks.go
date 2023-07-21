@@ -142,6 +142,7 @@ func (t *EventCollectorSink) Emit(_ sink.Context, timestamp time.Time,
 			return nil
 		}
 	}
+	eventEnvelope.Raw = envelope
 	t.mutex.Lock()
 	t.keys = append(t.keys, key)
 	t.events = append(t.events, CollectedEvent{

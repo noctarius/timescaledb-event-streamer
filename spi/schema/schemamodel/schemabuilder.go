@@ -39,8 +39,10 @@ type SchemaBuilder interface {
 	Parameters() map[string]any
 	Field(name FieldName, index int, schemaBuilder SchemaBuilder) SchemaBuilder
 	Fields() map[string]Field
-	KeySchema(schema Struct) SchemaBuilder
-	ValueSchema(schema Struct) SchemaBuilder
+	KeySchema(builder SchemaBuilder) SchemaBuilder
+	GetKeySchema() SchemaBuilder
+	ValueSchema(builder SchemaBuilder) SchemaBuilder
+	GetValueSchema() SchemaBuilder
 	Clone() SchemaBuilder
 	Build() Struct
 }
@@ -145,18 +147,18 @@ func (f *fieldImpl) SchemaBuilder() SchemaBuilder {
 }
 
 type schemaBuilderImpl struct {
-	fieldName     string
-	schemaName    string
-	schemaType    Type
-	version       int
-	optional      bool
-	defaultValue  *string
-	documentation *string
-	index         int
-	parameters    map[string]any
-	fields        map[string]Field
-	keySchema     Struct
-	valueSchema   Struct
+	fieldName          string
+	schemaName         string
+	schemaType         Type
+	version            int
+	optional           bool
+	defaultValue       *string
+	documentation      *string
+	index              int
+	parameters         map[string]any
+	fields             map[string]Field
+	keySchemaBuilder   SchemaBuilder
+	valueSchemaBuilder SchemaBuilder
 }
 
 func NewSchemaBuilder(schemaType Type) SchemaBuilder {
@@ -271,29 +273,37 @@ func (s *schemaBuilderImpl) Fields() map[string]Field {
 	return s.fields
 }
 
-func (s *schemaBuilderImpl) KeySchema(schema Struct) SchemaBuilder {
-	s.keySchema = schema
+func (s *schemaBuilderImpl) KeySchema(builder SchemaBuilder) SchemaBuilder {
+	s.keySchemaBuilder = builder
 	return s
 }
 
-func (s *schemaBuilderImpl) ValueSchema(schema Struct) SchemaBuilder {
-	s.valueSchema = schema
+func (s *schemaBuilderImpl) GetKeySchema() SchemaBuilder {
+	return s.keySchemaBuilder
+}
+
+func (s *schemaBuilderImpl) ValueSchema(builder SchemaBuilder) SchemaBuilder {
+	s.valueSchemaBuilder = builder
 	return s
+}
+
+func (s *schemaBuilderImpl) GetValueSchema() SchemaBuilder {
+	return s.valueSchemaBuilder
 }
 
 func (s *schemaBuilderImpl) Clone() SchemaBuilder {
 	return &schemaBuilderImpl{
-		fieldName:     s.fieldName,
-		schemaName:    s.schemaName,
-		schemaType:    s.schemaType,
-		version:       s.version,
-		optional:      s.optional,
-		defaultValue:  s.defaultValue,
-		documentation: s.documentation,
-		parameters:    s.parameters,
-		fields:        s.fields,
-		keySchema:     s.keySchema,
-		valueSchema:   s.valueSchema,
+		fieldName:          s.fieldName,
+		schemaName:         s.schemaName,
+		schemaType:         s.schemaType,
+		version:            s.version,
+		optional:           s.optional,
+		defaultValue:       s.defaultValue,
+		documentation:      s.documentation,
+		parameters:         s.parameters,
+		fields:             s.fields,
+		keySchemaBuilder:   s.keySchemaBuilder,
+		valueSchemaBuilder: s.valueSchemaBuilder,
 	}
 }
 
@@ -303,10 +313,10 @@ func (s *schemaBuilderImpl) Build() Struct {
 	}
 	switch s.schemaType {
 	case ARRAY:
-		schemaStruct[FieldNameValueSchema] = s.valueSchema
+		schemaStruct[FieldNameValueSchema] = s.valueSchemaBuilder.Build()
 	case MAP:
-		schemaStruct[FieldNameKeySchema] = s.keySchema
-		schemaStruct[FieldNameValueSchema] = s.valueSchema
+		schemaStruct[FieldNameKeySchema] = s.keySchemaBuilder.Build()
+		schemaStruct[FieldNameValueSchema] = s.valueSchemaBuilder.Build()
 	case STRUCT:
 		fields := supporting.MapMapper(s.fields, func(key string, element Field) Field {
 			return element

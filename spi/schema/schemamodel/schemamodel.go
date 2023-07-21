@@ -6,15 +6,7 @@ type Type string
 
 func (st Type) IsPrimitive() bool {
 	switch st {
-	case INT8:
-	case INT16:
-	case INT32:
-	case INT64:
-	case FLOAT32:
-	case FLOAT64:
-	case BOOLEAN:
-	case STRING:
-	case BYTES:
+	case INT8, INT16, INT32, INT64, FLOAT32, FLOAT64, BOOLEAN, STRING, BYTES:
 		return true
 	}
 	return false

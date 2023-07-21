@@ -253,24 +253,23 @@ func (c Column) SchemaBuilder() schemamodel.SchemaBuilder {
 		SetOptional(c.IsNullable())
 
 	switch c.dataType {
-	case pgtype.BitOID:
-	case pgtype.VarbitOID:
-	case pgtype.BPCharOID:
-	case pgtype.VarcharOID:
+	case pgtype.BitOID, pgtype.VarbitOID, pgtype.BPCharOID, pgtype.VarcharOID:
 		if c.maxCharLength != nil {
 			schemaBuilder.Parameter(schemamodel.FieldNameLength, *c.maxCharLength)
 		}
 
-	case pgtype.BitArrayOID:
-	case pgtype.VarbitArrayOID:
+	case pgtype.BitArrayOID, pgtype.VarbitArrayOID:
 		if c.modifiers > 0 {
-			schemaBuilder.Parameter(schemamodel.FieldNameLength, c.pgType.Modifiers())
+			schemaBuilder.
+				GetValueSchema().
+				Parameter(schemamodel.FieldNameLength, c.pgType.Modifiers())
 		}
 
-	case pgtype.BPCharArrayOID:
-	case pgtype.VarcharArrayOID:
+	case pgtype.BPCharArrayOID, pgtype.VarcharArrayOID:
 		if c.modifiers > 4 { // FIXME: 4 is only assumed to be true on systems (size_of(int32))
-			schemaBuilder.Parameter(schemamodel.FieldNameLength, c.pgType.Modifiers()-4)
+			schemaBuilder.
+				GetValueSchema().
+				Parameter(schemamodel.FieldNameLength, c.Modifiers()-4)
 		}
 	}
 
