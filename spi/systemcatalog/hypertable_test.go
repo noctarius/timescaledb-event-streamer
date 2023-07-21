@@ -26,17 +26,17 @@ import (
 var fooType = &testPgType{}
 
 func TestSchemaDifferences_Added_Column(t *testing.T) {
-	expected := "added: {name:test4 dataType:10 pgType:foo nullable:false primaryKey:false keySeq:<nil> indexName:<nil> replicaIdent:false defaultValue:<nil> dimension:false dimAligned:false dimType:<nil> dimSeq:<nil>}"
+	expected := "added: {name:test4 dataType:10 modifiers:-1 pgType:foo nullable:false primaryKey:false keySeq:<nil> indexName:<nil> replicaIdent:false defaultValue:<nil> dimension:false dimAligned:false dimType:<nil> dimSeq:<nil>maxCharLength:<nil>}"
 	oldColumns := []Column{
-		NewColumn("test1", 10, fooType, false, nil),
-		NewColumn("test2", 10, fooType, false, nil),
-		NewColumn("test3", 10, fooType, false, nil),
+		NewColumn("test1", 10, -1, fooType, false, nil),
+		NewColumn("test2", 10, -1, fooType, false, nil),
+		NewColumn("test3", 10, -1, fooType, false, nil),
 	}
 	newColumns := []Column{
-		NewColumn("test1", 10, fooType, false, nil),
-		NewColumn("test2", 10, fooType, false, nil),
-		NewColumn("test3", 10, fooType, false, nil),
-		NewColumn("test4", 10, fooType, false, nil),
+		NewColumn("test1", 10, -1, fooType, false, nil),
+		NewColumn("test2", 10, -1, fooType, false, nil),
+		NewColumn("test3", 10, -1, fooType, false, nil),
+		NewColumn("test4", 10, -1, fooType, false, nil),
 	}
 	hypertable := NewHypertable(1, "", "", "", "", "", nil, 0, false, nil, nil, pgtypes.DEFAULT)
 	hypertable.ApplyTableSchema(oldColumns)
@@ -58,14 +58,14 @@ func TestSchemaDifferences_Added_Column(t *testing.T) {
 func TestSchemaDifferences_Renamed_Column(t *testing.T) {
 	expected := "name:test2=>test4"
 	oldColumns := []Column{
-		NewColumn("test1", 10, fooType, false, nil),
-		NewColumn("test2", 10, fooType, false, nil),
-		NewColumn("test3", 10, fooType, false, nil),
+		NewColumn("test1", 10, -1, fooType, false, nil),
+		NewColumn("test2", 10, -1, fooType, false, nil),
+		NewColumn("test3", 10, -1, fooType, false, nil),
 	}
 	newColumns := []Column{
-		NewColumn("test1", 10, fooType, false, nil),
-		NewColumn("test4", 10, fooType, false, nil),
-		NewColumn("test3", 10, fooType, false, nil),
+		NewColumn("test1", 10, -1, fooType, false, nil),
+		NewColumn("test4", 10, -1, fooType, false, nil),
+		NewColumn("test3", 10, -1, fooType, false, nil),
 	}
 	hypertable := NewHypertable(1, "", "", "", "", "", nil, 0, false, nil, nil, pgtypes.DEFAULT)
 	hypertable.ApplyTableSchema(oldColumns)
@@ -87,14 +87,14 @@ func TestSchemaDifferences_Renamed_Column(t *testing.T) {
 func TestSchemaDifferences_Renamed_Last_Column(t *testing.T) {
 	expected := "name:test3=>test4"
 	oldColumns := []Column{
-		NewColumn("test1", 10, fooType, false, nil),
-		NewColumn("test2", 10, fooType, false, nil),
-		NewColumn("test3", 10, fooType, false, nil),
+		NewColumn("test1", 10, -1, fooType, false, nil),
+		NewColumn("test2", 10, -1, fooType, false, nil),
+		NewColumn("test3", 10, -1, fooType, false, nil),
 	}
 	newColumns := []Column{
-		NewColumn("test1", 10, fooType, false, nil),
-		NewColumn("test2", 10, fooType, false, nil),
-		NewColumn("test4", 10, fooType, false, nil),
+		NewColumn("test1", 10, -1, fooType, false, nil),
+		NewColumn("test2", 10, -1, fooType, false, nil),
+		NewColumn("test4", 10, -1, fooType, false, nil),
 	}
 	hypertable := NewHypertable(1, "", "", "", "", "", nil, 0, false, nil, nil, pgtypes.DEFAULT)
 	hypertable.ApplyTableSchema(oldColumns)
@@ -114,15 +114,15 @@ func TestSchemaDifferences_Renamed_Last_Column(t *testing.T) {
 }
 
 func TestSchemaDifferences_Dropped_Column(t *testing.T) {
-	expected := "dropped: {name:test2 dataType:11 pgType:foo nullable:false primaryKey:false keySeq:<nil> indexName:<nil> replicaIdent:false defaultValue:<nil> dimension:false dimAligned:false dimType:<nil> dimSeq:<nil>}"
+	expected := "dropped: {name:test2 dataType:11 modifiers:-1 pgType:foo nullable:false primaryKey:false keySeq:<nil> indexName:<nil> replicaIdent:false defaultValue:<nil> dimension:false dimAligned:false dimType:<nil> dimSeq:<nil>maxCharLength:<nil>}"
 	oldColumns := []Column{
-		NewColumn("test1", 10, fooType, false, nil),
-		NewColumn("test2", 11, fooType, false, nil),
-		NewColumn("test3", 12, fooType, false, nil),
+		NewColumn("test1", 10, -1, fooType, false, nil),
+		NewColumn("test2", 11, -1, fooType, false, nil),
+		NewColumn("test3", 12, -1, fooType, false, nil),
 	}
 	newColumns := []Column{
-		NewColumn("test1", 10, fooType, false, nil),
-		NewColumn("test3", 12, fooType, false, nil),
+		NewColumn("test1", 10, -1, fooType, false, nil),
+		NewColumn("test3", 12, -1, fooType, false, nil),
 	}
 	hypertable := NewHypertable(1, "", "", "", "", "", nil, 0, false, nil, nil, pgtypes.DEFAULT)
 	hypertable.ApplyTableSchema(oldColumns)
@@ -142,15 +142,15 @@ func TestSchemaDifferences_Dropped_Column(t *testing.T) {
 }
 
 func TestSchemaDifferences_Dropped_Last_Column(t *testing.T) {
-	expected := "dropped: {name:test3 dataType:10 pgType:foo nullable:false primaryKey:false keySeq:<nil> indexName:<nil> replicaIdent:false defaultValue:<nil> dimension:false dimAligned:false dimType:<nil> dimSeq:<nil>}"
+	expected := "dropped: {name:test3 dataType:10 modifiers:-1 pgType:foo nullable:false primaryKey:false keySeq:<nil> indexName:<nil> replicaIdent:false defaultValue:<nil> dimension:false dimAligned:false dimType:<nil> dimSeq:<nil>maxCharLength:<nil>}"
 	oldColumns := []Column{
-		NewColumn("test1", 10, fooType, false, nil),
-		NewColumn("test2", 10, fooType, false, nil),
-		NewColumn("test3", 10, fooType, false, nil),
+		NewColumn("test1", 10, -1, fooType, false, nil),
+		NewColumn("test2", 10, -1, fooType, false, nil),
+		NewColumn("test3", 10, -1, fooType, false, nil),
 	}
 	newColumns := []Column{
-		NewColumn("test1", 10, fooType, false, nil),
-		NewColumn("test2", 10, fooType, false, nil),
+		NewColumn("test1", 10, -1, fooType, false, nil),
+		NewColumn("test2", 10, -1, fooType, false, nil),
 	}
 	hypertable := NewHypertable(1, "", "", "", "", "", nil, 0, false, nil, nil, pgtypes.DEFAULT)
 	hypertable.ApplyTableSchema(oldColumns)

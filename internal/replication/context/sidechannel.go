@@ -119,6 +119,7 @@ const initialTableSchemaQuery = `
 SELECT
    c.column_name,
    t.oid::int,
+   a.atttypmod,
    CASE WHEN c.is_nullable = 'YES' THEN true ELSE false END AS nullable,
    coalesce(p.indisprimary, false) AS is_primary_key,
    p.key_seq,
@@ -130,7 +131,8 @@ SELECT
    d.column_name IS NOT NULL AS is_dimension,
    coalesce(d.aligned, false) AS dim_aligned,
    CASE WHEN d.interval_length IS NULL THEN 'space' ELSE 'time' END AS dim_type,
-   CASE WHEN d.column_name IS NOT NULL THEN rank() over (order by d.id) END
+   CASE WHEN d.column_name IS NOT NULL THEN rank() over (order by d.id) END,
+   c.character_maximum_length
 FROM information_schema.columns c
 LEFT JOIN (
     SELECT
@@ -151,8 +153,11 @@ LEFT JOIN (
       AND i.indexrelid = cl2.oid
       AND i.indisprimary
 ) p ON p.attname = c.column_name AND p.nspname = c.table_schema AND p.relname = c.table_name AND p.attnum = (p.keys).x
-LEFT JOIN pg_catalog.pg_namespace n ON n.nspname = c.udt_schema
-LEFT JOIN pg_catalog.pg_type t ON t.typnamespace = n.oid AND t.typname = c.udt_name
+LEFT JOIN pg_catalog.pg_namespace nt ON nt.nspname = c.udt_schema
+LEFT JOIN pg_catalog.pg_type t ON t.typnamespace = nt.oid AND t.typname = c.udt_name
+LEFT JOIN pg_catalog.pg_namespace nc ON nc.nspname = c.table_schema
+LEFT JOIN pg_catalog.pg_class cl ON cl.relname = c.table_name AND cl.relnamespace = nc.oid
+LEFT JOIN pg_catalog.pg_attribute a ON a.attrelid = cl.oid AND a.attnum = c.ordinal_position
 LEFT JOIN unnest (p.indoption) WITH ORDINALITY o (option, ordinality) ON p.attnum = o.ordinality
 LEFT JOIN _timescaledb_catalog.hypertable h ON h.schema_name = c.table_schema AND h.table_name = c.table_name
 LEFT JOIN _timescaledb_catalog.dimension d ON d.hypertable_id = h.id AND d.column_name = c.column_name
@@ -791,13 +796,14 @@ func (sc *sideChannelImpl) readHypertableSchema0(
 	if err := session.queryFunc(func(row pgx.Row) error {
 		var name, sortOrder, nullsOrder string
 		var oid uint32
-		var keySeq, dimSeq *int
+		var modifiers int
+		var keySeq, dimSeq, maxCharLength *int
 		var nullable, primaryKey, isReplicaIdent, dimension, dimAligned bool
 		var defaultValue, indexName, dimType *string
 
-		if err := row.Scan(&name, &oid, &nullable, &primaryKey, &keySeq,
+		if err := row.Scan(&name, &oid, &modifiers, &nullable, &primaryKey, &keySeq,
 			&defaultValue, &isReplicaIdent, &indexName, &sortOrder, &nullsOrder,
-			&dimension, &dimAligned, &dimType, &dimSeq); err != nil {
+			&dimension, &dimAligned, &dimType, &dimSeq, &maxCharLength); err != nil {
 
 			return errors.Wrap(err, 0)
 		}
@@ -808,9 +814,9 @@ func (sc *sideChannelImpl) readHypertableSchema0(
 		}
 
 		column := systemcatalog.NewIndexColumn(
-			name, oid, dataType, nullable, primaryKey, keySeq, defaultValue, isReplicaIdent, indexName,
+			name, oid, modifiers, dataType, nullable, primaryKey, keySeq, defaultValue, isReplicaIdent, indexName,
 			systemcatalog.IndexSortOrder(sortOrder), systemcatalog.IndexNullsOrder(nullsOrder),
-			dimension, dimAligned, dimType, dimSeq,
+			dimension, dimAligned, dimType, dimSeq, maxCharLength,
 		)
 		columns = append(columns, column)
 		return nil

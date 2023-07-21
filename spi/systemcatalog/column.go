@@ -19,6 +19,7 @@ package systemcatalog
 
 import (
 	"fmt"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
 	"strings"
@@ -113,56 +114,60 @@ func (c Columns) ReplicaIdentityIndex() (index *Index, present bool) {
 
 // Column represents a column from a hypertable or index
 type Column struct {
-	name         string
-	dataType     uint32
-	pgType       PgType
-	nullable     bool
-	primaryKey   bool
-	keySeq       *int
-	defaultValue *string
-	replicaIdent bool
-	indexName    *string
-	sortOrder    IndexSortOrder
-	nullsOrder   IndexNullsOrder
-	dimension    bool
-	dimAligned   bool
-	dimType      *string
-	dimSeq       *int
+	name          string
+	dataType      uint32
+	modifiers     int
+	pgType        PgType
+	nullable      bool
+	primaryKey    bool
+	keySeq        *int
+	defaultValue  *string
+	replicaIdent  bool
+	indexName     *string
+	sortOrder     IndexSortOrder
+	nullsOrder    IndexNullsOrder
+	dimension     bool
+	dimAligned    bool
+	dimType       *string
+	dimSeq        *int
+	maxCharLength *int
 }
 
 // NewColumn instantiates a new Column instance which isn't
 // part of any index. This method is a shorthand version of
 // NewIndexColumn
-func NewColumn(name string, dataType uint32, pgType PgType, nullable bool, defaultValue *string) Column {
+func NewColumn(name string, dataType uint32, modifiers int, pgType PgType, nullable bool, defaultValue *string) Column {
 	return NewIndexColumn(
-		name, dataType, pgType, nullable, false, nil,
+		name, dataType, modifiers, pgType, nullable, false, nil,
 		defaultValue, false, nil, ASC, NULLS_LAST,
-		false, false, nil, nil,
+		false, false, nil, nil, nil,
 	)
 }
 
 // NewIndexColumn instantiates a new Column instance
-func NewIndexColumn(name string, dataType uint32, pgType PgType, nullable, primaryKey bool,
+func NewIndexColumn(name string, dataType uint32, modifiers int, pgType PgType, nullable, primaryKey bool,
 	keySeq *int, defaultValue *string, isReplicaIdent bool, indexName *string,
 	sortOrder IndexSortOrder, nullsOrder IndexNullsOrder,
-	dimension bool, dimAligned bool, dimType *string, dimSeq *int) Column {
+	dimension, dimAligned bool, dimType *string, dimSeq, maxCharLength *int) Column {
 
 	return Column{
-		name:         name,
-		dataType:     dataType,
-		pgType:       pgType,
-		nullable:     nullable,
-		primaryKey:   primaryKey,
-		keySeq:       keySeq,
-		defaultValue: defaultValue,
-		replicaIdent: isReplicaIdent,
-		indexName:    indexName,
-		sortOrder:    sortOrder,
-		nullsOrder:   nullsOrder,
-		dimension:    dimension,
-		dimAligned:   dimAligned,
-		dimType:      dimType,
-		dimSeq:       dimSeq,
+		name:          name,
+		dataType:      dataType,
+		modifiers:     modifiers,
+		pgType:        pgType,
+		nullable:      nullable,
+		primaryKey:    primaryKey,
+		keySeq:        keySeq,
+		defaultValue:  defaultValue,
+		replicaIdent:  isReplicaIdent,
+		indexName:     indexName,
+		sortOrder:     sortOrder,
+		nullsOrder:    nullsOrder,
+		dimension:     dimension,
+		dimAligned:    dimAligned,
+		dimType:       dimType,
+		dimSeq:        dimSeq,
+		maxCharLength: maxCharLength,
 	}
 }
 
@@ -176,7 +181,13 @@ func (c Column) DataType() uint32 {
 	return c.dataType
 }
 
-// TypeName returns the data type name of the column
+// modifiers returns the type specific modifiers for this
+// column. If no specific modifiers is set, -1 is returned
+func (c Column) Modifiers() int {
+	return c.modifiers
+}
+
+// PgType returns the PG type of the column
 func (c Column) PgType() PgType {
 	return c.pgType
 }
@@ -224,14 +235,46 @@ func (c Column) DimensionType() *string {
 	return c.dimType
 }
 
+// MaxCharLength returns the maximum number of
+// characters necessary to represent the value
+// as a string (if the type is type limited),
+// otherwise it returns nil
+func (c Column) MaxCharLength() *int {
+	return c.maxCharLength
+}
+
 // SchemaBuilder returns a schema builder based on the
 // column's PgType and internal state (default value,
 // nullable, name, etc).
 func (c Column) SchemaBuilder() schemamodel.SchemaBuilder {
-	return c.pgType.SchemaBuilder().
+	schemaBuilder := c.pgType.SchemaBuilder().
 		FieldName(c.Name()).
 		DefaultValue(c.defaultValue).
-		SetOptional(c.IsNullable()).Clone()
+		SetOptional(c.IsNullable())
+
+	switch c.dataType {
+	case pgtype.BitOID:
+	case pgtype.VarbitOID:
+	case pgtype.BPCharOID:
+	case pgtype.VarcharOID:
+		if c.maxCharLength != nil {
+			schemaBuilder.Parameter(schemamodel.FieldNameLength, *c.maxCharLength)
+		}
+
+	case pgtype.BitArrayOID:
+	case pgtype.VarbitArrayOID:
+		if c.modifiers > 0 {
+			schemaBuilder.Parameter(schemamodel.FieldNameLength, c.pgType.Modifiers())
+		}
+
+	case pgtype.BPCharArrayOID:
+	case pgtype.VarcharArrayOID:
+		if c.modifiers > 4 { // FIXME: 4 is only assumed to be true on systems (size_of(int32))
+			schemaBuilder.Parameter(schemamodel.FieldNameLength, c.pgType.Modifiers()-4)
+		}
+	}
+
+	return schemaBuilder.Clone()
 }
 
 func (c Column) String() string {
@@ -239,6 +282,7 @@ func (c Column) String() string {
 	builder.WriteString("{")
 	builder.WriteString(fmt.Sprintf("name:%s ", c.name))
 	builder.WriteString(fmt.Sprintf("dataType:%d ", c.dataType))
+	builder.WriteString(fmt.Sprintf("modifiers:%d ", c.modifiers))
 	builder.WriteString(fmt.Sprintf("pgType:%s ", c.pgType.Name()))
 	builder.WriteString(fmt.Sprintf("nullable:%t ", c.nullable))
 	builder.WriteString(fmt.Sprintf("primaryKey:%t ", c.primaryKey))
@@ -270,6 +314,11 @@ func (c Column) String() string {
 	} else {
 		builder.WriteString(fmt.Sprintf("dimSeq:%d", *c.dimSeq))
 	}
+	if c.maxCharLength == nil {
+		builder.WriteString("maxCharLength:<nil>")
+	} else {
+		builder.WriteString(fmt.Sprintf("maxCharLength:%d", *c.maxCharLength))
+	}
 	builder.WriteString("}")
 	return builder.String()
 }
@@ -278,6 +327,7 @@ func (c Column) equals(other Column) bool {
 	return c.name == other.name &&
 		c.pgType.Equal(other.pgType) &&
 		c.dataType == other.dataType &&
+		c.modifiers == other.modifiers &&
 		c.nullable == other.nullable &&
 		c.primaryKey == other.primaryKey &&
 		c.replicaIdent == other.replicaIdent &&
@@ -292,12 +342,15 @@ func (c Column) equals(other Column) bool {
 		((c.dimType == nil && other.dimType == nil) ||
 			(c.dimType != nil && other.dimType != nil && *c.dimType == *other.dimType)) &&
 		((c.dimSeq == nil && other.dimSeq == nil) ||
-			(c.dimSeq != nil && other.dimSeq != nil && *c.dimSeq == *other.dimSeq))
+			(c.dimSeq != nil && other.dimSeq != nil && *c.dimSeq == *other.dimSeq)) &&
+		((c.maxCharLength == nil && other.maxCharLength == nil) ||
+			(c.maxCharLength != nil && other.maxCharLength != nil && *c.maxCharLength == *other.maxCharLength))
 }
 
 func (c Column) equalsExceptName(other Column) bool {
 	return c.pgType.Equal(other.pgType) &&
 		c.dataType == other.dataType &&
+		c.modifiers == other.modifiers &&
 		c.nullable == other.nullable &&
 		c.primaryKey == other.primaryKey &&
 		c.replicaIdent == other.replicaIdent &&
@@ -312,7 +365,9 @@ func (c Column) equalsExceptName(other Column) bool {
 		((c.dimType == nil && other.dimType == nil) ||
 			(c.dimType != nil && other.dimType != nil && *c.dimType == *other.dimType)) &&
 		((c.dimSeq == nil && other.dimSeq == nil) ||
-			(c.dimSeq != nil && other.dimSeq != nil && *c.dimSeq == *other.dimSeq))
+			(c.dimSeq != nil && other.dimSeq != nil && *c.dimSeq == *other.dimSeq)) &&
+		((c.maxCharLength == nil && other.maxCharLength == nil) ||
+			(c.maxCharLength != nil && other.maxCharLength != nil && *c.maxCharLength == *other.maxCharLength))
 }
 
 func (c Column) differences(new Column) map[string]string {
@@ -322,6 +377,9 @@ func (c Column) differences(new Column) map[string]string {
 	}
 	if c.dataType != new.dataType {
 		differences["dataType"] = fmt.Sprintf("%d=>%d", c.dataType, new.dataType)
+	}
+	if c.modifiers != new.modifiers {
+		differences["modifiers"] = fmt.Sprintf("%d=>%d", c.modifiers, new.modifiers)
 	}
 	if !c.pgType.Equal(new.pgType) {
 		differences["pgType"] = fmt.Sprintf("%s=>%s", c.pgType.Name(), new.pgType.Name())
@@ -400,6 +458,18 @@ func (c Column) differences(new Column) map[string]string {
 			o = fmt.Sprintf("%d", *new.dimSeq)
 		}
 		differences["dimSeq"] = fmt.Sprintf("%s=>%s", o, n)
+	}
+	if (c.maxCharLength == nil && new.maxCharLength != nil) ||
+		(c.maxCharLength != nil && new.maxCharLength == nil) {
+		o := "<nil>"
+		if c.maxCharLength != nil {
+			o = fmt.Sprintf("%d", *c.maxCharLength)
+		}
+		n := "<nil>"
+		if new.maxCharLength != nil {
+			o = fmt.Sprintf("%d", *new.maxCharLength)
+		}
+		differences["maxCharLength"] = fmt.Sprintf("%s=>%s", o, n)
 	}
 	return differences
 }
