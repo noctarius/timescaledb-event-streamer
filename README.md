@@ -189,8 +189,8 @@ named.
 | OID Array                              | oid[]                   | ARRAY       | INT64               |
 | Name                                   | name                    | STRING      |                     |
 | Name Array                             | name[]                  | ARRAY       | STRING              |
-| Quoted Char                            | char                    | STRING      |                     |                     
-| Quoted Char Array                      | char[]                  | ARRAY       | STRING              |
+| Quoted Char                            | "char"                  | STRING      |                     |                     
+| Quoted Char Array                      | "char"[]                | ARRAY       | STRING              |
 | Text                                   | text                    | STRING      |                     |
 | Text Array                             | text[]                  | ARRAY       | STRING              |
 | Time With Timezone                     | timetz                  | STRING      |                     |
