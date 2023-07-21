@@ -1,6 +1,7 @@
 package datatypes
 
 import (
+	"fmt"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
@@ -166,7 +167,10 @@ func (t *pgType) SchemaBuilder() schemamodel.SchemaBuilder {
 }
 
 func (t *pgType) Format() string {
-
+	if t.IsArray() {
+		return fmt.Sprintf("%s[]", t.ElementType().Name())
+	}
+	return t.Name()
 }
 
 func (t *pgType) Equal(other systemcatalog.PgType) bool {
