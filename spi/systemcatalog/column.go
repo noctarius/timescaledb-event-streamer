@@ -181,7 +181,7 @@ func (c Column) DataType() uint32 {
 	return c.dataType
 }
 
-// modifiers returns the type specific modifiers for this
+// Modifiers returns the type specific modifiers for this
 // column. If no specific modifiers is set, -1 is returned
 func (c Column) Modifiers() int {
 	return c.modifiers
@@ -252,28 +252,31 @@ func (c Column) SchemaBuilder() schemamodel.SchemaBuilder {
 		DefaultValue(c.defaultValue).
 		SetOptional(c.IsNullable())
 
-	switch c.dataType {
-	case pgtype.BitOID, pgtype.VarbitOID, pgtype.BPCharOID, pgtype.VarcharOID:
-		if c.maxCharLength != nil {
-			schemaBuilder.Parameter(schemamodel.FieldNameLength, *c.maxCharLength)
-		}
-
-	case pgtype.BitArrayOID, pgtype.VarbitArrayOID:
-		if c.modifiers > 0 {
-			schemaBuilder.
-				GetValueSchema().
-				Parameter(schemamodel.FieldNameLength, c.pgType.Modifiers())
-		}
-
-	case pgtype.BPCharArrayOID, pgtype.VarcharArrayOID:
-		if c.modifiers > 4 { // FIXME: 4 is only assumed to be true on systems (size_of(int32))
-			schemaBuilder.
-				GetValueSchema().
-				Parameter(schemamodel.FieldNameLength, c.Modifiers()-4)
-		}
+	valueLength := c.valueLength()
+	if valueLength > -1 {
+		schemaBuilder.Parameter(schemamodel.FieldNameLength, valueLength)
 	}
 
 	return schemaBuilder.Clone()
+}
+
+func (c Column) Format() string {
+	builder := strings.Builder{}
+	builder.WriteString(c.name)
+	builder.WriteString(":")
+	if c.pgType.IsArray() {
+		builder.WriteString(c.pgType.ElementType().Name())
+	} else {
+		builder.WriteString(c.pgType.Name())
+	}
+	valueLength := c.valueLength()
+	if valueLength > -1 {
+		builder.WriteString(fmt.Sprintf("(%d)", valueLength))
+	}
+	if c.pgType.IsArray() {
+		builder.WriteString("[]")
+	}
+	return builder.String()
 }
 
 func (c Column) String() string {
@@ -471,4 +474,24 @@ func (c Column) differences(new Column) map[string]string {
 		differences["maxCharLength"] = fmt.Sprintf("%s=>%s", o, n)
 	}
 	return differences
+}
+
+func (c Column) valueLength() int {
+	switch c.dataType {
+	case pgtype.BitOID, pgtype.VarbitOID, pgtype.BPCharOID, pgtype.VarcharOID:
+		if c.maxCharLength != nil {
+			return *c.maxCharLength
+		}
+
+	case pgtype.BitArrayOID, pgtype.VarbitArrayOID:
+		if c.modifiers > 0 {
+			return c.pgType.Modifiers()
+		}
+
+	case pgtype.BPCharArrayOID, pgtype.VarcharArrayOID:
+		if c.modifiers > 4 { // FIXME: 4 is only assumed to be true on systems (size_of(int32))
+			return c.Modifiers() - 4
+		}
+	}
+	return -1
 }

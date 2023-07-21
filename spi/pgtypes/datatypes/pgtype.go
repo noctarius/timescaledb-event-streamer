@@ -168,7 +168,7 @@ func (t *pgType) SchemaBuilder() schemamodel.SchemaBuilder {
 
 func (t *pgType) Format() string {
 	if t.IsArray() {
-		return fmt.Sprintf("%s[]", t.ElementType().Name())
+		return fmt.Sprintf("%s[]", t.ElementType().Format())
 	}
 	return t.Name()
 }
