@@ -23,6 +23,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes/datatypes"
 )
 
 var typeMap *pgtype.Map
@@ -30,27 +31,39 @@ var typeMap *pgtype.Map
 func init() {
 	typeMap = pgtype.NewMap()
 
-	macaddr8Type := &pgtype.Type{Name: "macaddr8", OID: 774, Codec: pgtype.MacaddrCodec{}}
+	macaddr8Type := &pgtype.Type{Name: "macaddr8", OID: datatypes.MacAddr8OID, Codec: pgtype.MacaddrCodec{}}
 	typeMap.RegisterType(macaddr8Type)
 	typeMap.RegisterType(
-		&pgtype.Type{Name: "_macaddr8", OID: 775, Codec: &pgtype.ArrayCodec{ElementType: macaddr8Type}},
+		&pgtype.Type{
+			Name:  "_macaddr8",
+			OID:   datatypes.MacAddrArray8OID,
+			Codec: &pgtype.ArrayCodec{ElementType: macaddr8Type}},
 	)
 
-	xmlType := &pgtype.Type{Name: "xml", OID: 142, Codec: XmlCodec{}}
+	xmlType := &pgtype.Type{Name: "xml", OID: datatypes.XmlOID, Codec: XmlCodec{}}
 	typeMap.RegisterType(xmlType)
 	typeMap.RegisterType(
-		&pgtype.Type{Name: "_xml", OID: 143, Codec: &pgtype.ArrayCodec{ElementType: xmlType}},
+		&pgtype.Type{
+			Name:  "_xml",
+			OID:   datatypes.XmlArrayOID,
+			Codec: &pgtype.ArrayCodec{ElementType: xmlType}},
 	)
 
-	timetzType := &pgtype.Type{Name: "timetz", OID: 1266, Codec: &TimetzCodec{}}
+	timetzType := &pgtype.Type{Name: "timetz", OID: datatypes.TimeTZOID, Codec: &TimetzCodec{}}
 	typeMap.RegisterType(timetzType)
 	typeMap.RegisterType(
-		&pgtype.Type{Name: "_timetz", OID: 1270, Codec: &pgtype.ArrayCodec{ElementType: timetzType}},
+		&pgtype.Type{
+			Name:  "_timetz",
+			OID:   datatypes.TimeTZArrayOID,
+			Codec: &pgtype.ArrayCodec{ElementType: timetzType}},
 	)
 
 	qcharType, _ := typeMap.TypeForOID(pgtype.QCharOID)
 	typeMap.RegisterType(
-		&pgtype.Type{Name: "_char", OID: 1002, Codec: &pgtype.ArrayCodec{ElementType: qcharType}},
+		&pgtype.Type{
+			Name:  "_char",
+			OID:   datatypes.QCharArrayOID,
+			Codec: &pgtype.ArrayCodec{ElementType: qcharType}},
 	)
 }
 

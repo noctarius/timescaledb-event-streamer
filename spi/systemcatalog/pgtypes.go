@@ -54,5 +54,6 @@ type PgType interface {
 	Delimiter() string
 	SchemaType() schemamodel.Type
 	SchemaBuilder() schemamodel.SchemaBuilder
+	Format() string
 	Equal(other PgType) bool
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	inttest "github.com/noctarius/timescaledb-event-streamer/internal/testing"
 	"github.com/noctarius/timescaledb-event-streamer/internal/testing/testrunner"
+	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes/datatypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
 	"github.com/stretchr/testify/assert"
@@ -246,7 +247,7 @@ var dataTypeTable = []DataTypeTest{
 	},
 	{
 		name:                  "MAC Address (EUI-64)",
-		oid:                   774,
+		oid:                   datatypes.MacAddr8OID,
 		pgTypeName:            "macaddr8",
 		schemaType:            schemamodel.STRING,
 		value:                 "08:00:2B:01:02:03:04:05",
@@ -255,7 +256,7 @@ var dataTypeTable = []DataTypeTest{
 	},
 	{
 		name:              "MAC Address (EUI-64) Array",
-		oid:               775,
+		oid:               datatypes.MacAddrArray8OID,
 		pgTypeName:        "macaddr8[]",
 		schemaType:        schemamodel.ARRAY,
 		elementSchemaType: schemamodel.STRING,
@@ -335,7 +336,7 @@ var dataTypeTable = []DataTypeTest{
 	},
 	{
 		name:                  "Time With Timezone",
-		oid:                   1266,
+		oid:                   datatypes.TimeTZOID,
 		pgTypeName:            "timetz",
 		schemaType:            schemamodel.STRING,
 		value:                 "12:00:12.054321Z07:30",
@@ -344,7 +345,7 @@ var dataTypeTable = []DataTypeTest{
 	},
 	{
 		name:                  "Time With Timezone Array",
-		oid:                   1270,
+		oid:                   datatypes.TimeTZArrayOID,
 		pgTypeName:            "timetz[]",
 		schemaType:            schemamodel.ARRAY,
 		elementSchemaType:     schemamodel.STRING,
@@ -587,7 +588,7 @@ var dataTypeTable = []DataTypeTest{
 	},
 	{
 		name:                  "Quoted Char Array",
-		oid:                   pgtype.QCharArrayOID,
+		oid:                   datatypes.QCharArrayOID,
 		pgTypeName:            "\"char\"[]",
 		columnNameOverride:    "qchar[]",
 		schemaType:            schemamodel.ARRAY,
@@ -896,7 +897,7 @@ var dataTypeTable = []DataTypeTest{
 	},
 	{
 		name:       "Xml",
-		oid:        124,
+		oid:        datatypes.XmlOID,
 		pgTypeName: "xml",
 		schemaType: schemamodel.STRING,
 		value:      "<test><simple>foo</simple></test>",
@@ -904,7 +905,7 @@ var dataTypeTable = []DataTypeTest{
 	},
 	{
 		name:                  "Xml Array",
-		oid:                   125,
+		oid:                   datatypes.XmlArrayOID,
 		pgTypeName:            "xml[]",
 		schemaType:            schemamodel.ARRAY,
 		elementSchemaType:     schemamodel.STRING,

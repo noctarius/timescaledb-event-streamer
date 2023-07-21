@@ -165,6 +165,10 @@ func (t *pgType) SchemaBuilder() schemamodel.SchemaBuilder {
 	return t.schemaBuilder.Clone()
 }
 
+func (t *pgType) Format() string {
+
+}
+
 func (t *pgType) Equal(other systemcatalog.PgType) bool {
 	return t.namespace == other.Namespace() &&
 		t.name == other.Name() &&
