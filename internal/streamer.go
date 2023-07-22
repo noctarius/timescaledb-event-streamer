@@ -24,6 +24,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
+	"github.com/noctarius/timescaledb-event-streamer/spi/plugins"
 	"github.com/urfave/cli"
 
 	// Register built-in naming strategies
@@ -74,6 +75,12 @@ func NewStreamer(config *sysconfig.SystemConfig) (*Streamer, *cli.ExitError) {
 
 	if config.Topic.Prefix == "" {
 		config.Topic.Prefix = supporting.RandomTextString(20)
+	}
+
+	// Start all potential plugins, to make sure they're registered
+	// before we try to access any of the interface implementations
+	if err := plugins.LoadPlugins(config.Config); err != nil {
+		return nil, supporting.AdaptError(err, 50)
 	}
 
 	replicator, err := replication.NewReplicator(config)

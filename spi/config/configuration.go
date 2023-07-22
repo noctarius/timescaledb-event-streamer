@@ -265,6 +265,7 @@ type Config struct {
 	TimescaleDB  TimescaleDBConfig  `toml:"timescaledb" yaml:"timescaledb"`
 	Logging      LoggerConfig       `toml:"logging" yaml:"logging"`
 	StateStorage StateStorageConfig `toml:"statestorage" yaml:"stateStorage"`
+	Plugins      []string           `toml:"plugins" yaml:"plugins"`
 }
 
 type StateStorageConfig struct {
