@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package file
+package statestorage
 
 import (
 	"encoding"
@@ -25,7 +25,6 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
-	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
 	"os"
 	"path/filepath"
 	"sync"
@@ -33,14 +32,14 @@ import (
 )
 
 func init() {
-	statestorage.RegisterStateStorage(spiconfig.FileStorage, newFileStateStorage)
+	RegisterStateStorage(spiconfig.FileStorage, newFileStateStorage)
 }
 
 type fileStateStorage struct {
 	path    string
 	mutex   sync.Mutex
 	logger  *logging.Logger
-	offsets map[string]*statestorage.Offset
+	offsets map[string]*Offset
 
 	encodedStates map[string][]byte
 
@@ -48,7 +47,7 @@ type fileStateStorage struct {
 	shutdownWaiter *supporting.ShutdownAwaiter
 }
 
-func newFileStateStorage(config *spiconfig.Config) (statestorage.Storage, error) {
+func newFileStateStorage(config *spiconfig.Config) (Storage, error) {
 	path := spiconfig.GetOrDefault(config, spiconfig.PropertyFileStateStoragePath, "")
 	if path == "" {
 		return nil, errors.Errorf("FileStateStorage needs a path to be configured")
@@ -56,7 +55,7 @@ func newFileStateStorage(config *spiconfig.Config) (statestorage.Storage, error)
 	return NewFileStateStorage(path)
 }
 
-func NewFileStateStorage(path string) (statestorage.Storage, error) {
+func NewFileStateStorage(path string) (Storage, error) {
 	logger, err := logging.NewLogger("FileStateStorage")
 	if err != nil {
 		return nil, err
@@ -95,7 +94,7 @@ func NewFileStateStorage(path string) (statestorage.Storage, error) {
 		path:           path,
 		logger:         logger,
 		shutdownWaiter: supporting.NewShutdownAwaiter(),
-		offsets:        make(map[string]*statestorage.Offset),
+		offsets:        make(map[string]*Offset),
 		encodedStates:  make(map[string][]byte),
 	}, nil
 }
@@ -184,7 +183,7 @@ func (f *fileStateStorage) Load() error {
 			return errors.Wrap(err, 0)
 		} else {
 			// Reset internal map
-			f.offsets = make(map[string]*statestorage.Offset, 0)
+			f.offsets = make(map[string]*Offset, 0)
 			return nil
 		}
 	}
@@ -195,7 +194,7 @@ func (f *fileStateStorage) Load() error {
 
 	if fi.Size() == 0 {
 		// Reset internal map
-		f.offsets = make(map[string]*statestorage.Offset, 0)
+		f.offsets = make(map[string]*Offset, 0)
 		return nil
 	}
 
@@ -223,9 +222,9 @@ func (f *fileStateStorage) Load() error {
 		return val
 	}
 
-	readOffset := func() (*statestorage.Offset, error) {
+	readOffset := func() (*Offset, error) {
 		length := readUint32()
-		o := &statestorage.Offset{}
+		o := &Offset{}
 		if err := o.UnmarshalBinary(buffer[readerOffset : readerOffset+int64(length)]); err != nil {
 			return nil, err
 		}
@@ -262,13 +261,13 @@ func (f *fileStateStorage) Load() error {
 	return nil
 }
 
-func (f *fileStateStorage) Get() (map[string]*statestorage.Offset, error) {
+func (f *fileStateStorage) Get() (map[string]*Offset, error) {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 	return f.offsets, nil
 }
 
-func (f *fileStateStorage) Set(key string, value *statestorage.Offset) error {
+func (f *fileStateStorage) Set(key string, value *Offset) error {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 	f.offsets[key] = value

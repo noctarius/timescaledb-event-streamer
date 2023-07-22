@@ -15,12 +15,11 @@
  * limitations under the License.
  */
 
-package file
+package statestorage
 
 import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
-	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"runtime"
@@ -39,21 +38,21 @@ func Test_Writing_Reading(t *testing.T) {
 	}
 	defer os.Remove(f.Name())
 
-	foo := &statestorage.Offset{
+	foo := &Offset{
 		Timestamp:      time.Date(2023, 01, 01, 0, 0, 0, 0, time.UTC),
 		Snapshot:       true,
 		SnapshotOffset: 1000,
 		LSN:            pgtypes.LSN(1000000),
 		SnapshotName:   supporting.AddrOf("foo-12345-12345"),
 	}
-	bar := &statestorage.Offset{
+	bar := &Offset{
 		Timestamp:      time.Date(2023, 01, 01, 1, 0, 0, 0, time.UTC),
 		Snapshot:       true,
 		SnapshotOffset: 2000,
 		LSN:            pgtypes.LSN(2000000),
 		SnapshotName:   supporting.AddrOf("bar-54321-54321"),
 	}
-	baz := &statestorage.Offset{
+	baz := &Offset{
 		Timestamp:      time.Date(2023, 02, 01, 1, 0, 0, 0, time.UTC),
 		Snapshot:       false,
 		SnapshotOffset: 3000,

@@ -18,7 +18,8 @@
 package context
 
 import (
-	"github.com/noctarius/timescaledb-event-streamer/internal/eventing/namingstrategies"
+	"github.com/noctarius/timescaledb-event-streamer/spi/config"
+	"github.com/noctarius/timescaledb-event-streamer/spi/namingstrategy"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/stretchr/testify/assert"
@@ -29,9 +30,14 @@ func TestReplicationContext_EventTopicName(t *testing.T) {
 	topicPrefix := "foobar"
 	hypertable := systemcatalog.NewHypertable(1, "test", "schema", "hypertable", "", "", nil, 0, false, nil, nil, pgtypes.DEFAULT)
 
+	debeziumNamingStrategy, err := namingstrategy.NewNamingStrategy("debezium", &config.Config{})
+	if err != nil {
+		t.Error(err)
+	}
+
 	schemaManager := &schemaManager{
 		topicPrefix:    topicPrefix,
-		namingStrategy: &namingstrategies.DebeziumNamingStrategy{},
+		namingStrategy: debeziumNamingStrategy,
 	}
 
 	topicName := schemaManager.EventTopicName(hypertable)
@@ -42,9 +48,14 @@ func TestReplicationContext_SchemaTopicName(t *testing.T) {
 	topicPrefix := "foobar"
 	hypertable := systemcatalog.NewHypertable(1, "test", "schema", "hypertable", "", "", nil, 0, false, nil, nil, pgtypes.DEFAULT)
 
+	debeziumNamingStrategy, err := namingstrategy.NewNamingStrategy("debezium", &config.Config{})
+	if err != nil {
+		t.Error(err)
+	}
+
 	schemaManager := &schemaManager{
 		topicPrefix:    topicPrefix,
-		namingStrategy: &namingstrategies.DebeziumNamingStrategy{},
+		namingStrategy: debeziumNamingStrategy,
 	}
 
 	topicName := schemaManager.SchemaTopicName(hypertable)

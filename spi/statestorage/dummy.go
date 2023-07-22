@@ -15,59 +15,58 @@
  * limitations under the License.
  */
 
-package dummy
+package statestorage
 
 import (
 	"encoding"
 	"github.com/go-errors/errors"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
-	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
 )
 
 func init() {
-	statestorage.RegisterStateStorage(spiconfig.NoneStorage, func(_ *spiconfig.Config) (statestorage.Storage, error) {
+	RegisterStateStorage(spiconfig.NoneStorage, func(_ *spiconfig.Config) (Storage, error) {
 		return NewDummyStateStorage(), nil
 	})
 }
 
-type DummyStateStorage struct {
-	offsets       map[string]*statestorage.Offset
+type dummyStateStorage struct {
+	offsets       map[string]*Offset
 	encodedStates map[string][]byte
 }
 
-func NewDummyStateStorage() *DummyStateStorage {
-	return &DummyStateStorage{
-		offsets:       make(map[string]*statestorage.Offset),
+func NewDummyStateStorage() Storage {
+	return &dummyStateStorage{
+		offsets:       make(map[string]*Offset),
 		encodedStates: make(map[string][]byte),
 	}
 }
 
-func (d *DummyStateStorage) Start() error {
+func (d *dummyStateStorage) Start() error {
 	return nil
 }
 
-func (d *DummyStateStorage) Stop() error {
+func (d *dummyStateStorage) Stop() error {
 	return nil
 }
 
-func (d *DummyStateStorage) Save() error {
+func (d *dummyStateStorage) Save() error {
 	return nil
 }
 
-func (d *DummyStateStorage) Load() error {
+func (d *dummyStateStorage) Load() error {
 	return nil
 }
 
-func (d *DummyStateStorage) Get() (map[string]*statestorage.Offset, error) {
+func (d *dummyStateStorage) Get() (map[string]*Offset, error) {
 	return d.offsets, nil
 }
 
-func (d *DummyStateStorage) Set(key string, value *statestorage.Offset) error {
+func (d *dummyStateStorage) Set(key string, value *Offset) error {
 	d.offsets[key] = value
 	return nil
 }
 
-func (d *DummyStateStorage) StateEncoder(name string, encoder encoding.BinaryMarshaler) error {
+func (d *dummyStateStorage) StateEncoder(name string, encoder encoding.BinaryMarshaler) error {
 	data, err := encoder.MarshalBinary()
 	if err != nil {
 		return err
@@ -76,7 +75,7 @@ func (d *DummyStateStorage) StateEncoder(name string, encoder encoding.BinaryMar
 	return nil
 }
 
-func (d *DummyStateStorage) StateDecoder(name string, decoder encoding.BinaryUnmarshaler) (bool, error) {
+func (d *dummyStateStorage) StateDecoder(name string, decoder encoding.BinaryUnmarshaler) (bool, error) {
 	if data, present := d.encodedStates[name]; present {
 		if err := decoder.UnmarshalBinary(data); err != nil {
 			return true, errors.Wrap(err, 0)
@@ -86,11 +85,11 @@ func (d *DummyStateStorage) StateDecoder(name string, decoder encoding.BinaryUnm
 	return false, nil
 }
 
-func (d *DummyStateStorage) EncodedState(key string) (encodedState []byte, present bool) {
+func (d *dummyStateStorage) EncodedState(key string) (encodedState []byte, present bool) {
 	encodedState, present = d.encodedStates[key]
 	return
 }
 
-func (d *DummyStateStorage) SetEncodedState(key string, encodedState []byte) {
+func (d *dummyStateStorage) SetEncodedState(key string, encodedState []byte) {
 	d.encodedStates[key] = encodedState
 }

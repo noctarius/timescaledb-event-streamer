@@ -19,7 +19,6 @@ package context
 
 import (
 	"github.com/jackc/pglogrepl"
-	"github.com/noctarius/timescaledb-event-streamer/internal/statestorages/dummy"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
@@ -32,7 +31,7 @@ func Test_ReplicationConnection_locateRestartLSN_empty(t *testing.T) {
 	replicationContext := &replicationContext{
 		replicationSlotName: "test",
 		stateManager: &stateManager{
-			stateStorage: dummy.NewDummyStateStorage(),
+			stateStorage: statestorage.NewDummyStateStorage(),
 		},
 	}
 
@@ -74,7 +73,7 @@ func Test_ReplicationConnection_locateRestartLSN_from_offset(t *testing.T) {
 	replicationContext := &replicationContext{
 		replicationSlotName: "test",
 		stateManager: &stateManager{
-			stateStorage: dummy.NewDummyStateStorage(),
+			stateStorage: statestorage.NewDummyStateStorage(),
 		},
 	}
 
@@ -124,7 +123,7 @@ func Test_ReplicationConnection_locateRestartLSN_from_confirmed_flush_LSN_larger
 	replicationContext := &replicationContext{
 		replicationSlotName: "test",
 		stateManager: &stateManager{
-			stateStorage: dummy.NewDummyStateStorage(),
+			stateStorage: statestorage.NewDummyStateStorage(),
 		},
 	}
 
@@ -174,7 +173,7 @@ func Test_ReplicationConnection_locateRestartLSN_from_confirmed_flush_LSN_smalle
 	replicationContext := &replicationContext{
 		replicationSlotName: "test",
 		stateManager: &stateManager{
-			stateStorage: dummy.NewDummyStateStorage(),
+			stateStorage: statestorage.NewDummyStateStorage(),
 		},
 	}
 
@@ -224,7 +223,7 @@ func Test_ReplicationConnection_locateRestartLSN_error_physical_slot(t *testing.
 	replicationContext := &replicationContext{
 		replicationSlotName: "test",
 		stateManager: &stateManager{
-			stateStorage: dummy.NewDummyStateStorage(),
+			stateStorage: statestorage.NewDummyStateStorage(),
 		},
 	}
 
@@ -270,7 +269,7 @@ func Test_ReplicationConnection_locateRestartLSN_error_plugin_name(t *testing.T)
 	replicationContext := &replicationContext{
 		replicationSlotName: "test",
 		stateManager: &stateManager{
-			stateStorage: dummy.NewDummyStateStorage(),
+			stateStorage: statestorage.NewDummyStateStorage(),
 		},
 	}
 

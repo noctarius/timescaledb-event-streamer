@@ -29,6 +29,9 @@ import (
 	// Register built-in naming strategies
 	_ "github.com/noctarius/timescaledb-event-streamer/spi/namingstrategy"
 
+	// Register built-in offset storages
+	_ "github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
+
 	// Register built-in sinks
 	_ "github.com/noctarius/timescaledb-event-streamer/internal/eventing/sinks/awskinesis"
 	_ "github.com/noctarius/timescaledb-event-streamer/internal/eventing/sinks/awssqs"
@@ -36,10 +39,6 @@ import (
 	_ "github.com/noctarius/timescaledb-event-streamer/internal/eventing/sinks/nats"
 	_ "github.com/noctarius/timescaledb-event-streamer/internal/eventing/sinks/redis"
 	_ "github.com/noctarius/timescaledb-event-streamer/internal/eventing/sinks/stdout"
-
-	// Register built-in offset storages
-	_ "github.com/noctarius/timescaledb-event-streamer/internal/statestorages/dummy"
-	_ "github.com/noctarius/timescaledb-event-streamer/internal/statestorages/file"
 )
 
 const publicationName = "pg_ts_streamer"
