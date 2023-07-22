@@ -15,11 +15,10 @@
  * limitations under the License.
  */
 
-package testing
+package testsupport
 
 import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
-	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
 )
 
 type Source struct {
@@ -48,7 +47,7 @@ type Field struct {
 	Name        string           `json:"name"`
 	Field       string           `json:"field"`
 	Optional    bool             `json:"optional"`
-	Type        schemamodel.Type `json:"type"`
+	Type        schema.Type `json:"type"`
 	Fields      []Field          `json:"fields"`
 	Default     any              `json:"default"`
 	KeySchema   *Schema          `json:"keySchema"`
@@ -59,7 +58,7 @@ type Schema struct {
 	Fields   []Field          `json:"fields"`
 	Name     string           `json:"name"`
 	Optional bool             `json:"optional"`
-	Type     schemamodel.Type `json:"type"`
+	Type     schema.Type `json:"type"`
 	Length   *int             `json:"length"`
 }
 

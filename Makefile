@@ -42,11 +42,11 @@ full-test: unit-test pg-test integration-test
 
 .PHONY: unit-test
 unit-test:
-	go test -v -race $(shell go list ./... | grep -v 'testing' | grep -v 'tests') -timeout 10m
+	go test -v -race $(shell go list ./... | grep -v 'testsupport' | grep -v 'tests') -timeout 10m
 
 .PHONY: pg-test
 pg-test:
-	go test -v -race $(shell go list ./... | grep 'tests' | grep -v 'tests/integration') -timeout 40m
+	go test -v -race $(shell go list ./... | grep -v 'testsupport' | grep 'tests' | grep -v 'tests/integration') -timeout 40m
 
 .PHONY: integration-test
 integration-test: integration-test-aws-kinesis integration-test-aws-sqs integration-test-kafka integration-test-nats integration-test-redis integration-test-redpanda

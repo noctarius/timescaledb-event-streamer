@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package testing
+package testsupport
 
 import (
 	"context"

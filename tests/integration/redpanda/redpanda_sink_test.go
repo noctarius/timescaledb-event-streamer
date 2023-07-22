@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package kafka
+package redpanda
 
 import (
 	"context"
@@ -24,11 +24,11 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
-	inttest "github.com/noctarius/timescaledb-event-streamer/internal/testing"
-	"github.com/noctarius/timescaledb-event-streamer/internal/testing/containers"
-	"github.com/noctarius/timescaledb-event-streamer/internal/testing/testrunner"
-	"github.com/noctarius/timescaledb-event-streamer/internal/tests/integration"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
+	"github.com/noctarius/timescaledb-event-streamer/tests/integration"
+	inttest "github.com/noctarius/timescaledb-event-streamer/testsupport"
+	"github.com/noctarius/timescaledb-event-streamer/testsupport/containers"
+	"github.com/noctarius/timescaledb-event-streamer/testsupport/testrunner"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"github.com/testcontainers/testcontainers-go"
@@ -36,15 +36,15 @@ import (
 	"time"
 )
 
-type KafkaIntegrationTestSuite struct {
+type RedPandaIntegrationTestSuite struct {
 	testrunner.TestRunner
 }
 
-func TestKafkaIntegrationTestSuite(t *testing.T) {
-	suite.Run(t, new(KafkaIntegrationTestSuite))
+func TestRedPandaIntegrationTestSuite(t *testing.T) {
+	suite.Run(t, new(RedPandaIntegrationTestSuite))
 }
 
-func (kits *KafkaIntegrationTestSuite) Test_Kafka_Sink() {
+func (kits *RedPandaIntegrationTestSuite) Test_RedPanda_Sink() {
 	topicPrefix := supporting.RandomTextString(10)
 
 	var container testcontainers.Container
@@ -102,11 +102,11 @@ func (kits *KafkaIntegrationTestSuite) Test_Kafka_Sink() {
 			testrunner.Attribute(setupContext, "schemaName", sn)
 			testrunner.Attribute(setupContext, "tableName", tn)
 
-			kC, brokers, err := containers.SetupKafkaContainer()
+			rC, brokers, err := containers.SetupRedPandaContainer()
 			if err != nil {
 				return errors.Wrap(err, 0)
 			}
-			container = kC
+			container = rC
 			testrunner.Attribute(setupContext, "brokers", brokers)
 
 			setupContext.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {

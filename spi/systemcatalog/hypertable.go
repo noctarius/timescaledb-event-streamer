@@ -145,7 +145,7 @@ func (h *Hypertable) Columns() Columns {
 func (h *Hypertable) TableColumns() []schema.ColumnAlike {
 	columns := make([]schema.ColumnAlike, 0, len(h.columns))
 	for i := 0; i < len(h.columns); i++ {
-		columns[i] = h.columns[i]
+		columns = append(columns, h.columns[i])
 	}
 	return columns
 }

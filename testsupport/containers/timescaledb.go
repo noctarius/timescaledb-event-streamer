@@ -49,7 +49,7 @@ var initialPublicationFunction = `FAILED TO READ SQL FILE`
 func init() {
 	if _, filename, _, ok := runtime.Caller(0); ok {
 		base := filepath.Dir(filename)
-		dir := filepath.Clean(filepath.Join(base, "./../../../"))
+		dir := filepath.Clean(filepath.Join(base, "./../../"))
 		f, err := os.Open(filepath.Join(dir, "create_timescaledb_catalog_publication.sql"))
 		if err != nil {
 			panic("failed to open file to load the publication sql file")

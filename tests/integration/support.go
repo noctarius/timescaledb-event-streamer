@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"github.com/Shopify/sarama"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
-	inttest "github.com/noctarius/timescaledb-event-streamer/internal/testing"
+	inttest "github.com/noctarius/timescaledb-event-streamer/testsupport"
 	"testing"
 )
 

@@ -15,24 +15,21 @@
  * limitations under the License.
  */
 
-package aws_kinesis
+package redis
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/kinesis"
 	"github.com/go-errors/errors"
+	"github.com/go-redis/redis"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
-	inttest "github.com/noctarius/timescaledb-event-streamer/internal/testing"
-	"github.com/noctarius/timescaledb-event-streamer/internal/testing/containers"
-	"github.com/noctarius/timescaledb-event-streamer/internal/testing/testrunner"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
+	inttest "github.com/noctarius/timescaledb-event-streamer/testsupport"
+	"github.com/noctarius/timescaledb-event-streamer/testsupport/containers"
+	"github.com/noctarius/timescaledb-event-streamer/testsupport/testrunner"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"github.com/testcontainers/testcontainers-go"
@@ -40,99 +37,76 @@ import (
 	"time"
 )
 
-type AwsKinesisIntegrationTestSuite struct {
+type RedisIntegrationTestSuite struct {
 	testrunner.TestRunner
 }
 
-func TestAwsKinesisIntegrationTestSuite(t *testing.T) {
-	suite.Run(t, new(AwsKinesisIntegrationTestSuite))
+func TestRedisIntegrationTestSuite(t *testing.T) {
+	suite.Run(t, new(RedisIntegrationTestSuite))
 }
 
-func (akits *AwsKinesisIntegrationTestSuite) Test_Aws_Kinesis_Sink() {
-	awsRegion := "us-east-1"
+func (rits *RedisIntegrationTestSuite) Test_Redis_Sink() {
 	topicPrefix := supporting.RandomTextString(10)
-	streamName := supporting.RandomTextString(10)
 
-	kinesisLogger, err := logging.NewLogger("Test_Aws_Kinesis_Sink")
+	redisLogger, err := logging.NewLogger("Test_Redis_Sink")
 	if err != nil {
-		akits.T().Error(err)
+		rits.T().Error(err)
 	}
 
-	var endpoint string
+	var address string
 	var container testcontainers.Container
 
-	akits.RunTest(
+	rits.RunTest(
 		func(ctx testrunner.Context) error {
-			awsConfig := aws.NewConfig().
-				WithRegion(awsRegion).
-				WithEndpoint(endpoint).
-				WithCredentials(credentials.NewStaticCredentials("test", "test", "test"))
+			client := redis.NewClient(&redis.Options{
+				Addr: address,
+			})
 
-			awsSession, err := session.NewSession(awsConfig)
-			if err != nil {
+			subjectName := fmt.Sprintf(
+				"%s.%s.%s", topicPrefix,
+				testrunner.GetAttribute[string](ctx, "schemaName"),
+				testrunner.GetAttribute[string](ctx, "tableName"),
+			)
+
+			groupName := supporting.RandomTextString(10)
+			consumerName := supporting.RandomTextString(10)
+
+			if err := client.XGroupCreateMkStream(subjectName, groupName, "0").Err(); err != nil {
 				return err
 			}
-
-			awsKinesis := kinesis.New(awsSession)
 
 			collected := make(chan bool, 1)
 			envelopes := make([]inttest.Envelope, 0)
 			go func() {
-				shardsResult, err := awsKinesis.ListShards(&kinesis.ListShardsInput{
-					StreamName: aws.String(streamName),
-				})
-				if err != nil {
-					akits.T().Error(err)
-					collected <- true
-					return
-				}
-
-				var lastSequenceNumber *string
 				for {
-					iteratorType := "TRIM_HORIZON"
-					if lastSequenceNumber != nil {
-						iteratorType = "AFTER_SEQUENCE_NUMBER"
-					}
-
-					iteratorResult, err := awsKinesis.GetShardIterator(&kinesis.GetShardIteratorInput{
-						ShardId:                shardsResult.Shards[0].ShardId,
-						ShardIteratorType:      aws.String(iteratorType),
-						StreamName:             aws.String(streamName),
-						StartingSequenceNumber: lastSequenceNumber,
-					})
+					results, err := client.XReadGroup(&redis.XReadGroupArgs{
+						Group:    groupName,
+						Consumer: consumerName,
+						Streams:  []string{subjectName, ">"},
+						Count:    1,
+						Block:    0,
+						NoAck:    false,
+					}).Result()
 					if err != nil {
-						kinesisLogger.Errorf("failed reading from kinesis: %+v", err)
+						redisLogger.Errorf("failed reading from redis: %+v", err)
 						collected <- true
 						return
 					}
 
-					msgResult, err := awsKinesis.GetRecords(&kinesis.GetRecordsInput{
-						ShardIterator: iteratorResult.ShardIterator,
-					})
-					if err != nil {
-						kinesisLogger.Errorf("failed reading from kinesis: %+v", err)
-						collected <- true
-						return
-					}
-
-					for _, message := range msgResult.Records {
-						lastSequenceNumber = message.SequenceNumber
-
+					for _, message := range results[0].Messages {
 						envelope := inttest.Envelope{}
-						if message.Data == nil {
-							continue
+						if err := json.Unmarshal([]byte(message.Values["envelope"].(string)), &envelope); err != nil {
+							rits.T().Error(err)
 						}
 
-						if err := json.Unmarshal(message.Data, &envelope); err != nil {
-							akits.T().Error(err)
-						}
-
-						kinesisLogger.Debugf("EVENT: %+v", envelope)
+						redisLogger.Debugf("EVENT: %+v", envelope)
 						envelopes = append(envelopes, envelope)
 						if len(envelopes) >= 10 {
 							collected <- true
 							return
 						}
+
+						client.XAck(subjectName, groupName, message.ID)
 					}
 				}
 			}()
@@ -149,7 +123,7 @@ func (akits *AwsKinesisIntegrationTestSuite) Test_Aws_Kinesis_Sink() {
 			<-collected
 
 			for i, envelope := range envelopes {
-				assert.Equal(akits.T(), i+1, int(envelope.Payload.After["val"].(float64)))
+				assert.Equal(rits.T(), i+1, int(envelope.Payload.After["val"].(float64)))
 			}
 			return nil
 		},
@@ -165,27 +139,18 @@ func (akits *AwsKinesisIntegrationTestSuite) Test_Aws_Kinesis_Sink() {
 			testrunner.Attribute(setupContext, "schemaName", sn)
 			testrunner.Attribute(setupContext, "tableName", tn)
 
-			container, endpoint, err = containers.SetupLocalStackWithKinesis()
+			rC, rA, err := containers.SetupRedisContainer()
 			if err != nil {
 				return errors.Wrap(err, 0)
 			}
+			address = rA
+			container = rC
 
 			setupContext.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
 				config.Topic.Prefix = topicPrefix
-				config.Sink.Type = spiconfig.AwsKinesis
-				config.Sink.AwsKinesis = spiconfig.AwsKinesisConfig{
-					Stream: spiconfig.AwsKinesisStreamConfig{
-						Name:       aws.String(streamName),
-						Create:     aws.Bool(true),
-						ShardCount: aws.Int64(1),
-					},
-					Aws: spiconfig.AwsConnectionConfig{
-						Region:          aws.String(awsRegion),
-						AccessKeyId:     "test",
-						SecretAccessKey: "test",
-						SessionToken:    "test",
-						Endpoint:        endpoint,
-					},
+				config.Sink.Type = spiconfig.Redis
+				config.Sink.Redis = spiconfig.RedisConfig{
+					Address: address,
 				}
 			})
 

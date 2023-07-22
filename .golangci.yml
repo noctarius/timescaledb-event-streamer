@@ -4,13 +4,14 @@ issues:
       linters:
         - errcheck
         - dupl
-    - path: testing/
+    - path: testsupport/
       linters:
         - errcheck
         - dupl
     - path: tests/
       linters:
         - dupl
+        - unused
 run:
   timeout: 5m
 linters:

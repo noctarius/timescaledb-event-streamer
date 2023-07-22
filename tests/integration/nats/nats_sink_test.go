@@ -15,21 +15,21 @@
  * limitations under the License.
  */
 
-package redis
+package nats
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/go-errors/errors"
-	"github.com/go-redis/redis"
+	"github.com/nats-io/nats.go"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
-	inttest "github.com/noctarius/timescaledb-event-streamer/internal/testing"
-	"github.com/noctarius/timescaledb-event-streamer/internal/testing/containers"
-	"github.com/noctarius/timescaledb-event-streamer/internal/testing/testrunner"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
+	inttest "github.com/noctarius/timescaledb-event-streamer/testsupport"
+	"github.com/noctarius/timescaledb-event-streamer/testsupport/containers"
+	"github.com/noctarius/timescaledb-event-streamer/testsupport/testrunner"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"github.com/testcontainers/testcontainers-go"
@@ -37,30 +37,40 @@ import (
 	"time"
 )
 
-type RedisIntegrationTestSuite struct {
+type NatsIntegrationTestSuite struct {
 	testrunner.TestRunner
 }
 
-func TestRedisIntegrationTestSuite(t *testing.T) {
-	suite.Run(t, new(RedisIntegrationTestSuite))
+func TestNatsIntegrationTestSuite(t *testing.T) {
+	suite.Run(t, new(NatsIntegrationTestSuite))
 }
 
-func (rits *RedisIntegrationTestSuite) Test_Redis_Sink() {
+func (nits *NatsIntegrationTestSuite) Test_Nats_Sink() {
 	topicPrefix := supporting.RandomTextString(10)
 
-	redisLogger, err := logging.NewLogger("Test_Redis_Sink")
+	natsLogger, err := logging.NewLogger("Test_Nats_Sink")
 	if err != nil {
-		rits.T().Error(err)
+		nits.T().Error(err)
 	}
 
-	var address string
-	var container testcontainers.Container
+	var natsUrl string
+	var natsContainer testcontainers.Container
 
-	rits.RunTest(
+	nits.RunTest(
 		func(ctx testrunner.Context) error {
-			client := redis.NewClient(&redis.Options{
-				Addr: address,
-			})
+			// Collect logs
+			natsContainer.FollowOutput(&testrunner.ContainerLogForwarder{Logger: natsLogger})
+			natsContainer.StartLogProducer(context.Background())
+
+			conn, err := nats.Connect(natsUrl, nats.DontRandomize(), nats.RetryOnFailedConnect(true), nats.MaxReconnects(-1))
+			if err != nil {
+				return err
+			}
+
+			js, err := conn.JetStream(nats.PublishAsyncMaxPending(256))
+			if err != nil {
+				return err
+			}
 
 			subjectName := fmt.Sprintf(
 				"%s.%s.%s", topicPrefix,
@@ -68,48 +78,36 @@ func (rits *RedisIntegrationTestSuite) Test_Redis_Sink() {
 				testrunner.GetAttribute[string](ctx, "tableName"),
 			)
 
+			streamName := supporting.RandomTextString(10)
 			groupName := supporting.RandomTextString(10)
-			consumerName := supporting.RandomTextString(10)
 
-			if err := client.XGroupCreateMkStream(subjectName, groupName, "0").Err(); err != nil {
+			natsLogger.Println("Creating NATS JetStream stream...")
+			_, err = js.AddStream(&nats.StreamConfig{
+				Name:     streamName,
+				Subjects: []string{subjectName},
+			})
+			if err != nil {
 				return err
 			}
 
-			collected := make(chan bool, 1)
+			waiter := supporting.NewWaiterWithTimeout(time.Minute)
 			envelopes := make([]inttest.Envelope, 0)
-			go func() {
-				for {
-					results, err := client.XReadGroup(&redis.XReadGroupArgs{
-						Group:    groupName,
-						Consumer: consumerName,
-						Streams:  []string{subjectName, ">"},
-						Count:    1,
-						Block:    0,
-						NoAck:    false,
-					}).Result()
-					if err != nil {
-						redisLogger.Errorf("failed reading from redis: %+v", err)
-						collected <- true
-						return
-					}
-
-					for _, message := range results[0].Messages {
-						envelope := inttest.Envelope{}
-						if err := json.Unmarshal([]byte(message.Values["envelope"].(string)), &envelope); err != nil {
-							rits.T().Error(err)
-						}
-
-						redisLogger.Debugf("EVENT: %+v", envelope)
-						envelopes = append(envelopes, envelope)
-						if len(envelopes) >= 10 {
-							collected <- true
-							return
-						}
-
-						client.XAck(subjectName, groupName, message.ID)
-					}
+			_, err = js.QueueSubscribe(subjectName, groupName, func(msg *nats.Msg) {
+				envelope := inttest.Envelope{}
+				if err := json.Unmarshal(msg.Data, &envelope); err != nil {
+					msg.Nak()
+					nits.T().Error(err)
 				}
-			}()
+				natsLogger.Debugf("EVENT: %+v", envelope)
+				envelopes = append(envelopes, envelope)
+				if len(envelopes) >= 10 {
+					waiter.Signal()
+				}
+				msg.Ack()
+			}, nats.ManualAck())
+			if err != nil {
+				return err
+			}
 
 			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
@@ -120,10 +118,12 @@ func (rits *RedisIntegrationTestSuite) Test_Redis_Sink() {
 				return err
 			}
 
-			<-collected
+			if err := waiter.Await(); err != nil {
+				return err
+			}
 
 			for i, envelope := range envelopes {
-				assert.Equal(rits.T(), i+1, int(envelope.Payload.After["val"].(float64)))
+				assert.Equal(nits.T(), i+1, int(envelope.Payload.After["val"].(float64)))
 			}
 			return nil
 		},
@@ -139,18 +139,23 @@ func (rits *RedisIntegrationTestSuite) Test_Redis_Sink() {
 			testrunner.Attribute(setupContext, "schemaName", sn)
 			testrunner.Attribute(setupContext, "tableName", tn)
 
-			rC, rA, err := containers.SetupRedisContainer()
+			nC, nU, err := containers.SetupNatsContainer()
 			if err != nil {
 				return errors.Wrap(err, 0)
 			}
-			address = rA
-			container = rC
+			natsUrl = nU
+			natsContainer = nC
 
 			setupContext.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
 				config.Topic.Prefix = topicPrefix
-				config.Sink.Type = spiconfig.Redis
-				config.Sink.Redis = spiconfig.RedisConfig{
-					Address: address,
+				config.Sink.Type = spiconfig.NATS
+				config.Sink.Nats = spiconfig.NatsConfig{
+					Address:       natsUrl,
+					Authorization: spiconfig.UserInfo,
+					UserInfo: spiconfig.NatsUserInfoConfig{
+						Username: "",
+						Password: "",
+					},
 				}
 			})
 
@@ -158,8 +163,8 @@ func (rits *RedisIntegrationTestSuite) Test_Redis_Sink() {
 		}),
 
 		testrunner.WithTearDown(func(ctx testrunner.Context) error {
-			if container != nil {
-				container.Terminate(context.Background())
+			if natsContainer != nil {
+				natsContainer.Terminate(context.Background())
 			}
 			return nil
 		}),
