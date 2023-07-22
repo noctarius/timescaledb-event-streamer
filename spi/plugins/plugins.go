@@ -1,3 +1,5 @@
+//go:build linux || freebsd || darwin
+
 package plugins
 
 import (
