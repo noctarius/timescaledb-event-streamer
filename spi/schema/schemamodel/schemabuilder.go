@@ -264,7 +264,7 @@ func (s *schemaBuilderImpl) Field(name FieldName, index int, schemaBuilder Schem
 	s.fields[name] = &fieldImpl{
 		name:          name,
 		index:         index,
-		schemaBuilder: schemaBuilder.Clone().FieldName(name),
+		schemaBuilder: schemaBuilder.Clone().FieldName(name).Index(index),
 	}
 	return s
 }
