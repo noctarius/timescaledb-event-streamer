@@ -27,7 +27,7 @@ import (
 	"github.com/urfave/cli"
 
 	// Register built-in naming strategies
-	_ "github.com/noctarius/timescaledb-event-streamer/internal/eventing/namingstrategies"
+	_ "github.com/noctarius/timescaledb-event-streamer/spi/namingstrategy"
 
 	// Register built-in sinks
 	_ "github.com/noctarius/timescaledb-event-streamer/internal/eventing/sinks/awskinesis"

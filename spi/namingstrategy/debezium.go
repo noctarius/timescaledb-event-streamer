@@ -15,34 +15,33 @@
  * limitations under the License.
  */
 
-package namingstrategies
+package namingstrategy
 
 import (
 	"fmt"
 	"github.com/noctarius/timescaledb-event-streamer/spi/config"
-	"github.com/noctarius/timescaledb-event-streamer/spi/namingstrategy"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 )
 
 func init() {
-	namingstrategy.RegisterNamingStrategy(config.Debezium,
-		func(_ *config.Config) (namingstrategy.NamingStrategy, error) {
-			return &DebeziumNamingStrategy{}, nil
+	RegisterNamingStrategy(config.Debezium,
+		func(_ *config.Config) (NamingStrategy, error) {
+			return &debeziumNamingStrategy{}, nil
 		},
 	)
 }
 
-type DebeziumNamingStrategy struct {
+type debeziumNamingStrategy struct {
 }
 
-func (d *DebeziumNamingStrategy) EventTopicName(topicPrefix string, hypertable schema.TableAlike) string {
+func (d *debeziumNamingStrategy) EventTopicName(topicPrefix string, hypertable schema.TableAlike) string {
 	return fmt.Sprintf("%s.%s.%s", topicPrefix, hypertable.SchemaName(), hypertable.TableName())
 }
 
-func (d *DebeziumNamingStrategy) SchemaTopicName(topicPrefix string, hypertable schema.TableAlike) string {
+func (d *debeziumNamingStrategy) SchemaTopicName(topicPrefix string, hypertable schema.TableAlike) string {
 	return fmt.Sprintf("%s.%s.%s", topicPrefix, hypertable.SchemaName(), hypertable.TableName())
 }
 
-func (d *DebeziumNamingStrategy) MessageTopicName(topicPrefix string) string {
+func (d *debeziumNamingStrategy) MessageTopicName(topicPrefix string) string {
 	return fmt.Sprintf("%s.message", topicPrefix)
 }
