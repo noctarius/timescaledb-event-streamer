@@ -23,13 +23,9 @@ import (
 	"sync"
 )
 
-var sinkRegistry *registry
-
-func init() {
-	sinkRegistry = &registry{
-		mutex:     sync.Mutex{},
-		providers: make(map[config.SinkType]Provider),
-	}
+var sinkRegistry = &registry{
+	mutex:     sync.Mutex{},
+	providers: make(map[config.SinkType]Provider),
 }
 
 type registry struct {
