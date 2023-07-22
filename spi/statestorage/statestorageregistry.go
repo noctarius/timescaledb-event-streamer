@@ -23,13 +23,9 @@ import (
 	"sync"
 )
 
-var stateStorageRegistry *registry
-
-func init() {
-	stateStorageRegistry = &registry{
-		mutex:     sync.Mutex{},
-		providers: make(map[config.StateStorageType]Provider),
-	}
+var stateStorageRegistry = &registry{
+	mutex:     sync.Mutex{},
+	providers: make(map[config.StateStorageType]Provider),
 }
 
 type registry struct {

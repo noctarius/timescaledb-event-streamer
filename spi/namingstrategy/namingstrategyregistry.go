@@ -23,13 +23,9 @@ import (
 	"sync"
 )
 
-var namingStrategyRegistry *registry
-
-func init() {
-	namingStrategyRegistry = &registry{
-		mutex:     sync.Mutex{},
-		providers: make(map[config.NamingStrategyType]Provider),
-	}
+var namingStrategyRegistry = &registry{
+	mutex:     sync.Mutex{},
+	providers: make(map[config.NamingStrategyType]Provider),
 }
 
 type registry struct {
