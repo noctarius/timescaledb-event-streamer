@@ -20,7 +20,6 @@ package eventfiltering
 import (
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
-	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -37,14 +36,14 @@ func TestEventFilter_Evaluate(t *testing.T) {
 		t.FailNow()
 	}
 
-	success, err := filter.Evaluate(nil, schemamodel.Struct{
-		schemamodel.FieldNamePayload: schemamodel.Struct{},
-		schemamodel.FieldNameSchema:  schemamodel.Struct{},
-	}, schemamodel.Struct{
-		schemamodel.FieldNamePayload: schemamodel.Struct{
-			schemamodel.FieldNameOperation: string(schema.OP_CREATE),
+	success, err := filter.Evaluate(nil, schema.Struct{
+		schema.FieldNamePayload: schema.Struct{},
+		schema.FieldNameSchema:  schema.Struct{},
+	}, schema.Struct{
+		schema.FieldNamePayload: schema.Struct{
+			schema.FieldNameOperation: string(schema.OP_CREATE),
 		},
-		schemamodel.FieldNameSchema: schemamodel.Struct{},
+		schema.FieldNameSchema: schema.Struct{},
 	})
 
 	if err != nil {

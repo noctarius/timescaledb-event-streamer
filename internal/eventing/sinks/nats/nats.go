@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"github.com/nats-io/nats.go"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
-	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/sink"
 	"time"
 )
@@ -104,7 +104,7 @@ func (n *natsSink) Stop() error {
 	return nil
 }
 
-func (n *natsSink) Emit(_ sink.Context, _ time.Time, topicName string, key, envelope schemamodel.Struct) error {
+func (n *natsSink) Emit(_ sink.Context, _ time.Time, topicName string, key, envelope schema.Struct) error {
 	keyData, err := json.Marshal(key)
 	if err != nil {
 		return err

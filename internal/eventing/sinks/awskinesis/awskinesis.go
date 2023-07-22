@@ -25,7 +25,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/kinesis"
 	"github.com/go-errors/errors"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
-	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/sink"
 	"log"
 	"time"
@@ -123,7 +123,7 @@ func (a *awsKinesisSink) Stop() error {
 	return nil
 }
 
-func (a *awsKinesisSink) Emit(_ sink.Context, _ time.Time, topicName string, _, envelope schemamodel.Struct) error {
+func (a *awsKinesisSink) Emit(_ sink.Context, _ time.Time, topicName string, _, envelope schema.Struct) error {
 	envelopeData, err := json.Marshal(envelope)
 	if err != nil {
 		return err

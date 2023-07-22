@@ -23,17 +23,17 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/tablefiltering"
 	"github.com/noctarius/timescaledb-event-streamer/spi/config"
-	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 )
 
 type EventFilter interface {
-	Evaluate(hypertable *systemcatalog.Hypertable, key, value schemamodel.Struct) (bool, error)
+	Evaluate(hypertable *systemcatalog.Hypertable, key, value schema.Struct) (bool, error)
 }
 
-type eventFilterFunc func(hypertable *systemcatalog.Hypertable, key, value schemamodel.Struct) (bool, error)
+type eventFilterFunc func(hypertable *systemcatalog.Hypertable, key, value schema.Struct) (bool, error)
 
-func (eff eventFilterFunc) Evaluate(hypertable *systemcatalog.Hypertable, key, value schemamodel.Struct) (bool, error) {
+func (eff eventFilterFunc) Evaluate(hypertable *systemcatalog.Hypertable, key, value schema.Struct) (bool, error) {
 	return eff(hypertable, key, value)
 }
 
@@ -75,12 +75,12 @@ func NewEventFilter(filterDefinitions map[string]config.EventFilterConfig) (Even
 	return compositeFilter(filters, tableFilters), nil
 }
 
-var acceptAllFilter eventFilterFunc = func(_ *systemcatalog.Hypertable, _, _ schemamodel.Struct) (bool, error) {
+var acceptAllFilter eventFilterFunc = func(_ *systemcatalog.Hypertable, _, _ schema.Struct) (bool, error) {
 	return true, nil
 }
 
 var compositeFilter = func(filters []*eventFilter, tableFilters []tableFilter) EventFilter {
-	return eventFilterFunc(func(hypertable *systemcatalog.Hypertable, key, value schemamodel.Struct) (bool, error) {
+	return eventFilterFunc(func(hypertable *systemcatalog.Hypertable, key, value schema.Struct) (bool, error) {
 		for i, tableFilter := range tableFilters {
 			if hypertable == nil || tableFilter.Enabled(hypertable) {
 				success, err := filters[i].evaluate(key, value)
@@ -103,12 +103,12 @@ type eventFilter struct {
 	vm           *vm.VM
 }
 
-func (f *eventFilter) evaluate(key, value schemamodel.Struct) (bool, error) {
-	env := map[string]schemamodel.Struct{
-		"key":         key[schemamodel.FieldNamePayload].(schemamodel.Struct),
-		"keySchema":   key[schemamodel.FieldNameSchema].(schemamodel.Struct),
-		"value":       value[schemamodel.FieldNamePayload].(schemamodel.Struct),
-		"valueSchema": value[schemamodel.FieldNameSchema].(schemamodel.Struct),
+func (f *eventFilter) evaluate(key, value schema.Struct) (bool, error) {
+	env := map[string]schema.Struct{
+		"key":         key[schema.FieldNamePayload].(schema.Struct),
+		"keySchema":   key[schema.FieldNameSchema].(schema.Struct),
+		"value":       value[schema.FieldNamePayload].(schema.Struct),
+		"valueSchema": value[schema.FieldNameSchema].(schema.Struct),
 	}
 
 	result, err := f.vm.Run(f.prog, env)

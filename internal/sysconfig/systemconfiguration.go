@@ -21,9 +21,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig/defaultproviders"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
+	"github.com/noctarius/timescaledb-event-streamer/spi/namingstrategy"
 	"github.com/noctarius/timescaledb-event-streamer/spi/sink"
 	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
-	"github.com/noctarius/timescaledb-event-streamer/spi/topic/namingstrategy"
 )
 
 type SystemConfig struct {

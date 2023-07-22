@@ -3,7 +3,7 @@ package pgtypes
 import (
 	"fmt"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
-	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 )
 
 // Converter represents a conversion function to convert from
@@ -61,8 +61,8 @@ type PgType interface {
 	Modifiers() int
 	EnumValues() []string
 	Delimiter() string
-	SchemaType() schemamodel.Type
-	SchemaBuilder() schemamodel.SchemaBuilder
+	SchemaType() schema.Type
+	SchemaBuilder() schema.SchemaBuilder
 	Format() string
 	Equal(other PgType) bool
 }
@@ -81,10 +81,10 @@ type pgType struct {
 	modifiers  int
 	enumValues []string
 	delimiter  string
-	schemaType schemamodel.Type
+	schemaType schema.Type
 
 	typeManager         *TypeManager
-	schemaBuilder       schemamodel.SchemaBuilder
+	schemaBuilder       schema.SchemaBuilder
 	resolvedArrayType   PgType
 	resolvedElementType PgType
 	resolvedParentType  PgType
@@ -210,11 +210,11 @@ func (t *pgType) Delimiter() string {
 	return t.delimiter
 }
 
-func (t *pgType) SchemaType() schemamodel.Type {
+func (t *pgType) SchemaType() schema.Type {
 	return t.schemaType
 }
 
-func (t *pgType) SchemaBuilder() schemamodel.SchemaBuilder {
+func (t *pgType) SchemaBuilder() schema.SchemaBuilder {
 	if t.schemaBuilder == nil {
 		t.schemaBuilder = t.typeManager.resolveSchemaBuilder(t)
 	}

@@ -24,16 +24,14 @@ import (
 	"github.com/jackc/pglogrepl"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	intschema "github.com/noctarius/timescaledb-event-streamer/internal/eventing/schema"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
+	"github.com/noctarius/timescaledb-event-streamer/spi/namingstrategy"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
-	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
 	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
-	"github.com/noctarius/timescaledb-event-streamer/spi/topic/namingstrategy"
 	"github.com/noctarius/timescaledb-event-streamer/spi/version"
 	"github.com/noctarius/timescaledb-event-streamer/spi/watermark"
 	"github.com/urfave/cli"
@@ -187,7 +185,7 @@ func NewReplicationContext(config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
 	}
 	// Instantiate the schema registry, keeping track of hypertable schemas
 	// for the schema generation on event creation
-	replicationContext.schemaManager.schemaRegistry = intschema.NewRegistry(replicationContext.schemaManager)
+	replicationContext.schemaManager.schemaRegistry = schema.NewRegistry(replicationContext.schemaManager)
 
 	return replicationContext, nil
 }
@@ -641,11 +639,11 @@ func (sm *schemaManager) TopicPrefix() string {
 	return sm.topicPrefix
 }
 
-func (sm *schemaManager) EventTopicName(hypertable *systemcatalog.Hypertable) string {
+func (sm *schemaManager) EventTopicName(hypertable schema.TableAlike) string {
 	return sm.namingStrategy.EventTopicName(sm.topicPrefix, hypertable)
 }
 
-func (sm *schemaManager) SchemaTopicName(hypertable *systemcatalog.Hypertable) string {
+func (sm *schemaManager) SchemaTopicName(hypertable schema.TableAlike) string {
 	return sm.namingStrategy.SchemaTopicName(sm.topicPrefix, hypertable)
 }
 
@@ -653,23 +651,23 @@ func (sm *schemaManager) MessageTopicName() string {
 	return sm.namingStrategy.MessageTopicName(sm.topicPrefix)
 }
 
-func (sm *schemaManager) RegisterSchema(schemaName string, schema schemamodel.Struct) {
+func (sm *schemaManager) RegisterSchema(schemaName string, schema schema.Struct) {
 	sm.schemaRegistry.RegisterSchema(schemaName, schema)
 }
 
-func (sm *schemaManager) GetSchema(schemaName string) schemamodel.Struct {
+func (sm *schemaManager) GetSchema(schemaName string) schema.Struct {
 	return sm.schemaRegistry.GetSchema(schemaName)
 }
 
-func (sm *schemaManager) GetSchemaOrCreate(schemaName string, creator func() schemamodel.Struct) schemamodel.Struct {
+func (sm *schemaManager) GetSchemaOrCreate(schemaName string, creator func() schema.Struct) schema.Struct {
 	return sm.schemaRegistry.GetSchemaOrCreate(schemaName, creator)
 }
 
-func (sm *schemaManager) HypertableEnvelopeSchemaName(hypertable *systemcatalog.Hypertable) string {
+func (sm *schemaManager) HypertableEnvelopeSchemaName(hypertable schema.TableAlike) string {
 	return sm.schemaRegistry.HypertableEnvelopeSchemaName(hypertable)
 }
 
-func (sm *schemaManager) HypertableKeySchemaName(hypertable *systemcatalog.Hypertable) string {
+func (sm *schemaManager) HypertableKeySchemaName(hypertable schema.TableAlike) string {
 	return sm.schemaRegistry.HypertableKeySchemaName(hypertable)
 }
 

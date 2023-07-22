@@ -1,4 +1,4 @@
-package schemamodel
+package schema
 
 // Type is a string like definition of the available
 // event stream data types
@@ -65,3 +65,27 @@ const (
 )
 
 type Struct = map[FieldName]any
+
+type Identifiable interface {
+	// SchemaName returns the schema name of the entity
+	SchemaName() string
+	// TableName returns the table name of the entity
+	TableName() string
+}
+
+type Buildable interface {
+	SchemaBuilder() SchemaBuilder
+}
+
+type TableAlike interface {
+	Identifiable
+	Buildable
+	TableColumns() []ColumnAlike
+}
+
+type ColumnAlike interface {
+	Buildable
+	Name() string
+	SchemaType() Type
+	IsPrimaryKey() bool
+}

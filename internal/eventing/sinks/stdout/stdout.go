@@ -21,7 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
-	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/sink"
 	"os"
 	"time"
@@ -33,7 +33,7 @@ func init() {
 
 func newStdoutSink(_ *spiconfig.Config) (sink.Sink, error) {
 	return sink.SinkFunc(
-		func(_ sink.Context, _ time.Time, _ string, _, envelope schemamodel.Struct) error {
+		func(_ sink.Context, _ time.Time, _ string, _, envelope schema.Struct) error {
 			delete(envelope, "schema")
 			data, err := json.Marshal(envelope)
 			if err != nil {

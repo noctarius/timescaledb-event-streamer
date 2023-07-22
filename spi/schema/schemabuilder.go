@@ -1,4 +1,4 @@
-package schemamodel
+package schema
 
 import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"

@@ -5,7 +5,7 @@ import (
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
-	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/version"
@@ -92,14 +92,14 @@ type StateManager interface {
 
 type SchemaManager interface {
 	TopicPrefix() string
-	EventTopicName(hypertable *systemcatalog.Hypertable) string
-	SchemaTopicName(hypertable *systemcatalog.Hypertable) string
+	EventTopicName(hypertable schema.TableAlike) string
+	SchemaTopicName(hypertable schema.TableAlike) string
 	MessageTopicName() string
-	RegisterSchema(schemaName string, schema schemamodel.Struct)
-	GetSchema(schemaName string) schemamodel.Struct
-	GetSchemaOrCreate(schemaName string, creator func() schemamodel.Struct) schemamodel.Struct
-	HypertableEnvelopeSchemaName(hypertable *systemcatalog.Hypertable) string
-	HypertableKeySchemaName(hypertable *systemcatalog.Hypertable) string
+	RegisterSchema(schemaName string, schema schema.Struct)
+	GetSchema(schemaName string) schema.Struct
+	GetSchemaOrCreate(schemaName string, creator func() schema.Struct) schema.Struct
+	HypertableEnvelopeSchemaName(hypertable schema.TableAlike) string
+	HypertableKeySchemaName(hypertable schema.TableAlike) string
 	MessageEnvelopeSchemaName() string
 }
 

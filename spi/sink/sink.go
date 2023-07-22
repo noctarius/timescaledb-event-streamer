@@ -19,7 +19,7 @@ package sink
 
 import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/config"
-	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"time"
 )
 
@@ -28,10 +28,10 @@ type Provider = func(config *config.Config) (Sink, error)
 type Sink interface {
 	Start() error
 	Stop() error
-	Emit(context Context, timestamp time.Time, topicName string, key, envelope schemamodel.Struct) error
+	Emit(context Context, timestamp time.Time, topicName string, key, envelope schema.Struct) error
 }
 
-type SinkFunc func(context Context, timestamp time.Time, topicName string, key, envelope schemamodel.Struct) error
+type SinkFunc func(context Context, timestamp time.Time, topicName string, key, envelope schema.Struct) error
 
 func (sf SinkFunc) Start() error {
 	return nil
@@ -41,7 +41,7 @@ func (sf SinkFunc) Stop() error {
 	return nil
 }
 
-func (sf SinkFunc) Emit(context Context, timestamp time.Time, topicName string, key, envelope schemamodel.Struct) error {
+func (sf SinkFunc) Emit(context Context, timestamp time.Time, topicName string, key, envelope schema.Struct) error {
 	return sf(context, timestamp, topicName, key, envelope)
 }
 

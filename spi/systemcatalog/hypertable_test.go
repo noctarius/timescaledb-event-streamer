@@ -19,7 +19,7 @@ package systemcatalog
 
 import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
-	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"testing"
 )
 
@@ -180,16 +180,16 @@ func (t *testPgType) Name() string {
 	return "foo"
 }
 
-func (t *testPgType) Kind() PgKind {
-	return BaseKind
+func (t *testPgType) Kind() pgtypes.PgKind {
+	return pgtypes.BaseKind
 }
 
 func (t *testPgType) Oid() uint32 {
 	return 123
 }
 
-func (t *testPgType) Category() PgCategory {
-	return Numeric
+func (t *testPgType) Category() pgtypes.PgCategory {
+	return pgtypes.Numeric
 }
 
 func (t *testPgType) IsArray() bool {
@@ -200,15 +200,15 @@ func (t *testPgType) IsRecord() bool {
 	return false
 }
 
-func (t *testPgType) ArrayType() PgType {
+func (t *testPgType) ArrayType() pgtypes.PgType {
 	return nil
 }
 
-func (t *testPgType) ElementType() PgType {
+func (t *testPgType) ElementType() pgtypes.PgType {
 	return nil
 }
 
-func (t *testPgType) ParentType() PgType {
+func (t *testPgType) ParentType() pgtypes.PgType {
 	return nil
 }
 
@@ -236,11 +236,11 @@ func (t *testPgType) Delimiter() string {
 	return ","
 }
 
-func (t *testPgType) SchemaType() schemamodel.Type {
-	return schemamodel.INT16
+func (t *testPgType) SchemaType() schema.Type {
+	return schema.INT16
 }
 
-func (t *testPgType) SchemaBuilder() schemamodel.SchemaBuilder {
+func (t *testPgType) SchemaBuilder() schema.SchemaBuilder {
 	return nil
 }
 
@@ -248,6 +248,6 @@ func (t *testPgType) Format() string {
 	return ""
 }
 
-func (t *testPgType) Equal(_ PgType) bool {
+func (t *testPgType) Equal(_ pgtypes.PgType) bool {
 	return true
 }

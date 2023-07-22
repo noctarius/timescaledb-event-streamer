@@ -22,7 +22,7 @@ import (
 	"encoding/json"
 	"github.com/Shopify/sarama"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
-	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/sink"
 	"time"
 )
@@ -90,9 +90,7 @@ func (k *kafkaSink) Stop() error {
 	return k.producer.Close()
 }
 
-func (k *kafkaSink) Emit(_ sink.Context, timestamp time.Time,
-	topicName string, key, envelope schemamodel.Struct) error {
-
+func (k *kafkaSink) Emit(_ sink.Context, timestamp time.Time, topicName string, key, envelope schema.Struct) error {
 	keyData, err := json.Marshal(key)
 	if err != nil {
 		return err

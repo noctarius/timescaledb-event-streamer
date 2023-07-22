@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
-	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"strings"
 )
 
@@ -142,6 +142,14 @@ func (h *Hypertable) Columns() Columns {
 	return h.columns
 }
 
+func (h *Hypertable) TableColumns() []schema.ColumnAlike {
+	columns := make([]schema.ColumnAlike, 0, len(h.columns))
+	for i := 0; i < len(h.columns); i++ {
+		columns[i] = h.columns[i]
+	}
+	return columns
+}
+
 // CanonicalContinuousAggregateName returns the canonical
 // continuous aggregate name of the hypertable in the form
 // of <<schema.view>>. This method panics if the hypertable
@@ -159,8 +167,8 @@ func (h *Hypertable) ReplicaIdentity() pgtypes.ReplicaIdentity {
 
 // SchemaBuilder returns a SchemaBuilder instance, preconfigured
 // for this hypertable instance
-func (h *Hypertable) SchemaBuilder() schemamodel.SchemaBuilder {
-	schemaBuilder := schemamodel.NewSchemaBuilder(schemamodel.STRUCT).
+func (h *Hypertable) SchemaBuilder() schema.SchemaBuilder {
+	schemaBuilder := schema.NewSchemaBuilder(schema.STRUCT).
 		FieldName(h.CanonicalName())
 
 	for i, column := range h.columns {

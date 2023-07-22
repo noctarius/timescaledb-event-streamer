@@ -22,7 +22,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
-	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"strings"
 )
 
@@ -246,10 +246,14 @@ func (c Column) MaxCharLength() *int {
 	return c.maxCharLength
 }
 
+func (c Column) SchemaType() schema.Type {
+	return c.pgType.SchemaType()
+}
+
 // SchemaBuilder returns a schema builder based on the
 // column's PgType and internal state (default value,
 // nullable, name, etc).
-func (c Column) SchemaBuilder() schemamodel.SchemaBuilder {
+func (c Column) SchemaBuilder() schema.SchemaBuilder {
 	schemaBuilder := c.pgType.SchemaBuilder().
 		FieldName(c.Name()).
 		DefaultValue(c.defaultValue).
@@ -257,7 +261,7 @@ func (c Column) SchemaBuilder() schemamodel.SchemaBuilder {
 
 	valueLength := c.valueLength()
 	if valueLength > -1 {
-		schemaBuilder.Parameter(schemamodel.FieldNameLength, valueLength)
+		schemaBuilder.Parameter(schema.FieldNameLength, valueLength)
 	}
 
 	return schemaBuilder.Clone()
