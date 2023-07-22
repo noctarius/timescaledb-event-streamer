@@ -29,7 +29,6 @@ import (
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
-	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes/datatypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
 	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
@@ -177,7 +176,7 @@ func NewReplicationContext(config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
 	replicationContext.taskManager = &taskManager{
 		taskDispatcher: taskDispatcher,
 	}
-	typeManager, err := datatypes.NewTypeManager(sideChannel)
+	typeManager, err := pgtypes.NewTypeManager(sideChannel)
 	if err != nil {
 		return nil, errors.Wrap(err, 0)
 	}

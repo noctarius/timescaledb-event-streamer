@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package pgdecoding
+package pgtypes
 
 import (
 	"fmt"

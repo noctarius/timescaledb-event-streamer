@@ -1,4 +1,4 @@
-package pgdecoding
+package pgtypes
 
 import (
 	"database/sql/driver"

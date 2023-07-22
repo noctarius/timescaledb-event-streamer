@@ -1,14 +1,12 @@
-package datatypes
+package pgtypes
 
 import (
 	"fmt"
 	"github.com/go-errors/errors"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/noctarius/timescaledb-event-streamer/internal/pgdecoding"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
-	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"reflect"
 	"sync"
 )
@@ -26,13 +24,13 @@ var (
 	mapType     = reflect.TypeOf(map[string]any{})
 )
 
-type TypeFactory func(namespace, name string, kind systemcatalog.PgKind, oid uint32, category systemcatalog.PgCategory,
+type TypeFactory func(namespace, name string, kind PgKind, oid uint32, category PgCategory,
 	arrayType bool, recordType bool, oidArray uint32, oidElement uint32, oidParent uint32,
-	modifiers int, enumValues []string, delimiter string) systemcatalog.PgType
+	modifiers int, enumValues []string, delimiter string) PgType
 
 type TypeResolver interface {
-	ReadPgTypes(factory TypeFactory, callback func(systemcatalog.PgType) error) error
-	ReadPgType(oid uint32, factory TypeFactory) (systemcatalog.PgType, bool, error)
+	ReadPgTypes(factory TypeFactory, callback func(PgType) error) error
+	ReadPgType(oid uint32, factory TypeFactory) (PgType, bool, error)
 }
 
 type typeRegistration struct {
@@ -102,7 +100,7 @@ var coreTypes = map[uint32]typeRegistration{
 		schemaType: schemamodel.STRING,
 		converter:  char2text,
 	},
-	pgdecoding.QCharArrayOID: { // QCharArrayOID
+	QCharArrayOID: {
 		schemaType: schemamodel.ARRAY,
 		oidElement: pgtype.QCharOID,
 		converter:  arrayConverter[[]string](pgtype.QCharOID, char2text),
@@ -236,14 +234,14 @@ var coreTypes = map[uint32]typeRegistration{
 		oidElement: pgtype.MacaddrOID,
 		converter:  arrayConverter[[]string](pgtype.MacaddrOID, macaddr2text),
 	},
-	pgdecoding.MacAddr8OID: {
+	MacAddr8OID: {
 		schemaType: schemamodel.STRING,
 		converter:  macaddr2text,
 	},
-	pgdecoding.MacAddrArray8OID: {
+	MacAddrArray8OID: {
 		schemaType: schemamodel.ARRAY,
-		oidElement: pgdecoding.MacAddr8OID,
-		converter:  arrayConverter[[]string](pgdecoding.MacAddr8OID, macaddr2text),
+		oidElement: MacAddr8OID,
+		converter:  arrayConverter[[]string](MacAddr8OID, macaddr2text),
 	},
 	pgtype.InetOID: {
 		schemaType: schemamodel.STRING,
@@ -353,21 +351,21 @@ var coreTypes = map[uint32]typeRegistration{
 		oidElement: pgtype.VarbitOID,
 		converter:  arrayConverter[[]string](pgtype.VarbitOID, bits2string),
 	},
-	pgdecoding.TimeTZOID: { // timetz
+	TimeTZOID: {
 		schemaType: schemamodel.STRING,
 		converter:  time2text,
 	},
-	pgdecoding.TimeTZArrayOID: { // timetz[]
+	TimeTZArrayOID: {
 		schemaType: schemamodel.ARRAY,
-		oidElement: pgdecoding.TimeTZOID,
-		converter:  arrayConverter[[]string](pgdecoding.TimeTZOID, time2text),
+		oidElement: TimeTZOID,
+		converter:  arrayConverter[[]string](TimeTZOID, time2text),
 	},
-	pgdecoding.XmlOID: { // xml
+	XmlOID: {
 		schemaType: schemamodel.STRING,
 	},
-	pgdecoding.XmlArrayOID: { // timetz[]
+	XmlArrayOID: {
 		schemaType: schemamodel.ARRAY,
-		oidElement: pgdecoding.XmlOID,
+		oidElement: XmlOID,
 	},
 }
 
@@ -384,7 +382,7 @@ var optimizedTypes = map[string]typeRegistration{
 		schemaType:    schemamodel.STRING,
 		schemaBuilder: schemamodel.Ltree(),
 		converter:     ltree2string,
-		codec:         pgdecoding.LtreeCodec{},
+		codec:         LtreeCodec{},
 	},
 	"_ltree": {
 		schemaType: schemamodel.ARRAY,
@@ -399,10 +397,10 @@ var ErrIllegalValue = fmt.Errorf("illegal value for data type conversion")
 type TypeManager struct {
 	logger              *logging.Logger
 	typeResolver        TypeResolver
-	typeCache           map[uint32]systemcatalog.PgType
+	typeCache           map[uint32]PgType
 	typeNameCache       map[string]uint32
 	typeCacheMutex      sync.Mutex
-	optimizedTypes      map[uint32]systemcatalog.PgType
+	optimizedTypes      map[uint32]PgType
 	optimizedConverters map[uint32]typeRegistration
 }
 
@@ -415,10 +413,10 @@ func NewTypeManager(typeResolver TypeResolver) (*TypeManager, error) {
 	typeManager := &TypeManager{
 		logger:              logger,
 		typeResolver:        typeResolver,
-		typeCache:           make(map[uint32]systemcatalog.PgType),
+		typeCache:           make(map[uint32]PgType),
 		typeNameCache:       make(map[string]uint32),
 		typeCacheMutex:      sync.Mutex{},
-		optimizedTypes:      make(map[uint32]systemcatalog.PgType),
+		optimizedTypes:      make(map[uint32]PgType),
 		optimizedConverters: make(map[uint32]typeRegistration),
 	}
 
@@ -436,7 +434,7 @@ func (tm *TypeManager) initialize() error {
 		return key
 	})
 
-	if err := tm.typeResolver.ReadPgTypes(tm.typeFactory, func(typ systemcatalog.PgType) error {
+	if err := tm.typeResolver.ReadPgTypes(tm.typeFactory, func(typ PgType) error {
 		if supporting.IndexOf(coreTypesSlice, typ.Oid()) != -1 {
 			return nil
 		}
@@ -476,13 +474,13 @@ func (tm *TypeManager) initialize() error {
 			}
 
 			if typ.IsArray() {
-				if elementType, present := pgdecoding.GetType(typ.OidElement()); present {
-					pgdecoding.RegisterType(&pgtype.Type{
+				if elementType, present := GetType(typ.OidElement()); present {
+					RegisterType(&pgtype.Type{
 						Name: typ.Name(), OID: typ.Oid(), Codec: &pgtype.ArrayCodec{ElementType: elementType},
 					})
 				}
 			} else {
-				pgdecoding.RegisterType(&pgtype.Type{Name: typ.Name(), OID: typ.Oid(), Codec: registration.codec})
+				RegisterType(&pgtype.Type{Name: typ.Name(), OID: typ.Oid(), Codec: registration.codec})
 			}
 		}
 
@@ -493,15 +491,15 @@ func (tm *TypeManager) initialize() error {
 	return nil
 }
 
-func (tm *TypeManager) typeFactory(namespace, name string, kind systemcatalog.PgKind, oid uint32,
-	category systemcatalog.PgCategory, arrayType bool, recordType bool, oidArray uint32, oidElement uint32,
-	oidParent uint32, modifiers int, enumValues []string, delimiter string) systemcatalog.PgType {
+func (tm *TypeManager) typeFactory(namespace, name string, kind PgKind, oid uint32,
+	category PgCategory, arrayType, recordType bool, oidArray uint32, oidElement uint32,
+	oidParent uint32, modifiers int, enumValues []string, delimiter string) PgType {
 
 	return newType(tm, namespace, name, kind, oid, category, arrayType, recordType,
 		oidArray, oidElement, oidParent, modifiers, enumValues, delimiter)
 }
 
-func (tm *TypeManager) DataType(oid uint32) (systemcatalog.PgType, error) {
+func (tm *TypeManager) DataType(oid uint32) (PgType, error) {
 	tm.typeCacheMutex.Lock()
 	defer tm.typeCacheMutex.Unlock()
 
@@ -550,7 +548,7 @@ func (tm *TypeManager) OidByName(name string) uint32 {
 	return oid
 }
 
-func (tm *TypeManager) getSchemaType(oid uint32, arrayType bool, kind systemcatalog.PgKind) schemamodel.Type {
+func (tm *TypeManager) getSchemaType(oid uint32, arrayType bool, kind PgKind) schemamodel.Type {
 	if registration, present := coreTypes[oid]; present {
 		return registration.schemaType
 	}
@@ -559,7 +557,7 @@ func (tm *TypeManager) getSchemaType(oid uint32, arrayType bool, kind systemcata
 	}
 	if arrayType {
 		return schemamodel.ARRAY
-	} else if kind == systemcatalog.EnumKind {
+	} else if kind == EnumKind {
 		return schemamodel.STRING
 	}
 	return schemamodel.STRUCT
@@ -595,7 +593,7 @@ func (tm *TypeManager) resolveSchemaBuilder(pgType *pgType) schemamodel.SchemaBu
 		return schemamodel.Boolean()
 
 	case schemamodel.STRING:
-		if pgType.kind == systemcatalog.EnumKind {
+		if pgType.kind == EnumKind {
 			return schemamodel.Enum(pgType.EnumValues())
 		}
 		switch pgType.oid {

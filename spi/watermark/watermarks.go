@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"github.com/go-errors/errors"
 	"github.com/noctarius/timescaledb-event-streamer/spi/encoding"
+	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 )
 
@@ -101,7 +102,7 @@ func (sc *SnapshotContext) MarshalBinary() (data []byte, err error) {
 			}
 
 			if dataType, ok := watermark.dataTypes[column]; ok {
-				if err := systemcatalog.BinaryMarshall(buffer, dataType, value); err != nil {
+				if err := pgtypes.BinaryMarshall(buffer, dataType, value); err != nil {
 					return nil, err
 				}
 			} else {
@@ -119,7 +120,7 @@ func (sc *SnapshotContext) MarshalBinary() (data []byte, err error) {
 				}
 
 				if dataType, ok := watermark.dataTypes[column]; ok {
-					if err := systemcatalog.BinaryMarshall(buffer, dataType, value); err != nil {
+					if err := pgtypes.BinaryMarshall(buffer, dataType, value); err != nil {
 						return nil, err
 					}
 				} else {
@@ -190,7 +191,7 @@ func (sc *SnapshotContext) UnmarshalBinary(data []byte) error {
 			}
 
 			if oid, ok := dataTypes[column]; ok {
-				val, err := systemcatalog.BinaryUnmarshall(buffer, oid)
+				val, err := pgtypes.BinaryUnmarshall(buffer, oid)
 				if err != nil {
 					return err
 				}
@@ -216,7 +217,7 @@ func (sc *SnapshotContext) UnmarshalBinary(data []byte) error {
 				}
 
 				if oid, ok := dataTypes[column]; ok {
-					val, err := systemcatalog.BinaryUnmarshall(buffer, oid)
+					val, err := pgtypes.BinaryUnmarshall(buffer, oid)
 					if err != nil {
 						return err
 					}

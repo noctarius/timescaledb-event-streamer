@@ -22,7 +22,6 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/jackc/pglogrepl"
 	"github.com/jackc/pgx/v5/pgproto3"
-	"github.com/noctarius/timescaledb-event-streamer/internal/pgdecoding"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
@@ -165,7 +164,7 @@ func (rh *replicationHandler) startReplicationHandler(
 }
 
 func (rh *replicationHandler) handleXLogData(xld pgtypes.XLogData) error {
-	msg, err := pgdecoding.ParseXlogData(xld.WALData, rh.lastTransactionId)
+	msg, err := pgtypes.ParseXlogData(xld.WALData, rh.lastTransactionId)
 	if err != nil {
 		return fmt.Errorf("parsing logical replication message: %s", err)
 	}
@@ -279,7 +278,7 @@ func (rh *replicationHandler) handleDeleteMessage(xld pgtypes.XLogData, msg *pgl
 	}
 
 	// Decode tuples
-	oldValues, err := pgdecoding.DecodeTuples(rel, msg.OldTuple)
+	oldValues, err := pgtypes.DecodeTuples(rel, msg.OldTuple)
 	if err != nil {
 		return err
 	}
@@ -310,11 +309,11 @@ func (rh *replicationHandler) handleUpdateMessage(xld pgtypes.XLogData, msg *pgl
 	}
 
 	// Decode tuples
-	oldValues, err := pgdecoding.DecodeTuples(rel, msg.OldTuple)
+	oldValues, err := pgtypes.DecodeTuples(rel, msg.OldTuple)
 	if err != nil {
 		return err
 	}
-	newValues, err := pgdecoding.DecodeTuples(rel, msg.NewTuple)
+	newValues, err := pgtypes.DecodeTuples(rel, msg.NewTuple)
 	if err != nil {
 		return err
 	}
@@ -347,7 +346,7 @@ func (rh *replicationHandler) handleInsertMessage(xld pgtypes.XLogData, msg *pgl
 	}
 
 	// Decode tuples
-	newValues, err := pgdecoding.DecodeTuples(rel, msg.Tuple)
+	newValues, err := pgtypes.DecodeTuples(rel, msg.Tuple)
 	if err != nil {
 		return err
 	}

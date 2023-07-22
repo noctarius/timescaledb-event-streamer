@@ -1,4 +1,4 @@
-package pgdecoding
+package pgtypes
 
 const (
 	QCharArrayOID    uint32 = 1002

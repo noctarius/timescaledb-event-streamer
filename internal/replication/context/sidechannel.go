@@ -25,11 +25,9 @@ import (
 	"github.com/jackc/pglogrepl"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/noctarius/timescaledb-event-streamer/internal/pgdecoding"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
-	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes/datatypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/version"
 	"github.com/noctarius/timescaledb-event-streamer/spi/watermark"
@@ -607,7 +605,7 @@ func (sc *sideChannelImpl) snapshotTableWithCursor(
 			return errors.Wrap(err, 0)
 		}
 
-		var rowDecoder *pgdecoding.RowDecoder
+		var rowDecoder *pgtypes.RowDecoder
 		for {
 			count := 0
 			if err := session.queryFunc(func(row pgx.Row) error {
@@ -615,7 +613,7 @@ func (sc *sideChannelImpl) snapshotTableWithCursor(
 
 				if rowDecoder == nil {
 					// Initialize the row decoder based on the returned field descriptions
-					rd, err := pgdecoding.NewRowDecoder(rows.FieldDescriptions())
+					rd, err := pgtypes.NewRowDecoder(rows.FieldDescriptions())
 					if err != nil {
 						return errors.Wrap(err, 0)
 					}
@@ -673,7 +671,7 @@ func (sc *sideChannelImpl) readSnapshotHighWatermark(
 		return session.queryFunc(func(row pgx.Row) error {
 			rows := row.(pgx.Rows)
 
-			rowDecoder, err := pgdecoding.NewRowDecoder(rows.FieldDescriptions())
+			rowDecoder, err := pgtypes.NewRowDecoder(rows.FieldDescriptions())
 			if err != nil {
 				return errors.Wrap(err, 0)
 			}
@@ -831,7 +829,7 @@ func (sc *sideChannelImpl) readHypertableSchema0(
 	return nil
 }
 
-func (sc *sideChannelImpl) ReadPgTypes(factory datatypes.TypeFactory, cb func(pgType systemcatalog.PgType) error) error {
+func (sc *sideChannelImpl) ReadPgTypes(factory pgtypes.TypeFactory, cb func(pgType pgtypes.PgType) error) error {
 	return sc.newSession(time.Second*30, func(session *session) error {
 		return session.queryFunc(func(row pgx.Row) error {
 			typ, found, err := sc.scanPgType(row, factory)
@@ -854,8 +852,8 @@ func (sc *sideChannelImpl) ReadPgTypes(factory datatypes.TypeFactory, cb func(pg
 }
 
 func (sc *sideChannelImpl) ReadPgType(
-	oid uint32, factory datatypes.TypeFactory,
-) (typ systemcatalog.PgType, found bool, err error) {
+	oid uint32, factory pgtypes.TypeFactory,
+) (typ pgtypes.PgType, found bool, err error) {
 
 	if err := sc.newSession(time.Second*30, func(session *session) error {
 		return session.queryFunc(func(row pgx.Row) error {
@@ -881,7 +879,7 @@ func (sc *sideChannelImpl) ReadPgType(
 	return typ, true, nil
 }
 
-func (sc *sideChannelImpl) scanPgType(row pgx.Row, factory datatypes.TypeFactory) (systemcatalog.PgType, bool, error) {
+func (sc *sideChannelImpl) scanPgType(row pgx.Row, factory pgtypes.TypeFactory) (pgtypes.PgType, bool, error) {
 	var namespace, name string
 	var kind, category, delimiter int32
 	var arrayType, recordType bool
@@ -899,7 +897,7 @@ func (sc *sideChannelImpl) scanPgType(row pgx.Row, factory datatypes.TypeFactory
 		return nil, false, errors.Wrap(err, 0)
 	}
 
-	return factory(namespace, name, systemcatalog.PgKind(kind), oid, systemcatalog.PgCategory(category),
+	return factory(namespace, name, pgtypes.PgKind(kind), oid, pgtypes.PgCategory(category),
 		arrayType, recordType, oidArray, oidElement, parentOid, modifiers, enumValues, string(delimiter),
 	), true, nil
 }

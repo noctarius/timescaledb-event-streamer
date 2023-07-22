@@ -1,10 +1,9 @@
-package datatypes
+package pgtypes
 
 import (
 	"fmt"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
-	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 )
 
 // Converter represents a conversion function to convert from
@@ -12,12 +11,68 @@ import (
 // to the stream definition
 type Converter func(oid uint32, value any) (any, error)
 
+type PgCategory string
+
+const (
+	Array       PgCategory = "A"
+	Boolean     PgCategory = "B"
+	Composite   PgCategory = "C"
+	DateTime    PgCategory = "D"
+	Enum        PgCategory = "E"
+	Geometric   PgCategory = "G"
+	Network     PgCategory = "I"
+	Numeric     PgCategory = "N"
+	Pseudo      PgCategory = "P"
+	Range       PgCategory = "R"
+	String      PgCategory = "S"
+	Timespan    PgCategory = "T"
+	UserDefined PgCategory = "D"
+	BitString   PgCategory = "V"
+	Unknown     PgCategory = "X"
+	InternalUse PgCategory = "Z"
+)
+
+type PgKind string
+
+const (
+	BaseKind       PgKind = "b"
+	CompositeKind  PgKind = "c"
+	DomainKind     PgKind = "d"
+	EnumKind       PgKind = "e"
+	PseudoKind     PgKind = "p"
+	RangeKind      PgKind = "r"
+	MultiRangeKind PgKind = "m"
+)
+
+type PgType interface {
+	Namespace() string
+	Name() string
+	Kind() PgKind
+	Oid() uint32
+	Category() PgCategory
+	IsArray() bool
+	IsRecord() bool
+	ArrayType() PgType
+	ElementType() PgType
+	ParentType() PgType
+	OidArray() uint32
+	OidElement() uint32
+	OidParent() uint32
+	Modifiers() int
+	EnumValues() []string
+	Delimiter() string
+	SchemaType() schemamodel.Type
+	SchemaBuilder() schemamodel.SchemaBuilder
+	Format() string
+	Equal(other PgType) bool
+}
+
 type pgType struct {
 	namespace  string
 	name       string
-	kind       systemcatalog.PgKind
+	kind       PgKind
 	oid        uint32
-	category   systemcatalog.PgCategory
+	category   PgCategory
 	arrayType  bool
 	recordType bool
 	oidArray   uint32
@@ -30,14 +85,14 @@ type pgType struct {
 
 	typeManager         *TypeManager
 	schemaBuilder       schemamodel.SchemaBuilder
-	resolvedArrayType   systemcatalog.PgType
-	resolvedElementType systemcatalog.PgType
-	resolvedParentType  systemcatalog.PgType
+	resolvedArrayType   PgType
+	resolvedElementType PgType
+	resolvedParentType  PgType
 }
 
-func newType(typeManager *TypeManager, namespace, name string, kind systemcatalog.PgKind, oid uint32,
-	category systemcatalog.PgCategory, arrayType, recordType bool, oidArray, oidElement, oidParent uint32,
-	modifiers int, enumValues []string, delimiter string) *pgType {
+func newType(typeManager *TypeManager, namespace, name string, kind PgKind, oid uint32,
+	category PgCategory, arrayType, recordType bool, oidArray, oidElement, oidParent uint32,
+	modifiers int, enumValues []string, delimiter string) PgType {
 
 	t := &pgType{
 		namespace:   namespace,
@@ -73,7 +128,7 @@ func (t *pgType) Name() string {
 	return t.name
 }
 
-func (t *pgType) Kind() systemcatalog.PgKind {
+func (t *pgType) Kind() PgKind {
 	return t.kind
 }
 
@@ -81,7 +136,7 @@ func (t *pgType) Oid() uint32 {
 	return t.oid
 }
 
-func (t *pgType) Category() systemcatalog.PgCategory {
+func (t *pgType) Category() PgCategory {
 	return t.category
 }
 
@@ -93,7 +148,7 @@ func (t *pgType) IsRecord() bool {
 	return t.recordType
 }
 
-func (t *pgType) ArrayType() systemcatalog.PgType {
+func (t *pgType) ArrayType() PgType {
 	if t.resolvedArrayType == nil {
 		arrayType, err := t.typeManager.DataType(t.oidArray)
 		if err != nil {
@@ -104,7 +159,7 @@ func (t *pgType) ArrayType() systemcatalog.PgType {
 	return t.resolvedArrayType
 }
 
-func (t *pgType) ElementType() systemcatalog.PgType {
+func (t *pgType) ElementType() PgType {
 	if t.resolvedElementType == nil {
 		elementType, err := t.typeManager.DataType(t.oidElement)
 		if err != nil {
@@ -115,7 +170,7 @@ func (t *pgType) ElementType() systemcatalog.PgType {
 	return t.resolvedElementType
 }
 
-func (t *pgType) ParentType() systemcatalog.PgType {
+func (t *pgType) ParentType() PgType {
 	if t.resolvedParentType == nil {
 		parentType, err := t.typeManager.DataType(t.oidParent)
 		if err != nil {
@@ -173,7 +228,7 @@ func (t *pgType) Format() string {
 	return t.Name()
 }
 
-func (t *pgType) Equal(other systemcatalog.PgType) bool {
+func (t *pgType) Equal(other PgType) bool {
 	return t.namespace == other.Namespace() &&
 		t.name == other.Name() &&
 		t.kind == other.Kind() &&

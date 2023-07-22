@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
+	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
 	"strings"
 )
@@ -117,7 +118,7 @@ type Column struct {
 	name          string
 	dataType      uint32
 	modifiers     int
-	pgType        PgType
+	pgType        pgtypes.PgType
 	nullable      bool
 	primaryKey    bool
 	keySeq        *int
@@ -136,7 +137,9 @@ type Column struct {
 // NewColumn instantiates a new Column instance which isn't
 // part of any index. This method is a shorthand version of
 // NewIndexColumn
-func NewColumn(name string, dataType uint32, modifiers int, pgType PgType, nullable bool, defaultValue *string) Column {
+func NewColumn(name string, dataType uint32, modifiers int,
+	pgType pgtypes.PgType, nullable bool, defaultValue *string) Column {
+
 	return NewIndexColumn(
 		name, dataType, modifiers, pgType, nullable, false, nil,
 		defaultValue, false, nil, ASC, NULLS_LAST,
@@ -145,9 +148,9 @@ func NewColumn(name string, dataType uint32, modifiers int, pgType PgType, nulla
 }
 
 // NewIndexColumn instantiates a new Column instance
-func NewIndexColumn(name string, dataType uint32, modifiers int, pgType PgType, nullable, primaryKey bool,
-	keySeq *int, defaultValue *string, isReplicaIdent bool, indexName *string,
-	sortOrder IndexSortOrder, nullsOrder IndexNullsOrder,
+func NewIndexColumn(name string, dataType uint32, modifiers int, pgType pgtypes.PgType,
+	nullable, primaryKey bool, keySeq *int, defaultValue *string, isReplicaIdent bool,
+	indexName *string, sortOrder IndexSortOrder, nullsOrder IndexNullsOrder,
 	dimension, dimAligned bool, dimType *string, dimSeq, maxCharLength *int) Column {
 
 	return Column{
@@ -188,7 +191,7 @@ func (c Column) Modifiers() int {
 }
 
 // PgType returns the PG type of the column
-func (c Column) PgType() PgType {
+func (c Column) PgType() pgtypes.PgType {
 	return c.pgType
 }
 

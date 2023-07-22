@@ -1,4 +1,4 @@
-package datatypes
+package pgtypes
 
 import (
 	"encoding/hex"
@@ -7,7 +7,6 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/hashicorp/go-uuid"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/noctarius/timescaledb-event-streamer/internal/pgdecoding"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"math"
 	"math/big"
@@ -20,7 +19,6 @@ import (
 
 var unixEpoch = time.Unix(0, 0)
 var avgDaysPerMonth = 365.25 / 12
-var microsPerDay = (time.Hour * 24).Microseconds()
 var avgMicrosDaysPerMonth = avgDaysPerMonth * float64(microsPerDay)
 var timestampAsTextFormat = "2006-01-02T15:04:05.999999"
 
@@ -125,7 +123,7 @@ func time2text(_ uint32, value any) (any, error) {
 	var micros int64
 	if v, ok := value.(pgtype.Time); ok {
 		micros = v.Microseconds
-	} else if v, ok := value.(pgdecoding.Timetz); ok {
+	} else if v, ok := value.(Timetz); ok {
 		micros = v.Time.UnixMicro()
 	} else {
 		return nil, ErrIllegalValue
@@ -250,7 +248,7 @@ func bytes2hexstring(_ uint32, value any) (any, error) {
 }
 
 func ltree2string(_ uint32, value any) (any, error) {
-	if v, ok := value.(pgdecoding.Ltree); ok {
+	if v, ok := value.(Ltree); ok {
 		if !v.Valid {
 			return nil, nil
 		}

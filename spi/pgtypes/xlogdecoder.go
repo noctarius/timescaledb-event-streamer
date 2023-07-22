@@ -15,11 +15,10 @@
  * limitations under the License.
  */
 
-package pgdecoding
+package pgtypes
 
 import (
 	"github.com/jackc/pglogrepl"
-	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 )
 
 func ParseXlogData(data []byte, lastTransactionId *uint32) (pglogrepl.Message, error) {
@@ -27,8 +26,8 @@ func ParseXlogData(data []byte, lastTransactionId *uint32) (pglogrepl.Message, e
 	var decoder pglogrepl.MessageDecoder
 	msgType := pglogrepl.MessageType(data[0])
 	switch msgType {
-	case pgtypes.MessageTypeLogicalDecodingMessage:
-		decoder = new(pgtypes.LogicalReplicationMessage)
+	case MessageTypeLogicalDecodingMessage:
+		decoder = new(LogicalReplicationMessage)
 	}
 	if decoder != nil {
 		if err := decoder.Decode(data[1:]); err != nil {
@@ -36,8 +35,8 @@ func ParseXlogData(data []byte, lastTransactionId *uint32) (pglogrepl.Message, e
 		}
 
 		// See if we have a transactional logical replication message, if so set the transaction id
-		if msgType == pgtypes.MessageTypeLogicalDecodingMessage {
-			if logRepMsg := decoder.(*pgtypes.LogicalReplicationMessage); logRepMsg.IsTransactional() {
+		if msgType == MessageTypeLogicalDecodingMessage {
+			if logRepMsg := decoder.(*LogicalReplicationMessage); logRepMsg.IsTransactional() {
 				logRepMsg.Xid = func(xid uint32) *uint32 {
 					return &xid
 				}(*lastTransactionId)

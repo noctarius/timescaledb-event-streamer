@@ -5,7 +5,6 @@ import (
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
-	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes/datatypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema/schemamodel"
 	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
@@ -112,7 +111,7 @@ type TaskManager interface {
 }
 
 type TypeManager interface {
-	DataType(oid uint32) (systemcatalog.PgType, error)
-	Converter(oid uint32) (datatypes.Converter, error)
+	DataType(oid uint32) (pgtypes.PgType, error)
+	Converter(oid uint32) (pgtypes.Converter, error)
 	NumKnownTypes() int
 }

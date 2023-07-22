@@ -15,15 +15,14 @@
  * limitations under the License.
  */
 
-package pgdecoding
+package pgtypes
 
 import (
 	"github.com/go-errors/errors"
 	"github.com/jackc/pglogrepl"
-	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 )
 
-func DecodeTuples(relation *pgtypes.RelationMessage, tupleData *pglogrepl.TupleData) (map[string]any, error) {
+func DecodeTuples(relation *RelationMessage, tupleData *pglogrepl.TupleData) (map[string]any, error) {
 	values := map[string]any{}
 	if tupleData == nil {
 		return values, nil
