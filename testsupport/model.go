@@ -44,22 +44,22 @@ type Payload struct {
 }
 
 type Field struct {
-	Name        string           `json:"name"`
-	Field       string           `json:"field"`
-	Optional    bool             `json:"optional"`
+	Name        string      `json:"name"`
+	Field       string      `json:"field"`
+	Optional    bool        `json:"optional"`
 	Type        schema.Type `json:"type"`
-	Fields      []Field          `json:"fields"`
-	Default     any              `json:"default"`
-	KeySchema   *Schema          `json:"keySchema"`
-	ValueSchema *Schema          `json:"valueSchema"`
+	Fields      []Field     `json:"fields"`
+	Default     any         `json:"default"`
+	KeySchema   *Schema     `json:"keySchema"`
+	ValueSchema *Schema     `json:"valueSchema"`
 }
 
 type Schema struct {
-	Fields   []Field          `json:"fields"`
-	Name     string           `json:"name"`
-	Optional bool             `json:"optional"`
+	Fields   []Field     `json:"fields"`
+	Name     string      `json:"name"`
+	Optional bool        `json:"optional"`
 	Type     schema.Type `json:"type"`
-	Length   *int             `json:"length"`
+	Length   *int        `json:"length"`
 }
 
 type Envelope struct {
