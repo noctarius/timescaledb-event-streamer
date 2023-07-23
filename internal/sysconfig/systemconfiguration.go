@@ -19,30 +19,38 @@ package sysconfig
 
 import (
 	"github.com/jackc/pgx/v5"
+	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig/defaultproviders"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/namingstrategy"
 	"github.com/noctarius/timescaledb-event-streamer/spi/sink"
 	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
+	"github.com/noctarius/timescaledb-event-streamer/spi/stream"
 )
 
 type SystemConfig struct {
 	*spiconfig.Config
 
-	PgxConfig              *pgx.ConnConfig
-	SinkProvider           sink.Provider
-	EventEmitterProvider   defaultproviders.EventEmitterProvider
-	NamingStrategyProvider namingstrategy.Provider
-	StateStorageProvider   statestorage.Provider
+	PgxConfig                   *pgx.ConnConfig
+	SinkManagerProvider         sink.Provider
+	StreamManagerProvider       stream.Provider
+	EventEmitterProvider        defaultproviders.EventEmitterProvider
+	NamingStrategyProvider      namingstrategy.Provider
+	StateStorageManagerProvider statestorage.Provider
+	ReplicationContextProvider  context.ReplicationContextProvider
+	SideChannelProvider         context.SideChannelProvider
 }
 
 func NewSystemConfig(config *spiconfig.Config) *SystemConfig {
 	sc := &SystemConfig{
 		Config: config,
 	}
-	sc.SinkProvider = defaultproviders.DefaultSinkProvider
+	sc.SideChannelProvider = defaultproviders.DefaultSideChannelProvider
+	sc.StreamManagerProvider = defaultproviders.DefaultStreamManagerProvider
+	sc.SinkManagerProvider = defaultproviders.DefaultSinkManagerProvider
 	sc.EventEmitterProvider = defaultproviders.DefaultEventEmitterProvider
 	sc.NamingStrategyProvider = defaultproviders.DefaultNamingStrategyProvider
-	sc.StateStorageProvider = defaultproviders.DefaultStateStorageProvider
+	sc.StateStorageManagerProvider = defaultproviders.DefaultStateStorageManagerProvider
+	sc.ReplicationContextProvider = defaultproviders.DefaultReplicationContextProvider
 	return sc
 }

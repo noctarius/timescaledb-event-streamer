@@ -18,7 +18,6 @@
 package systemcatalog
 
 import (
-	"fmt"
 	"github.com/go-errors/errors"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
@@ -42,15 +41,21 @@ type SystemCatalog struct {
 	hypertable2chunks     map[int32][]int32
 	hypertable2compressed map[int32]int32
 	compressed2hypertable map[int32]int32
-	replicationContext    context.ReplicationContext
-	replicationFilter     *tablefiltering.TableFilter
-	snapshotter           *snapshotting.Snapshotter
-	logger                *logging.Logger
-	rwLock                sync.RWMutex
+
+	pgTypeResolver     func(oid uint32) (pgtypes.PgType, error)
+	replicationContext context.ReplicationContext
+	replicationFilter  *tablefiltering.TableFilter
+	snapshotter        *snapshotting.Snapshotter
+	logger             *logging.Logger
+	rwLock             sync.RWMutex
 }
 
-func NewSystemCatalog(config *config.Config, replicationContext context.ReplicationContext,
-	snapshotter *snapshotting.Snapshotter) (*SystemCatalog, error) {
+func NewSystemCatalog(
+	config *config.Config,
+	replicationContext context.ReplicationContext,
+	pgTypeResolver func(oid uint32) (pgtypes.PgType, error),
+	snapshotter *snapshotting.Snapshotter,
+) (*SystemCatalog, error) {
 
 	if config == nil {
 		return nil, errors.New("config must not be nil")
@@ -84,6 +89,7 @@ func NewSystemCatalog(config *config.Config, replicationContext context.Replicat
 		hypertable2compressed: make(map[int32]int32),
 		compressed2hypertable: make(map[int32]int32),
 
+		pgTypeResolver:     pgTypeResolver,
 		replicationContext: replicationContext,
 		replicationFilter:  replicationFilter,
 		snapshotter:        snapshotter,
@@ -250,10 +256,6 @@ func (sc *SystemCatalog) NewEventHandler() eventhandlers.SystemCatalogReplicatio
 
 func (sc *SystemCatalog) ApplySchemaUpdate(hypertable *systemcatalog.Hypertable, columns []systemcatalog.Column) bool {
 	if difference := hypertable.ApplyTableSchema(columns); difference != nil {
-		schemaManager := sc.replicationContext.SchemaManager()
-		hypertableSchemaName := fmt.Sprintf("%s.Value", schemaManager.SchemaTopicName(hypertable))
-		hypertableSchema := hypertable.SchemaBuilder().SchemaName(hypertableSchemaName).Build()
-		schemaManager.RegisterSchema(hypertableSchemaName, hypertableSchema)
 		sc.logger.Verbosef("Schema Update: Hypertable %d => %+v", hypertable.Id(), difference)
 		return len(difference) > 0
 	}
@@ -334,7 +336,9 @@ func initializeSystemCatalog(sc *SystemCatalog) (*SystemCatalog, error) {
 		hypertables = append(hypertables, hypertable)
 	}
 
-	if err := sc.replicationContext.ReadHypertableSchema(sc.ApplySchemaUpdate, hypertables...); err != nil {
+	if err := sc.replicationContext.ReadHypertableSchema(
+		sc.ApplySchemaUpdate, sc.pgTypeResolver, hypertables...,
+	); err != nil {
 		return nil, errors.Wrap(err, 0)
 	}
 
@@ -390,7 +394,7 @@ func (s *snapshottingEventHandler) OnChunkSnapshotFinishedEvent(
 func (s *snapshottingEventHandler) OnHypertableSnapshotStartedEvent(
 	snapshotName string, hypertable *systemcatalog.Hypertable) error {
 
-	stateManager := s.systemCatalog.replicationContext.StateManager()
+	stateManager := s.systemCatalog.replicationContext.StateStorageManager()
 	snapshotContext, err := stateManager.SnapshotContext()
 	if err != nil {
 		return err
@@ -422,7 +426,7 @@ func (s *snapshottingEventHandler) OnHypertableSnapshotStartedEvent(
 func (s *snapshottingEventHandler) OnHypertableSnapshotFinishedEvent(
 	snapshotName string, hypertable *systemcatalog.Hypertable) error {
 
-	stateManager := s.systemCatalog.replicationContext.StateManager()
+	stateManager := s.systemCatalog.replicationContext.StateStorageManager()
 	if err := stateManager.SnapshotContextTransaction(
 		snapshotName, false,
 		func(snapshotContext *watermark.SnapshotContext) error {

@@ -22,7 +22,6 @@ import (
 	stderrors "errors"
 	"fmt"
 	"github.com/go-errors/errors"
-	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
 	logrepresolver "github.com/noctarius/timescaledb-event-streamer/internal/replication/logicalreplicationresolver"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationchannel"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
@@ -31,6 +30,8 @@ import (
 	intsystemcatalog "github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/snapshotting"
 	"github.com/noctarius/timescaledb-event-streamer/spi/encoding"
+	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/urfave/cli"
 )
@@ -65,15 +66,16 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 	if err != nil {
 		return supporting.AdaptErrorWithMessage(err, "failed to instantiate naming strategy", 21)
 	}
+	nameGenerator := schema.NewNameGenerator(r.config.Topic.Prefix, namingStrategy)
 
-	stateStorage, err := r.config.StateStorageProvider(r.config.Config)
+	stateStorageManager, err := r.config.StateStorageManagerProvider(r.config.Config)
 	if err != nil {
 		return supporting.AdaptErrorWithMessage(err, "failed to instantiate state storage", 23)
 	}
 
 	// Create the side channels and replication context
-	replicationContext, err := context.NewReplicationContext(
-		r.config.Config, r.config.PgxConfig, namingStrategy, stateStorage,
+	replicationContext, err := r.config.ReplicationContextProvider(
+		r.config.Config, r.config.PgxConfig, stateStorageManager, r.config.SideChannelProvider,
 	)
 	if err != nil {
 		return supporting.AdaptErrorWithMessage(err, "failed to initialize replication context", 17)
@@ -92,14 +94,20 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 		return cli.NewExitError("timescaledb-event-streamer requires wal_level set to 'logical'", 16)
 	}
 
+	// Instantiate the type manager
+	typeManager, err := pgtypes.NewTypeManager(replicationContext.TypeResolver())
+	if err != nil {
+		return supporting.AdaptErrorWithMessage(err, "failed to instantiate type manager", 26)
+	}
+
 	// Log system information
 	r.logger.Infof("Discovered System Information:")
 	r.logger.Infof("  * PostgreSQL version %s", replicationContext.PostgresVersion())
 	r.logger.Infof("  * TimescaleDB version %s", replicationContext.TimescaleVersion())
 	r.logger.Infof("  * PostgreSQL System Identity %s", replicationContext.SystemId())
 	r.logger.Infof("  * PostgreSQL Timeline %d", replicationContext.Timeline())
-	r.logger.Infof("  * PostgreSQL Database %s", replicationContext.DatabaseName())
-	r.logger.Infof("  * PostgreSQL Types loaded %d", replicationContext.TypeManager().NumKnownTypes())
+	r.logger.Infof("  * PostgreSQL DatabaseName %s", replicationContext.DatabaseName())
+	r.logger.Infof("  * PostgreSQL Types loaded %d", typeManager.NumKnownTypes())
 
 	// Create replication channel and internal replication handler
 	replicationChannel, err := replicationchannel.NewReplicationChannel(replicationContext)
@@ -113,20 +121,28 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 		return supporting.AdaptError(err, 19)
 	}
 
-	// Instantiate the sink type
-	sink, err := r.config.SinkProvider(r.config.Config)
+	// Instantiate the sink manager
+	sinkManager, err := r.config.SinkManagerProvider(r.config.Config, stateStorageManager)
 	if err != nil {
-		return supporting.AdaptErrorWithMessage(err, "failed to instantiate sink", 22)
+		return supporting.AdaptErrorWithMessage(err, "failed to instantiate sink manager", 22)
+	}
+
+	// Instantiate the stream manager
+	streamManager, err := r.config.StreamManagerProvider(nameGenerator, typeManager, sinkManager)
+	if err != nil {
+		return supporting.AdaptErrorWithMessage(err, "failed to instantiate stream manager", 25)
 	}
 
 	// Instantiate the change event emitter
-	eventEmitter, err := r.config.EventEmitterProvider(r.config.Config, replicationContext, sink)
+	eventEmitter, err := r.config.EventEmitterProvider(r.config.Config, replicationContext, streamManager, typeManager)
 	if err != nil {
 		return supporting.AdaptError(err, 14)
 	}
 
 	// Set up the system catalog (replicating the TimescaleDB internal representation)
-	systemCatalog, err := intsystemcatalog.NewSystemCatalog(r.config.Config, replicationContext, snapshotter)
+	systemCatalog, err := intsystemcatalog.NewSystemCatalog(
+		r.config.Config, replicationContext, typeManager.DataType, snapshotter,
+	)
 	if err != nil {
 		return supporting.AdaptError(err, 15)
 	}
@@ -158,7 +174,7 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 
 	// Get initial list of chunks to add to
 	initialChunkTables, err := r.collectChunksForPublication(
-		replicationContext.StateManager().EncodedState, systemCatalog.GetAllChunks,
+		replicationContext.StateStorageManager().EncodedState, systemCatalog.GetAllChunks,
 		replicationContext.PublicationManager().ReadPublishedTables,
 	)
 	if err != nil {
@@ -175,7 +191,7 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 		err2 := eventEmitter.Stop()
 		state, err3 := encodeKnownChunks(systemCatalog.GetAllChunks())
 		if err3 == nil {
-			replicationContext.StateManager().SetEncodedState(esPreviouslyKnownChunks, state)
+			replicationContext.StateStorageManager().SetEncodedState(esPreviouslyKnownChunks, state)
 		}
 		err4 := replicationContext.StopReplicationContext()
 		return stderrors.Join(err1, err2, err3, err4)

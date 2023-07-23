@@ -38,7 +38,14 @@ type Notificator interface {
 	NotifySnapshottingEventHandler(fn func(handler eventhandlers.SnapshottingEventHandler) error)
 }
 
-type dispatcher struct {
+type TaskManager interface {
+	RegisterReplicationEventHandler(handler eventhandlers.BaseReplicationEventHandler)
+	EnqueueTask(task Task) error
+	RunTask(task Task) error
+	EnqueueTaskAndWait(task Task) error
+}
+
+type taskManager struct {
 	logger              *logging.Logger
 	taskQueue           *supporting.Channel[Task]
 	baseHandlers        []eventhandlers.BaseReplicationEventHandler
@@ -51,7 +58,7 @@ type dispatcher struct {
 	shutdownActive      bool
 }
 
-func newDispatcher(config *spiconfig.Config) (*dispatcher, error) {
+func newTaskManager(config *spiconfig.Config) (*taskManager, error) {
 	logger, err := logging.NewLogger("TaskDispatcher")
 	if err != nil {
 		return nil, errors.Wrap(err, 0)
@@ -59,7 +66,7 @@ func newDispatcher(config *spiconfig.Config) (*dispatcher, error) {
 
 	maxQueueSize := spiconfig.GetOrDefault[int](config, spiconfig.PropertyDispatcherMaxQueueSize, 4096)
 
-	d := &dispatcher{
+	d := &taskManager{
 		logger:              logger,
 		taskQueue:           supporting.NewChannel[Task](maxQueueSize),
 		baseHandlers:        make([]eventhandlers.BaseReplicationEventHandler, 0),
@@ -73,7 +80,7 @@ func newDispatcher(config *spiconfig.Config) (*dispatcher, error) {
 	return d, nil
 }
 
-func (d *dispatcher) RegisterReplicationEventHandler(handler eventhandlers.BaseReplicationEventHandler) {
+func (d *taskManager) RegisterReplicationEventHandler(handler eventhandlers.BaseReplicationEventHandler) {
 	for _, candidate := range d.baseHandlers {
 		if candidate == handler {
 			return
@@ -127,7 +134,7 @@ func (d *dispatcher) RegisterReplicationEventHandler(handler eventhandlers.BaseR
 	}
 }
 
-func (d *dispatcher) UnregisterReplicationEventHandler(handler eventhandlers.BaseReplicationEventHandler) {
+func (d *taskManager) UnregisterReplicationEventHandler(handler eventhandlers.BaseReplicationEventHandler) {
 	for index, candidate := range d.baseHandlers {
 		if candidate == handler {
 			// Erase element (zero value) to prevent memory leak
@@ -187,7 +194,7 @@ func (d *dispatcher) UnregisterReplicationEventHandler(handler eventhandlers.Bas
 	}
 }
 
-func (d *dispatcher) StartDispatcher() {
+func (d *taskManager) StartDispatcher() {
 	go func() {
 		notificator := &notificatorImpl{dispatcher: d}
 		for {
@@ -206,14 +213,14 @@ func (d *dispatcher) StartDispatcher() {
 	}()
 }
 
-func (d *dispatcher) StopDispatcher() error {
+func (d *taskManager) StopDispatcher() error {
 	d.shutdownActive = true
 	d.shutdownAwaiter.SignalShutdown()
 	d.taskQueue.Close()
 	return d.shutdownAwaiter.AwaitDone()
 }
 
-func (d *dispatcher) EnqueueTask(task Task) error {
+func (d *taskManager) EnqueueTask(task Task) error {
 	if d.shutdownActive {
 		return fmt.Errorf("shutdown active, draining only")
 	}
@@ -221,7 +228,7 @@ func (d *dispatcher) EnqueueTask(task Task) error {
 	return nil
 }
 
-func (d *dispatcher) EnqueueTaskAndWait(task Task) error {
+func (d *taskManager) EnqueueTaskAndWait(task Task) error {
 	if d.shutdownActive {
 		return fmt.Errorf("shutdown active, draining only")
 	}
@@ -233,7 +240,7 @@ func (d *dispatcher) EnqueueTaskAndWait(task Task) error {
 	return done.Await()
 }
 
-func (d *dispatcher) RunTask(task Task) error {
+func (d *taskManager) RunTask(task Task) error {
 	notificator := &immediateNotificatorImpl{dispatcher: d}
 	task(notificator)
 	if notificator.errors == nil || len(notificator.errors) == 0 {
@@ -243,7 +250,7 @@ func (d *dispatcher) RunTask(task Task) error {
 }
 
 type notificatorImpl struct {
-	dispatcher *dispatcher
+	dispatcher *taskManager
 }
 
 func (n *notificatorImpl) NotifyBaseReplicationEventHandler(
@@ -316,7 +323,7 @@ func (n *notificatorImpl) handleError(err error) {
 }
 
 type immediateNotificatorImpl struct {
-	dispatcher *dispatcher
+	dispatcher *taskManager
 	errors     []error
 }
 

@@ -71,21 +71,25 @@ type Identifiable interface {
 	SchemaName() string
 	// TableName returns the table name of the entity
 	TableName() string
+	// CanonicalName returns the canonical name of the entity >>schema.table<<
+	CanonicalName() string
 }
 
 type Buildable interface {
-	SchemaBuilder() SchemaBuilder
+	SchemaBuilder() Builder
 }
 
 type TableAlike interface {
 	Identifiable
 	Buildable
 	TableColumns() []ColumnAlike
+	KeyIndexColumns() []ColumnAlike
 }
 
 type ColumnAlike interface {
 	Buildable
 	Name() string
+	DataType() uint32
 	SchemaType() Type
 	IsPrimaryKey() bool
 }

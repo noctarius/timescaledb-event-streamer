@@ -15,49 +15,64 @@
  * limitations under the License.
  */
 
-package context
+package schema
 
 import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/namingstrategy"
-	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
-	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
-func TestReplicationContext_EventTopicName(t *testing.T) {
+func TestNameGenerator_EventTopicName(t *testing.T) {
 	topicPrefix := "foobar"
-	hypertable := systemcatalog.NewHypertable(1, "test", "schema", "hypertable", "", "", nil, 0, false, nil, nil, pgtypes.DEFAULT)
 
 	debeziumNamingStrategy, err := namingstrategy.NewNamingStrategy("debezium", &config.Config{})
 	if err != nil {
 		t.Error(err)
 	}
 
-	schemaManager := &schemaManager{
-		topicPrefix:    topicPrefix,
-		namingStrategy: debeziumNamingStrategy,
-	}
-
-	topicName := schemaManager.EventTopicName(hypertable)
+	generator := NewNameGenerator(topicPrefix, debeziumNamingStrategy)
+	topicName := generator.EventTopicName(new(testTableAlike))
 	assert.Equal(t, "foobar.schema.hypertable", topicName)
 
 }
-func TestReplicationContext_SchemaTopicName(t *testing.T) {
+func TestNameGenerator_SchemaTopicName(t *testing.T) {
 	topicPrefix := "foobar"
-	hypertable := systemcatalog.NewHypertable(1, "test", "schema", "hypertable", "", "", nil, 0, false, nil, nil, pgtypes.DEFAULT)
 
 	debeziumNamingStrategy, err := namingstrategy.NewNamingStrategy("debezium", &config.Config{})
 	if err != nil {
 		t.Error(err)
 	}
 
-	schemaManager := &schemaManager{
-		topicPrefix:    topicPrefix,
-		namingStrategy: debeziumNamingStrategy,
-	}
-
-	topicName := schemaManager.SchemaTopicName(hypertable)
+	generator := NewNameGenerator(topicPrefix, debeziumNamingStrategy)
+	topicName := generator.SchemaTopicName(new(testTableAlike))
 	assert.Equal(t, "foobar.schema.hypertable", topicName)
+}
+
+type testTableAlike struct {
+}
+
+func (t testTableAlike) SchemaName() string {
+	return "schema"
+}
+
+func (t testTableAlike) TableName() string {
+	return "hypertable"
+}
+
+func (t testTableAlike) CanonicalName() string {
+	return ""
+}
+
+func (t testTableAlike) SchemaBuilder() Builder {
+	return nil
+}
+
+func (t testTableAlike) TableColumns() []ColumnAlike {
+	return nil
+}
+
+func (t testTableAlike) KeyIndexColumns() []ColumnAlike {
+	return nil
 }

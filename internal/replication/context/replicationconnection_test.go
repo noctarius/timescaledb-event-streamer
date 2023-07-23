@@ -30,9 +30,7 @@ import (
 func Test_ReplicationConnection_locateRestartLSN_empty(t *testing.T) {
 	replicationContext := &replicationContext{
 		replicationSlotName: "test",
-		stateManager: &stateManager{
-			stateStorage: statestorage.NewDummyStateStorage(),
-		},
+		stateStorageManager: statestorage.NewStateStorageManager(statestorage.NewDummyStateStorage()),
 	}
 
 	logger, err := logging.NewLogger("ReplicationConnection")
@@ -70,18 +68,17 @@ func Test_ReplicationConnection_locateRestartLSN_empty(t *testing.T) {
 }
 
 func Test_ReplicationConnection_locateRestartLSN_from_offset(t *testing.T) {
+	stateStorageManager := statestorage.NewStateStorageManager(statestorage.NewDummyStateStorage())
 	replicationContext := &replicationContext{
 		replicationSlotName: "test",
-		stateManager: &stateManager{
-			stateStorage: statestorage.NewDummyStateStorage(),
-		},
+		stateStorageManager: stateStorageManager,
 	}
 
 	offset := &statestorage.Offset{}
 	offset.LSN = 20000
 	offset.Timestamp = time.Now()
 
-	if err := replicationContext.stateManager.set(replicationContext.replicationSlotName, offset); err != nil {
+	if err := stateStorageManager.Set(replicationContext.replicationSlotName, offset); err != nil {
 		t.Errorf("error: %+v", err)
 	}
 
@@ -120,18 +117,17 @@ func Test_ReplicationConnection_locateRestartLSN_from_offset(t *testing.T) {
 }
 
 func Test_ReplicationConnection_locateRestartLSN_from_confirmed_flush_LSN_larger(t *testing.T) {
+	stateStorageManager := statestorage.NewStateStorageManager(statestorage.NewDummyStateStorage())
 	replicationContext := &replicationContext{
 		replicationSlotName: "test",
-		stateManager: &stateManager{
-			stateStorage: statestorage.NewDummyStateStorage(),
-		},
+		stateStorageManager: stateStorageManager,
 	}
 
 	offset := &statestorage.Offset{}
 	offset.LSN = 20000
 	offset.Timestamp = time.Now()
 
-	if err := replicationContext.stateManager.set(replicationContext.replicationSlotName, offset); err != nil {
+	if err := stateStorageManager.Set(replicationContext.replicationSlotName, offset); err != nil {
 		t.Errorf("error: %+v", err)
 	}
 
@@ -170,18 +166,17 @@ func Test_ReplicationConnection_locateRestartLSN_from_confirmed_flush_LSN_larger
 }
 
 func Test_ReplicationConnection_locateRestartLSN_from_confirmed_flush_LSN_smaller(t *testing.T) {
+	stateStorageManager := statestorage.NewStateStorageManager(statestorage.NewDummyStateStorage())
 	replicationContext := &replicationContext{
 		replicationSlotName: "test",
-		stateManager: &stateManager{
-			stateStorage: statestorage.NewDummyStateStorage(),
-		},
+		stateStorageManager: stateStorageManager,
 	}
 
 	offset := &statestorage.Offset{}
 	offset.LSN = 20000
 	offset.Timestamp = time.Now()
 
-	if err := replicationContext.stateManager.set(replicationContext.replicationSlotName, offset); err != nil {
+	if err := stateStorageManager.Set(replicationContext.replicationSlotName, offset); err != nil {
 		t.Errorf("error: %+v", err)
 	}
 
@@ -220,18 +215,17 @@ func Test_ReplicationConnection_locateRestartLSN_from_confirmed_flush_LSN_smalle
 }
 
 func Test_ReplicationConnection_locateRestartLSN_error_physical_slot(t *testing.T) {
+	stateStorageManager := statestorage.NewStateStorageManager(statestorage.NewDummyStateStorage())
 	replicationContext := &replicationContext{
 		replicationSlotName: "test",
-		stateManager: &stateManager{
-			stateStorage: statestorage.NewDummyStateStorage(),
-		},
+		stateStorageManager: stateStorageManager,
 	}
 
 	offset := &statestorage.Offset{}
 	offset.LSN = 20000
 	offset.Timestamp = time.Now()
 
-	if err := replicationContext.stateManager.set(replicationContext.replicationSlotName, offset); err != nil {
+	if err := stateStorageManager.Set(replicationContext.replicationSlotName, offset); err != nil {
 		t.Errorf("error: %+v", err)
 	}
 
@@ -266,18 +260,17 @@ func Test_ReplicationConnection_locateRestartLSN_error_physical_slot(t *testing.
 }
 
 func Test_ReplicationConnection_locateRestartLSN_error_plugin_name(t *testing.T) {
+	stateStorageManager := statestorage.NewStateStorageManager(statestorage.NewDummyStateStorage())
 	replicationContext := &replicationContext{
 		replicationSlotName: "test",
-		stateManager: &stateManager{
-			stateStorage: statestorage.NewDummyStateStorage(),
-		},
+		stateStorageManager: stateStorageManager,
 	}
 
 	offset := &statestorage.Offset{}
 	offset.LSN = 20000
 	offset.Timestamp = time.Now()
 
-	if err := replicationContext.stateManager.set(replicationContext.replicationSlotName, offset); err != nil {
+	if err := stateStorageManager.Set(replicationContext.replicationSlotName, offset); err != nil {
 		t.Errorf("error: %+v", err)
 	}
 

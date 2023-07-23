@@ -19,39 +19,97 @@ package context
 
 import (
 	"context"
-	"encoding"
 	"github.com/go-errors/errors"
 	"github.com/jackc/pglogrepl"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
-	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
-	"github.com/noctarius/timescaledb-event-streamer/spi/namingstrategy"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
-	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/version"
-	"github.com/noctarius/timescaledb-event-streamer/spi/watermark"
 	"github.com/urfave/cli"
 	"sync"
 )
 
-const stateContextName = "snapshotContext"
+type ReplicationContextProvider func(
+	config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
+	stateStorageManager statestorage.Manager,
+	sideChannelProvider SideChannelProvider,
+) (ReplicationContext, error)
+
+type HypertableSchemaCallback = func(hypertable *systemcatalog.Hypertable, columns []systemcatalog.Column) bool
+
+type SnapshotRowCallback = func(lsn pgtypes.LSN, values map[string]any) error
+
+type ReplicationContext interface {
+	StartReplicationContext() error
+	StopReplicationContext() error
+	NewReplicationConnection() (*ReplicationConnection, error)
+	NewSideChannelConnection(ctx context.Context) (*pgx.Conn, error)
+
+	PublicationManager() PublicationManager
+	StateStorageManager() statestorage.Manager
+	TaskManager() TaskManager
+	TypeResolver() pgtypes.TypeResolver
+
+	Offset() (*statestorage.Offset, error)
+	SetLastTransactionId(xid uint32)
+	LastTransactionId() uint32
+	SetLastBeginLSN(lsn pgtypes.LSN)
+	LastBeginLSN() pgtypes.LSN
+	SetLastCommitLSN(lsn pgtypes.LSN)
+	LastCommitLSN() pgtypes.LSN
+	AcknowledgeReceived(xld pgtypes.XLogData)
+	LastReceivedLSN() pgtypes.LSN
+	AcknowledgeProcessed(xld pgtypes.XLogData, processedLSN *pgtypes.LSN) error
+	LastProcessedLSN() pgtypes.LSN
+
+	InitialSnapshotMode() spiconfig.InitialSnapshotMode
+	DatabaseUsername() string
+	ReplicationSlotName() string
+	ReplicationSlotCreate() bool
+	ReplicationSlotAutoDrop() bool
+	WALLevel() string
+	SystemId() string
+	Timeline() int32
+	DatabaseName() string
+
+	PostgresVersion() version.PostgresVersion
+	TimescaleVersion() version.TimescaleVersion
+	IsMinimumPostgresVersion() bool
+	IsPG14GE() bool
+	IsMinimumTimescaleVersion() bool
+	IsTSDB212GE() bool
+	IsLogicalReplicationEnabled() bool
+
+	HasTablePrivilege(entity systemcatalog.SystemEntity, grant Grant) (access bool, err error)
+	LoadHypertables(cb func(hypertable *systemcatalog.Hypertable) error) error
+	LoadChunks(cb func(chunk *systemcatalog.Chunk) error) error
+	ReadHypertableSchema(
+		cb HypertableSchemaCallback,
+		pgTypeResolver func(oid uint32) (pgtypes.PgType, error),
+		hypertables ...*systemcatalog.Hypertable,
+	) error
+	SnapshotChunkTable(chunk *systemcatalog.Chunk, cb SnapshotRowCallback) (pgtypes.LSN, error)
+	FetchHypertableSnapshotBatch(
+		hypertable *systemcatalog.Hypertable, snapshotName string, cb SnapshotRowCallback,
+	) error
+	ReadSnapshotHighWatermark(hypertable *systemcatalog.Hypertable, snapshotName string) (map[string]any, error)
+	ReadReplicaIdentity(entity systemcatalog.SystemEntity) (pgtypes.ReplicaIdentity, error)
+	ReadContinuousAggregate(materializedHypertableId int32) (viewSchema, viewName string, found bool, err error)
+}
 
 type replicationContext struct {
 	pgxConfig *pgx.ConnConfig
 
-	sideChannel *sideChannelImpl
-	dispatcher  *dispatcher
+	sideChannel SideChannel
 
 	// internal manager classes
-	publicationManager *publicationManager
-	stateManager       *stateManager
-	schemaManager      *schemaManager
-	taskManager        *taskManager
-	typeManager        TypeManager
+	publicationManager  *publicationManager
+	stateStorageManager statestorage.Manager
+	taskManager         *taskManager
 
 	snapshotInitialMode     spiconfig.InitialSnapshotMode
 	snapshotBatchSize       int
@@ -77,8 +135,11 @@ type replicationContext struct {
 	tsdbVersion version.TimescaleVersion
 }
 
-func NewReplicationContext(config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
-	namingStrategy namingstrategy.NamingStrategy, stateStorage statestorage.Storage) (ReplicationContext, error) {
+func NewReplicationContext(
+	config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
+	stateStorageManager statestorage.Manager,
+	sideChannelProvider SideChannelProvider,
+) (ReplicationContext, error) {
 
 	publicationName := spiconfig.GetOrDefault(
 		config, spiconfig.PropertyPostgresqlPublicationName, "",
@@ -105,7 +166,7 @@ func NewReplicationContext(config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
 		config, spiconfig.PropertyPostgresqlReplicationSlotAutoDrop, true,
 	)
 
-	taskDispatcher, err := newDispatcher(config)
+	taskManager, err := newTaskManager(config)
 	if err != nil {
 		return nil, errors.Wrap(err, 0)
 	}
@@ -115,7 +176,8 @@ func NewReplicationContext(config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
 	replicationContext := &replicationContext{
 		pgxConfig: pgxConfig,
 
-		dispatcher: taskDispatcher,
+		taskManager:         taskManager,
+		stateStorageManager: stateStorageManager,
 
 		snapshotInitialMode:     snapshotInitialMode,
 		snapshotBatchSize:       snapshotBatchSize,
@@ -129,19 +191,19 @@ func NewReplicationContext(config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
 
 	// Instantiate the actual side channel implementation
 	// which handles queries against the database
-	sideChannel, err := newSideChannel(replicationContext)
+	sideChannel, err := sideChannelProvider(replicationContext)
 	if err != nil {
 		return nil, err
 	}
 	replicationContext.sideChannel = sideChannel
 
-	pgVersion, err := sideChannel.getPostgresVersion()
+	pgVersion, err := sideChannel.GetPostgresVersion()
 	if err != nil {
 		return nil, err
 	}
 	replicationContext.pgVersion = pgVersion
 
-	tsdbVersion, found, err := sideChannel.getTimescaleDBVersion()
+	tsdbVersion, found, err := sideChannel.GetTimescaleDBVersion()
 	if err != nil {
 		return nil, err
 	}
@@ -150,7 +212,7 @@ func NewReplicationContext(config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
 	}
 	replicationContext.tsdbVersion = tsdbVersion
 
-	databaseName, systemId, timeline, err := sideChannel.getSystemInformation()
+	databaseName, systemId, timeline, err := sideChannel.GetSystemInformation()
 	if err != nil {
 		return nil, err
 	}
@@ -158,7 +220,7 @@ func NewReplicationContext(config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
 	replicationContext.systemId = systemId
 	replicationContext.timeline = timeline
 
-	walLevel, err := sideChannel.getWalLevel()
+	walLevel, err := sideChannel.GetWalLevel()
 	if err != nil {
 		return nil, err
 	}
@@ -168,25 +230,6 @@ func NewReplicationContext(config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
 	replicationContext.publicationManager = &publicationManager{
 		replicationContext: replicationContext,
 	}
-	replicationContext.stateManager = &stateManager{
-		stateStorage: stateStorage,
-	}
-	replicationContext.taskManager = &taskManager{
-		taskDispatcher: taskDispatcher,
-	}
-	typeManager, err := pgtypes.NewTypeManager(sideChannel)
-	if err != nil {
-		return nil, errors.Wrap(err, 0)
-	}
-	replicationContext.typeManager = typeManager
-	replicationContext.schemaManager = &schemaManager{
-		namingStrategy: namingStrategy,
-		topicPrefix:    config.Topic.Prefix,
-	}
-	// Instantiate the schema registry, keeping track of hypertable schemas
-	// for the schema generation on event creation
-	replicationContext.schemaManager.schemaRegistry = schema.NewRegistry(replicationContext.schemaManager)
-
 	return replicationContext, nil
 }
 
@@ -194,36 +237,32 @@ func (rc *replicationContext) PublicationManager() PublicationManager {
 	return rc.publicationManager
 }
 
-func (rc *replicationContext) StateManager() StateManager {
-	return rc.stateManager
-}
-
-func (rc *replicationContext) SchemaManager() SchemaManager {
-	return rc.schemaManager
+func (rc *replicationContext) StateStorageManager() statestorage.Manager {
+	return rc.stateStorageManager
 }
 
 func (rc *replicationContext) TaskManager() TaskManager {
 	return rc.taskManager
 }
 
-func (rc *replicationContext) TypeManager() TypeManager {
-	return rc.typeManager
+func (rc *replicationContext) TypeResolver() pgtypes.TypeResolver {
+	return rc.sideChannel
 }
 
 func (rc *replicationContext) StartReplicationContext() error {
-	rc.dispatcher.StartDispatcher()
-	return rc.stateManager.start()
+	rc.taskManager.StartDispatcher()
+	return rc.stateStorageManager.Start()
 }
 
 func (rc *replicationContext) StopReplicationContext() error {
-	if err := rc.dispatcher.StopDispatcher(); err != nil {
+	if err := rc.taskManager.StopDispatcher(); err != nil {
 		return err
 	}
-	return rc.stateManager.stop()
+	return rc.stateStorageManager.Stop()
 }
 
 func (rc *replicationContext) Offset() (*statestorage.Offset, error) {
-	offsets, err := rc.stateManager.get()
+	offsets, err := rc.stateStorageManager.Get()
 	if err != nil {
 		return nil, err
 	}
@@ -305,7 +344,7 @@ func (rc *replicationContext) AcknowledgeProcessed(xld pgtypes.XLogData, process
 
 	newLastProcessedLSN := pgtypes.LSN(xld.WALStart + pglogrepl.LSN(len(xld.WALData)))
 	if processedLSN != nil {
-		rc.dispatcher.logger.Debugf("Acknowledge transaction end: %s", processedLSN)
+		rc.taskManager.logger.Debugf("Acknowledge transaction end: %s", processedLSN)
 		newLastProcessedLSN = *processedLSN
 	}
 
@@ -325,7 +364,7 @@ func (rc *replicationContext) AcknowledgeProcessed(xld pgtypes.XLogData, process
 	o.LSN = rc.lastProcessedLSN
 	o.Timestamp = xld.ServerTime
 
-	return rc.stateManager.set(rc.replicationSlotName, o)
+	return rc.stateStorageManager.Set(rc.replicationSlotName, o)
 }
 
 func (rc *replicationContext) InitialSnapshotMode() spiconfig.InitialSnapshotMode {
@@ -397,54 +436,63 @@ func (rc *replicationContext) IsLogicalReplicationEnabled() bool {
 func (rc *replicationContext) HasTablePrivilege(
 	entity systemcatalog.SystemEntity, grant Grant) (access bool, err error) {
 
-	return rc.sideChannel.hasTablePrivilege(rc.pgxConfig.User, entity, grant)
+	return rc.sideChannel.HasTablePrivilege(rc.pgxConfig.User, entity, grant)
 }
 
 func (rc *replicationContext) LoadHypertables(cb func(hypertable *systemcatalog.Hypertable) error) error {
-	return rc.sideChannel.readHypertables(cb)
+	return rc.sideChannel.ReadHypertables(cb)
 }
 
 func (rc *replicationContext) LoadChunks(cb func(chunk *systemcatalog.Chunk) error) error {
-	return rc.sideChannel.readChunks(cb)
+	return rc.sideChannel.ReadChunks(cb)
 }
 
 func (rc *replicationContext) ReadHypertableSchema(
 	cb func(hypertable *systemcatalog.Hypertable, columns []systemcatalog.Column) bool,
+	pgTypeResolver func(oid uint32) (pgtypes.PgType, error),
 	hypertables ...*systemcatalog.Hypertable) error {
 
-	return rc.sideChannel.readHypertableSchema(cb, hypertables...)
+	return rc.sideChannel.ReadHypertableSchema(cb, pgTypeResolver, hypertables...)
 }
 
-func (rc *replicationContext) SnapshotChunkTable(chunk *systemcatalog.Chunk,
-	cb func(lsn pgtypes.LSN, values map[string]any) error) (pgtypes.LSN, error) {
+func (rc *replicationContext) SnapshotChunkTable(
+	chunk *systemcatalog.Chunk, cb SnapshotRowCallback,
+) (pgtypes.LSN, error) {
 
-	return rc.sideChannel.snapshotChunkTable(chunk, rc.snapshotBatchSize, cb)
+	return rc.sideChannel.SnapshotChunkTable(chunk, rc.snapshotBatchSize, cb)
 }
 
-func (rc *replicationContext) FetchHypertableSnapshotBatch(hypertable *systemcatalog.Hypertable, snapshotName string,
-	cb func(lsn pgtypes.LSN, values map[string]any) error) error {
+func (rc *replicationContext) FetchHypertableSnapshotBatch(
+	hypertable *systemcatalog.Hypertable, snapshotName string, cb SnapshotRowCallback,
+) error {
 
-	return rc.sideChannel.fetchHypertableSnapshotBatch(hypertable, snapshotName, rc.snapshotBatchSize, cb)
+	return rc.sideChannel.FetchHypertableSnapshotBatch(hypertable, snapshotName, rc.snapshotBatchSize, cb)
 }
 
 func (rc *replicationContext) ReadSnapshotHighWatermark(
-	hypertable *systemcatalog.Hypertable, snapshotName string) (map[string]any, error) {
+	hypertable *systemcatalog.Hypertable, snapshotName string,
+) (map[string]any, error) {
 
-	return rc.sideChannel.readSnapshotHighWatermark(hypertable, snapshotName)
+	return rc.sideChannel.ReadSnapshotHighWatermark(hypertable, snapshotName)
 }
 
 func (rc *replicationContext) ReadReplicaIdentity(entity systemcatalog.SystemEntity) (pgtypes.ReplicaIdentity, error) {
-	return rc.sideChannel.readReplicaIdentity(entity.SchemaName(), entity.TableName())
+	return rc.sideChannel.ReadReplicaIdentity(entity.SchemaName(), entity.TableName())
 }
 
 func (rc *replicationContext) ReadContinuousAggregate(
-	materializedHypertableId int32) (viewSchema, viewName string, found bool, err error) {
+	materializedHypertableId int32,
+) (viewSchema, viewName string, found bool, err error) {
 
-	return rc.sideChannel.readContinuousAggregate(materializedHypertableId)
+	return rc.sideChannel.ReadContinuousAggregate(materializedHypertableId)
 }
 
 func (rc *replicationContext) NewReplicationConnection() (*ReplicationConnection, error) {
 	return newReplicationConnection(rc)
+}
+
+func (rc *replicationContext) NewSideChannelConnection(ctx context.Context) (*pgx.Conn, error) {
+	return pgx.ConnectConfig(ctx, rc.pgxConfig)
 }
 
 func (rc *replicationContext) newReplicationChannelConnection(ctx context.Context) (*pgconn.PgConn, error) {
@@ -454,10 +502,6 @@ func (rc *replicationContext) newReplicationChannelConnection(ctx context.Contex
 	}
 	connConfig.RuntimeParams["replication"] = "database"
 	return pgconn.ConnectConfig(ctx, connConfig)
-}
-
-func (rc *replicationContext) newSideChannelConnection(ctx context.Context) (*pgx.Conn, error) {
-	return pgx.ConnectConfig(ctx, rc.pgxConfig)
 }
 
 func (rc *replicationContext) setPositionLSNs(receivedLSN, processedLSN pgtypes.LSN) {
@@ -473,224 +517,4 @@ func (rc *replicationContext) positionLSNs() (receivedLSN, processedLSN pgtypes.
 	defer rc.lsnMutex.Unlock()
 
 	return rc.lastReceivedLSN, rc.lastProcessedLSN
-}
-
-type publicationManager struct {
-	replicationContext *replicationContext
-}
-
-func (pm *publicationManager) PublicationName() string {
-	return pm.replicationContext.publicationName
-}
-
-func (pm *publicationManager) PublicationCreate() bool {
-	return pm.replicationContext.publicationCreate
-}
-
-func (pm *publicationManager) PublicationAutoDrop() bool {
-	return pm.replicationContext.publicationAutoDrop
-}
-
-func (pm *publicationManager) ExistsTableInPublication(entity systemcatalog.SystemEntity) (found bool, err error) {
-	return pm.replicationContext.sideChannel.existsTableInPublication(
-		pm.PublicationName(), entity.SchemaName(), entity.TableName(),
-	)
-}
-
-func (pm *publicationManager) AttachTablesToPublication(entities ...systemcatalog.SystemEntity) error {
-	return pm.replicationContext.sideChannel.attachTablesToPublication(pm.PublicationName(), entities...)
-}
-
-func (pm *publicationManager) DetachTablesFromPublication(entities ...systemcatalog.SystemEntity) error {
-	return pm.replicationContext.sideChannel.detachTablesFromPublication(pm.PublicationName(), entities...)
-}
-
-func (pm *publicationManager) ReadPublishedTables() ([]systemcatalog.SystemEntity, error) {
-	return pm.replicationContext.sideChannel.readPublishedTables(pm.PublicationName())
-}
-
-func (pm *publicationManager) CreatePublication() (bool, error) {
-	return pm.replicationContext.sideChannel.createPublication(pm.PublicationName())
-}
-
-func (pm *publicationManager) ExistsPublication() (bool, error) {
-	return pm.replicationContext.sideChannel.existsPublication(pm.PublicationName())
-}
-
-func (pm *publicationManager) DropPublication() error {
-	return pm.replicationContext.sideChannel.dropPublication(pm.PublicationName())
-}
-
-type stateManager struct {
-	stateStorage statestorage.Storage
-}
-
-func (sm *stateManager) start() error {
-	return sm.stateStorage.Start()
-}
-
-func (sm *stateManager) stop() error {
-	return sm.stateStorage.Stop()
-}
-
-func (sm *stateManager) get() (map[string]*statestorage.Offset, error) {
-	return sm.stateStorage.Get()
-}
-
-func (sm *stateManager) set(key string, value *statestorage.Offset) error {
-	return sm.stateStorage.Set(key, value)
-}
-
-func (sm *stateManager) StateEncoder(name string, encoder encoding.BinaryMarshaler) error {
-	return sm.stateStorage.StateEncoder(name, encoder)
-}
-
-func (sm *stateManager) StateDecoder(name string, decoder encoding.BinaryUnmarshaler) (present bool, err error) {
-	return sm.stateStorage.StateDecoder(name, decoder)
-}
-
-func (sm *stateManager) SetEncodedState(name string, encodedState []byte) {
-	sm.stateStorage.SetEncodedState(name, encodedState)
-}
-
-func (sm *stateManager) EncodedState(name string) (encodedState []byte, present bool) {
-	return sm.stateStorage.EncodedState(name)
-}
-
-func (sm *stateManager) SnapshotContext() (*watermark.SnapshotContext, error) {
-	snapshotContext := &watermark.SnapshotContext{}
-	present, err := sm.StateDecoder(stateContextName, snapshotContext)
-	if err != nil {
-		return nil, errors.Wrap(err, 0)
-	}
-	if !present {
-		return nil, nil
-	}
-	return snapshotContext, nil
-}
-
-func (sm *stateManager) SnapshotContextTransaction(snapshotName string,
-	createIfNotExists bool, transaction func(snapshotContext *watermark.SnapshotContext) error) error {
-
-	retrieval := func() (*watermark.SnapshotContext, error) {
-		return sm.SnapshotContext()
-	}
-
-	if createIfNotExists {
-		retrieval = func() (*watermark.SnapshotContext, error) {
-			return sm.getOrCreateSnapshotContext(snapshotName)
-		}
-	}
-
-	snapshotContext, err := retrieval()
-	if err != nil {
-		return err
-	}
-
-	if snapshotContext == nil && !createIfNotExists {
-		return errors.Errorf("No such snapshot context found")
-	}
-
-	if err := transaction(snapshotContext); err != nil {
-		return err
-	}
-
-	if err := sm.setSnapshotContext(snapshotContext); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (sm *stateManager) setSnapshotContext(snapshotContext *watermark.SnapshotContext) error {
-	return sm.StateEncoder(stateContextName, snapshotContext)
-}
-
-func (sm *stateManager) getOrCreateSnapshotContext(
-	snapshotName string) (*watermark.SnapshotContext, error) {
-
-	snapshotContext, err := sm.SnapshotContext()
-	if err != nil {
-		return nil, err
-	}
-
-	// Exists -> done
-	if snapshotContext != nil {
-		return snapshotContext, nil
-	}
-
-	// New snapshot context
-	snapshotContext = watermark.NewSnapshotContext(snapshotName)
-
-	// Register new snapshot context
-	if err := sm.setSnapshotContext(snapshotContext); err != nil {
-		return nil, err
-	}
-
-	return snapshotContext, nil
-}
-
-type schemaManager struct {
-	schemaRegistry schema.Registry
-	namingStrategy namingstrategy.NamingStrategy
-	topicPrefix    string
-}
-
-func (sm *schemaManager) TopicPrefix() string {
-	return sm.topicPrefix
-}
-
-func (sm *schemaManager) EventTopicName(hypertable schema.TableAlike) string {
-	return sm.namingStrategy.EventTopicName(sm.topicPrefix, hypertable)
-}
-
-func (sm *schemaManager) SchemaTopicName(hypertable schema.TableAlike) string {
-	return sm.namingStrategy.SchemaTopicName(sm.topicPrefix, hypertable)
-}
-
-func (sm *schemaManager) MessageTopicName() string {
-	return sm.namingStrategy.MessageTopicName(sm.topicPrefix)
-}
-
-func (sm *schemaManager) RegisterSchema(schemaName string, schema schema.Struct) {
-	sm.schemaRegistry.RegisterSchema(schemaName, schema)
-}
-
-func (sm *schemaManager) GetSchema(schemaName string) schema.Struct {
-	return sm.schemaRegistry.GetSchema(schemaName)
-}
-
-func (sm *schemaManager) GetSchemaOrCreate(schemaName string, creator func() schema.Struct) schema.Struct {
-	return sm.schemaRegistry.GetSchemaOrCreate(schemaName, creator)
-}
-
-func (sm *schemaManager) HypertableEnvelopeSchemaName(hypertable schema.TableAlike) string {
-	return sm.schemaRegistry.HypertableEnvelopeSchemaName(hypertable)
-}
-
-func (sm *schemaManager) HypertableKeySchemaName(hypertable schema.TableAlike) string {
-	return sm.schemaRegistry.HypertableKeySchemaName(hypertable)
-}
-
-func (sm *schemaManager) MessageEnvelopeSchemaName() string {
-	return sm.schemaRegistry.MessageEnvelopeSchemaName()
-}
-
-type taskManager struct {
-	taskDispatcher *dispatcher
-}
-
-func (tm *taskManager) RegisterReplicationEventHandler(handler eventhandlers.BaseReplicationEventHandler) {
-	tm.taskDispatcher.RegisterReplicationEventHandler(handler)
-}
-
-func (tm *taskManager) EnqueueTask(task Task) error {
-	return tm.taskDispatcher.EnqueueTask(task)
-}
-
-func (tm *taskManager) RunTask(task Task) error {
-	return tm.taskDispatcher.RunTask(task)
-}
-
-func (tm *taskManager) EnqueueTaskAndWait(task Task) error {
-	return tm.taskDispatcher.EnqueueTaskAndWait(task)
 }

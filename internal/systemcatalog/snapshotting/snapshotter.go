@@ -180,7 +180,7 @@ func (s *Snapshotter) snapshotChunk(task SnapshotTask) error {
 }
 
 func (s *Snapshotter) snapshotHypertable(task SnapshotTask) error {
-	stateManager := s.replicationContext.StateManager()
+	stateManager := s.replicationContext.StateStorageManager()
 
 	// tableSnapshotState
 	if err := stateManager.SnapshotContextTransaction(

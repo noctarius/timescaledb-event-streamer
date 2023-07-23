@@ -20,26 +20,31 @@ package sink
 import (
 	"github.com/go-errors/errors"
 	"github.com/noctarius/timescaledb-event-streamer/spi/config"
+	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
 	"sync"
 )
 
 var sinkRegistry = &registry{
 	mutex:     sync.Mutex{},
-	providers: make(map[config.SinkType]Provider),
+	factories: make(map[config.SinkType]Factory),
 }
 
 type registry struct {
 	mutex     sync.Mutex
-	providers map[config.SinkType]Provider
+	factories map[config.SinkType]Factory
 }
 
-// RegisterSink registers a config.SinkType to a Provider
+type Factory = func(config *config.Config) (Sink, error)
+
+type Provider = func(config *config.Config, stateStorageManager statestorage.Manager) (Manager, error)
+
+// RegisterSink registers a config.SinkType to a Factory
 // implementation which creates the Sink when requested
-func RegisterSink(name config.SinkType, provider Provider) bool {
+func RegisterSink(name config.SinkType, factory Factory) bool {
 	sinkRegistry.mutex.Lock()
 	defer sinkRegistry.mutex.Unlock()
-	if _, present := sinkRegistry.providers[name]; !present {
-		sinkRegistry.providers[name] = provider
+	if _, present := sinkRegistry.factories[name]; !present {
+		sinkRegistry.factories[name] = factory
 		return true
 	}
 	return false
@@ -50,7 +55,7 @@ func RegisterSink(name config.SinkType, provider Provider) bool {
 func NewSink(name config.SinkType, config *config.Config) (Sink, error) {
 	sinkRegistry.mutex.Lock()
 	defer sinkRegistry.mutex.Unlock()
-	if p, present := sinkRegistry.providers[name]; present {
+	if p, present := sinkRegistry.factories[name]; present {
 		return p(config)
 	}
 	return nil, errors.Errorf("SinkType '%s' doesn't exist", name)

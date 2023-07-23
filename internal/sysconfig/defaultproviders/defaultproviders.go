@@ -18,22 +18,36 @@
 package defaultproviders
 
 import (
+	"github.com/go-errors/errors"
+	"github.com/jackc/pgx/v5"
 	"github.com/noctarius/timescaledb-event-streamer/internal/eventing/eventemitting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/eventing/eventfiltering"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/namingstrategy"
+	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/sink"
 	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
+	"github.com/noctarius/timescaledb-event-streamer/spi/stream"
 )
 
 type EventEmitterProvider = func(
-	config *spiconfig.Config, replicationContext context.ReplicationContext, sink sink.Sink,
+	config *spiconfig.Config, replicationContext context.ReplicationContext,
+	streamManager stream.Manager, typeManager pgtypes.TypeManager,
 ) (*eventemitting.EventEmitter, error)
 
-func DefaultSinkProvider(config *spiconfig.Config) (sink.Sink, error) {
+func DefaultSideChannelProvider(replicationContext context.ReplicationContext) (context.SideChannel, error) {
+	return context.NewSideChannel(replicationContext)
+}
+
+func DefaultSinkManagerProvider(config *spiconfig.Config, stateStorageManager statestorage.Manager) (sink.Manager, error) {
 	name := spiconfig.GetOrDefault(config, spiconfig.PropertySink, spiconfig.Stdout)
-	return sink.NewSink(name, config)
+	s, err := sink.NewSink(name, config)
+	if err != nil {
+		return nil, errors.Wrap(err, 0)
+	}
+	return sink.NewSinkManager(stateStorageManager, s), nil
 }
 
 func DefaultNamingStrategyProvider(config *spiconfig.Config) (namingstrategy.NamingStrategy, error) {
@@ -42,7 +56,8 @@ func DefaultNamingStrategyProvider(config *spiconfig.Config) (namingstrategy.Nam
 }
 
 func DefaultEventEmitterProvider(
-	config *spiconfig.Config, replicationContext context.ReplicationContext, sink sink.Sink,
+	config *spiconfig.Config, replicationContext context.ReplicationContext,
+	streamManager stream.Manager, typeManager pgtypes.TypeManager,
 ) (*eventemitting.EventEmitter, error) {
 
 	filters, err := eventfiltering.NewEventFilter(config.Sink.Filters)
@@ -50,10 +65,29 @@ func DefaultEventEmitterProvider(
 		return nil, err
 	}
 
-	return eventemitting.NewEventEmitter(replicationContext, sink, filters)
+	return eventemitting.NewEventEmitter(replicationContext, streamManager, typeManager, filters)
 }
 
-func DefaultStateStorageProvider(config *spiconfig.Config) (statestorage.Storage, error) {
+func DefaultStateStorageManagerProvider(config *spiconfig.Config) (statestorage.Manager, error) {
 	name := spiconfig.GetOrDefault(config, spiconfig.PropertyStateStorageType, spiconfig.NoneStorage)
-	return statestorage.NewStateStorage(name, config)
+	s, err := statestorage.NewStateStorage(name, config)
+	if err != nil {
+		return nil, err
+	}
+	return statestorage.NewStateStorageManager(s), nil
+}
+func DefaultReplicationContextProvider(
+	config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
+	stateStorageManager statestorage.Manager,
+	sideChannelProvider context.SideChannelProvider,
+) (context.ReplicationContext, error) {
+
+	return context.NewReplicationContext(config, pgxConfig, stateStorageManager, sideChannelProvider)
+}
+
+func DefaultStreamManagerProvider(
+	nameGenerator schema.NameGenerator, typeManager pgtypes.TypeManager, sinkManager sink.Manager,
+) (stream.Manager, error) {
+
+	return stream.NewStreamManager(nameGenerator, typeManager, sinkManager)
 }

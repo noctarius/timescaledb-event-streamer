@@ -35,7 +35,7 @@ type TypeResolver interface {
 
 type typeRegistration struct {
 	schemaType    schema.Type
-	schemaBuilder schema.SchemaBuilder
+	schemaBuilder schema.Builder
 	isArray       bool
 	oidElement    uint32
 	converter     Converter
@@ -394,7 +394,13 @@ var optimizedTypes = map[string]typeRegistration{
 // for the given value
 var ErrIllegalValue = fmt.Errorf("illegal value for data type conversion")
 
-type TypeManager struct {
+type TypeManager interface {
+	DataType(oid uint32) (PgType, error)
+	Converter(oid uint32) (Converter, error)
+	NumKnownTypes() int
+}
+
+type typeManager struct {
 	logger              *logging.Logger
 	typeResolver        TypeResolver
 	typeCache           map[uint32]PgType
@@ -404,13 +410,13 @@ type TypeManager struct {
 	optimizedConverters map[uint32]typeRegistration
 }
 
-func NewTypeManager(typeResolver TypeResolver) (*TypeManager, error) {
+func NewTypeManager(typeResolver TypeResolver) (TypeManager, error) {
 	logger, err := logging.NewLogger("TypeManager")
 	if err != nil {
 		return nil, err
 	}
 
-	typeManager := &TypeManager{
+	typeManager := &typeManager{
 		logger:              logger,
 		typeResolver:        typeResolver,
 		typeCache:           make(map[uint32]PgType),
@@ -426,7 +432,7 @@ func NewTypeManager(typeResolver TypeResolver) (*TypeManager, error) {
 	return typeManager, nil
 }
 
-func (tm *TypeManager) initialize() error {
+func (tm *typeManager) initialize() error {
 	tm.typeCacheMutex.Lock()
 	defer tm.typeCacheMutex.Unlock()
 
@@ -491,7 +497,7 @@ func (tm *TypeManager) initialize() error {
 	return nil
 }
 
-func (tm *TypeManager) typeFactory(namespace, name string, kind PgKind, oid uint32,
+func (tm *typeManager) typeFactory(namespace, name string, kind PgKind, oid uint32,
 	category PgCategory, arrayType, recordType bool, oidArray uint32, oidElement uint32,
 	oidParent uint32, modifiers int, enumValues []string, delimiter string) PgType {
 
@@ -499,7 +505,7 @@ func (tm *TypeManager) typeFactory(namespace, name string, kind PgKind, oid uint
 		oidArray, oidElement, oidParent, modifiers, enumValues, delimiter)
 }
 
-func (tm *TypeManager) DataType(oid uint32) (PgType, error) {
+func (tm *typeManager) DataType(oid uint32) (PgType, error) {
 	tm.typeCacheMutex.Lock()
 	defer tm.typeCacheMutex.Unlock()
 
@@ -522,7 +528,7 @@ func (tm *TypeManager) DataType(oid uint32) (PgType, error) {
 	return dataType, nil
 }
 
-func (tm *TypeManager) Converter(oid uint32) (Converter, error) {
+func (tm *typeManager) Converter(oid uint32) (Converter, error) {
 	if registration, present := coreTypes[oid]; present {
 		return registration.converter, nil
 	}
@@ -532,13 +538,13 @@ func (tm *TypeManager) Converter(oid uint32) (Converter, error) {
 	return nil, fmt.Errorf("unsupported OID: %d", oid)
 }
 
-func (tm *TypeManager) NumKnownTypes() int {
+func (tm *typeManager) NumKnownTypes() int {
 	tm.typeCacheMutex.Lock()
 	defer tm.typeCacheMutex.Unlock()
 	return len(tm.typeCache)
 }
 
-func (tm *TypeManager) OidByName(name string) uint32 {
+func (tm *typeManager) OidByName(name string) uint32 {
 	tm.typeCacheMutex.Lock()
 	defer tm.typeCacheMutex.Unlock()
 	oid, present := tm.typeNameCache[name]
@@ -548,7 +554,7 @@ func (tm *TypeManager) OidByName(name string) uint32 {
 	return oid
 }
 
-func (tm *TypeManager) getSchemaType(oid uint32, arrayType bool, kind PgKind) schema.Type {
+func (tm *typeManager) getSchemaType(oid uint32, arrayType bool, kind PgKind) schema.Type {
 	if registration, present := coreTypes[oid]; present {
 		return registration.schemaType
 	}
@@ -563,7 +569,7 @@ func (tm *TypeManager) getSchemaType(oid uint32, arrayType bool, kind PgKind) sc
 	return schema.STRUCT
 }
 
-func (tm *TypeManager) resolveSchemaBuilder(pgType *pgType) schema.SchemaBuilder {
+func (tm *typeManager) resolveSchemaBuilder(pgType *pgType) schema.Builder {
 	if registration, present := tm.optimizedConverters[pgType.oid]; present {
 		if registration.schemaBuilder != nil {
 			return registration.schemaBuilder
@@ -627,7 +633,7 @@ func (tm *TypeManager) resolveSchemaBuilder(pgType *pgType) schema.SchemaBuilder
 }
 
 type lazyArrayConverter struct {
-	typeManager *TypeManager
+	typeManager *typeManager
 	oidElement  uint32
 	converter   Converter
 }

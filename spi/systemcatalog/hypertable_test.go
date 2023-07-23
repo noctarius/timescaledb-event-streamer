@@ -38,7 +38,7 @@ func TestSchemaDifferences_Added_Column(t *testing.T) {
 		NewColumn("test3", 10, -1, fooType, false, nil),
 		NewColumn("test4", 10, -1, fooType, false, nil),
 	}
-	hypertable := NewHypertable(1, "", "", "", "", "", nil, 0, false, nil, nil, pgtypes.DEFAULT)
+	hypertable := NewHypertable(1, "", "", "", "", nil, 0, false, nil, nil, pgtypes.DEFAULT)
 	hypertable.ApplyTableSchema(oldColumns)
 	differences := hypertable.ApplyTableSchema(newColumns)
 
@@ -67,7 +67,7 @@ func TestSchemaDifferences_Renamed_Column(t *testing.T) {
 		NewColumn("test4", 10, -1, fooType, false, nil),
 		NewColumn("test3", 10, -1, fooType, false, nil),
 	}
-	hypertable := NewHypertable(1, "", "", "", "", "", nil, 0, false, nil, nil, pgtypes.DEFAULT)
+	hypertable := NewHypertable(1, "", "", "", "", nil, 0, false, nil, nil, pgtypes.DEFAULT)
 	hypertable.ApplyTableSchema(oldColumns)
 	differences := hypertable.ApplyTableSchema(newColumns)
 
@@ -96,7 +96,7 @@ func TestSchemaDifferences_Renamed_Last_Column(t *testing.T) {
 		NewColumn("test2", 10, -1, fooType, false, nil),
 		NewColumn("test4", 10, -1, fooType, false, nil),
 	}
-	hypertable := NewHypertable(1, "", "", "", "", "", nil, 0, false, nil, nil, pgtypes.DEFAULT)
+	hypertable := NewHypertable(1, "", "", "", "", nil, 0, false, nil, nil, pgtypes.DEFAULT)
 	hypertable.ApplyTableSchema(oldColumns)
 	differences := hypertable.ApplyTableSchema(newColumns)
 
@@ -124,7 +124,7 @@ func TestSchemaDifferences_Dropped_Column(t *testing.T) {
 		NewColumn("test1", 10, -1, fooType, false, nil),
 		NewColumn("test3", 12, -1, fooType, false, nil),
 	}
-	hypertable := NewHypertable(1, "", "", "", "", "", nil, 0, false, nil, nil, pgtypes.DEFAULT)
+	hypertable := NewHypertable(1, "", "", "", "", nil, 0, false, nil, nil, pgtypes.DEFAULT)
 	hypertable.ApplyTableSchema(oldColumns)
 	differences := hypertable.ApplyTableSchema(newColumns)
 
@@ -152,7 +152,7 @@ func TestSchemaDifferences_Dropped_Last_Column(t *testing.T) {
 		NewColumn("test1", 10, -1, fooType, false, nil),
 		NewColumn("test2", 10, -1, fooType, false, nil),
 	}
-	hypertable := NewHypertable(1, "", "", "", "", "", nil, 0, false, nil, nil, pgtypes.DEFAULT)
+	hypertable := NewHypertable(1, "", "", "", "", nil, 0, false, nil, nil, pgtypes.DEFAULT)
 	hypertable.ApplyTableSchema(oldColumns)
 	differences := hypertable.ApplyTableSchema(newColumns)
 
@@ -240,7 +240,7 @@ func (t *testPgType) SchemaType() schema.Type {
 	return schema.INT16
 }
 
-func (t *testPgType) SchemaBuilder() schema.SchemaBuilder {
+func (t *testPgType) SchemaBuilder() schema.Builder {
 	return nil
 }
 

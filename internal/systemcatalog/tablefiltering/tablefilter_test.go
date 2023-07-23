@@ -349,7 +349,6 @@ func invalidStringParsing(t *testing.T, token, expected string) {
 func makeHypertable(id int32, schemaName, tableName string) *systemcatalog.Hypertable {
 	return systemcatalog.NewHypertable(
 		id,
-		"test",
 		schemaName,
 		tableName,
 		"test",

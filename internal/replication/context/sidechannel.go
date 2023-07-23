@@ -219,12 +219,52 @@ const walLevelQuery = `SHOW WAL_LEVEL`
 
 const checkTablePrivilegeByUserQuery = `SELECT HAS_TABLE_PRIVILEGE($1, $2, $3)`
 
-type sideChannelImpl struct {
-	logger             *logging.Logger
-	replicationContext *replicationContext
+type SideChannelProvider func(replicationContext ReplicationContext) (SideChannel, error)
+
+type SideChannel interface {
+	pgtypes.TypeResolver
+	HasTablePrivilege(username string, entity systemcatalog.SystemEntity, grant Grant) (access bool, err error)
+	CreatePublication(publicationName string) (success bool, err error)
+	ExistsPublication(publicationName string) (found bool, err error)
+	DropPublication(publicationName string) error
+	ExistsTableInPublication(publicationName, schemaName, tableName string) (found bool, err error)
+	GetSystemInformation() (databaseName, systemId string, timeline int32, err error)
+	GetWalLevel() (walLevel string, err error)
+	GetPostgresVersion() (pgVersion version.PostgresVersion, err error)
+	GetTimescaleDBVersion() (tsdbVersion version.TimescaleVersion, found bool, err error)
+	ReadHypertables(cb func(hypertable *systemcatalog.Hypertable) error) error
+	ReadChunks(cb func(chunk *systemcatalog.Chunk) error) error
+	ReadHypertableSchema(
+		cb HypertableSchemaCallback,
+		pgTypeResolver func(oid uint32) (pgtypes.PgType, error),
+		hypertables ...*systemcatalog.Hypertable,
+	) error
+	AttachTablesToPublication(publicationName string, entities ...systemcatalog.SystemEntity) error
+	DetachTablesFromPublication(publicationName string, entities ...systemcatalog.SystemEntity) error
+	SnapshotChunkTable(
+		chunk *systemcatalog.Chunk, snapshotBatchSize int, cb SnapshotRowCallback,
+	) (lsn pgtypes.LSN, err error)
+	FetchHypertableSnapshotBatch(
+		hypertable *systemcatalog.Hypertable, snapshotName string, snapshotBatchSize int, cb SnapshotRowCallback,
+	) error
+	ReadSnapshotHighWatermark(
+		hypertable *systemcatalog.Hypertable, snapshotName string,
+	) (values map[string]any, err error)
+	ReadReplicaIdentity(schemaName, tableName string) (identity pgtypes.ReplicaIdentity, err error)
+	ReadContinuousAggregate(materializedHypertableId int32) (viewSchema, viewName string, found bool, err error)
+	ReadPublishedTables(publicationName string) (entities []systemcatalog.SystemEntity, err error)
+	ReadReplicationSlot(
+		slotName string,
+	) (pluginName, slotType string, restartLsn, confirmedFlushLsn pgtypes.LSN, err error)
+	ExistsReplicationSlot(slotName string) (found bool, err error)
 }
 
-func newSideChannel(replicationContext *replicationContext) (*sideChannelImpl, error) {
+type sideChannelImpl struct {
+	logger             *logging.Logger
+	replicationContext ReplicationContext
+}
+
+func NewSideChannel(replicationContext ReplicationContext) (SideChannel, error) {
 	logger, err := logging.NewLogger("SideChannel")
 	if err != nil {
 		return nil, err
@@ -236,7 +276,7 @@ func newSideChannel(replicationContext *replicationContext) (*sideChannelImpl, e
 	}, nil
 }
 
-func (sc *sideChannelImpl) hasTablePrivilege(username string,
+func (sc *sideChannelImpl) HasTablePrivilege(username string,
 	entity systemcatalog.SystemEntity, grant Grant) (access bool, err error) {
 
 	err = sc.newSession(time.Second*10, func(session *session) error {
@@ -250,7 +290,7 @@ func (sc *sideChannelImpl) hasTablePrivilege(username string,
 	return
 }
 
-func (sc *sideChannelImpl) createPublication(publicationName string) (success bool, err error) {
+func (sc *sideChannelImpl) CreatePublication(publicationName string) (success bool, err error) {
 	err = sc.newSession(time.Second*10, func(session *session) error {
 		err = session.queryRow(
 			createPublicationQuery,
@@ -269,7 +309,7 @@ func (sc *sideChannelImpl) createPublication(publicationName string) (success bo
 	return
 }
 
-func (sc *sideChannelImpl) existsPublication(publicationName string) (found bool, err error) {
+func (sc *sideChannelImpl) ExistsPublication(publicationName string) (found bool, err error) {
 	err = sc.newSession(time.Second*10, func(session *session) error {
 		return session.queryRow(checkExistingPublicationQuery, publicationName).Scan(&found)
 	})
@@ -282,7 +322,7 @@ func (sc *sideChannelImpl) existsPublication(publicationName string) (found bool
 	return
 }
 
-func (sc *sideChannelImpl) dropPublication(publicationName string) error {
+func (sc *sideChannelImpl) DropPublication(publicationName string) error {
 	return sc.newSession(time.Second*10, func(session *session) error {
 		_, err := session.exec(fmt.Sprintf(dropPublicationQuery, publicationName))
 		if e, ok := err.(*pgconn.PgError); ok {
@@ -300,7 +340,7 @@ func (sc *sideChannelImpl) dropPublication(publicationName string) error {
 	})
 }
 
-func (sc *sideChannelImpl) existsTableInPublication(
+func (sc *sideChannelImpl) ExistsTableInPublication(
 	publicationName, schemaName, tableName string) (found bool, err error) {
 
 	err = sc.newSession(time.Second*10, func(session *session) error {
@@ -315,7 +355,7 @@ func (sc *sideChannelImpl) existsTableInPublication(
 	return
 }
 
-func (sc *sideChannelImpl) getSystemInformation() (databaseName, systemId string, timeline int32, err error) {
+func (sc *sideChannelImpl) GetSystemInformation() (databaseName, systemId string, timeline int32, err error) {
 	if err := sc.newSession(time.Second*10, func(session *session) error {
 		return session.queryRow(getSystemInformationQuery).Scan(&databaseName, &systemId, &timeline)
 	}); err != nil {
@@ -324,7 +364,7 @@ func (sc *sideChannelImpl) getSystemInformation() (databaseName, systemId string
 	return
 }
 
-func (sc *sideChannelImpl) getWalLevel() (walLevel string, err error) {
+func (sc *sideChannelImpl) GetWalLevel() (walLevel string, err error) {
 	walLevel = "unknown"
 	err = sc.newSession(time.Second*10, func(session *session) error {
 		return session.queryRow(walLevelQuery).Scan(&walLevel)
@@ -335,7 +375,7 @@ func (sc *sideChannelImpl) getWalLevel() (walLevel string, err error) {
 	return
 }
 
-func (sc *sideChannelImpl) getPostgresVersion() (pgVersion version.PostgresVersion, err error) {
+func (sc *sideChannelImpl) GetPostgresVersion() (pgVersion version.PostgresVersion, err error) {
 	if err = sc.newSession(time.Second*10, func(session *session) error {
 		var v string
 		if err := session.queryRow(postgresqlVersionQuery).Scan(&v); err != nil {
@@ -352,7 +392,7 @@ func (sc *sideChannelImpl) getPostgresVersion() (pgVersion version.PostgresVersi
 	return
 }
 
-func (sc *sideChannelImpl) getTimescaleDBVersion() (tsdbVersion version.TimescaleVersion, found bool, err error) {
+func (sc *sideChannelImpl) GetTimescaleDBVersion() (tsdbVersion version.TimescaleVersion, found bool, err error) {
 	if err = sc.newSession(time.Second*10, func(session *session) error {
 		var v string
 		if err := session.queryRow(timescaledbVersionQuery).Scan(&v); err != nil {
@@ -376,7 +416,7 @@ func (sc *sideChannelImpl) getTimescaleDBVersion() (tsdbVersion version.Timescal
 	return
 }
 
-func (sc *sideChannelImpl) readHypertables(cb func(hypertable *systemcatalog.Hypertable) error) error {
+func (sc *sideChannelImpl) ReadHypertables(cb func(hypertable *systemcatalog.Hypertable) error) error {
 	return sc.newSession(time.Second*20, func(session *session) error {
 		return session.queryFunc(func(row pgx.Row) error {
 			var id int32
@@ -394,16 +434,17 @@ func (sc *sideChannelImpl) readHypertables(cb func(hypertable *systemcatalog.Hyp
 				return errors.Wrap(err, 0)
 			}
 
-			hypertable := systemcatalog.NewHypertable(id, sc.replicationContext.DatabaseName(), schemaName,
-				hypertableName, associatedSchemaName, associatedTablePrefix, compressedHypertableId,
-				compressionState, distributed, viewSchema, viewName, replicaIdentity)
+			hypertable := systemcatalog.NewHypertable(
+				id, schemaName, hypertableName, associatedSchemaName, associatedTablePrefix,
+				compressedHypertableId, compressionState, distributed, viewSchema, viewName, replicaIdentity,
+			)
 
 			return cb(hypertable)
 		}, initialHypertableQuery)
 	})
 }
 
-func (sc *sideChannelImpl) readChunks(cb func(chunk *systemcatalog.Chunk) error) error {
+func (sc *sideChannelImpl) ReadChunks(cb func(chunk *systemcatalog.Chunk) error) error {
 	return sc.newSession(time.Second*20, func(session *session) error {
 		return session.queryFunc(func(row pgx.Row) error {
 			var id, hypertableId int32
@@ -424,9 +465,11 @@ func (sc *sideChannelImpl) readChunks(cb func(chunk *systemcatalog.Chunk) error)
 	})
 }
 
-func (sc *sideChannelImpl) readHypertableSchema(
-	cb func(hypertable *systemcatalog.Hypertable, columns []systemcatalog.Column) bool,
-	hypertables ...*systemcatalog.Hypertable) error {
+func (sc *sideChannelImpl) ReadHypertableSchema(
+	cb HypertableSchemaCallback,
+	pgTypeResolver func(oid uint32) (pgtypes.PgType, error),
+	hypertables ...*systemcatalog.Hypertable,
+) error {
 
 	return sc.newSession(time.Second*10, func(session *session) error {
 		for _, hypertable := range hypertables {
@@ -435,7 +478,7 @@ func (sc *sideChannelImpl) readHypertableSchema(
 
 				continue
 			}
-			if err := sc.readHypertableSchema0(session, hypertable, cb); err != nil {
+			if err := sc.readHypertableSchema0(session, hypertable, pgTypeResolver, cb); err != nil {
 				return errors.Wrap(err, 0)
 			}
 		}
@@ -443,7 +486,7 @@ func (sc *sideChannelImpl) readHypertableSchema(
 	})
 }
 
-func (sc *sideChannelImpl) attachTablesToPublication(
+func (sc *sideChannelImpl) AttachTablesToPublication(
 	publicationName string, entities ...systemcatalog.SystemEntity) error {
 
 	if len(entities) == 0 {
@@ -463,7 +506,7 @@ func (sc *sideChannelImpl) attachTablesToPublication(
 	})
 }
 
-func (sc *sideChannelImpl) detachTablesFromPublication(
+func (sc *sideChannelImpl) DetachTablesFromPublication(
 	publicationName string, entities ...systemcatalog.SystemEntity) error {
 
 	if len(entities) == 0 {
@@ -483,8 +526,9 @@ func (sc *sideChannelImpl) detachTablesFromPublication(
 	})
 }
 
-func (sc *sideChannelImpl) snapshotChunkTable(chunk *systemcatalog.Chunk, snapshotBatchSize int,
-	cb func(lsn pgtypes.LSN, values map[string]any) error) (pgtypes.LSN, error) {
+func (sc *sideChannelImpl) SnapshotChunkTable(
+	chunk *systemcatalog.Chunk, snapshotBatchSize int, cb SnapshotRowCallback,
+) (pgtypes.LSN, error) {
 
 	var currentLSN pgtypes.LSN = 0
 
@@ -508,16 +552,16 @@ func (sc *sideChannelImpl) snapshotChunkTable(chunk *systemcatalog.Chunk, snapsh
 	return currentLSN, nil
 }
 
-func (sc *sideChannelImpl) fetchHypertableSnapshotBatch(
+func (sc *sideChannelImpl) FetchHypertableSnapshotBatch(
 	hypertable *systemcatalog.Hypertable, snapshotName string, snapshotBatchSize int,
-	cb func(lsn pgtypes.LSN, values map[string]any) error) error {
+	cb SnapshotRowCallback) error {
 
 	index, present := hypertable.Columns().SnapshotIndex()
 	if !present {
 		return errors.Errorf("missing snapshotting index for hypertable '%s'", hypertable.CanonicalName())
 	}
 
-	return sc.replicationContext.StateManager().SnapshotContextTransaction(
+	return sc.replicationContext.StateStorageManager().SnapshotContextTransaction(
 		snapshotName, false,
 		func(snapshotContext *watermark.SnapshotContext) error {
 			hypertableWatermark, present := snapshotContext.GetWatermark(hypertable)
@@ -578,76 +622,9 @@ func (sc *sideChannelImpl) fetchHypertableSnapshotBatch(
 	)
 }
 
-func (sc *sideChannelImpl) snapshotTableWithCursor(
-	cursorQuery, cursorName string, snapshotName *string, snapshotBatchSize int,
-	cb func(lsn pgtypes.LSN, values map[string]any) error) error {
-
-	return sc.newSession(time.Minute*60, func(session *session) error {
-		if _, err := session.exec("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ"); err != nil {
-			return err
-		}
-
-		if snapshotName != nil {
-			if _, err := session.exec(
-				fmt.Sprintf("SET TRANSACTION SNAPSHOT '%s'", *snapshotName),
-			); err != nil {
-				return errors.Wrap(err, 0)
-			}
-		}
-
-		var currentLSN pglogrepl.LSN
-		if err := session.queryRow("SELECT pg_current_wal_lsn()").Scan(&currentLSN); err != nil {
-			return errors.Wrap(err, 0)
-		}
-
-		// Declare cursor for fetch iterations
-		if _, err := session.exec(cursorQuery); err != nil {
-			return errors.Wrap(err, 0)
-		}
-
-		var rowDecoder *pgtypes.RowDecoder
-		for {
-			count := 0
-			if err := session.queryFunc(func(row pgx.Row) error {
-				rows := row.(pgx.Rows)
-
-				if rowDecoder == nil {
-					// Initialize the row decoder based on the returned field descriptions
-					rd, err := pgtypes.NewRowDecoder(rows.FieldDescriptions())
-					if err != nil {
-						return errors.Wrap(err, 0)
-					}
-					rowDecoder = rd
-				}
-
-				return rowDecoder.DecodeMapAndSink(rows.RawValues(), func(values map[string]any) error {
-					count++
-					return cb(pgtypes.LSN(currentLSN), values)
-				})
-			}, fmt.Sprintf("FETCH FORWARD %d FROM %s", snapshotBatchSize, cursorName)); err != nil {
-				return errors.Wrap(err, 0)
-			}
-			if count == 0 || count < snapshotBatchSize {
-				break
-			}
-			session.ResetTimeout(time.Minute * 60)
-		}
-
-		_, err := session.exec(fmt.Sprintf("CLOSE %s", cursorName))
-		if err != nil {
-			return errors.Wrap(err, 0)
-		}
-
-		_, err = session.exec("ROLLBACK")
-		if err != nil {
-			return errors.Wrap(err, 0)
-		}
-		return nil
-	})
-}
-
-func (sc *sideChannelImpl) readSnapshotHighWatermark(
-	hypertable *systemcatalog.Hypertable, snapshotName string) (values map[string]any, err error) {
+func (sc *sideChannelImpl) ReadSnapshotHighWatermark(
+	hypertable *systemcatalog.Hypertable, snapshotName string,
+) (values map[string]any, err error) {
 
 	index, present := hypertable.Columns().SnapshotIndex()
 	if !present {
@@ -688,7 +665,7 @@ func (sc *sideChannelImpl) readSnapshotHighWatermark(
 	return
 }
 
-func (sc *sideChannelImpl) readReplicaIdentity(schemaName, tableName string) (pgtypes.ReplicaIdentity, error) {
+func (sc *sideChannelImpl) ReadReplicaIdentity(schemaName, tableName string) (pgtypes.ReplicaIdentity, error) {
 	var replicaIdentity pgtypes.ReplicaIdentity
 	if err := sc.newSession(time.Second*10, func(session *session) error {
 		row := session.queryRow(replicaIdentityQuery, schemaName, tableName)
@@ -705,10 +682,10 @@ func (sc *sideChannelImpl) readReplicaIdentity(schemaName, tableName string) (pg
 	return replicaIdentity, nil
 }
 
-func (sc *sideChannelImpl) readContinuousAggregate(materializedHypertableId int32) (string, string, bool, error) {
-	var viewSchema, viewName string
+func (sc *sideChannelImpl) ReadContinuousAggregate(
+	materializedHypertableId int32,
+) (viewSchema, viewName string, found bool, err error) {
 
-	found := false
 	if err := sc.newSession(time.Second*10, func(session *session) error {
 		row := session.queryRow(hypertableContinuousAggregateQuery, materializedHypertableId)
 		if err := row.Scan(&viewSchema, &viewName); err != nil {
@@ -725,7 +702,7 @@ func (sc *sideChannelImpl) readContinuousAggregate(materializedHypertableId int3
 	return viewSchema, viewName, found, nil
 }
 
-func (sc *sideChannelImpl) readPublishedTables(publicationName string) ([]systemcatalog.SystemEntity, error) {
+func (sc *sideChannelImpl) ReadPublishedTables(publicationName string) ([]systemcatalog.SystemEntity, error) {
 	systemEntities := make([]systemcatalog.SystemEntity, 0)
 	if err := sc.newSession(time.Second*20, func(session *session) error {
 		return session.queryFunc(func(row pgx.Row) error {
@@ -742,7 +719,7 @@ func (sc *sideChannelImpl) readPublishedTables(publicationName string) ([]system
 	return systemEntities, nil
 }
 
-func (sc *sideChannelImpl) readReplicationSlot(
+func (sc *sideChannelImpl) ReadReplicationSlot(
 	slotName string,
 ) (pluginName, slotType string, restartLsn, confirmedFlushLsn pgtypes.LSN, err error) {
 	err = sc.newSession(time.Second*10, func(session *session) error {
@@ -773,7 +750,7 @@ func (sc *sideChannelImpl) readReplicationSlot(
 	return
 }
 
-func (sc *sideChannelImpl) existsReplicationSlot(slotName string) (found bool, err error) {
+func (sc *sideChannelImpl) ExistsReplicationSlot(slotName string) (found bool, err error) {
 	err = sc.newSession(time.Second*10, func(session *session) error {
 		return session.queryRow(checkExistingReplicationSlotQuery, slotName).Scan(&found)
 	})
@@ -784,49 +761,6 @@ func (sc *sideChannelImpl) existsReplicationSlot(slotName string) (found bool, e
 		err = errors.Wrap(err, 0)
 	}
 	return
-}
-
-func (sc *sideChannelImpl) readHypertableSchema0(
-	session *session, hypertable *systemcatalog.Hypertable,
-	cb func(hypertable *systemcatalog.Hypertable, columns []systemcatalog.Column) bool) error {
-
-	columns := make([]systemcatalog.Column, 0)
-	if err := session.queryFunc(func(row pgx.Row) error {
-		var name, sortOrder, nullsOrder string
-		var oid uint32
-		var modifiers int
-		var keySeq, dimSeq, maxCharLength *int
-		var nullable, primaryKey, isReplicaIdent, dimension, dimAligned bool
-		var defaultValue, indexName, dimType *string
-
-		if err := row.Scan(&name, &oid, &modifiers, &nullable, &primaryKey, &keySeq,
-			&defaultValue, &isReplicaIdent, &indexName, &sortOrder, &nullsOrder,
-			&dimension, &dimAligned, &dimType, &dimSeq, &maxCharLength); err != nil {
-
-			return errors.Wrap(err, 0)
-		}
-
-		dataType, err := sc.replicationContext.typeManager.DataType(oid)
-		if err != nil {
-			return errors.Wrap(err, 0)
-		}
-
-		column := systemcatalog.NewIndexColumn(
-			name, oid, modifiers, dataType, nullable, primaryKey, keySeq, defaultValue, isReplicaIdent, indexName,
-			systemcatalog.IndexSortOrder(sortOrder), systemcatalog.IndexNullsOrder(nullsOrder),
-			dimension, dimAligned, dimType, dimSeq, maxCharLength,
-		)
-		columns = append(columns, column)
-		return nil
-	}, initialTableSchemaQuery, hypertable.SchemaName(), hypertable.TableName()); err != nil {
-		return err
-	}
-
-	if !cb(hypertable, columns) {
-		return errors.Errorf("hypertable schema callback failed")
-	}
-
-	return nil
 }
 
 func (sc *sideChannelImpl) ReadPgTypes(factory pgtypes.TypeFactory, cb func(pgType pgtypes.PgType) error) error {
@@ -915,11 +849,124 @@ func (sc *sideChannelImpl) entitiesToTableList(entities []systemcatalog.SystemEn
 	return strings.Join(canonicalEntityNames, ",")
 }
 
+func (sc *sideChannelImpl) readHypertableSchema0(
+	session *session, hypertable *systemcatalog.Hypertable,
+	pgTypeResolver func(oid uint32) (pgtypes.PgType, error),
+	cb func(hypertable *systemcatalog.Hypertable, columns []systemcatalog.Column) bool,
+) error {
+
+	columns := make([]systemcatalog.Column, 0)
+	if err := session.queryFunc(func(row pgx.Row) error {
+		var name, sortOrder, nullsOrder string
+		var oid uint32
+		var modifiers int
+		var keySeq, dimSeq, maxCharLength *int
+		var nullable, primaryKey, isReplicaIdent, dimension, dimAligned bool
+		var defaultValue, indexName, dimType *string
+
+		if err := row.Scan(&name, &oid, &modifiers, &nullable, &primaryKey, &keySeq,
+			&defaultValue, &isReplicaIdent, &indexName, &sortOrder, &nullsOrder,
+			&dimension, &dimAligned, &dimType, &dimSeq, &maxCharLength); err != nil {
+
+			return errors.Wrap(err, 0)
+		}
+
+		dataType, err := pgTypeResolver(oid)
+		if err != nil {
+			return errors.Wrap(err, 0)
+		}
+
+		column := systemcatalog.NewIndexColumn(
+			name, oid, modifiers, dataType, nullable, primaryKey, keySeq, defaultValue, isReplicaIdent, indexName,
+			systemcatalog.IndexSortOrder(sortOrder), systemcatalog.IndexNullsOrder(nullsOrder),
+			dimension, dimAligned, dimType, dimSeq, maxCharLength,
+		)
+		columns = append(columns, column)
+		return nil
+	}, initialTableSchemaQuery, hypertable.SchemaName(), hypertable.TableName()); err != nil {
+		return err
+	}
+
+	if !cb(hypertable, columns) {
+		return errors.Errorf("hypertable schema callback failed")
+	}
+
+	return nil
+}
+
+func (sc *sideChannelImpl) snapshotTableWithCursor(
+	cursorQuery, cursorName string, snapshotName *string, snapshotBatchSize int,
+	cb func(lsn pgtypes.LSN, values map[string]any) error) error {
+
+	return sc.newSession(time.Minute*60, func(session *session) error {
+		if _, err := session.exec("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ"); err != nil {
+			return err
+		}
+
+		if snapshotName != nil {
+			if _, err := session.exec(
+				fmt.Sprintf("SET TRANSACTION SNAPSHOT '%s'", *snapshotName),
+			); err != nil {
+				return errors.Wrap(err, 0)
+			}
+		}
+
+		var currentLSN pglogrepl.LSN
+		if err := session.queryRow("SELECT pg_current_wal_lsn()").Scan(&currentLSN); err != nil {
+			return errors.Wrap(err, 0)
+		}
+
+		// Declare cursor for fetch iterations
+		if _, err := session.exec(cursorQuery); err != nil {
+			return errors.Wrap(err, 0)
+		}
+
+		var rowDecoder *pgtypes.RowDecoder
+		for {
+			count := 0
+			if err := session.queryFunc(func(row pgx.Row) error {
+				rows := row.(pgx.Rows)
+
+				if rowDecoder == nil {
+					// Initialize the row decoder based on the returned field descriptions
+					rd, err := pgtypes.NewRowDecoder(rows.FieldDescriptions())
+					if err != nil {
+						return errors.Wrap(err, 0)
+					}
+					rowDecoder = rd
+				}
+
+				return rowDecoder.DecodeMapAndSink(rows.RawValues(), func(values map[string]any) error {
+					count++
+					return cb(pgtypes.LSN(currentLSN), values)
+				})
+			}, fmt.Sprintf("FETCH FORWARD %d FROM %s", snapshotBatchSize, cursorName)); err != nil {
+				return errors.Wrap(err, 0)
+			}
+			if count == 0 || count < snapshotBatchSize {
+				break
+			}
+			session.ResetTimeout(time.Minute * 60)
+		}
+
+		_, err := session.exec(fmt.Sprintf("CLOSE %s", cursorName))
+		if err != nil {
+			return errors.Wrap(err, 0)
+		}
+
+		_, err = session.exec("ROLLBACK")
+		if err != nil {
+			return errors.Wrap(err, 0)
+		}
+		return nil
+	})
+}
+
 func (sc *sideChannelImpl) newSession(timeout time.Duration, fn func(session *session) error) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	connection, err := sc.replicationContext.newSideChannelConnection(ctx)
+	connection, err := sc.replicationContext.NewSideChannelConnection(ctx)
 	if err != nil {
 		return fmt.Errorf("unable to connect to database: %v", err)
 	}

@@ -19,7 +19,6 @@ package namingstrategy
 
 import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/config"
-	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"strings"
 )
 
@@ -29,10 +28,10 @@ type Provider = func(config *config.Config) (NamingStrategy, error)
 // topic names for event topics, schema topics, as
 // well as message topics
 type NamingStrategy interface {
-	// EventTopicName generates a event topic name for the given hypertable
-	EventTopicName(topicPrefix string, hypertable schema.TableAlike) string
-	// SchemaTopicName generates a schema topic name for the given hypertable
-	SchemaTopicName(topicPrefix string, hypertable schema.TableAlike) string
+	// EventTopicName generates a event topic name for the given schema and table name
+	EventTopicName(topicPrefix string, schemaName, tableName string) string
+	// SchemaTopicName generates a schema topic name for the given schema and table name
+	SchemaTopicName(topicPrefix string, schemaName, tableName string) string
 	// MessageTopicName generates a message topic name for a replication message
 	MessageTopicName(topicPrefix string) string
 }

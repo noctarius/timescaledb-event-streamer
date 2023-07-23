@@ -114,13 +114,16 @@ func TruncateEvent(source Struct) Struct {
 	return event
 }
 
-func MessageEvent(prefix, content string, source Struct) Struct {
+func MessageEvent(prefix string, content *string, source Struct) Struct {
 	event := make(Struct)
 	event[FieldNameOperation] = string(OP_MESSAGE)
-	event[FieldNameMessage] = Struct{
-		FieldNamePrefix:  prefix,
-		FieldNameContent: content,
+	block := Struct{
+		FieldNamePrefix: prefix,
 	}
+	if content != nil {
+		block[FieldNameContent] = *content
+	}
+	event[FieldNameMessage] = block
 	if source != nil {
 		event[FieldNameSource] = source
 	}
@@ -187,22 +190,8 @@ func Source(lsn pglogrepl.LSN, timestamp time.Time, snapshot bool,
 	}
 }
 
-func HypertableSchema(hypertableSchemaName string, columns []ColumnAlike) Struct {
-	return Struct{
-		FieldNameType: string(STRUCT),
-		FieldNameFields: func() []Struct {
-			fields := make([]Struct, len(columns))
-			for i, column := range columns {
-				fields[i] = column.SchemaBuilder().Build()
-			}
-			return fields
-		}(),
-		FieldNameName: hypertableSchemaName,
-	}
-}
-
-func KeySchema(hypertable TableAlike, topicSchemaGenerator NameGenerator) Struct {
-	schemaTopicName := topicSchemaGenerator.SchemaTopicName(hypertable)
+func KeySchema(nameGenerator NameGenerator, table TableAlike) Struct {
+	schemaTopicName := nameGenerator.SchemaTopicName(table)
 	hypertableKeySchemaName := fmt.Sprintf("%s.Key", schemaTopicName)
 
 	return Struct{
@@ -212,7 +201,7 @@ func KeySchema(hypertable TableAlike, topicSchemaGenerator NameGenerator) Struct
 		FieldNameFields: func() []Struct {
 			keys := make([]Struct, 0)
 			fieldIndex := 0
-			for _, column := range hypertable.TableColumns() {
+			for _, column := range table.TableColumns() {
 				if !column.IsPrimaryKey() {
 					continue
 				}
@@ -236,11 +225,11 @@ func TimescaleEventKeySchema() Struct {
 	}
 }
 
-func EnvelopeSchema(topicSchemaGenerator NameGenerator, hypertable TableAlike) Struct {
-	schemaTopicName := topicSchemaGenerator.SchemaTopicName(hypertable)
+func EnvelopeSchema(nameGenerator NameGenerator, table TableAlike) Struct {
+	schemaTopicName := nameGenerator.SchemaTopicName(table)
 	hypertableSchemaName := fmt.Sprintf("%s.Value", schemaTopicName)
 	envelopeSchemaName := fmt.Sprintf("%s.Envelope", schemaTopicName)
-	hypertableSchema := hypertable.SchemaBuilder().SchemaName(hypertableSchemaName)
+	hypertableSchema := table.SchemaBuilder().SchemaName(hypertableSchemaName)
 
 	return NewSchemaBuilder(STRUCT).
 		SchemaName(envelopeSchemaName).
@@ -254,15 +243,15 @@ func EnvelopeSchema(topicSchemaGenerator NameGenerator, hypertable TableAlike) S
 		Build()
 }
 
-func EnvelopeMessageSchema(schemaRegistry Registry, topicSchemaGenerator NameGenerator) Struct {
-	schemaTopicName := topicSchemaGenerator.MessageTopicName()
+func EnvelopeMessageSchema(nameGenerator NameGenerator) Struct {
+	schemaTopicName := nameGenerator.MessageTopicName()
 	envelopeSchemaName := fmt.Sprintf("%s.Envelope", schemaTopicName)
 
 	return Struct{
 		FieldNameType: string(STRUCT),
 		FieldNameFields: []Struct{
-			schemaRegistry.GetSchema(MessageValueSchemaName),
-			schemaRegistry.GetSchema(SourceSchemaName),
+			MessageValueSchema(),
+			SourceSchema().Build(),
 			simpleSchemaElement(FieldNameOperation, STRING, false),
 			simpleSchemaElement(FieldNameTimescaleOp, STRING, true),
 			simpleSchemaElement(FieldNameTimestamp, INT64, true),
@@ -272,7 +261,7 @@ func EnvelopeMessageSchema(schemaRegistry Registry, topicSchemaGenerator NameGen
 	}
 }
 
-func SourceSchema() SchemaBuilder {
+func SourceSchema() Builder {
 	return NewSchemaBuilder(STRUCT).
 		FieldName(FieldNameSource).
 		SchemaName(SourceSchemaName).
@@ -289,14 +278,14 @@ func SourceSchema() SchemaBuilder {
 		Field(FieldNameXmin, -1, Int64())
 }
 
-func MessageValueSchema(schemaRegistry Registry) Struct {
+func MessageValueSchema() Struct {
 	return Struct{
 		FieldNameVersion: 1,
 		FieldNameName:    MessageValueSchemaName,
 		FieldNameFields: []Struct{
 			simpleSchemaElement(FieldNameOperation, STRING, false),
 			simpleSchemaElement(FieldNameTimestamp, INT64, true),
-			schemaRegistry.GetSchema(SourceSchemaName),
+			SourceSchema().Build(),
 			{
 				FieldNameField:    FieldNameMessage,
 				FieldNameOptional: false,
@@ -321,7 +310,7 @@ func messageBlockSchema() Struct {
 		FieldNameVersion: 1,
 		FieldNameName:    MessageBlockSchemaName,
 		FieldNameFields: []Struct{
-			simpleSchemaElement(FieldNamePrefix, STRING, true),
+			simpleSchemaElement(FieldNamePrefix, STRING, false),
 			simpleSchemaElement(FieldNameContent, STRING, true),
 		},
 	}

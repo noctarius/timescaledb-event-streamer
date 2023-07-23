@@ -140,11 +140,13 @@ func (rh *replicationHandler) startReplicationHandler(
 			xid := rh.replicationContext.LastTransactionId()
 			lastBegin := rh.replicationContext.LastBeginLSN()
 			lastCommit := rh.replicationContext.LastCommitLSN()
+			databaseName := rh.replicationContext.DatabaseName()
 			extendedXld := pgtypes.XLogData{
-				XLogData:   xld,
-				LastBegin:  lastBegin,
-				LastCommit: lastCommit,
-				Xid:        xid,
+				XLogData:     xld,
+				DatabaseName: databaseName,
+				LastBegin:    lastBegin,
+				LastCommit:   lastCommit,
+				Xid:          xid,
 			}
 
 			// Skip all entries that were already replicated before the streamer was shut down

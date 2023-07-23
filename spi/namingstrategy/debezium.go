@@ -20,7 +20,6 @@ package namingstrategy
 import (
 	"fmt"
 	"github.com/noctarius/timescaledb-event-streamer/spi/config"
-	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 )
 
 func init() {
@@ -34,12 +33,12 @@ func init() {
 type debeziumNamingStrategy struct {
 }
 
-func (d *debeziumNamingStrategy) EventTopicName(topicPrefix string, hypertable schema.TableAlike) string {
-	return fmt.Sprintf("%s.%s.%s", topicPrefix, hypertable.SchemaName(), hypertable.TableName())
+func (d *debeziumNamingStrategy) EventTopicName(topicPrefix string, schemaName, tableName string) string {
+	return fmt.Sprintf("%s.%s.%s", topicPrefix, schemaName, tableName)
 }
 
-func (d *debeziumNamingStrategy) SchemaTopicName(topicPrefix string, hypertable schema.TableAlike) string {
-	return fmt.Sprintf("%s.%s.%s", topicPrefix, hypertable.SchemaName(), hypertable.TableName())
+func (d *debeziumNamingStrategy) SchemaTopicName(topicPrefix string, schemaName, tableName string) string {
+	return fmt.Sprintf("%s.%s.%s", topicPrefix, schemaName, tableName)
 }
 
 func (d *debeziumNamingStrategy) MessageTopicName(topicPrefix string) string {

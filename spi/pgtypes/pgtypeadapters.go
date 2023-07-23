@@ -34,9 +34,10 @@ func (lsn LSN) String() string {
 type XLogData struct {
 	pglogrepl.XLogData
 
-	LastBegin  LSN
-	LastCommit LSN
-	Xid        uint32
+	DatabaseName string
+	LastBegin    LSN
+	LastCommit   LSN
+	Xid          uint32
 }
 
 type BeginMessage pglogrepl.BeginMessage

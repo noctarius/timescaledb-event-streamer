@@ -12,8 +12,8 @@ import (
 
 type ExtensionPoints interface {
 	RegisterNamingStrategy(name string, provider namingstrategy.Provider) bool
-	RegisterStateStorage(name string, provider statestorage.Provider) bool
-	RegisterSink(name string, provider sink.Provider) bool
+	RegisterStateStorage(name string, factory statestorage.Factory) bool
+	RegisterSink(name string, factory sink.Factory) bool
 }
 
 type PluginInitialize func(extensionPoints ExtensionPoints) error
@@ -44,10 +44,10 @@ func (*extensionPoints) RegisterNamingStrategy(name string, provider namingstrat
 	return namingstrategy.RegisterNamingStrategy(config.NamingStrategyType(name), provider)
 }
 
-func (*extensionPoints) RegisterStateStorage(name string, provider statestorage.Provider) bool {
-	return statestorage.RegisterStateStorage(config.StateStorageType(name), provider)
+func (*extensionPoints) RegisterStateStorage(name string, factory statestorage.Factory) bool {
+	return statestorage.RegisterStateStorage(config.StateStorageType(name), factory)
 }
 
-func (*extensionPoints) RegisterSink(name string, provider sink.Provider) bool {
-	return sink.RegisterSink(config.SinkType(name), provider)
+func (*extensionPoints) RegisterSink(name string, factory sink.Factory) bool {
+	return sink.RegisterSink(config.SinkType(name), factory)
 }

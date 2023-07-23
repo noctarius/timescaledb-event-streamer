@@ -62,7 +62,7 @@ func newReplicationConnection(replicationContext *replicationContext) (*Replicat
 	}
 	rc.identification = identification
 
-	rc.logger.Infof("SystemId: %s, Timeline: %d, XLogPos: %s, Database: %s",
+	rc.logger.Infof("SystemId: %s, Timeline: %d, XLogPos: %s, DatabaseName: %s",
 		identification.SystemID, identification.Timeline, identification.XLogPos, identification.DBName,
 	)
 	return rc, nil
@@ -96,7 +96,7 @@ func (rc *ReplicationConnection) SendStatusUpdate() error {
 }
 
 func (rc *ReplicationConnection) StartReplication(pluginArguments []string) (pgtypes.LSN, error) {
-	restartLSN, err := rc.locateRestartLSN(rc.replicationContext.sideChannel.readReplicationSlot)
+	restartLSN, err := rc.locateRestartLSN(rc.replicationContext.sideChannel.ReadReplicationSlot)
 	if err != nil {
 		return 0, errors.Wrap(err, 0)
 	}
@@ -144,7 +144,7 @@ func (rc *ReplicationConnection) CreateReplicationSlot() (slotName, snapshotName
 	}
 
 	replicationSlotName := rc.replicationContext.ReplicationSlotName()
-	found, err := rc.replicationContext.sideChannel.existsReplicationSlot(replicationSlotName)
+	found, err := rc.replicationContext.sideChannel.ExistsReplicationSlot(replicationSlotName)
 	if err != nil {
 		return "", "", false, errors.Wrap(err, 0)
 	}

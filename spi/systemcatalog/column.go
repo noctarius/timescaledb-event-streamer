@@ -253,7 +253,7 @@ func (c Column) SchemaType() schema.Type {
 // SchemaBuilder returns a schema builder based on the
 // column's PgType and internal state (default value,
 // nullable, name, etc).
-func (c Column) SchemaBuilder() schema.SchemaBuilder {
+func (c Column) SchemaBuilder() schema.Builder {
 	schemaBuilder := c.pgType.SchemaBuilder().
 		FieldName(c.Name()).
 		DefaultValue(c.defaultValue).

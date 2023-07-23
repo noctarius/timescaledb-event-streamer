@@ -30,7 +30,6 @@ import (
 type Hypertable struct {
 	*baseSystemEntity
 	id                     int32
-	databaseName           string
 	associatedSchemaName   string
 	associatedTablePrefix  string
 	compressedHypertableId *int32
@@ -45,7 +44,7 @@ type Hypertable struct {
 
 // NewHypertable instantiates a new Hypertable entity
 func NewHypertable(id int32,
-	databaseName, schemaName, tableName, associatedSchemaName, associatedTablePrefix string,
+	schemaName, tableName, associatedSchemaName, associatedTablePrefix string,
 	compressedHypertableId *int32, compressionState int16, distributed bool,
 	viewSchema, viewName *string, replicaIdentity pgtypes.ReplicaIdentity) *Hypertable {
 
@@ -55,7 +54,6 @@ func NewHypertable(id int32,
 			tableName:  tableName,
 		},
 		id:                     id,
-		databaseName:           databaseName,
 		associatedSchemaName:   associatedSchemaName,
 		associatedTablePrefix:  associatedTablePrefix,
 		compressedHypertableId: compressedHypertableId,
@@ -72,11 +70,6 @@ func NewHypertable(id int32,
 // Id returns the hypertable id
 func (h *Hypertable) Id() int32 {
 	return h.id
-}
-
-// DatabaseName returns the database name
-func (h *Hypertable) DatabaseName() string {
-	return h.databaseName
 }
 
 // ViewSchema returns the view schema name and true if the
@@ -150,6 +143,18 @@ func (h *Hypertable) TableColumns() []schema.ColumnAlike {
 	return columns
 }
 
+func (h *Hypertable) KeyIndexColumns() []schema.ColumnAlike {
+	index, present := (Columns(h.columns)).SnapshotIndex()
+	if !present {
+		return nil
+	}
+	columns := make([]schema.ColumnAlike, 0, len(index.columns))
+	for i := 0; i < len(index.columns); i++ {
+		columns = append(columns, index.columns[i])
+	}
+	return columns
+}
+
 // CanonicalContinuousAggregateName returns the canonical
 // continuous aggregate name of the hypertable in the form
 // of <<schema.view>>. This method panics if the hypertable
@@ -167,7 +172,7 @@ func (h *Hypertable) ReplicaIdentity() pgtypes.ReplicaIdentity {
 
 // SchemaBuilder returns a SchemaBuilder instance, preconfigured
 // for this hypertable instance
-func (h *Hypertable) SchemaBuilder() schema.SchemaBuilder {
+func (h *Hypertable) SchemaBuilder() schema.Builder {
 	schemaBuilder := schema.NewSchemaBuilder(schema.STRUCT).
 		FieldName(h.CanonicalName())
 
@@ -298,7 +303,6 @@ func (h *Hypertable) ApplyChanges(
 		compressionState:       compressionState,
 		distributed:            h.distributed,
 		columns:                h.columns,
-		databaseName:           h.databaseName,
 		replicaIdentity:        replicaIdentity,
 	}
 	return h2, h.differences(h2)

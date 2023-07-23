@@ -44,7 +44,9 @@ func (s *systemCatalogReplicationEventHandler) OnRelationEvent(
 				return nil
 			}
 
-			return s.systemCatalog.replicationContext.ReadHypertableSchema(s.systemCatalog.ApplySchemaUpdate)
+			return s.systemCatalog.replicationContext.ReadHypertableSchema(
+				s.systemCatalog.ApplySchemaUpdate, s.systemCatalog.pgTypeResolver, hypertable,
+			)
 		}
 	}
 	return nil
@@ -74,16 +76,19 @@ func (s *systemCatalogReplicationEventHandler) OnHypertableAddedEvent(
 				return err
 			}
 
-			h := systemcatalog.NewHypertable(id, s.systemCatalog.replicationContext.DatabaseName(), schemaName,
-				hypertableName, associatedSchemaName, associatedTablePrefix, compressedHypertableId, compressionState,
-				distributed, viewSchema, viewName, replicaIdentity)
+			h := systemcatalog.NewHypertable(
+				id, schemaName, hypertableName, associatedSchemaName, associatedTablePrefix,
+				compressedHypertableId, compressionState, distributed, viewSchema, viewName, replicaIdentity,
+			)
 
 			if err := s.systemCatalog.RegisterHypertable(h); err != nil {
 				return errors.Errorf("registering hypertable failed: %v (error: %+v)", h, err)
 			}
 			s.systemCatalog.logger.Verbosef("Entry Added: Hypertable %d => %s", h.Id(), h)
 
-			return s.systemCatalog.replicationContext.ReadHypertableSchema(s.systemCatalog.ApplySchemaUpdate, h)
+			return s.systemCatalog.replicationContext.ReadHypertableSchema(
+				s.systemCatalog.ApplySchemaUpdate, s.systemCatalog.pgTypeResolver, h,
+			)
 		},
 	)
 }

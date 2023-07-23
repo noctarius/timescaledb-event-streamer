@@ -23,6 +23,7 @@ import (
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/sink"
+	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
 	"sync"
 	"time"
 )
@@ -99,8 +100,11 @@ func NewEventCollectorSink(options ...EventCollectorSinkOption) *EventCollectorS
 }
 
 func (t *EventCollectorSink) SystemConfigConfigurator(config *sysconfig.SystemConfig) {
-	config.SinkProvider = func(_ *spiconfig.Config) (sink.Sink, error) {
-		return t, nil
+	config.SinkManagerProvider = func(
+		_ *spiconfig.Config, stateStorageManager statestorage.Manager,
+	) (sink.Manager, error) {
+
+		return sink.NewSinkManager(stateStorageManager, t), nil
 	}
 }
 
