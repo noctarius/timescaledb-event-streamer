@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package context
+package sidechannel
 
 import (
 	"context"
@@ -27,6 +27,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
+	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/version"
 	"github.com/noctarius/timescaledb-event-streamer/spi/watermark"
@@ -215,7 +216,15 @@ const walLevelQuery = `SHOW WAL_LEVEL`
 
 const checkTablePrivilegeByUserQuery = `SELECT HAS_TABLE_PRIVILEGE($1, $2, $3)`
 
-type SideChannelProvider func(replicationContext ReplicationContext) (SideChannel, error)
+type SideChannelProvider func(stateStorageManager statestorage.Manager, pgxConfig *pgx.ConnConfig) (SideChannel, error)
+
+type HypertableSchemaCallback = func(
+	hypertable *systemcatalog.Hypertable, columns []systemcatalog.Column,
+) bool
+
+type SnapshotRowCallback = func(
+	lsn pgtypes.LSN, values map[string]any,
+) error
 
 type SideChannel interface {
 	pgtypes.TypeResolver
@@ -284,12 +293,13 @@ type SideChannel interface {
 }
 
 type sideChannelImpl struct {
-	logger             *logging.Logger
-	replicationContext ReplicationContext
+	logger              *logging.Logger
+	pgxConfig           *pgx.ConnConfig
+	stateStorageManager statestorage.Manager
 }
 
 func NewSideChannel(
-	replicationContext ReplicationContext,
+	stateStorageManager statestorage.Manager, pgxConfig *pgx.ConnConfig,
 ) (SideChannel, error) {
 
 	logger, err := logging.NewLogger("SideChannel")
@@ -298,8 +308,9 @@ func NewSideChannel(
 	}
 
 	return &sideChannelImpl{
-		logger:             logger,
-		replicationContext: replicationContext,
+		logger:              logger,
+		pgxConfig:           pgxConfig,
+		stateStorageManager: stateStorageManager,
 	}, nil
 }
 
@@ -326,7 +337,7 @@ func (sc *sideChannelImpl) CreatePublication(
 		err = session.queryRow(
 			createPublicationQuery,
 			publicationName,
-			sc.replicationContext.DatabaseUsername(),
+			sc.pgxConfig.User,
 		).Scan(&success)
 		if err != nil {
 			return err
@@ -606,7 +617,7 @@ func (sc *sideChannelImpl) FetchHypertableSnapshotBatch(
 		return errors.Errorf("missing snapshotting index for hypertable '%s'", hypertable.CanonicalName())
 	}
 
-	return sc.replicationContext.StateStorageManager().SnapshotContextTransaction(
+	return sc.stateStorageManager.SnapshotContextTransaction(
 		snapshotName, false,
 		func(snapshotContext *watermark.SnapshotContext) error {
 			hypertableWatermark, present := snapshotContext.GetWatermark(hypertable)
@@ -1032,7 +1043,7 @@ func (sc *sideChannelImpl) newSession(
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	connection, err := sc.replicationContext.NewSideChannelConnection(ctx)
+	connection, err := sc.newSideChannelConnection(ctx)
 	if err != nil {
 		return fmt.Errorf("unable to connect to database: %v", err)
 	}
@@ -1049,6 +1060,13 @@ func (sc *sideChannelImpl) newSession(
 	}()
 
 	return fn(s)
+}
+
+func (sc *sideChannelImpl) newSideChannelConnection(
+	ctx context.Context,
+) (*pgx.Conn, error) {
+
+	return pgx.ConnectConfig(ctx, sc.pgxConfig)
 }
 
 type rowFunction = func(

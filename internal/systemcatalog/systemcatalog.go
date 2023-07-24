@@ -21,6 +21,7 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
+	"github.com/noctarius/timescaledb-event-streamer/internal/replication/sidechannel"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/snapshotting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/tablefiltering"
 	"github.com/noctarius/timescaledb-event-streamer/spi/config"
@@ -340,7 +341,7 @@ func initializeSystemCatalog(
 		}
 
 		// Run basic access check based on user permissions
-		access, err := sc.replicationContext.HasTablePrivilege(hypertable, context.Select)
+		access, err := sc.replicationContext.HasTablePrivilege(hypertable, sidechannel.Select)
 		if err != nil {
 			return errors.Wrap(err, 0)
 		}

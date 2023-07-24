@@ -77,9 +77,16 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 		return supporting.AdaptErrorWithMessage(err, "failed to instantiate state storage", 23)
 	}
 
+	// Instantiate the actual side channel implementation
+	// which handles queries against the database
+	sideChannel, err := r.config.SideChannelProvider(stateStorageManager, r.config.PgxConfig)
+	if err != nil {
+		return supporting.AdaptErrorWithMessage(err, "failed to instantiate side channel", 26)
+	}
+
 	// Create the side channels and replication context
 	replicationContext, err := r.config.ReplicationContextProvider(
-		r.config.Config, r.config.PgxConfig, stateStorageManager, r.config.SideChannelProvider,
+		r.config.Config, r.config.PgxConfig, stateStorageManager, sideChannel,
 	)
 	if err != nil {
 		return supporting.AdaptErrorWithMessage(err, "failed to initialize replication context", 17)

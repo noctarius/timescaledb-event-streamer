@@ -23,6 +23,7 @@ import (
 	"github.com/jackc/pglogrepl"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/noctarius/timescaledb-event-streamer/internal/replication/sidechannel"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
@@ -35,23 +36,12 @@ import (
 
 type ReplicationContextProvider func(
 	config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
-	stateStorageManager statestorage.Manager, sideChannelProvider SideChannelProvider,
+	stateStorageManager statestorage.Manager, sideChannel sidechannel.SideChannel,
 ) (ReplicationContext, error)
-
-type HypertableSchemaCallback = func(
-	hypertable *systemcatalog.Hypertable, columns []systemcatalog.Column,
-) bool
-
-type SnapshotRowCallback = func(
-	lsn pgtypes.LSN, values map[string]any,
-) error
 
 type ReplicationContext interface {
 	StartReplicationContext() error
 	StopReplicationContext() error
-	NewSideChannelConnection(
-		ctx context.Context,
-	) (*pgx.Conn, error)
 	NewReplicationChannelConnection(
 		ctx context.Context,
 	) (*pgconn.PgConn, error)
@@ -105,7 +95,7 @@ type ReplicationContext interface {
 	IsLogicalReplicationEnabled() bool
 
 	HasTablePrivilege(
-		entity systemcatalog.SystemEntity, grant Grant,
+		entity systemcatalog.SystemEntity, grant sidechannel.Grant,
 	) (access bool, err error)
 	LoadHypertables(
 		cb func(hypertable *systemcatalog.Hypertable) error,
@@ -114,15 +104,15 @@ type ReplicationContext interface {
 		cb func(chunk *systemcatalog.Chunk) error,
 	) error
 	ReadHypertableSchema(
-		cb HypertableSchemaCallback,
+		cb sidechannel.HypertableSchemaCallback,
 		pgTypeResolver func(oid uint32) (pgtypes.PgType, error),
 		hypertables ...*systemcatalog.Hypertable,
 	) error
 	SnapshotChunkTable(
-		chunk *systemcatalog.Chunk, cb SnapshotRowCallback,
+		chunk *systemcatalog.Chunk, cb sidechannel.SnapshotRowCallback,
 	) (pgtypes.LSN, error)
 	FetchHypertableSnapshotBatch(
-		hypertable *systemcatalog.Hypertable, snapshotName string, cb SnapshotRowCallback,
+		hypertable *systemcatalog.Hypertable, snapshotName string, cb sidechannel.SnapshotRowCallback,
 	) error
 	ReadSnapshotHighWatermark(
 		hypertable *systemcatalog.Hypertable, snapshotName string,
@@ -144,7 +134,7 @@ type ReplicationContext interface {
 type replicationContext struct {
 	pgxConfig *pgx.ConnConfig
 
-	sideChannel SideChannel
+	sideChannel sidechannel.SideChannel
 
 	// internal manager classes
 	publicationManager  *publicationManager
@@ -177,7 +167,7 @@ type replicationContext struct {
 
 func NewReplicationContext(
 	config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
-	stateStorageManager statestorage.Manager, sideChannelProvider SideChannelProvider,
+	stateStorageManager statestorage.Manager, sideChannel sidechannel.SideChannel,
 ) (ReplicationContext, error) {
 
 	publicationName := spiconfig.GetOrDefault(
@@ -216,6 +206,7 @@ func NewReplicationContext(
 		pgxConfig: pgxConfig,
 
 		taskManager:         taskManager,
+		sideChannel:         sideChannel,
 		stateStorageManager: stateStorageManager,
 
 		snapshotInitialMode:     snapshotInitialMode,
@@ -227,14 +218,6 @@ func NewReplicationContext(
 		replicationSlotCreate:   replicationSlotCreate,
 		replicationSlotAutoDrop: replicationSlotAutoDrop,
 	}
-
-	// Instantiate the actual side channel implementation
-	// which handles queries against the database
-	sideChannel, err := sideChannelProvider(replicationContext)
-	if err != nil {
-		return nil, err
-	}
-	replicationContext.sideChannel = sideChannel
 
 	pgVersion, err := sideChannel.GetPostgresVersion()
 	if err != nil {
@@ -499,7 +482,7 @@ func (rc *replicationContext) IsLogicalReplicationEnabled() bool {
 // ----> SideChannel functions
 
 func (rc *replicationContext) HasTablePrivilege(
-	entity systemcatalog.SystemEntity, grant Grant,
+	entity systemcatalog.SystemEntity, grant sidechannel.Grant,
 ) (access bool, err error) {
 
 	return rc.sideChannel.HasTablePrivilege(rc.pgxConfig.User, entity, grant)
@@ -528,14 +511,14 @@ func (rc *replicationContext) ReadHypertableSchema(
 }
 
 func (rc *replicationContext) SnapshotChunkTable(
-	chunk *systemcatalog.Chunk, cb SnapshotRowCallback,
+	chunk *systemcatalog.Chunk, cb sidechannel.SnapshotRowCallback,
 ) (pgtypes.LSN, error) {
 
 	return rc.sideChannel.SnapshotChunkTable(chunk, rc.snapshotBatchSize, cb)
 }
 
 func (rc *replicationContext) FetchHypertableSnapshotBatch(
-	hypertable *systemcatalog.Hypertable, snapshotName string, cb SnapshotRowCallback,
+	hypertable *systemcatalog.Hypertable, snapshotName string, cb sidechannel.SnapshotRowCallback,
 ) error {
 
 	return rc.sideChannel.FetchHypertableSnapshotBatch(hypertable, snapshotName, rc.snapshotBatchSize, cb)
@@ -574,13 +557,6 @@ func (rc *replicationContext) ReadReplicationSlot(
 ) (pluginName, slotType string, restartLsn, confirmedFlushLsn pgtypes.LSN, err error) {
 
 	return rc.sideChannel.ReadReplicationSlot(slotName)
-}
-
-func (rc *replicationContext) NewSideChannelConnection(
-	ctx context.Context,
-) (*pgx.Conn, error) {
-
-	return pgx.ConnectConfig(ctx, rc.pgxConfig)
 }
 
 func (rc *replicationContext) NewReplicationChannelConnection(

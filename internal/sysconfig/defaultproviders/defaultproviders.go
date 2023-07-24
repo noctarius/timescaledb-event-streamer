@@ -23,6 +23,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/eventing/eventemitting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/eventing/eventfiltering"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
+	"github.com/noctarius/timescaledb-event-streamer/internal/replication/sidechannel"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/namingstrategy"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
@@ -38,10 +39,10 @@ type EventEmitterProvider = func(
 ) (*eventemitting.EventEmitter, error)
 
 func DefaultSideChannelProvider(
-	replicationContext context.ReplicationContext,
-) (context.SideChannel, error) {
+	stateStorageManager statestorage.Manager, pgxConfig *pgx.ConnConfig,
+) (sidechannel.SideChannel, error) {
 
-	return context.NewSideChannel(replicationContext)
+	return sidechannel.NewSideChannel(stateStorageManager, pgxConfig)
 }
 
 func DefaultSinkManagerProvider(
@@ -90,10 +91,10 @@ func DefaultStateStorageManagerProvider(
 }
 func DefaultReplicationContextProvider(
 	config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
-	stateStorageManager statestorage.Manager, sideChannelProvider context.SideChannelProvider,
+	stateStorageManager statestorage.Manager, sideChannel sidechannel.SideChannel,
 ) (context.ReplicationContext, error) {
 
-	return context.NewReplicationContext(config, pgxConfig, stateStorageManager, sideChannelProvider)
+	return context.NewReplicationContext(config, pgxConfig, stateStorageManager, sideChannel)
 }
 
 func DefaultStreamManagerProvider(

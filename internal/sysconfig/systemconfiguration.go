@@ -20,6 +20,7 @@ package sysconfig
 import (
 	"github.com/jackc/pgx/v5"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
+	"github.com/noctarius/timescaledb-event-streamer/internal/replication/sidechannel"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig/defaultproviders"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/namingstrategy"
@@ -38,7 +39,7 @@ type SystemConfig struct {
 	NamingStrategyProvider      namingstrategy.Provider
 	StateStorageManagerProvider statestorage.Provider
 	ReplicationContextProvider  context.ReplicationContextProvider
-	SideChannelProvider         context.SideChannelProvider
+	SideChannelProvider         sidechannel.SideChannelProvider
 }
 
 func NewSystemConfig(
