@@ -35,7 +35,10 @@ type kafkaSink struct {
 	producer sarama.SyncProducer
 }
 
-func newKafkaSink(config *spiconfig.Config) (sink.Sink, error) {
+func newKafkaSink(
+	config *spiconfig.Config,
+) (sink.Sink, error) {
+
 	c := sarama.NewConfig()
 	c.ClientID = "event-stream-prototype"
 	c.Producer.Idempotent = spiconfig.GetOrDefault(
@@ -90,7 +93,10 @@ func (k *kafkaSink) Stop() error {
 	return k.producer.Close()
 }
 
-func (k *kafkaSink) Emit(_ sink.Context, timestamp time.Time, topicName string, key, envelope schema.Struct) error {
+func (k *kafkaSink) Emit(
+	_ sink.Context, timestamp time.Time, topicName string, key, envelope schema.Struct,
+) error {
+
 	keyData, err := json.Marshal(key)
 	if err != nil {
 		return err

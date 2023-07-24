@@ -43,10 +43,11 @@ type Hypertable struct {
 }
 
 // NewHypertable instantiates a new Hypertable entity
-func NewHypertable(id int32,
-	schemaName, tableName, associatedSchemaName, associatedTablePrefix string,
+func NewHypertable(
+	id int32, schemaName, tableName, associatedSchemaName, associatedTablePrefix string,
 	compressedHypertableId *int32, compressionState int16, distributed bool,
-	viewSchema, viewName *string, replicaIdentity pgtypes.ReplicaIdentity) *Hypertable {
+	viewSchema, viewName *string, replicaIdentity pgtypes.ReplicaIdentity,
+) *Hypertable {
 
 	return &Hypertable{
 		baseSystemEntity: &baseSystemEntity{
@@ -221,7 +222,10 @@ func (h *Hypertable) String() string {
 // ApplyTableSchema applies a new hypertable schema to this
 // hypertable instance and returns changes to the previously
 // known schema layout.
-func (h *Hypertable) ApplyTableSchema(newColumns []Column) (changes map[string]string) {
+func (h *Hypertable) ApplyTableSchema(
+	newColumns []Column,
+) (changes map[string]string) {
+
 	oldColumns := h.columns
 	h.columns = newColumns
 
@@ -289,7 +293,8 @@ func (h *Hypertable) ApplyTableSchema(newColumns []Column) (changes map[string]s
 func (h *Hypertable) ApplyChanges(
 	schemaName, tableName, associatedSchemaName, associatedTablePrefix string,
 	compressedHypertableId *int32, compressionState int16,
-	replicaIdentity pgtypes.ReplicaIdentity) (applied *Hypertable, changes map[string]string) {
+	replicaIdentity pgtypes.ReplicaIdentity,
+) (applied *Hypertable, changes map[string]string) {
 
 	h2 := &Hypertable{
 		baseSystemEntity: &baseSystemEntity{
@@ -308,8 +313,11 @@ func (h *Hypertable) ApplyChanges(
 	return h2, h.differences(h2)
 }
 
-func (h *Hypertable) differences(new *Hypertable) map[string]string {
-	differences := make(map[string]string, 0)
+func (h *Hypertable) differences(
+	new *Hypertable,
+) map[string]string {
+
+	differences := make(map[string]string)
 	if h.id != new.id {
 		differences["id"] = fmt.Sprintf("%d=>%d", h.id, new.id)
 	}

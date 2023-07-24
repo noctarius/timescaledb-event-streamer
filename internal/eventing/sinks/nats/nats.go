@@ -37,7 +37,10 @@ type natsSink struct {
 	jetStreamContext nats.JetStreamContext
 }
 
-func newNatsSink(config *spiconfig.Config) (sink.Sink, error) {
+func newNatsSink(
+	config *spiconfig.Config,
+) (sink.Sink, error) {
+
 	address := spiconfig.GetOrDefault(config, spiconfig.PropertyNatsAddress, "nats://localhost:4222")
 	authorization := spiconfig.GetOrDefault(config, spiconfig.PropertyNatsAuthorization, "userinfo")
 	switch spiconfig.NatsAuthorizationType(authorization) {
@@ -57,19 +60,31 @@ func newNatsSink(config *spiconfig.Config) (sink.Sink, error) {
 	return nil, fmt.Errorf("NATS AuthorizationType '%s' doesn't exist", authorization)
 }
 
-func newNatsSinkWithUserInfo(address, user, password string) (sink.Sink, error) {
+func newNatsSinkWithUserInfo(
+	address, user, password string,
+) (sink.Sink, error) {
+
 	return connectJetStreamContext(address, nats.UserInfo(user, password))
 }
 
-func newNatsSinkWithUserCredentials(address, userOrChainedFile string, seedFiles ...string) (sink.Sink, error) {
+func newNatsSinkWithUserCredentials(
+	address, userOrChainedFile string, seedFiles ...string,
+) (sink.Sink, error) {
+
 	return connectJetStreamContext(address, nats.UserCredentials(userOrChainedFile, seedFiles...))
 }
 
-func newNatsSinkWithUserJWT(address, jwt, seed string) (sink.Sink, error) {
+func newNatsSinkWithUserJWT(
+	address, jwt, seed string,
+) (sink.Sink, error) {
+
 	return connectJetStreamContext(address, nats.UserJWTAndSeed(jwt, seed))
 }
 
-func connectJetStreamContext(address string, options ...nats.Option) (sink.Sink, error) {
+func connectJetStreamContext(
+	address string, options ...nats.Option,
+) (sink.Sink, error) {
+
 	options = append(
 		options,
 		nats.Name("event-stream-prototype"),
@@ -104,7 +119,10 @@ func (n *natsSink) Stop() error {
 	return nil
 }
 
-func (n *natsSink) Emit(_ sink.Context, _ time.Time, topicName string, key, envelope schema.Struct) error {
+func (n *natsSink) Emit(
+	_ sink.Context, _ time.Time, topicName string, key, envelope schema.Struct,
+) error {
+
 	keyData, err := json.Marshal(key)
 	if err != nil {
 		return err

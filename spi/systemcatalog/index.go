@@ -51,7 +51,10 @@ type Index struct {
 	replicaIdentity bool
 }
 
-func newIndex(name string, column []Column, primaryKey bool, replicaIdentity bool) *Index {
+func newIndex(
+	name string, column []Column, primaryKey bool, replicaIdentity bool,
+) *Index {
+
 	return &Index{
 		name:            name,
 		columns:         column,
@@ -112,7 +115,10 @@ func (i *Index) AsSqlTuple() string {
 
 // AsSqlOrderBy creates a string for ORDER BY clauses with all parts
 // of the index being ordered in descending direction
-func (i *Index) AsSqlOrderBy(desc bool) string {
+func (i *Index) AsSqlOrderBy(
+	desc bool,
+) string {
+
 	order := "ASC"
 	if desc {
 		order = "DESC"
@@ -126,35 +132,53 @@ func (i *Index) AsSqlOrderBy(desc bool) string {
 
 // WhereTupleGE creates a WHERE-clause string which selects all values
 // greater or equal to the given set of index parameter values
-func (i *Index) WhereTupleGE(params map[string]any) (string, bool) {
+func (i *Index) WhereTupleGE(
+	params map[string]any,
+) (string, bool) {
+
 	return i.whereClause(">=", params)
 }
 
 // WhereTupleGT creates a WHERE-clause string which selects all values
 // greater than to the given set of index parameter values
-func (i *Index) WhereTupleGT(params map[string]any) (string, bool) {
+func (i *Index) WhereTupleGT(
+	params map[string]any,
+) (string, bool) {
+
 	return i.whereClause(">", params)
 }
 
 // WhereTupleLE creates a WHERE-clause string which selects all values
 // less or equal to the given set of index parameter values
-func (i *Index) WhereTupleLE(params map[string]any) (string, bool) {
+func (i *Index) WhereTupleLE(
+	params map[string]any,
+) (string, bool) {
+
 	return i.whereClause("<=", params)
 }
 
 // WhereTupleLT creates a WHERE-clause string which selects all values
 // less than to the given set of index parameter values
-func (i *Index) WhereTupleLT(params map[string]any) (string, bool) {
+func (i *Index) WhereTupleLT(
+	params map[string]any,
+) (string, bool) {
+
 	return i.whereClause("<", params)
 }
 
 // WhereTupleEQ creates a WHERE-clause string which selects all values
 // equal to the given set of index parameter values
-func (i *Index) WhereTupleEQ(params map[string]any) (string, bool) {
+func (i *Index) WhereTupleEQ(
+	params map[string]any,
+) (string, bool) {
+
 	return i.whereClause("=", params)
 }
 
-func (i *Index) whereClause(comparison string, params map[string]any) (string, bool) {
+func (i *Index) whereClause(
+	comparison string, params map[string]any,
+) (string, bool) {
+
 	tupleList := i.AsSqlTuple()
 
 	success := true
@@ -174,7 +198,10 @@ func (i *Index) whereClause(comparison string, params map[string]any) (string, b
 	return fmt.Sprintf("%s %s (%s)", tupleList, comparison, strings.Join(comparisonList, ",")), true
 }
 
-func param2value(param any, column Column) string {
+func param2value(
+	param any, column Column,
+) string {
+
 	pv := reflect.ValueOf(param)
 	pt := pv.Type()
 
@@ -229,6 +256,9 @@ func param2value(param any, column Column) string {
 	}
 }
 
-func sanitizeString(val string) string {
+func sanitizeString(
+	val string,
+) string {
+
 	return strings.ReplaceAll(strings.ReplaceAll(val, "'", "\\'"), "\\\\'", "\\'")
 }

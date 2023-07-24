@@ -35,19 +35,26 @@ import (
 
 type ReplicationContextProvider func(
 	config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
-	stateStorageManager statestorage.Manager,
-	sideChannelProvider SideChannelProvider,
+	stateStorageManager statestorage.Manager, sideChannelProvider SideChannelProvider,
 ) (ReplicationContext, error)
 
-type HypertableSchemaCallback = func(hypertable *systemcatalog.Hypertable, columns []systemcatalog.Column) bool
+type HypertableSchemaCallback = func(
+	hypertable *systemcatalog.Hypertable, columns []systemcatalog.Column,
+) bool
 
-type SnapshotRowCallback = func(lsn pgtypes.LSN, values map[string]any) error
+type SnapshotRowCallback = func(
+	lsn pgtypes.LSN, values map[string]any,
+) error
 
 type ReplicationContext interface {
 	StartReplicationContext() error
 	StopReplicationContext() error
-	NewSideChannelConnection(ctx context.Context) (*pgx.Conn, error)
-	NewReplicationChannelConnection(ctx context.Context) (*pgconn.PgConn, error)
+	NewSideChannelConnection(
+		ctx context.Context,
+	) (*pgx.Conn, error)
+	NewReplicationChannelConnection(
+		ctx context.Context,
+	) (*pgconn.PgConn, error)
 
 	PublicationManager() PublicationManager
 	StateStorageManager() statestorage.Manager
@@ -55,17 +62,29 @@ type ReplicationContext interface {
 	TypeResolver() pgtypes.TypeResolver
 
 	Offset() (*statestorage.Offset, error)
-	SetLastTransactionId(xid uint32)
+	SetLastTransactionId(
+		xid uint32,
+	)
 	LastTransactionId() uint32
-	SetLastBeginLSN(lsn pgtypes.LSN)
+	SetLastBeginLSN(
+		lsn pgtypes.LSN,
+	)
 	LastBeginLSN() pgtypes.LSN
-	SetLastCommitLSN(lsn pgtypes.LSN)
+	SetLastCommitLSN(
+		lsn pgtypes.LSN,
+	)
 	LastCommitLSN() pgtypes.LSN
-	AcknowledgeReceived(xld pgtypes.XLogData)
+	AcknowledgeReceived(
+		xld pgtypes.XLogData,
+	)
 	LastReceivedLSN() pgtypes.LSN
-	AcknowledgeProcessed(xld pgtypes.XLogData, processedLSN *pgtypes.LSN) error
+	AcknowledgeProcessed(
+		xld pgtypes.XLogData, processedLSN *pgtypes.LSN,
+	) error
 	LastProcessedLSN() pgtypes.LSN
-	SetPositionLSNs(receivedLSN, processedLSN pgtypes.LSN)
+	SetPositionLSNs(
+		receivedLSN, processedLSN pgtypes.LSN,
+	)
 
 	InitialSnapshotMode() spiconfig.InitialSnapshotMode
 	DatabaseUsername() string
@@ -85,22 +104,38 @@ type ReplicationContext interface {
 	IsTSDB212GE() bool
 	IsLogicalReplicationEnabled() bool
 
-	HasTablePrivilege(entity systemcatalog.SystemEntity, grant Grant) (access bool, err error)
-	LoadHypertables(cb func(hypertable *systemcatalog.Hypertable) error) error
-	LoadChunks(cb func(chunk *systemcatalog.Chunk) error) error
+	HasTablePrivilege(
+		entity systemcatalog.SystemEntity, grant Grant,
+	) (access bool, err error)
+	LoadHypertables(
+		cb func(hypertable *systemcatalog.Hypertable) error,
+	) error
+	LoadChunks(
+		cb func(chunk *systemcatalog.Chunk) error,
+	) error
 	ReadHypertableSchema(
 		cb HypertableSchemaCallback,
 		pgTypeResolver func(oid uint32) (pgtypes.PgType, error),
 		hypertables ...*systemcatalog.Hypertable,
 	) error
-	SnapshotChunkTable(chunk *systemcatalog.Chunk, cb SnapshotRowCallback) (pgtypes.LSN, error)
+	SnapshotChunkTable(
+		chunk *systemcatalog.Chunk, cb SnapshotRowCallback,
+	) (pgtypes.LSN, error)
 	FetchHypertableSnapshotBatch(
 		hypertable *systemcatalog.Hypertable, snapshotName string, cb SnapshotRowCallback,
 	) error
-	ReadSnapshotHighWatermark(hypertable *systemcatalog.Hypertable, snapshotName string) (map[string]any, error)
-	ReadReplicaIdentity(entity systemcatalog.SystemEntity) (pgtypes.ReplicaIdentity, error)
-	ReadContinuousAggregate(materializedHypertableId int32) (viewSchema, viewName string, found bool, err error)
-	ExistsReplicationSlot(slotName string) (found bool, err error)
+	ReadSnapshotHighWatermark(
+		hypertable *systemcatalog.Hypertable, snapshotName string,
+	) (map[string]any, error)
+	ReadReplicaIdentity(
+		entity systemcatalog.SystemEntity,
+	) (pgtypes.ReplicaIdentity, error)
+	ReadContinuousAggregate(
+		materializedHypertableId int32,
+	) (viewSchema, viewName string, found bool, err error)
+	ExistsReplicationSlot(
+		slotName string,
+	) (found bool, err error)
 	ReadReplicationSlot(
 		slotName string,
 	) (pluginName, slotType string, restartLsn, confirmedFlushLsn pgtypes.LSN, err error)
@@ -142,8 +177,7 @@ type replicationContext struct {
 
 func NewReplicationContext(
 	config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
-	stateStorageManager statestorage.Manager,
-	sideChannelProvider SideChannelProvider,
+	stateStorageManager statestorage.Manager, sideChannelProvider SideChannelProvider,
 ) (ReplicationContext, error) {
 
 	publicationName := spiconfig.GetOrDefault(
@@ -280,7 +314,10 @@ func (rc *replicationContext) Offset() (*statestorage.Offset, error) {
 	return nil, nil
 }
 
-func (rc *replicationContext) SetLastTransactionId(xid uint32) {
+func (rc *replicationContext) SetLastTransactionId(
+	xid uint32,
+) {
+
 	rc.lsnMutex.Lock()
 	defer rc.lsnMutex.Unlock()
 
@@ -294,7 +331,10 @@ func (rc *replicationContext) LastTransactionId() uint32 {
 	return rc.lastTransactionId
 }
 
-func (rc *replicationContext) SetLastBeginLSN(lsn pgtypes.LSN) {
+func (rc *replicationContext) SetLastBeginLSN(
+	lsn pgtypes.LSN,
+) {
+
 	rc.lsnMutex.Lock()
 	defer rc.lsnMutex.Unlock()
 
@@ -308,7 +348,10 @@ func (rc *replicationContext) LastBeginLSN() pgtypes.LSN {
 	return rc.lastBeginLSN
 }
 
-func (rc *replicationContext) SetLastCommitLSN(lsn pgtypes.LSN) {
+func (rc *replicationContext) SetLastCommitLSN(
+	lsn pgtypes.LSN,
+) {
+
 	rc.lsnMutex.Lock()
 	defer rc.lsnMutex.Unlock()
 
@@ -336,7 +379,10 @@ func (rc *replicationContext) LastProcessedLSN() pgtypes.LSN {
 	return rc.lastProcessedLSN
 }
 
-func (rc *replicationContext) SetPositionLSNs(receivedLSN, processedLSN pgtypes.LSN) {
+func (rc *replicationContext) SetPositionLSNs(
+	receivedLSN, processedLSN pgtypes.LSN,
+) {
+
 	rc.lsnMutex.Lock()
 	defer rc.lsnMutex.Unlock()
 
@@ -344,14 +390,20 @@ func (rc *replicationContext) SetPositionLSNs(receivedLSN, processedLSN pgtypes.
 	rc.lastProcessedLSN = processedLSN
 }
 
-func (rc *replicationContext) AcknowledgeReceived(xld pgtypes.XLogData) {
+func (rc *replicationContext) AcknowledgeReceived(
+	xld pgtypes.XLogData,
+) {
+
 	rc.lsnMutex.Lock()
 	defer rc.lsnMutex.Unlock()
 
 	rc.lastReceivedLSN = pgtypes.LSN(xld.WALStart + pglogrepl.LSN(len(xld.WALData)))
 }
 
-func (rc *replicationContext) AcknowledgeProcessed(xld pgtypes.XLogData, processedLSN *pgtypes.LSN) error {
+func (rc *replicationContext) AcknowledgeProcessed(
+	xld pgtypes.XLogData, processedLSN *pgtypes.LSN,
+) error {
+
 	rc.lsnMutex.Lock()
 	defer rc.lsnMutex.Unlock()
 
@@ -447,23 +499,30 @@ func (rc *replicationContext) IsLogicalReplicationEnabled() bool {
 // ----> SideChannel functions
 
 func (rc *replicationContext) HasTablePrivilege(
-	entity systemcatalog.SystemEntity, grant Grant) (access bool, err error) {
+	entity systemcatalog.SystemEntity, grant Grant,
+) (access bool, err error) {
 
 	return rc.sideChannel.HasTablePrivilege(rc.pgxConfig.User, entity, grant)
 }
 
-func (rc *replicationContext) LoadHypertables(cb func(hypertable *systemcatalog.Hypertable) error) error {
+func (rc *replicationContext) LoadHypertables(
+	cb func(hypertable *systemcatalog.Hypertable) error,
+) error {
+
 	return rc.sideChannel.ReadHypertables(cb)
 }
 
-func (rc *replicationContext) LoadChunks(cb func(chunk *systemcatalog.Chunk) error) error {
+func (rc *replicationContext) LoadChunks(
+	cb func(chunk *systemcatalog.Chunk) error,
+) error {
+
 	return rc.sideChannel.ReadChunks(cb)
 }
 
 func (rc *replicationContext) ReadHypertableSchema(
 	cb func(hypertable *systemcatalog.Hypertable, columns []systemcatalog.Column) bool,
-	pgTypeResolver func(oid uint32) (pgtypes.PgType, error),
-	hypertables ...*systemcatalog.Hypertable) error {
+	pgTypeResolver func(oid uint32) (pgtypes.PgType, error), hypertables ...*systemcatalog.Hypertable,
+) error {
 
 	return rc.sideChannel.ReadHypertableSchema(cb, pgTypeResolver, hypertables...)
 }
@@ -489,7 +548,10 @@ func (rc *replicationContext) ReadSnapshotHighWatermark(
 	return rc.sideChannel.ReadSnapshotHighWatermark(hypertable, snapshotName)
 }
 
-func (rc *replicationContext) ReadReplicaIdentity(entity systemcatalog.SystemEntity) (pgtypes.ReplicaIdentity, error) {
+func (rc *replicationContext) ReadReplicaIdentity(
+	entity systemcatalog.SystemEntity,
+) (pgtypes.ReplicaIdentity, error) {
+
 	return rc.sideChannel.ReadReplicaIdentity(entity.SchemaName(), entity.TableName())
 }
 
@@ -500,7 +562,10 @@ func (rc *replicationContext) ReadContinuousAggregate(
 	return rc.sideChannel.ReadContinuousAggregate(materializedHypertableId)
 }
 
-func (rc *replicationContext) ExistsReplicationSlot(slotName string) (found bool, err error) {
+func (rc *replicationContext) ExistsReplicationSlot(
+	slotName string,
+) (found bool, err error) {
+
 	return rc.sideChannel.ExistsReplicationSlot(slotName)
 }
 
@@ -511,11 +576,17 @@ func (rc *replicationContext) ReadReplicationSlot(
 	return rc.sideChannel.ReadReplicationSlot(slotName)
 }
 
-func (rc *replicationContext) NewSideChannelConnection(ctx context.Context) (*pgx.Conn, error) {
+func (rc *replicationContext) NewSideChannelConnection(
+	ctx context.Context,
+) (*pgx.Conn, error) {
+
 	return pgx.ConnectConfig(ctx, rc.pgxConfig)
 }
 
-func (rc *replicationContext) NewReplicationChannelConnection(ctx context.Context) (*pgconn.PgConn, error) {
+func (rc *replicationContext) NewReplicationChannelConnection(
+	ctx context.Context,
+) (*pgconn.PgConn, error) {
+
 	connConfig := rc.pgxConfig.Config.Copy()
 	if connConfig.RuntimeParams == nil {
 		connConfig.RuntimeParams = make(map[string]string)

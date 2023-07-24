@@ -11,7 +11,10 @@ type Channel[T any] struct {
 	output chan T
 }
 
-func NewChannel[T any](size int) *Channel[T] {
+func NewChannel[T any](
+	size int,
+) *Channel[T] {
+
 	b := &Channel[T]{
 		input:  make(chan T, 1),
 		output: make(chan T, size),
@@ -35,7 +38,10 @@ func (c *Channel[T]) run() {
 	close(c.output)
 }
 
-func (c *Channel[T]) Write(value T) {
+func (c *Channel[T]) Write(
+	value T,
+) {
+
 	c.input <- value
 }
 

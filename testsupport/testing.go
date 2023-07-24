@@ -31,7 +31,10 @@ const (
 	DatabaseSchema = "tsdb"
 )
 
-func CreateTempFile(pattern string) (string, error) {
+func CreateTempFile(
+	pattern string,
+) (string, error) {
+
 	f, err := os.CreateTemp("", pattern)
 	if err != nil {
 		return "", err
@@ -40,8 +43,9 @@ func CreateTempFile(pattern string) (string, error) {
 	return f.Name(), nil
 }
 
-func CreateHypertable(pool *pgxpool.Pool, timeDimension string,
-	chunkSize time.Duration, columns ...Column) (string, string, error) {
+func CreateHypertable(
+	pool *pgxpool.Pool, timeDimension string, chunkSize time.Duration, columns ...Column,
+) (string, string, error) {
 
 	tableName := randomTableName()
 	tx, err := pool.Begin(context.Background())
@@ -80,7 +84,10 @@ func randomTableName() string {
 	return lo.RandomString(20, lo.LowerCaseLettersCharset)
 }
 
-func toDefinition(column Column) string {
+func toDefinition(
+	column Column,
+) string {
+
 	builder := strings.Builder{}
 	builder.WriteString(column.Name())
 	builder.WriteString(" ")

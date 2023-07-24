@@ -33,14 +33,23 @@ func init() {
 type debeziumNamingStrategy struct {
 }
 
-func (d *debeziumNamingStrategy) EventTopicName(topicPrefix string, schemaName, tableName string) string {
+func (d *debeziumNamingStrategy) EventTopicName(
+	topicPrefix string, schemaName, tableName string,
+) string {
+
 	return fmt.Sprintf("%s.%s.%s", topicPrefix, schemaName, tableName)
 }
 
-func (d *debeziumNamingStrategy) SchemaTopicName(topicPrefix string, schemaName, tableName string) string {
+func (d *debeziumNamingStrategy) SchemaTopicName(
+	topicPrefix string, schemaName, tableName string,
+) string {
+
 	return fmt.Sprintf("%s.%s.%s", topicPrefix, schemaName, tableName)
 }
 
-func (d *debeziumNamingStrategy) MessageTopicName(topicPrefix string) string {
+func (d *debeziumNamingStrategy) MessageTopicName(
+	topicPrefix string,
+) string {
+
 	return fmt.Sprintf("%s.message", topicPrefix)
 }

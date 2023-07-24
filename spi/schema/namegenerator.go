@@ -23,14 +23,21 @@ import "github.com/noctarius/timescaledb-event-streamer/spi/namingstrategy"
 // simplify its usage with the topic prefix being predefined
 type NameGenerator interface {
 	// EventTopicName generates an event topic name for the given table
-	EventTopicName(table TableAlike) string
+	EventTopicName(
+		table TableAlike,
+	) string
 	// SchemaTopicName generates a schema topic name for the given v
-	SchemaTopicName(table TableAlike) string
+	SchemaTopicName(
+		table TableAlike,
+	) string
 	// MessageTopicName generates a message topic name for a replication message
 	MessageTopicName() string
 }
 
-func NewNameGenerator(topicPrefix string, namingStrategy namingstrategy.NamingStrategy) NameGenerator {
+func NewNameGenerator(
+	topicPrefix string, namingStrategy namingstrategy.NamingStrategy,
+) NameGenerator {
+
 	return &nameGenerator{
 		namingStrategy: namingStrategy,
 		topicPrefix:    topicPrefix,
@@ -42,11 +49,17 @@ type nameGenerator struct {
 	topicPrefix    string
 }
 
-func (n *nameGenerator) EventTopicName(table TableAlike) string {
+func (n *nameGenerator) EventTopicName(
+	table TableAlike,
+) string {
+
 	return n.namingStrategy.EventTopicName(n.topicPrefix, table.SchemaName(), table.TableName())
 }
 
-func (n *nameGenerator) SchemaTopicName(table TableAlike) string {
+func (n *nameGenerator) SchemaTopicName(
+	table TableAlike,
+) string {
+
 	return n.namingStrategy.SchemaTopicName(n.topicPrefix, table.SchemaName(), table.TableName())
 }
 

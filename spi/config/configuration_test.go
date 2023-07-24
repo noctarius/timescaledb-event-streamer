@@ -27,7 +27,10 @@ import (
 	"testing"
 )
 
-func Test_Env_Vars(t *testing.T) {
+func Test_Env_Vars(
+	t *testing.T,
+) {
+
 	os.Setenv("FOO_BAR", "foo")
 	defer os.Unsetenv("FOO_BAR")
 
@@ -61,7 +64,10 @@ func Test_Env_Vars(t *testing.T) {
 	assert.Equal(t, "test", v)
 }
 
-func Test_Property_Extraction(t *testing.T) {
+func Test_Property_Extraction(
+	t *testing.T,
+) {
+
 	config := Config{
 		Sink: SinkConfig{
 			Type: Kafka,
@@ -87,7 +93,10 @@ func Test_Property_Extraction(t *testing.T) {
 	assert.Equal(t, []string{"foo", "bar"}, v4.Interface().([]string))
 }
 
-func Test_Config_Property_Reading(t *testing.T) {
+func Test_Config_Property_Reading(
+	t *testing.T,
+) {
+
 	config := &Config{
 		Sink: SinkConfig{
 			Type: Kafka,
@@ -116,7 +125,10 @@ func Test_Config_Property_Reading(t *testing.T) {
 	assert.Equal(t, "redis", v5)
 }
 
-func Test_Config_Read_String_Ptr_From_String_Ptr(t *testing.T) {
+func Test_Config_Read_String_Ptr_From_String_Ptr(
+	t *testing.T,
+) {
+
 	config := &Config{
 		Sink: SinkConfig{
 			Type: AwsSQS,
@@ -132,7 +144,10 @@ func Test_Config_Read_String_Ptr_From_String_Ptr(t *testing.T) {
 	assert.Equal(t, "test", *v)
 }
 
-func Test_Config_Read_String_From_String_Ptr(t *testing.T) {
+func Test_Config_Read_String_From_String_Ptr(
+	t *testing.T,
+) {
+
 	config := &Config{
 		Sink: SinkConfig{
 			Type: AwsSQS,
@@ -148,7 +163,10 @@ func Test_Config_Read_String_From_String_Ptr(t *testing.T) {
 	assert.Equal(t, "test", v)
 }
 
-func Test_Config_Read_String_Ptr_From_String(t *testing.T) {
+func Test_Config_Read_String_Ptr_From_String(
+	t *testing.T,
+) {
+
 	config := &Config{
 		PostgreSQL: PostgreSQLConfig{
 			Connection: "test",
@@ -159,7 +177,10 @@ func Test_Config_Read_String_Ptr_From_String(t *testing.T) {
 	assert.Equal(t, "test", *v)
 }
 
-func Test_Config_Read_String_From_String(t *testing.T) {
+func Test_Config_Read_String_From_String(
+	t *testing.T,
+) {
+
 	config := &Config{
 		PostgreSQL: PostgreSQLConfig{
 			Connection: "test",
@@ -170,7 +191,10 @@ func Test_Config_Read_String_From_String(t *testing.T) {
 	assert.Equal(t, "test", v)
 }
 
-func Test_Loading_YAML_Logging_Config_From_String(t *testing.T) {
+func Test_Loading_YAML_Logging_Config_From_String(
+	t *testing.T,
+) {
+
 	yaml := `logging:
   level: 'info'
   outputs:
@@ -211,7 +235,10 @@ func Test_Loading_YAML_Logging_Config_From_String(t *testing.T) {
 	assert.Equal(t, false, *logger.Outputs.Console.Enabled)
 }
 
-func Test_Loading_YAML_Postgresql_Config_From_String(t *testing.T) {
+func Test_Loading_YAML_Postgresql_Config_From_String(
+	t *testing.T,
+) {
+
 	yaml := `postgresql:
   connection: 'postgres://repl_user@localhost:5432/postgres'
   password: '...'
@@ -256,7 +283,10 @@ func Test_Loading_YAML_Postgresql_Config_From_String(t *testing.T) {
 	assert.Equal(t, uint(100000), config.PostgreSQL.Transaction.Window.MaxSize)
 }
 
-func Test_Loading_TOML_Logging_Config_From_String(t *testing.T) {
+func Test_Loading_TOML_Logging_Config_From_String(
+	t *testing.T,
+) {
+
 	toml := `logging.level = 'info'
 logging.outputs.console.enabled = true
 logging.outputs.file.enabled = false
@@ -289,7 +319,10 @@ logging.loggers.LogicalReplicationResolver.outputs.console.enabled = false`
 	assert.Equal(t, false, *logger.Outputs.Console.Enabled)
 }
 
-func Test_Loading_TOML_Postgresql_Config_From_String(t *testing.T) {
+func Test_Loading_TOML_Postgresql_Config_From_String(
+	t *testing.T,
+) {
+
 	toml := `postgresql.connection = 'postgres://repl_user@localhost:5432/postgres'
 postgresql.password = '...'
 postgresql.publication.name = 'replication_name'
@@ -328,7 +361,10 @@ postgresql.transaction.window.maxsize = 100000`
 	assert.Equal(t, uint(100000), config.PostgreSQL.Transaction.Window.MaxSize)
 }
 
-func Test_Config_Tags_Match_Between_Yaml_Toml(t *testing.T) {
+func Test_Config_Tags_Match_Between_Yaml_Toml(
+	t *testing.T,
+) {
+
 	configValue := reflect.ValueOf(Config{})
 
 	var recursiveCheck func(value reflect.Value, path string)

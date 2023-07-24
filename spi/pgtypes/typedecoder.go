@@ -71,7 +71,10 @@ type RowDecoder struct {
 	fields   []pgconn.FieldDescription
 }
 
-func NewRowDecoder(fields []pgconn.FieldDescription) (*RowDecoder, error) {
+func NewRowDecoder(
+	fields []pgconn.FieldDescription,
+) (*RowDecoder, error) {
+
 	decoders := make([]func(src []byte) (any, error), 0)
 	for _, field := range fields {
 		if decoder, err := FindTypeDecoder(field); err != nil {
@@ -87,7 +90,10 @@ func NewRowDecoder(fields []pgconn.FieldDescription) (*RowDecoder, error) {
 	}, nil
 }
 
-func (rd *RowDecoder) DecodeRowsMapAndSink(rows pgx.Rows, sink func(values map[string]any) error) error {
+func (rd *RowDecoder) DecodeRowsMapAndSink(
+	rows pgx.Rows, sink func(values map[string]any) error,
+) error {
+
 	if !rd.compatible(rows.FieldDescriptions()) {
 		return errors.Errorf("incompatible rows instance provided")
 	}
@@ -118,7 +124,10 @@ func (rd *RowDecoder) DecodeRowsMapAndSink(rows pgx.Rows, sink func(values map[s
 	return nil
 }
 
-func (rd *RowDecoder) DecodeRowsAndSink(rows pgx.Rows, sink func(values []any) error) error {
+func (rd *RowDecoder) DecodeRowsAndSink(
+	rows pgx.Rows, sink func(values []any) error,
+) error {
+
 	if !rd.compatible(rows.FieldDescriptions()) {
 		return errors.Errorf("incompatible rows instance provided")
 	}
@@ -140,7 +149,10 @@ func (rd *RowDecoder) DecodeRowsAndSink(rows pgx.Rows, sink func(values []any) e
 	return nil
 }
 
-func (rd *RowDecoder) Decode(rawRow [][]byte) ([]any, error) {
+func (rd *RowDecoder) Decode(
+	rawRow [][]byte,
+) ([]any, error) {
+
 	values := make([]any, 0)
 	for i, decoder := range rd.decoders {
 		if v, err := decoder(rawRow[i]); err != nil {
@@ -152,7 +164,10 @@ func (rd *RowDecoder) Decode(rawRow [][]byte) ([]any, error) {
 	return values, nil
 }
 
-func (rd *RowDecoder) DecodeAndSink(rawRow [][]byte, sink func(values []any) error) error {
+func (rd *RowDecoder) DecodeAndSink(
+	rawRow [][]byte, sink func(values []any) error,
+) error {
+
 	if values, err := rd.Decode(rawRow); err != nil {
 		return errors.Wrap(err, 0)
 	} else {
@@ -160,7 +175,10 @@ func (rd *RowDecoder) DecodeAndSink(rawRow [][]byte, sink func(values []any) err
 	}
 }
 
-func (rd *RowDecoder) DecodeMapAndSink(rawRow [][]byte, sink func(values map[string]any) error) error {
+func (rd *RowDecoder) DecodeMapAndSink(
+	rawRow [][]byte, sink func(values map[string]any) error,
+) error {
+
 	if values, err := rd.Decode(rawRow); err != nil {
 		return errors.Wrap(err, 0)
 	} else {
@@ -175,7 +193,10 @@ func (rd *RowDecoder) DecodeMapAndSink(rawRow [][]byte, sink func(values map[str
 	return nil
 }
 
-func (rd *RowDecoder) compatible(other []pgconn.FieldDescription) bool {
+func (rd *RowDecoder) compatible(
+	other []pgconn.FieldDescription,
+) bool {
+
 	if len(rd.fields) != len(other) {
 		return false
 	}
@@ -204,28 +225,40 @@ func (rd *RowDecoder) compatible(other []pgconn.FieldDescription) bool {
 	return true
 }
 
-func DecodeTextColumn(src []byte, dataTypeOid uint32) (any, error) {
+func DecodeTextColumn(
+	src []byte, dataTypeOid uint32,
+) (any, error) {
+
 	if dt, ok := typeMap.TypeForOID(dataTypeOid); ok {
 		return dt.Codec.DecodeValue(typeMap, dataTypeOid, pgtype.TextFormatCode, src)
 	}
 	return string(src), nil
 }
 
-func DecodeBinaryColumn(src []byte, dataTypeOid uint32) (any, error) {
+func DecodeBinaryColumn(
+	src []byte, dataTypeOid uint32,
+) (any, error) {
+
 	if dt, ok := typeMap.TypeForOID(dataTypeOid); ok {
 		return dt.Codec.DecodeValue(typeMap, dataTypeOid, pgtype.BinaryFormatCode, src)
 	}
 	return string(src), nil
 }
 
-func DecodeValue(field pgconn.FieldDescription, src []byte) (any, error) {
+func DecodeValue(
+	field pgconn.FieldDescription, src []byte,
+) (any, error) {
+
 	if t, ok := typeMap.TypeForOID(field.DataTypeOID); ok {
 		return t.Codec.DecodeValue(typeMap, field.DataTypeOID, field.Format, src)
 	}
 	return nil, errors.Errorf("Unsupported type oid: %d", field.DataTypeOID)
 }
 
-func DecodeRowValues(rows pgx.Rows, sink func(values []any) error) error {
+func DecodeRowValues(
+	rows pgx.Rows, sink func(values []any) error,
+) error {
+
 	decoder, err := NewRowDecoder(rows.FieldDescriptions())
 	if err != nil {
 		return err
@@ -233,7 +266,10 @@ func DecodeRowValues(rows pgx.Rows, sink func(values []any) error) error {
 	return decoder.DecodeRowsAndSink(rows, sink)
 }
 
-func FindTypeDecoder(field pgconn.FieldDescription) (func(src []byte) (any, error), error) {
+func FindTypeDecoder(
+	field pgconn.FieldDescription,
+) (func(src []byte) (any, error), error) {
+
 	if t, ok := typeMap.TypeForOID(field.DataTypeOID); ok {
 		// Store a decoder wrapper for easier usage
 		return asTypeDecoder(t, field), nil
@@ -241,21 +277,33 @@ func FindTypeDecoder(field pgconn.FieldDescription) (func(src []byte) (any, erro
 	return nil, errors.Errorf("Unsupported type oid: %d", field.DataTypeOID)
 }
 
-func RegisterType(t *pgtype.Type) {
+func RegisterType(
+	t *pgtype.Type,
+) {
+
 	typeMap.RegisterType(t)
 }
 
-func GetType(oid uint32) (*pgtype.Type, bool) {
+func GetType(oid uint32) (
+	*pgtype.Type, bool,
+) {
+
 	return typeMap.TypeForOID(oid)
 }
 
-func asTypeDecoder(t *pgtype.Type, field pgconn.FieldDescription) func(src []byte) (any, error) {
+func asTypeDecoder(
+	t *pgtype.Type, field pgconn.FieldDescription,
+) func(src []byte) (any, error) {
+
 	return func(src []byte) (any, error) {
 		return t.Codec.DecodeValue(typeMap, field.DataTypeOID, field.Format, src)
 	}
 }
 
-func codecScan(codec pgtype.Codec, m *pgtype.Map, oid uint32, format int16, src []byte, dst any) error {
+func codecScan(
+	codec pgtype.Codec, m *pgtype.Map, oid uint32, format int16, src []byte, dst any,
+) error {
+
 	scanPlan := codec.PlanScan(m, oid, format, dst)
 	if scanPlan == nil {
 		return fmt.Errorf("PlanScan did not find a plan")

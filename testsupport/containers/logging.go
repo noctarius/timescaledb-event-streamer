@@ -26,13 +26,19 @@ type logConsumer struct {
 	logger *logging.Logger
 }
 
-func newLogConsumer(logger *logging.Logger) *logConsumer {
+func newLogConsumer(
+	logger *logging.Logger,
+) *logConsumer {
+
 	return &logConsumer{
 		logger: logger,
 	}
 }
 
-func (l *logConsumer) Accept(log testcontainers.Log) {
+func (l *logConsumer) Accept(
+	log testcontainers.Log,
+) {
+
 	if log.LogType == testcontainers.StderrLog {
 		l.logger.Errorln(string(log.Content))
 	} else {

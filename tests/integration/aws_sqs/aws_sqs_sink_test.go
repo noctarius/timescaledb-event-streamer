@@ -44,7 +44,10 @@ type AwsSqsIntegrationTestSuite struct {
 	testrunner.TestRunner
 }
 
-func TestAwsSqsIntegrationTestSuite(t *testing.T) {
+func TestAwsSqsIntegrationTestSuite(
+	t *testing.T,
+) {
+
 	suite.Run(t, new(AwsSqsIntegrationTestSuite))
 }
 

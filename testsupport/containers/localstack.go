@@ -7,7 +7,10 @@ import (
 	"github.com/testcontainers/testcontainers-go/modules/localstack"
 )
 
-func setupLocalStack(config testcontainers.CustomizeRequestOption) (*localstack.LocalStackContainer, error) {
+func setupLocalStack(
+	config testcontainers.CustomizeRequestOption,
+) (*localstack.LocalStackContainer, error) {
+
 	customizer := testcontainers.CustomizeRequestOption(func(req *testcontainers.GenericContainerRequest) {
 		req.Env["PERSISTENCE"] = "1"
 		req.Env["EAGER_SERVICE_LOADING"] = "1"
@@ -21,7 +24,10 @@ func setupLocalStack(config testcontainers.CustomizeRequestOption) (*localstack.
 	return container, nil
 }
 
-func SetupLocalStackWithSQS(region, queueName string) (testcontainers.Container, string, string, error) {
+func SetupLocalStackWithSQS(
+	region, queueName string,
+) (testcontainers.Container, string, string, error) {
+
 	customizer := testcontainers.CustomizeRequestOption(func(req *testcontainers.GenericContainerRequest) {
 		req.Env["SQS_ENDPOINT_STRATEGY"] = "path"
 		req.Env["SQS_DISABLE_CLOUDWATCH_METRICS"] = "1"

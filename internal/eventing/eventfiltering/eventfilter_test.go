@@ -24,7 +24,10 @@ import (
 	"testing"
 )
 
-func TestEventFilter_Evaluate(t *testing.T) {
+func TestEventFilter_Evaluate(
+	t *testing.T,
+) {
+
 	filterDefinitions := map[string]spiconfig.EventFilterConfig{
 		"test": {
 			Condition: "value.op == \"c\"",

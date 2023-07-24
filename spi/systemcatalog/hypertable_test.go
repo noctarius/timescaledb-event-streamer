@@ -25,7 +25,10 @@ import (
 
 var fooType = &testPgType{}
 
-func TestSchemaDifferences_Added_Column(t *testing.T) {
+func TestSchemaDifferences_Added_Column(
+	t *testing.T,
+) {
+
 	expected := "added: {name:test4 dataType:10 modifiers:-1 pgType:foo nullable:false primaryKey:false keySeq:<nil> indexName:<nil> replicaIdent:false defaultValue:<nil> dimension:false dimAligned:false dimType:<nil> dimSeq:<nil>maxCharLength:<nil>}"
 	oldColumns := []Column{
 		NewColumn("test1", 10, -1, fooType, false, nil),
@@ -55,7 +58,10 @@ func TestSchemaDifferences_Added_Column(t *testing.T) {
 	t.Fatalf("should have a difference for key 'test4' but doesn't")
 }
 
-func TestSchemaDifferences_Renamed_Column(t *testing.T) {
+func TestSchemaDifferences_Renamed_Column(
+	t *testing.T,
+) {
+
 	expected := "name:test2=>test4"
 	oldColumns := []Column{
 		NewColumn("test1", 10, -1, fooType, false, nil),
@@ -84,7 +90,10 @@ func TestSchemaDifferences_Renamed_Column(t *testing.T) {
 	t.Fatalf("should have a difference for key 'test4' but doesn't")
 }
 
-func TestSchemaDifferences_Renamed_Last_Column(t *testing.T) {
+func TestSchemaDifferences_Renamed_Last_Column(
+	t *testing.T,
+) {
+
 	expected := "name:test3=>test4"
 	oldColumns := []Column{
 		NewColumn("test1", 10, -1, fooType, false, nil),
@@ -113,7 +122,10 @@ func TestSchemaDifferences_Renamed_Last_Column(t *testing.T) {
 	t.Fatalf("should have a difference for key 'test3' but doesn't")
 }
 
-func TestSchemaDifferences_Dropped_Column(t *testing.T) {
+func TestSchemaDifferences_Dropped_Column(
+	t *testing.T,
+) {
+
 	expected := "dropped: {name:test2 dataType:11 modifiers:-1 pgType:foo nullable:false primaryKey:false keySeq:<nil> indexName:<nil> replicaIdent:false defaultValue:<nil> dimension:false dimAligned:false dimType:<nil> dimSeq:<nil>maxCharLength:<nil>}"
 	oldColumns := []Column{
 		NewColumn("test1", 10, -1, fooType, false, nil),
@@ -141,7 +153,10 @@ func TestSchemaDifferences_Dropped_Column(t *testing.T) {
 	t.Fatalf("should have a difference for key 'test2' but doesn't")
 }
 
-func TestSchemaDifferences_Dropped_Last_Column(t *testing.T) {
+func TestSchemaDifferences_Dropped_Last_Column(
+	t *testing.T,
+) {
+
 	expected := "dropped: {name:test3 dataType:10 modifiers:-1 pgType:foo nullable:false primaryKey:false keySeq:<nil> indexName:<nil> replicaIdent:false defaultValue:<nil> dimension:false dimAligned:false dimType:<nil> dimSeq:<nil>maxCharLength:<nil>}"
 	oldColumns := []Column{
 		NewColumn("test1", 10, -1, fooType, false, nil),

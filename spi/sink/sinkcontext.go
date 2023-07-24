@@ -21,7 +21,10 @@ func newSinkContext() *sinkContext {
 	}
 }
 
-func (s *sinkContext) UnmarshalBinary(data []byte) error {
+func (s *sinkContext) UnmarshalBinary(
+	data []byte,
+) error {
+
 	offset := uint32(0)
 	numOfItems := binary.BigEndian.Uint32(data[offset:])
 	offset += 4
@@ -62,20 +65,32 @@ func (s *sinkContext) MarshalBinary() (data []byte, err error) {
 	return data, nil
 }
 
-func (s *sinkContext) SetTransientAttribute(key string, value string) {
+func (s *sinkContext) SetTransientAttribute(
+	key string, value string,
+) {
+
 	s.transientAttributes[key] = value
 }
 
-func (s *sinkContext) TransientAttribute(key string) (value string, present bool) {
+func (s *sinkContext) TransientAttribute(
+	key string,
+) (value string, present bool) {
+
 	value, present = s.transientAttributes[key]
 	return
 }
 
-func (s *sinkContext) SetAttribute(key string, value string) {
+func (s *sinkContext) SetAttribute(
+	key string, value string,
+) {
+
 	s.attributes[key] = value
 }
 
-func (s *sinkContext) Attribute(key string) (value string, present bool) {
+func (s *sinkContext) Attribute(
+	key string,
+) (value string, present bool) {
+
 	value, present = s.attributes[key]
 	return
 }

@@ -24,7 +24,10 @@ import (
 	"testing"
 )
 
-func TestNameGenerator_EventTopicName(t *testing.T) {
+func TestNameGenerator_EventTopicName(
+	t *testing.T,
+) {
+
 	topicPrefix := "foobar"
 
 	debeziumNamingStrategy, err := namingstrategy.NewNamingStrategy("debezium", &config.Config{})
@@ -37,7 +40,10 @@ func TestNameGenerator_EventTopicName(t *testing.T) {
 	assert.Equal(t, "foobar.schema.hypertable", topicName)
 
 }
-func TestNameGenerator_SchemaTopicName(t *testing.T) {
+func TestNameGenerator_SchemaTopicName(
+	t *testing.T,
+) {
+
 	topicPrefix := "foobar"
 
 	debeziumNamingStrategy, err := namingstrategy.NewNamingStrategy("debezium", &config.Config{})

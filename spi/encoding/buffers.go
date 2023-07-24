@@ -25,20 +25,48 @@ import (
 )
 
 type WriteBuffer interface {
-	PutBit(val bool) error
-	PutBool(val bool) error
-	PutInt8(val int8) error
-	PutInt16(val int16) error
-	PutInt32(val int32) error
-	PutInt64(val int64) error
-	PutUint8(val uint8) error
-	PutUint16(val uint16) error
-	PutUint32(val uint32) error
-	PutUint64(val uint64) error
-	PutFloat32(val float32) error
-	PutFloat64(val float64) error
-	PutString(val string) error
-	PutBytes(val []byte) error
+	PutBit(
+		val bool,
+	) error
+	PutBool(
+		val bool,
+	) error
+	PutInt8(
+		val int8,
+	) error
+	PutInt16(
+		val int16,
+	) error
+	PutInt32(
+		val int32,
+	) error
+	PutInt64(
+		val int64,
+	) error
+	PutUint8(
+		val uint8,
+	) error
+	PutUint16(
+		val uint16,
+	) error
+	PutUint32(
+		val uint32,
+	) error
+	PutUint64(
+		val uint64,
+	) error
+	PutFloat32(
+		val float32,
+	) error
+	PutFloat64(
+		val float64,
+	) error
+	PutString(
+		val string,
+	) error
+	PutBytes(
+		val []byte,
+	) error
 	Length() int
 	Bytes() []byte
 }
@@ -60,7 +88,10 @@ type ReadBuffer interface {
 	ReadBytes() ([]byte, error)
 }
 
-func NewWriteBuffer(initialCapacity int) WriteBuffer {
+func NewWriteBuffer(
+	initialCapacity int,
+) WriteBuffer {
+
 	buffer := &bytes.Buffer{}
 	buffer.Grow(initialCapacity)
 	return &writeBuffer{
@@ -72,7 +103,10 @@ type writeBuffer struct {
 	buffer *bytes.Buffer
 }
 
-func (w *writeBuffer) PutBit(val bool) error {
+func (w *writeBuffer) PutBit(
+	val bool,
+) error {
+
 	v := byte(0)
 	if val {
 		v = 1
@@ -83,7 +117,10 @@ func (w *writeBuffer) PutBit(val bool) error {
 	return nil
 }
 
-func (w *writeBuffer) PutBool(val bool) error {
+func (w *writeBuffer) PutBool(
+	val bool,
+) error {
+
 	v := byte(0)
 	if val {
 		v = 1
@@ -94,30 +131,48 @@ func (w *writeBuffer) PutBool(val bool) error {
 	return nil
 }
 
-func (w *writeBuffer) PutInt8(val int8) error {
+func (w *writeBuffer) PutInt8(
+	val int8,
+) error {
+
 	return w.PutUint8(uint8(val))
 }
 
-func (w *writeBuffer) PutInt16(val int16) error {
+func (w *writeBuffer) PutInt16(
+	val int16,
+) error {
+
 	return w.PutUint16(uint16(val))
 }
 
-func (w *writeBuffer) PutInt32(val int32) error {
+func (w *writeBuffer) PutInt32(
+	val int32,
+) error {
+
 	return w.PutUint32(uint32(val))
 }
 
-func (w *writeBuffer) PutInt64(val int64) error {
+func (w *writeBuffer) PutInt64(
+	val int64,
+) error {
+
 	return w.PutUint64(uint64(val))
 }
 
-func (w *writeBuffer) PutUint8(val uint8) error {
+func (w *writeBuffer) PutUint8(
+	val uint8,
+) error {
+
 	if err := w.buffer.WriteByte(val); err != nil {
 		return errors.Wrap(err, 0)
 	}
 	return nil
 }
 
-func (w *writeBuffer) PutUint16(val uint16) error {
+func (w *writeBuffer) PutUint16(
+	val uint16,
+) error {
+
 	d := make([]byte, 2)
 	binary.BigEndian.PutUint16(d, val)
 	if _, err := w.buffer.Write(d); err != nil {
@@ -126,7 +181,10 @@ func (w *writeBuffer) PutUint16(val uint16) error {
 	return nil
 }
 
-func (w *writeBuffer) PutUint32(val uint32) error {
+func (w *writeBuffer) PutUint32(
+	val uint32,
+) error {
+
 	d := make([]byte, 4)
 	binary.BigEndian.PutUint32(d, val)
 	if _, err := w.buffer.Write(d); err != nil {
@@ -135,7 +193,10 @@ func (w *writeBuffer) PutUint32(val uint32) error {
 	return nil
 }
 
-func (w *writeBuffer) PutUint64(val uint64) error {
+func (w *writeBuffer) PutUint64(
+	val uint64,
+) error {
+
 	d := make([]byte, 8)
 	binary.BigEndian.PutUint64(d, val)
 	if _, err := w.buffer.Write(d); err != nil {
@@ -144,15 +205,24 @@ func (w *writeBuffer) PutUint64(val uint64) error {
 	return nil
 }
 
-func (w *writeBuffer) PutFloat32(val float32) error {
+func (w *writeBuffer) PutFloat32(
+	val float32,
+) error {
+
 	return w.PutUint32(math.Float32bits(val))
 }
 
-func (w *writeBuffer) PutFloat64(val float64) error {
+func (w *writeBuffer) PutFloat64(
+	val float64,
+) error {
+
 	return w.PutUint64(math.Float64bits(val))
 }
 
-func (w *writeBuffer) PutString(val string) error {
+func (w *writeBuffer) PutString(
+	val string,
+) error {
+
 	d := []byte(val)
 	length := uint32(len(d))
 	if err := w.PutUint32(length); err != nil {
@@ -164,7 +234,10 @@ func (w *writeBuffer) PutString(val string) error {
 	return nil
 }
 
-func (w *writeBuffer) PutBytes(val []byte) error {
+func (w *writeBuffer) PutBytes(
+	val []byte,
+) error {
+
 	length := uint32(len(val))
 	if err := w.PutUint32(length); err != nil {
 		return err
@@ -183,7 +256,10 @@ func (w *writeBuffer) Bytes() []byte {
 	return w.buffer.Bytes()
 }
 
-func NewReadBuffer(buffer *bytes.Buffer) ReadBuffer {
+func NewReadBuffer(
+	buffer *bytes.Buffer,
+) ReadBuffer {
+
 	return &readBuffer{buffer: buffer}
 }
 

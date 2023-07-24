@@ -35,7 +35,10 @@ type baseSystemEntity struct {
 }
 
 // NewSystemEntity instantiates a new basic SystemEntity
-func NewSystemEntity(schemaName, tableName string) SystemEntity {
+func NewSystemEntity(
+	schemaName, tableName string,
+) SystemEntity {
+
 	return &baseSystemEntity{
 		schemaName: schemaName,
 		tableName:  tableName,

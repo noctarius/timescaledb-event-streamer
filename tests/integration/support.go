@@ -15,7 +15,10 @@ type kafkaConsumer struct {
 	envelopes []inttest.Envelope
 }
 
-func NewKafkaConsumer(t *testing.T) (*kafkaConsumer, <-chan bool) {
+func NewKafkaConsumer(
+	t *testing.T,
+) (*kafkaConsumer, <-chan bool) {
+
 	kc := &kafkaConsumer{
 		t:         t,
 		ready:     make(chan bool, 1),
@@ -33,15 +36,24 @@ func (k *kafkaConsumer) Collected() <-chan bool {
 	return k.collected
 }
 
-func (k *kafkaConsumer) Setup(_ sarama.ConsumerGroupSession) error {
+func (k *kafkaConsumer) Setup(
+	_ sarama.ConsumerGroupSession,
+) error {
+
 	return nil
 }
 
-func (k *kafkaConsumer) Cleanup(_ sarama.ConsumerGroupSession) error {
+func (k *kafkaConsumer) Cleanup(
+	_ sarama.ConsumerGroupSession,
+) error {
+
 	return nil
 }
 
-func (k *kafkaConsumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
+func (k *kafkaConsumer) ConsumeClaim(
+	session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim,
+) error {
+
 	kafkaLogger, err := logging.NewLogger("Test_Kafka_Sink")
 	if err != nil {
 		return err

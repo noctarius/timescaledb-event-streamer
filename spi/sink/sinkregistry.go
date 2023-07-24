@@ -40,7 +40,10 @@ type Provider = func(config *config.Config, stateStorageManager statestorage.Man
 
 // RegisterSink registers a config.SinkType to a Factory
 // implementation which creates the Sink when requested
-func RegisterSink(name config.SinkType, factory Factory) bool {
+func RegisterSink(
+	name config.SinkType, factory Factory,
+) bool {
+
 	sinkRegistry.mutex.Lock()
 	defer sinkRegistry.mutex.Unlock()
 	if _, present := sinkRegistry.factories[name]; !present {
@@ -52,7 +55,10 @@ func RegisterSink(name config.SinkType, factory Factory) bool {
 
 // NewSink instantiates a new instance of the requested
 // Sink when available, otherwise returns an error.
-func NewSink(name config.SinkType, config *config.Config) (Sink, error) {
+func NewSink(
+	name config.SinkType, config *config.Config,
+) (Sink, error) {
+
 	sinkRegistry.mutex.Lock()
 	defer sinkRegistry.mutex.Unlock()
 	if p, present := sinkRegistry.factories[name]; present {

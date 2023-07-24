@@ -8,7 +8,9 @@ import (
 )
 
 type LtreeScanner interface {
-	ScanLtree(v Ltree) error
+	ScanLtree(
+		v Ltree,
+	) error
 }
 
 type LtreeValuer interface {
@@ -20,7 +22,10 @@ type Ltree struct {
 	Valid bool
 }
 
-func (l *Ltree) ScanLtree(v Ltree) error {
+func (l *Ltree) ScanLtree(
+	v Ltree,
+) error {
+
 	*l = v
 	return nil
 }
@@ -29,7 +34,10 @@ func (l Ltree) LtreeValue() (Ltree, error) {
 	return l, nil
 }
 
-func (l *Ltree) Scan(src any) error {
+func (l *Ltree) Scan(
+	src any,
+) error {
+
 	if src == nil {
 		*l = Ltree{}
 		return nil
@@ -59,7 +67,10 @@ func (l Ltree) MarshalJSON() ([]byte, error) {
 	return json.Marshal(l.Path)
 }
 
-func (l *Ltree) UnmarshalJSON(b []byte) error {
+func (l *Ltree) UnmarshalJSON(
+	b []byte,
+) error {
+
 	var s *string
 	if err := json.Unmarshal(b, &s); err != nil {
 		return err
@@ -76,7 +87,10 @@ func (l *Ltree) UnmarshalJSON(b []byte) error {
 
 type LtreeCodec struct{}
 
-func (LtreeCodec) FormatSupported(format int16) bool {
+func (LtreeCodec) FormatSupported(
+	format int16,
+) bool {
+
 	return format == pgtype.TextFormatCode || format == pgtype.BinaryFormatCode
 }
 
@@ -84,7 +98,10 @@ func (LtreeCodec) PreferredFormat() int16 {
 	return pgtype.BinaryFormatCode
 }
 
-func (LtreeCodec) PlanEncode(_ *pgtype.Map, _ uint32, format int16, value any) pgtype.EncodePlan {
+func (LtreeCodec) PlanEncode(
+	_ *pgtype.Map, _ uint32, format int16, value any,
+) pgtype.EncodePlan {
+
 	if _, ok := value.(LtreeValuer); !ok {
 		return nil
 	}
@@ -101,7 +118,10 @@ func (LtreeCodec) PlanEncode(_ *pgtype.Map, _ uint32, format int16, value any) p
 
 type encodePlanLtreeCodecBinary struct{}
 
-func (encodePlanLtreeCodecBinary) Encode(value any, buf []byte) (newBuf []byte, err error) {
+func (encodePlanLtreeCodecBinary) Encode(
+	value any, buf []byte,
+) (newBuf []byte, err error) {
+
 	ltree, err := value.(LtreeValuer).LtreeValue()
 	if err != nil {
 		return nil, err
@@ -119,7 +139,10 @@ func (encodePlanLtreeCodecBinary) Encode(value any, buf []byte) (newBuf []byte, 
 
 type encodePlanLtreeCodecText struct{}
 
-func (encodePlanLtreeCodecText) Encode(value any, buf []byte) (newBuf []byte, err error) {
+func (encodePlanLtreeCodecText) Encode(
+	value any, buf []byte,
+) (newBuf []byte, err error) {
+
 	ltree, err := value.(LtreeValuer).LtreeValue()
 	if err != nil {
 		return nil, err
@@ -134,7 +157,10 @@ func (encodePlanLtreeCodecText) Encode(value any, buf []byte) (newBuf []byte, er
 	return buf, nil
 }
 
-func (LtreeCodec) PlanScan(_ *pgtype.Map, _ uint32, format int16, target any) pgtype.ScanPlan {
+func (LtreeCodec) PlanScan(
+	_ *pgtype.Map, _ uint32, format int16, target any,
+) pgtype.ScanPlan {
+
 	switch format {
 	case pgtype.BinaryFormatCode:
 		switch target.(type) {
@@ -153,7 +179,10 @@ func (LtreeCodec) PlanScan(_ *pgtype.Map, _ uint32, format int16, target any) pg
 
 type scanPlanBinaryLtreeToLtreeScanner struct{}
 
-func (scanPlanBinaryLtreeToLtreeScanner) Scan(src []byte, dst any) error {
+func (scanPlanBinaryLtreeToLtreeScanner) Scan(
+	src []byte, dst any,
+) error {
+
 	scanner := (dst).(LtreeScanner)
 
 	if src == nil {
@@ -174,7 +203,10 @@ func (scanPlanBinaryLtreeToLtreeScanner) Scan(src []byte, dst any) error {
 
 type scanPlanTextLtreeToLtreeScanner struct{}
 
-func (scanPlanTextLtreeToLtreeScanner) Scan(src []byte, dst any) error {
+func (scanPlanTextLtreeToLtreeScanner) Scan(
+	src []byte, dst any,
+) error {
+
 	scanner := (dst).(LtreeScanner)
 
 	if src == nil {
@@ -184,7 +216,10 @@ func (scanPlanTextLtreeToLtreeScanner) Scan(src []byte, dst any) error {
 	return scanner.ScanLtree(Ltree{Path: string(src), Valid: true})
 }
 
-func (c LtreeCodec) DecodeDatabaseSQLValue(m *pgtype.Map, oid uint32, format int16, src []byte) (driver.Value, error) {
+func (c LtreeCodec) DecodeDatabaseSQLValue(
+	m *pgtype.Map, oid uint32, format int16, src []byte,
+) (driver.Value, error) {
+
 	if src == nil {
 		return nil, nil
 	}
@@ -197,7 +232,10 @@ func (c LtreeCodec) DecodeDatabaseSQLValue(m *pgtype.Map, oid uint32, format int
 	return ltree, nil
 }
 
-func (c LtreeCodec) DecodeValue(m *pgtype.Map, oid uint32, format int16, src []byte) (any, error) {
+func (c LtreeCodec) DecodeValue(
+	m *pgtype.Map, oid uint32, format int16, src []byte,
+) (any, error) {
+
 	if src == nil {
 		return nil, nil
 	}

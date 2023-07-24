@@ -92,7 +92,10 @@ func main() {
 	}
 }
 
-func start(*cli.Context) error {
+func start(
+	*cli.Context,
+) error {
+
 	fmt.Printf("%s version %s (git revision %s; branch %s)\n",
 		version.BinName, version.Version, version.CommitHash, version.Branch,
 	)

@@ -41,7 +41,10 @@ type RedisIntegrationTestSuite struct {
 	testrunner.TestRunner
 }
 
-func TestRedisIntegrationTestSuite(t *testing.T) {
+func TestRedisIntegrationTestSuite(
+	t *testing.T,
+) {
+
 	suite.Run(t, new(RedisIntegrationTestSuite))
 }
 

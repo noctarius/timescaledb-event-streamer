@@ -19,7 +19,10 @@ func NewWaiter() *Waiter {
 	}
 }
 
-func NewWaiterWithTimeout(timeout time.Duration) *Waiter {
+func NewWaiterWithTimeout(
+	timeout time.Duration,
+) *Waiter {
+
 	return &Waiter{
 		done:    make(chan bool, 1),
 		timer:   time.NewTimer(timeout),

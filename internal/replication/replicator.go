@@ -49,7 +49,10 @@ type Replicator struct {
 }
 
 // NewReplicator instantiates a new instance of the Replicator.
-func NewReplicator(config *sysconfig.SystemConfig) (*Replicator, error) {
+func NewReplicator(
+	config *sysconfig.SystemConfig,
+) (*Replicator, error) {
+
 	logger, err := logging.NewLogger("Replicator")
 	if err != nil {
 		return nil, err
@@ -210,8 +213,10 @@ func (r *Replicator) StopReplication() *cli.ExitError {
 	return nil
 }
 
-func (r *Replicator) collectChunksForPublication(encodedState func(name string) ([]byte, bool),
-	getAllChunks func() []systemcatalog.SystemEntity, readPublishedTables func() ([]systemcatalog.SystemEntity, error),
+func (r *Replicator) collectChunksForPublication(
+	encodedState func(name string) ([]byte, bool),
+	getAllChunks func() []systemcatalog.SystemEntity,
+	readPublishedTables func() ([]systemcatalog.SystemEntity, error),
 ) ([]systemcatalog.SystemEntity, error) {
 
 	// Get initial list of chunks to add to publication
@@ -251,8 +256,10 @@ func (r *Replicator) collectChunksForPublication(encodedState func(name string) 
 	return initialChunkTables, nil
 }
 
-func getKnownChunks(encodedState func(name string) ([]byte, bool),
-	getAllChunks func() []systemcatalog.SystemEntity) ([]systemcatalog.SystemEntity, error) {
+func getKnownChunks(
+	encodedState func(name string) ([]byte, bool),
+	getAllChunks func() []systemcatalog.SystemEntity,
+) ([]systemcatalog.SystemEntity, error) {
 
 	allChunks := getAllChunks()
 	if state, present := encodedState(esPreviouslyKnownChunks); present {
@@ -272,7 +279,10 @@ func getKnownChunks(encodedState func(name string) ([]byte, bool),
 	return allChunks, nil
 }
 
-func decodeKnownChunks(data []byte) ([]systemcatalog.SystemEntity, error) {
+func decodeKnownChunks(
+	data []byte,
+) ([]systemcatalog.SystemEntity, error) {
+
 	buffer := encoding.NewReadBuffer(bytes.NewBuffer(data))
 
 	numOfChunks, err := buffer.ReadUint32()
@@ -295,7 +305,10 @@ func decodeKnownChunks(data []byte) ([]systemcatalog.SystemEntity, error) {
 	return chunks, nil
 }
 
-func encodeKnownChunks(chunks []systemcatalog.SystemEntity) ([]byte, error) {
+func encodeKnownChunks(
+	chunks []systemcatalog.SystemEntity,
+) ([]byte, error) {
+
 	buffer := encoding.NewWriteBuffer(1024)
 
 	numOfChunks := len(chunks)

@@ -36,7 +36,10 @@ type registry struct {
 // RegisterNamingStrategy registers a NamingRegistryType to a
 // Provider implementation which creates the NamingStrategy
 // when requested
-func RegisterNamingStrategy(name config.NamingStrategyType, provider Provider) bool {
+func RegisterNamingStrategy(
+	name config.NamingStrategyType, provider Provider,
+) bool {
+
 	namingStrategyRegistry.mutex.Lock()
 	defer namingStrategyRegistry.mutex.Unlock()
 	if _, present := namingStrategyRegistry.providers[name]; !present {
@@ -48,7 +51,10 @@ func RegisterNamingStrategy(name config.NamingStrategyType, provider Provider) b
 
 // NewNamingStrategy instantiates a new instance of the requested
 // NamingStrategy when available, otherwise returns an error.
-func NewNamingStrategy(name config.NamingStrategyType, config *config.Config) (NamingStrategy, error) {
+func NewNamingStrategy(
+	name config.NamingStrategyType, config *config.Config,
+) (NamingStrategy, error) {
+
 	namingStrategyRegistry.mutex.Lock()
 	defer namingStrategyRegistry.mutex.Unlock()
 	if p, present := namingStrategyRegistry.providers[name]; present {

@@ -306,7 +306,10 @@ type LoggerFileConfig struct {
 	Compress    bool    `toml:"compress" yaml:"compress"`
 }
 
-func GetOrDefault[V any](config *Config, canonicalProperty string, defaultValue V) V {
+func GetOrDefault[V any](
+	config *Config, canonicalProperty string, defaultValue V,
+) V {
+
 	if env, found := findEnvProperty(canonicalProperty, defaultValue); found {
 		return env
 	}
@@ -349,7 +352,10 @@ func GetOrDefault[V any](config *Config, canonicalProperty string, defaultValue 
 	return defaultValue
 }
 
-func findEnvProperty[V any](canonicalProperty string, defaultValue V) (V, bool) {
+func findEnvProperty[V any](
+	canonicalProperty string, defaultValue V,
+) (V, bool) {
+
 	t := reflect.TypeOf(defaultValue)
 
 	envVarName := strings.ToUpper(canonicalProperty)
@@ -366,7 +372,10 @@ func findEnvProperty[V any](canonicalProperty string, defaultValue V) (V, bool) 
 	return defaultValue, false
 }
 
-func findProperty(element reflect.Value, property string) (reflect.Value, bool) {
+func findProperty(
+	element reflect.Value, property string,
+) (reflect.Value, bool) {
+
 	t := element.Type()
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)

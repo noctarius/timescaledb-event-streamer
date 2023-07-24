@@ -41,7 +41,10 @@ type awsSqsSink struct {
 	awsSqs   *sqs.SQS
 }
 
-func newAwsSqsSink(config *spiconfig.Config) (sink.Sink, error) {
+func newAwsSqsSink(
+	config *spiconfig.Config,
+) (sink.Sink, error) {
+
 	queueUrl := spiconfig.GetOrDefault[*string](config, spiconfig.PropertySqsQueueUrl, nil)
 	if queueUrl == nil {
 		return nil, errors.Errorf("AWS SQS sink needs the queue url to be configured")
@@ -83,7 +86,10 @@ func (a *awsSqsSink) Stop() error {
 	return nil
 }
 
-func (a *awsSqsSink) Emit(_ sink.Context, _ time.Time, topicName string, _, envelope schema.Struct) error {
+func (a *awsSqsSink) Emit(
+	_ sink.Context, _ time.Time, topicName string, _, envelope schema.Struct,
+) error {
+
 	envelopeData, err := json.Marshal(envelope)
 	if err != nil {
 		return err

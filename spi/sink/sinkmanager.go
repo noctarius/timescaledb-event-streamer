@@ -14,7 +14,9 @@ const (
 type Manager interface {
 	Start() error
 	Stop() error
-	Emit(timestamp time.Time, topicName string, key, envelope schema.Struct) error
+	Emit(
+		timestamp time.Time, topicName string, key, envelope schema.Struct,
+	) error
 }
 
 type sinkManager struct {
@@ -23,7 +25,10 @@ type sinkManager struct {
 	sink                Sink
 }
 
-func NewSinkManager(stateStorageManager statestorage.Manager, sink Sink) Manager {
+func NewSinkManager(
+	stateStorageManager statestorage.Manager, sink Sink,
+) Manager {
+
 	return &sinkManager{
 		stateStorageManager: stateStorageManager,
 		sinkContext:         newSinkContext(),
@@ -47,6 +52,9 @@ func (sm *sinkManager) Stop() error {
 	return sm.sink.Stop()
 }
 
-func (sm *sinkManager) Emit(timestamp time.Time, topicName string, key, envelope schema.Struct) error {
+func (sm *sinkManager) Emit(
+	timestamp time.Time, topicName string, key, envelope schema.Struct,
+) error {
+
 	return sm.sink.Emit(sm.sinkContext, timestamp, topicName, key, envelope)
 }

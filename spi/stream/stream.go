@@ -10,9 +10,13 @@ import (
 
 type Stream interface {
 	KeySchema() schema.Struct
-	Key(values map[string]any) (schema.Struct, error)
+	Key(
+		values map[string]any,
+	) (schema.Struct, error)
 	PayloadSchema() schema.Struct
-	Emit(key, envelope schema.Struct) error
+	Emit(
+		key, envelope schema.Struct,
+	) error
 }
 
 type tableStreamImpl struct {
@@ -51,7 +55,10 @@ func (s *tableStreamImpl) PayloadSchema() schema.Struct {
 	return s.envelopeSchema
 }
 
-func (s *tableStreamImpl) Key(values map[string]any) (schema.Struct, error) {
+func (s *tableStreamImpl) Key(
+	values map[string]any,
+) (schema.Struct, error) {
+
 	result := make(map[string]any)
 	for _, column := range s.tableKeyColumns {
 		if v, present := values[column.Name()]; present {
@@ -71,7 +78,10 @@ func (s *tableStreamImpl) Key(values map[string]any) (schema.Struct, error) {
 	return result, nil
 }
 
-func (s *tableStreamImpl) Emit(key, envelope schema.Struct) error {
+func (s *tableStreamImpl) Emit(
+	key, envelope schema.Struct,
+) error {
+
 	return s.sinkManager.Emit(time.Now(), s.topicName, key, envelope)
 }
 
@@ -83,7 +93,10 @@ type messageStreamImpl struct {
 	envelopeSchema schema.Struct
 }
 
-func NewMessageStream(nameGenerator schema.NameGenerator, sinkManager sink.Manager) Stream {
+func NewMessageStream(
+	nameGenerator schema.NameGenerator, sinkManager sink.Manager,
+) Stream {
+
 	return &messageStreamImpl{
 		sinkManager: sinkManager,
 
@@ -101,7 +114,10 @@ func (m *messageStreamImpl) PayloadSchema() schema.Struct {
 	return m.envelopeSchema
 }
 
-func (m *messageStreamImpl) Key(values map[string]any) (schema.Struct, error) {
+func (m *messageStreamImpl) Key(
+	values map[string]any,
+) (schema.Struct, error) {
+
 	prefix, present := values["prefix"]
 	if !present {
 		return nil, errors.Errorf("prefix not set for message event")
@@ -111,6 +127,9 @@ func (m *messageStreamImpl) Key(values map[string]any) (schema.Struct, error) {
 	}, nil
 }
 
-func (m *messageStreamImpl) Emit(key, envelope schema.Struct) error {
+func (m *messageStreamImpl) Emit(
+	key, envelope schema.Struct,
+) error {
+
 	return m.sinkManager.Emit(time.Now(), m.topicName, key, envelope)
 }

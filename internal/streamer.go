@@ -49,7 +49,10 @@ type Streamer struct {
 	replicator *replication.Replicator
 }
 
-func NewStreamer(config *sysconfig.SystemConfig) (*Streamer, *cli.ExitError) {
+func NewStreamer(
+	config *sysconfig.SystemConfig,
+) (*Streamer, *cli.ExitError) {
+
 	if config.PgxConfig == nil {
 		connection := spiconfig.GetOrDefault(
 			config.Config, spiconfig.PropertyPostgresqlConnection, "host=localhost user=repl_user",

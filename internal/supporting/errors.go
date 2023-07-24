@@ -22,7 +22,10 @@ import (
 	"github.com/urfave/cli"
 )
 
-func AdaptError(err error, exitCode int) *cli.ExitError {
+func AdaptError(
+	err error, exitCode int,
+) *cli.ExitError {
+
 	if err == nil {
 		return nil
 	}
@@ -32,7 +35,10 @@ func AdaptError(err error, exitCode int) *cli.ExitError {
 	return cli.NewExitError(err.Error(), exitCode)
 }
 
-func AdaptErrorWithMessage(err error, msg string, exitCode int) *cli.ExitError {
+func AdaptErrorWithMessage(
+	err error, msg string, exitCode int,
+) *cli.ExitError {
+
 	if err == nil {
 		return nil
 	}

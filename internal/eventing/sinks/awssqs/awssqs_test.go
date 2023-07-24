@@ -7,7 +7,10 @@ import (
 	"testing"
 )
 
-func Test_AWS_SQS_Config_Loading(t *testing.T) {
+func Test_AWS_SQS_Config_Loading(
+	t *testing.T,
+) {
+
 	config := &spiconfig.Config{
 		Sink: spiconfig.SinkConfig{
 			Type: "sqs",

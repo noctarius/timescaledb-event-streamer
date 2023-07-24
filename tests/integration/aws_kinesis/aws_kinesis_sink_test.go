@@ -44,7 +44,10 @@ type AwsKinesisIntegrationTestSuite struct {
 	testrunner.TestRunner
 }
 
-func TestAwsKinesisIntegrationTestSuite(t *testing.T) {
+func TestAwsKinesisIntegrationTestSuite(
+	t *testing.T,
+) {
+
 	suite.Run(t, new(AwsKinesisIntegrationTestSuite))
 }
 

@@ -37,31 +37,57 @@ import (
 )
 
 type PrivilegedContext interface {
-	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
-	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
-	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
-	SendBatch(context.Context, *pgx.Batch) pgx.BatchResults
-	CopyFrom(context.Context, pgx.Identifier, []string, pgx.CopyFromSource) (int64, error)
-	Begin(ctx context.Context) (pgx.Tx, error)
-	BeginTx(ctx context.Context, txOptions pgx.TxOptions) (pgx.Tx, error)
-	Ping(ctx context.Context) error
+	Exec(
+		ctx context.Context, sql string, arguments ...any,
+	) (pgconn.CommandTag, error)
+	Query(
+		ctx context.Context, sql string, args ...any,
+	) (pgx.Rows, error)
+	QueryRow(
+		ctx context.Context, sql string, args ...any,
+	) pgx.Row
+	SendBatch(
+		context.Context, *pgx.Batch,
+	) pgx.BatchResults
+	CopyFrom(
+		context.Context, pgx.Identifier, []string, pgx.CopyFromSource,
+	) (int64, error)
+	Begin(
+		ctx context.Context,
+	) (pgx.Tx, error)
+	BeginTx(
+		ctx context.Context, txOptions pgx.TxOptions,
+	) (pgx.Tx, error)
+	Ping(
+		ctx context.Context,
+	) error
 }
 
 type Context interface {
 	PrivilegedContext
-	PrivilegedContext(fn func(context PrivilegedContext) error) error
-	CreateHypertable(timeDimension string, chunkSize time.Duration, columns ...inttest.Column) (string, string, error)
+	PrivilegedContext(
+		fn func(context PrivilegedContext) error,
+	) error
+	CreateHypertable(
+		timeDimension string, chunkSize time.Duration, columns ...inttest.Column,
+	) (string, string, error)
 	PauseReplicator() error
 	ResumeReplicator() error
 	PostgresqlVersion() version.PostgresVersion
 	TimescaleVersion() version.TimescaleVersion
-	attribute(key string, value any)
-	getAttribute(key string) any
+	attribute(
+		key string, value any,
+	)
+	getAttribute(
+		key string,
+	) any
 }
 
 type SetupContext interface {
 	Context
-	AddSystemConfigConfigurator(fn func(config *sysconfig.SystemConfig))
+	AddSystemConfigConfigurator(
+		fn func(config *sysconfig.SystemConfig),
+	)
 }
 
 func Attribute[V any](context Context, key string, value V) {

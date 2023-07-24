@@ -26,17 +26,20 @@ import (
 
 type hypertableDecomposerCallback = func(
 	id int32, schemaName, hypertableName, associatedSchemaName, associatedTablePrefix string,
-	compressedHypertableId *int32, compressionState int16, distributed bool) error
+	compressedHypertableId *int32, compressionState int16, distributed bool,
+) error
 
 type chunkDecomposerCallback = func(id, hypertableId int32, schemaName,
-	tableName string, dropped bool, status int32, compressedChunkId *int32) error
+	tableName string, dropped bool, status int32, compressedChunkId *int32,
+) error
 
 type systemCatalogReplicationEventHandler struct {
 	systemCatalog *SystemCatalog
 }
 
 func (s *systemCatalogReplicationEventHandler) OnRelationEvent(
-	_ pgtypes.XLogData, msg *pgtypes.RelationMessage) error {
+	_ pgtypes.XLogData, msg *pgtypes.RelationMessage,
+) error {
 
 	if msg.Namespace != "_timescaledb_catalog" {
 		if hypertable, present := s.systemCatalog.FindHypertableByName(msg.Namespace, msg.RelationName); present {
@@ -53,7 +56,8 @@ func (s *systemCatalogReplicationEventHandler) OnRelationEvent(
 }
 
 func (s *systemCatalogReplicationEventHandler) OnHypertableAddedEvent(
-	_ pgtypes.XLogData, _ uint32, newValues map[string]any) error {
+	_ pgtypes.XLogData, _ uint32, newValues map[string]any,
+) error {
 
 	return s.decomposeHypertable(newValues,
 		func(id int32, schemaName, hypertableName, associatedSchemaName, associatedTablePrefix string,
@@ -94,7 +98,8 @@ func (s *systemCatalogReplicationEventHandler) OnHypertableAddedEvent(
 }
 
 func (s *systemCatalogReplicationEventHandler) OnHypertableUpdatedEvent(
-	_ pgtypes.XLogData, _ uint32, _, newValues map[string]any) error {
+	_ pgtypes.XLogData, _ uint32, _, newValues map[string]any,
+) error {
 
 	return s.decomposeHypertable(newValues,
 		func(id int32, schemaName, hypertableName, associatedSchemaName, associatedTablePrefix string,
@@ -120,7 +125,8 @@ func (s *systemCatalogReplicationEventHandler) OnHypertableUpdatedEvent(
 }
 
 func (s *systemCatalogReplicationEventHandler) OnHypertableDeletedEvent(
-	_ pgtypes.XLogData, _ uint32, oldValues map[string]any) error {
+	_ pgtypes.XLogData, _ uint32, oldValues map[string]any,
+) error {
 
 	hypertableId := oldValues["id"].(int32)
 	if hypertable, present := s.systemCatalog.FindHypertableById(hypertableId); present {
@@ -132,7 +138,8 @@ func (s *systemCatalogReplicationEventHandler) OnHypertableDeletedEvent(
 }
 
 func (s *systemCatalogReplicationEventHandler) OnChunkAddedEvent(
-	xld pgtypes.XLogData, _ uint32, newValues map[string]any) error {
+	xld pgtypes.XLogData, _ uint32, newValues map[string]any,
+) error {
 
 	return s.decomposeChunk(newValues,
 		func(id, hypertableId int32, schemaName, tableName string, dropped bool,
@@ -174,7 +181,8 @@ func (s *systemCatalogReplicationEventHandler) OnChunkAddedEvent(
 }
 
 func (s *systemCatalogReplicationEventHandler) OnChunkUpdatedEvent(
-	_ pgtypes.XLogData, _ uint32, _, newValues map[string]any) error {
+	_ pgtypes.XLogData, _ uint32, _, newValues map[string]any,
+) error {
 
 	return s.decomposeChunk(newValues,
 		func(id, hypertableId int32, schemaName, tableName string, dropped bool,
@@ -210,7 +218,8 @@ func (s *systemCatalogReplicationEventHandler) OnChunkUpdatedEvent(
 }
 
 func (s *systemCatalogReplicationEventHandler) OnChunkDeletedEvent(
-	_ pgtypes.XLogData, _ uint32, oldValues map[string]any) error {
+	_ pgtypes.XLogData, _ uint32, oldValues map[string]any,
+) error {
 
 	chunkId := oldValues["id"].(int32)
 	if chunk, present := s.systemCatalog.FindChunkById(chunkId); present {
@@ -233,7 +242,8 @@ func (s *systemCatalogReplicationEventHandler) OnChunkDeletedEvent(
 }
 
 func (s *systemCatalogReplicationEventHandler) decomposeHypertable(
-	values map[string]any, cb hypertableDecomposerCallback) error {
+	values map[string]any, cb hypertableDecomposerCallback,
+) error {
 
 	id := values["id"].(int32)
 	schemaName := values["schema_name"].(string)
@@ -255,7 +265,8 @@ func (s *systemCatalogReplicationEventHandler) decomposeHypertable(
 }
 
 func (s *systemCatalogReplicationEventHandler) decomposeChunk(
-	values map[string]any, cb chunkDecomposerCallback) error {
+	values map[string]any, cb chunkDecomposerCallback,
+) error {
 
 	id := values["id"].(int32)
 	hypertableId := values["hypertable_id"].(int32)

@@ -50,7 +50,10 @@ var (
 	defaultConsoleHandlerEnabled bool
 )
 
-func InitializeLogging(config *spiconfig.Config, logToStdErr bool) error {
+func InitializeLogging(
+	config *spiconfig.Config, logToStdErr bool,
+) error {
+
 	slog.LevelNames[VerboseLevel] = "VERBOSE"
 	slog.AllLevels = slog.Levels{
 		slog.PanicLevel,
@@ -88,7 +91,10 @@ func InitializeLogging(config *spiconfig.Config, logToStdErr bool) error {
 	return nil
 }
 
-func newConsoleHandler(logToStdErr bool) slog.Handler {
+func newConsoleHandler(
+	logToStdErr bool,
+) slog.Handler {
+
 	consoleHandler := handler.NewConsoleHandler(slog.AllLevels)
 	if !WithCaller {
 		consoleHandler.TextFormatter().SetTemplate(
@@ -110,7 +116,10 @@ type consoleHandlerSyncAdapter struct {
 	mutex sync.Mutex
 }
 
-func (h *consoleHandlerSyncAdapter) Handle(record *slog.Record) error {
+func (h *consoleHandlerSyncAdapter) Handle(
+	record *slog.Record,
+) error {
+
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
 	return h.ConsoleHandler.Handle(record)
@@ -122,7 +131,10 @@ type Logger struct {
 	name    string
 }
 
-func NewLogger(name string) (*Logger, error) {
+func NewLogger(
+	name string,
+) (*Logger, error) {
+
 	baseConfiguration := func(l *slog.Logger) {
 		l.CallerSkip = l.CallerSkip + 2
 		l.ReportCaller = WithCaller
@@ -179,85 +191,142 @@ func NewLogger(name string) (*Logger, error) {
 	}, nil
 }
 
-func (l *Logger) Tracef(format string, args ...interface{}) {
+func (l *Logger) Tracef(
+	format string, args ...interface{},
+) {
+
 	l.logf(slog.TraceLevel, format, args)
 }
 
-func (l *Logger) Traceln(args ...interface{}) {
+func (l *Logger) Traceln(
+	args ...interface{},
+) {
+
 	l.log(slog.TraceLevel, args)
 }
 
-func (l *Logger) Debugf(format string, args ...interface{}) {
+func (l *Logger) Debugf(
+	format string, args ...interface{},
+) {
+
 	l.logf(slog.DebugLevel, format, args)
 }
 
-func (l *Logger) Debugln(args ...interface{}) {
+func (l *Logger) Debugln(
+	args ...interface{},
+) {
+
 	l.log(slog.DebugLevel, args)
 }
 
-func (l *Logger) Verbosef(format string, args ...any) {
+func (l *Logger) Verbosef(
+	format string, args ...any,
+) {
+
 	l.logf(VerboseLevel, format, args)
 }
 
-func (l *Logger) Verboseln(args ...any) {
+func (l *Logger) Verboseln(
+	args ...any,
+) {
+
 	l.log(VerboseLevel, args)
 }
 
-func (l *Logger) Printf(format string, args ...any) {
+func (l *Logger) Printf(
+	format string, args ...any,
+) {
+
 	l.logf(slog.InfoLevel, format, args)
 }
 
-func (l *Logger) Println(args ...any) {
+func (l *Logger) Println(
+	args ...any,
+) {
+
 	l.log(slog.InfoLevel, args)
 }
 
-func (l *Logger) Infof(format string, args ...any) {
+func (l *Logger) Infof(
+	format string, args ...any,
+) {
+
 	l.logf(slog.InfoLevel, format, args)
 }
 
-func (l *Logger) Infoln(args ...any) {
+func (l *Logger) Infoln(
+	args ...any,
+) {
+
 	l.log(slog.InfoLevel, args)
 }
 
-func (l *Logger) Warnf(format string, args ...interface{}) {
+func (l *Logger) Warnf(
+	format string, args ...interface{},
+) {
+
 	l.logf(slog.WarnLevel, format, args)
 }
 
-func (l *Logger) Warnln(args ...interface{}) {
+func (l *Logger) Warnln(
+	args ...interface{},
+) {
+
 	l.log(slog.WarnLevel, args)
 }
 
-func (l *Logger) Errorf(format string, args ...any) {
+func (l *Logger) Errorf(
+	format string, args ...any,
+) {
+
 	l.logf(slog.ErrorLevel, format, args)
 }
 
-func (l *Logger) Errorln(args ...any) {
+func (l *Logger) Errorln(
+	args ...any,
+) {
+
 	l.log(slog.ErrorLevel, args)
 }
 
-func (l *Logger) Fatalf(format string, args ...any) {
+func (l *Logger) Fatalf(
+	format string, args ...any,
+) {
+
 	l.logf(slog.FatalLevel, format, args)
 }
 
-func (l *Logger) Fatalln(args ...any) {
+func (l *Logger) Fatalln(
+	args ...any,
+) {
+
 	l.log(slog.FatalLevel, args)
 }
 
-func (l *Logger) logf(level slog.Level, format string, args []any) {
+func (l *Logger) logf(
+	level slog.Level, format string, args []any,
+) {
+
 	if l.level >= level || (level == VerboseLevel && WithVerbose) {
 		format = strings.TrimSuffix(format, "\n")
 		l.slogger.Logf(level, fmt.Sprintf("[%s] %s", l.name, format), args...)
 	}
 }
 
-func (l *Logger) log(level slog.Level, args []any) {
+func (l *Logger) log(
+	level slog.Level, args []any,
+) {
+
 	if l.level >= level || (level == VerboseLevel && WithVerbose) {
 		args = append([]any{fmt.Sprintf("[%s]", l.name)}, args...)
 		l.slogger.Log(level, args...)
 	}
 }
 
-func Name2Level(ln string) slog.Level {
+func Name2Level(
+	ln string,
+) slog.Level {
+
 	switch strings.ToLower(ln) {
 	case "panic":
 		return slog.PanicLevel
@@ -280,7 +349,10 @@ func Name2Level(ln string) slog.Level {
 	}
 }
 
-func newFileHandler(config spiconfig.LoggerFileConfig) (bool, *handler.SyncCloseHandler, error) {
+func newFileHandler(
+	config spiconfig.LoggerFileConfig,
+) (bool, *handler.SyncCloseHandler, error) {
+
 	if config.Enabled == nil || !*config.Enabled {
 		return false, nil, nil
 	}

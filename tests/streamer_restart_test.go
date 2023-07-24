@@ -37,7 +37,10 @@ type IntegrationRestartTestSuite struct {
 	testrunner.TestRunner
 }
 
-func TestIntegrationRestartTestSuite(t *testing.T) {
+func TestIntegrationRestartTestSuite(
+	t *testing.T,
+) {
+
 	suite.Run(t, new(IntegrationRestartTestSuite))
 }
 

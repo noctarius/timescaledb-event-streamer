@@ -42,7 +42,10 @@ type ReplicationChannel struct {
 }
 
 // NewReplicationChannel instantiates a new instance of the ReplicationChannel.
-func NewReplicationChannel(replicationContext context.ReplicationContext) (*ReplicationChannel, error) {
+func NewReplicationChannel(
+	replicationContext context.ReplicationContext,
+) (*ReplicationChannel, error) {
+
 	logger, err := logging.NewLogger("ReplicationChannel")
 	if err != nil {
 		return nil, err
@@ -67,7 +70,8 @@ func (rc *ReplicationChannel) StopReplicationChannel() error {
 // StartReplicationChannel starts the replication channel, as well as initializes
 // and starts the logical replication handler loop.
 func (rc *ReplicationChannel) StartReplicationChannel(
-	replicationContext context.ReplicationContext, initialTables []systemcatalog.SystemEntity) error {
+	replicationContext context.ReplicationContext, initialTables []systemcatalog.SystemEntity,
+) error {
 
 	publicationManager := replicationContext.PublicationManager()
 
@@ -262,31 +266,45 @@ type snapshottingEventHandler struct {
 	startReplication func() error
 }
 
-func (s *snapshottingEventHandler) OnRelationEvent(_ pgtypes.XLogData, _ *pgtypes.RelationMessage) error {
+func (s *snapshottingEventHandler) OnRelationEvent(
+	_ pgtypes.XLogData, _ *pgtypes.RelationMessage,
+) error {
+
 	return nil
 }
 
 func (s *snapshottingEventHandler) OnChunkSnapshotStartedEvent(
-	_ *systemcatalog.Hypertable, _ *systemcatalog.Chunk) error {
+	_ *systemcatalog.Hypertable, _ *systemcatalog.Chunk,
+) error {
 
 	return nil
 }
 
 func (s *snapshottingEventHandler) OnChunkSnapshotFinishedEvent(
-	_ *systemcatalog.Hypertable, _ *systemcatalog.Chunk, _ pgtypes.LSN) error {
+	_ *systemcatalog.Hypertable, _ *systemcatalog.Chunk, _ pgtypes.LSN,
+) error {
 
 	return nil
 }
 
-func (s *snapshottingEventHandler) OnHypertableSnapshotStartedEvent(_ string, _ *systemcatalog.Hypertable) error {
+func (s *snapshottingEventHandler) OnHypertableSnapshotStartedEvent(
+	_ string, _ *systemcatalog.Hypertable,
+) error {
+
 	return nil
 }
 
-func (s *snapshottingEventHandler) OnHypertableSnapshotFinishedEvent(_ string, _ *systemcatalog.Hypertable) error {
+func (s *snapshottingEventHandler) OnHypertableSnapshotFinishedEvent(
+	_ string, _ *systemcatalog.Hypertable,
+) error {
+
 	return nil
 }
 
-func (s *snapshottingEventHandler) OnSnapshottingStartedEvent(_ string) error {
+func (s *snapshottingEventHandler) OnSnapshottingStartedEvent(
+	_ string,
+) error {
+
 	return nil
 }
 

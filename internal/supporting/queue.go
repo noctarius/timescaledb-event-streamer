@@ -35,7 +35,10 @@ func NewQueue[E any]() *Queue[E] {
 	}
 }
 
-func (rq *Queue[E]) Push(fn E) bool {
+func (rq *Queue[E]) Push(
+	fn E,
+) bool {
+
 	rq.mutex.Lock()
 	defer rq.mutex.Unlock()
 

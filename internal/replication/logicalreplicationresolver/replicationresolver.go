@@ -50,8 +50,9 @@ type logicalReplicationResolver struct {
 	genDecompressionEvent bool
 }
 
-func newLogicalReplicationResolver(config *spiconfig.Config, replicationContext context.ReplicationContext,
-	systemCatalog *systemcatalog.SystemCatalog) (*logicalReplicationResolver, error) {
+func newLogicalReplicationResolver(
+	config *spiconfig.Config, replicationContext context.ReplicationContext, systemCatalog *systemcatalog.SystemCatalog,
+) (*logicalReplicationResolver, error) {
 
 	logger, err := logging.NewLogger("LogicalReplicationResolver")
 	if err != nil {
@@ -78,15 +79,24 @@ func newLogicalReplicationResolver(config *spiconfig.Config, replicationContext 
 	}, nil
 }
 
-func (l *logicalReplicationResolver) OnHypertableSnapshotStartedEvent(_ string, _ *spicatalog.Hypertable) error {
+func (l *logicalReplicationResolver) OnHypertableSnapshotStartedEvent(
+	_ string, _ *spicatalog.Hypertable,
+) error {
+
 	return nil
 }
 
-func (l *logicalReplicationResolver) OnHypertableSnapshotFinishedEvent(_ string, _ *spicatalog.Hypertable) error {
+func (l *logicalReplicationResolver) OnHypertableSnapshotFinishedEvent(
+	_ string, _ *spicatalog.Hypertable,
+) error {
+
 	return nil
 }
 
-func (l *logicalReplicationResolver) OnSnapshottingStartedEvent(_ string) error {
+func (l *logicalReplicationResolver) OnSnapshottingStartedEvent(
+	_ string,
+) error {
+
 	return nil
 }
 
@@ -96,7 +106,8 @@ func (l *logicalReplicationResolver) OnSnapshottingFinishedEvent() error {
 }
 
 func (l *logicalReplicationResolver) OnChunkSnapshotStartedEvent(
-	_ *spicatalog.Hypertable, chunk *spicatalog.Chunk) error {
+	_ *spicatalog.Hypertable, chunk *spicatalog.Chunk,
+) error {
 
 	l.eventQueues[chunk.CanonicalName()] = supporting.NewQueue[func(snapshot pgtypes.LSN) error]()
 	l.logger.Infof("Snapshot of %s started", chunk.CanonicalName())
@@ -104,7 +115,8 @@ func (l *logicalReplicationResolver) OnChunkSnapshotStartedEvent(
 }
 
 func (l *logicalReplicationResolver) OnChunkSnapshotFinishedEvent(
-	_ *spicatalog.Hypertable, chunk *spicatalog.Chunk, snapshot pgtypes.LSN) error {
+	_ *spicatalog.Hypertable, chunk *spicatalog.Chunk, snapshot pgtypes.LSN,
+) error {
 
 	queue := l.eventQueues[chunk.CanonicalName()]
 	for {
@@ -137,18 +149,27 @@ func (l *logicalReplicationResolver) OnChunkSnapshotFinishedEvent(
 	return nil
 }
 
-func (l *logicalReplicationResolver) OnRelationEvent(_ pgtypes.XLogData, msg *pgtypes.RelationMessage) error {
+func (l *logicalReplicationResolver) OnRelationEvent(
+	_ pgtypes.XLogData, msg *pgtypes.RelationMessage,
+) error {
+
 	l.relations[msg.RelationID] = msg
 	return nil
 }
 
-func (l *logicalReplicationResolver) OnBeginEvent(xld pgtypes.XLogData, msg *pgtypes.BeginMessage) error {
+func (l *logicalReplicationResolver) OnBeginEvent(
+	xld pgtypes.XLogData, msg *pgtypes.BeginMessage,
+) error {
+
 	l.replicationContext.SetLastBeginLSN(pgtypes.LSN(xld.WALStart))
 	l.replicationContext.SetLastTransactionId(msg.Xid)
 	return nil
 }
 
-func (l *logicalReplicationResolver) OnCommitEvent(xld pgtypes.XLogData, msg *pgtypes.CommitMessage) error {
+func (l *logicalReplicationResolver) OnCommitEvent(
+	xld pgtypes.XLogData, msg *pgtypes.CommitMessage,
+) error {
+
 	l.replicationContext.SetLastCommitLSN(pgtypes.LSN(msg.TransactionEndLSN))
 	return l.taskManager.EnqueueTask(func(notificator context.Notificator) {
 		notificator.NotifyHypertableReplicationEventHandler(
@@ -159,7 +180,10 @@ func (l *logicalReplicationResolver) OnCommitEvent(xld pgtypes.XLogData, msg *pg
 	})
 }
 
-func (l *logicalReplicationResolver) OnInsertEvent(xld pgtypes.XLogData, msg *pgtypes.InsertMessage) error {
+func (l *logicalReplicationResolver) OnInsertEvent(
+	xld pgtypes.XLogData, msg *pgtypes.InsertMessage,
+) error {
+
 	rel, ok := l.relations[msg.RelationID]
 	if !ok {
 		l.logger.Fatalf("unknown relation ID %d", msg.RelationID)
@@ -192,7 +216,10 @@ func (l *logicalReplicationResolver) OnInsertEvent(xld pgtypes.XLogData, msg *pg
 	return nil
 }
 
-func (l *logicalReplicationResolver) OnUpdateEvent(xld pgtypes.XLogData, msg *pgtypes.UpdateMessage) error {
+func (l *logicalReplicationResolver) OnUpdateEvent(
+	xld pgtypes.XLogData, msg *pgtypes.UpdateMessage,
+) error {
+
 	rel, ok := l.relations[msg.RelationID]
 	if !ok {
 		l.logger.Fatalf("unknown relation ID %d", msg.RelationID)
@@ -233,7 +260,10 @@ func (l *logicalReplicationResolver) OnUpdateEvent(xld pgtypes.XLogData, msg *pg
 	return nil
 }
 
-func (l *logicalReplicationResolver) OnDeleteEvent(xld pgtypes.XLogData, msg *pgtypes.DeleteMessage) error {
+func (l *logicalReplicationResolver) OnDeleteEvent(
+	xld pgtypes.XLogData, msg *pgtypes.DeleteMessage,
+) error {
+
 	rel, ok := l.relations[msg.RelationID]
 	if !ok {
 		l.logger.Fatalf("unknown relation ID %d", msg.RelationID)
@@ -280,7 +310,10 @@ func (l *logicalReplicationResolver) OnDeleteEvent(xld pgtypes.XLogData, msg *pg
 	return nil
 }
 
-func (l *logicalReplicationResolver) OnTruncateEvent(xld pgtypes.XLogData, msg *pgtypes.TruncateMessage) error {
+func (l *logicalReplicationResolver) OnTruncateEvent(
+	xld pgtypes.XLogData, msg *pgtypes.TruncateMessage,
+) error {
+
 	if !l.genTruncateEvent {
 		return nil
 	}
@@ -318,7 +351,8 @@ func (l *logicalReplicationResolver) OnTruncateEvent(xld pgtypes.XLogData, msg *
 }
 
 func (l *logicalReplicationResolver) OnMessageEvent(
-	xld pgtypes.XLogData, msg *pgtypes.LogicalReplicationMessage) error {
+	xld pgtypes.XLogData, msg *pgtypes.LogicalReplicationMessage,
+) error {
 
 	return l.taskManager.EnqueueTask(func(notificator context.Notificator) {
 		notificator.NotifyHypertableReplicationEventHandler(
@@ -329,19 +363,28 @@ func (l *logicalReplicationResolver) OnMessageEvent(
 	})
 }
 
-func (l *logicalReplicationResolver) OnTypeEvent(xld pgtypes.XLogData, msg *pgtypes.TypeMessage) error {
+func (l *logicalReplicationResolver) OnTypeEvent(
+	xld pgtypes.XLogData, msg *pgtypes.TypeMessage,
+) error {
+
 	l.logger.Debugf("TYPE MSG: %+v", msg)
 	//TODO implement me
 	return nil
 }
 
-func (l *logicalReplicationResolver) OnOriginEvent(xld pgtypes.XLogData, msg *pgtypes.OriginMessage) error {
+func (l *logicalReplicationResolver) OnOriginEvent(
+	xld pgtypes.XLogData, msg *pgtypes.OriginMessage,
+) error {
+
 	l.logger.Debugf("ORIGIN MSG: %+v", msg)
 	//TODO implement me
 	return nil
 }
 
-func (l *logicalReplicationResolver) onHypertableInsertEvent(xld pgtypes.XLogData, msg *pgtypes.InsertMessage) error {
+func (l *logicalReplicationResolver) onHypertableInsertEvent(
+	xld pgtypes.XLogData, msg *pgtypes.InsertMessage,
+) error {
+
 	return l.taskManager.EnqueueTask(func(notificator context.Notificator) {
 		notificator.NotifySystemCatalogReplicationEventHandler(
 			func(handler eventhandlers.SystemCatalogReplicationEventHandler) error {
@@ -351,7 +394,10 @@ func (l *logicalReplicationResolver) onHypertableInsertEvent(xld pgtypes.XLogDat
 	})
 }
 
-func (l *logicalReplicationResolver) onChunkInsertEvent(xld pgtypes.XLogData, msg *pgtypes.InsertMessage) error {
+func (l *logicalReplicationResolver) onChunkInsertEvent(
+	xld pgtypes.XLogData, msg *pgtypes.InsertMessage,
+) error {
+
 	return l.taskManager.EnqueueTask(func(notificator context.Notificator) {
 		notificator.NotifySystemCatalogReplicationEventHandler(
 			func(handler eventhandlers.SystemCatalogReplicationEventHandler) error {
@@ -361,7 +407,10 @@ func (l *logicalReplicationResolver) onChunkInsertEvent(xld pgtypes.XLogData, ms
 	})
 }
 
-func (l *logicalReplicationResolver) onHypertableUpdateEvent(xld pgtypes.XLogData, msg *pgtypes.UpdateMessage) error {
+func (l *logicalReplicationResolver) onHypertableUpdateEvent(
+	xld pgtypes.XLogData, msg *pgtypes.UpdateMessage,
+) error {
+
 	return l.taskManager.EnqueueTask(func(notificator context.Notificator) {
 		notificator.NotifySystemCatalogReplicationEventHandler(
 			func(handler eventhandlers.SystemCatalogReplicationEventHandler) error {
@@ -371,7 +420,10 @@ func (l *logicalReplicationResolver) onHypertableUpdateEvent(xld pgtypes.XLogDat
 	})
 }
 
-func (l *logicalReplicationResolver) onChunkUpdateEvent(xld pgtypes.XLogData, msg *pgtypes.UpdateMessage) error {
+func (l *logicalReplicationResolver) onChunkUpdateEvent(
+	xld pgtypes.XLogData, msg *pgtypes.UpdateMessage,
+) error {
+
 	return l.taskManager.RunTask(func(notificator context.Notificator) {
 		notificator.NotifySystemCatalogReplicationEventHandler(
 			func(handler eventhandlers.SystemCatalogReplicationEventHandler) error {
@@ -381,7 +433,10 @@ func (l *logicalReplicationResolver) onChunkUpdateEvent(xld pgtypes.XLogData, ms
 	})
 }
 
-func (l *logicalReplicationResolver) onHypertableDeleteEvent(xld pgtypes.XLogData, msg *pgtypes.DeleteMessage) error {
+func (l *logicalReplicationResolver) onHypertableDeleteEvent(
+	xld pgtypes.XLogData, msg *pgtypes.DeleteMessage,
+) error {
+
 	return l.taskManager.EnqueueTask(func(notificator context.Notificator) {
 		notificator.NotifySystemCatalogReplicationEventHandler(
 			func(handler eventhandlers.SystemCatalogReplicationEventHandler) error {
@@ -391,7 +446,10 @@ func (l *logicalReplicationResolver) onHypertableDeleteEvent(xld pgtypes.XLogDat
 	})
 }
 
-func (l *logicalReplicationResolver) onChunkDeleteEvent(xld pgtypes.XLogData, msg *pgtypes.DeleteMessage) error {
+func (l *logicalReplicationResolver) onChunkDeleteEvent(
+	xld pgtypes.XLogData, msg *pgtypes.DeleteMessage,
+) error {
+
 	if id, ok := msg.OldValues["id"].(int32); ok {
 		if chunk, present := l.systemCatalog.FindChunkById(id); present {
 			if chunk.IsCompressed() {
@@ -411,7 +469,10 @@ func (l *logicalReplicationResolver) onChunkDeleteEvent(xld pgtypes.XLogData, ms
 	})
 }
 
-func (l *logicalReplicationResolver) onChunkCompressionEvent(xld pgtypes.XLogData, chunk *spicatalog.Chunk) error {
+func (l *logicalReplicationResolver) onChunkCompressionEvent(
+	xld pgtypes.XLogData, chunk *spicatalog.Chunk,
+) error {
+
 	hypertableId := chunk.HypertableId()
 	if uncompressedHypertable, _, present := l.systemCatalog.ResolveUncompressedHypertable(hypertableId); present {
 		l.logger.Infof(
@@ -434,7 +495,10 @@ func (l *logicalReplicationResolver) onChunkCompressionEvent(xld pgtypes.XLogDat
 	return nil
 }
 
-func (l *logicalReplicationResolver) onChunkDecompressionEvent(xld pgtypes.XLogData, chunk *spicatalog.Chunk) error {
+func (l *logicalReplicationResolver) onChunkDecompressionEvent(
+	xld pgtypes.XLogData, chunk *spicatalog.Chunk,
+) error {
+
 	hypertableId := chunk.HypertableId()
 	if uncompressedHypertable, _, present := l.systemCatalog.ResolveUncompressedHypertable(hypertableId); present {
 		l.logger.Infof(
@@ -460,7 +524,8 @@ func (l *logicalReplicationResolver) onChunkDecompressionEvent(xld pgtypes.XLogD
 }
 
 func (l *logicalReplicationResolver) enqueueOrExecute(
-	chunk *spicatalog.Chunk, xld pgtypes.XLogData, fn func() error) error {
+	chunk *spicatalog.Chunk, xld pgtypes.XLogData, fn func() error,
+) error {
 
 	if l.isSnapshotting(chunk) {
 		queue := l.eventQueues[chunk.CanonicalName()]
@@ -477,13 +542,17 @@ func (l *logicalReplicationResolver) enqueueOrExecute(
 	return fn()
 }
 
-func (l *logicalReplicationResolver) isSnapshotting(chunk *spicatalog.Chunk) bool {
+func (l *logicalReplicationResolver) isSnapshotting(
+	chunk *spicatalog.Chunk,
+) bool {
+
 	_, present := l.eventQueues[chunk.CanonicalName()]
 	return present
 }
 
 func (l *logicalReplicationResolver) resolveChunkAndHypertable(
-	schemaName, tableName string) (*spicatalog.Chunk, *spicatalog.Hypertable, bool) {
+	schemaName, tableName string,
+) (*spicatalog.Chunk, *spicatalog.Hypertable, bool) {
 
 	if chunk, present := l.systemCatalog.FindChunkByName(schemaName, tableName); present {
 		if hypertable, present := l.systemCatalog.FindHypertableById(chunk.HypertableId()); present {

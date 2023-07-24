@@ -138,8 +138,9 @@ type Column struct {
 // NewColumn instantiates a new Column instance which isn't
 // part of any index. This method is a shorthand version of
 // NewIndexColumn
-func NewColumn(name string, dataType uint32, modifiers int,
-	pgType pgtypes.PgType, nullable bool, defaultValue *string) Column {
+func NewColumn(
+	name string, dataType uint32, modifiers int, pgType pgtypes.PgType, nullable bool, defaultValue *string,
+) Column {
 
 	return NewIndexColumn(
 		name, dataType, modifiers, pgType, nullable, false, nil,
@@ -149,10 +150,12 @@ func NewColumn(name string, dataType uint32, modifiers int,
 }
 
 // NewIndexColumn instantiates a new Column instance
-func NewIndexColumn(name string, dataType uint32, modifiers int, pgType pgtypes.PgType,
+func NewIndexColumn(
+	name string, dataType uint32, modifiers int, pgType pgtypes.PgType,
 	nullable, primaryKey bool, keySeq *int, defaultValue *string, isReplicaIdent bool,
 	indexName *string, sortOrder IndexSortOrder, nullsOrder IndexNullsOrder,
-	dimension, dimAligned bool, dimType *string, dimSeq, maxCharLength *int) Column {
+	dimension, dimAligned bool, dimType *string, dimSeq, maxCharLength *int,
+) Column {
 
 	return Column{
 		name:          name,
@@ -333,7 +336,10 @@ func (c Column) String() string {
 	return builder.String()
 }
 
-func (c Column) equals(other Column) bool {
+func (c Column) equals(
+	other Column,
+) bool {
+
 	return c.name == other.name &&
 		c.pgType.Equal(other.pgType) &&
 		c.dataType == other.dataType &&
@@ -357,7 +363,10 @@ func (c Column) equals(other Column) bool {
 			(c.maxCharLength != nil && other.maxCharLength != nil && *c.maxCharLength == *other.maxCharLength))
 }
 
-func (c Column) equalsExceptName(other Column) bool {
+func (c Column) equalsExceptName(
+	other Column,
+) bool {
+
 	return c.pgType.Equal(other.pgType) &&
 		c.dataType == other.dataType &&
 		c.modifiers == other.modifiers &&
@@ -380,7 +389,10 @@ func (c Column) equalsExceptName(other Column) bool {
 			(c.maxCharLength != nil && other.maxCharLength != nil && *c.maxCharLength == *other.maxCharLength))
 }
 
-func (c Column) differences(new Column) map[string]string {
+func (c Column) differences(
+	new Column,
+) map[string]string {
+
 	differences := make(map[string]string, 0)
 	if c.name != new.name {
 		differences["name"] = fmt.Sprintf("%s=>%s", c.name, new.name)

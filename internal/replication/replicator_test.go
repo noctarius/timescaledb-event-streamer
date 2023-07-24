@@ -10,7 +10,10 @@ import (
 	"testing"
 )
 
-func Test_Replicator_Select_Missing_Tables(t *testing.T) {
+func Test_Replicator_Select_Missing_Tables(
+	t *testing.T,
+) {
+
 	knownTables := make([]systemcatalog.SystemEntity, 0, 1000)
 	for i := 0; i < 1000; i++ {
 		knownTables = append(
@@ -65,7 +68,10 @@ func Test_Replicator_Select_Missing_Tables(t *testing.T) {
 	}
 }
 
-func Test_Replicator_Select_Missing_Tables_Random_Selection(t *testing.T) {
+func Test_Replicator_Select_Missing_Tables_Random_Selection(
+	t *testing.T,
+) {
+
 	knownTables := make([]systemcatalog.SystemEntity, 0, 1000)
 	for i := 0; i < 1000; i++ {
 		knownTables = append(
@@ -153,7 +159,10 @@ func Test_Replicator_Select_Missing_Tables_Random_Selection(t *testing.T) {
 	}
 }
 
-func Test_Replicator_Filter_Old_Tables_In_State(t *testing.T) {
+func Test_Replicator_Filter_Old_Tables_In_State(
+	t *testing.T,
+) {
+
 	knownTables := make([]systemcatalog.SystemEntity, 0, 11)
 	for i := 0; i < 10; i++ {
 		knownTables = append(

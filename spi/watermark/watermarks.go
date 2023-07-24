@@ -31,7 +31,10 @@ type SnapshotContext struct {
 	watermarks   map[string]*Watermark
 }
 
-func NewSnapshotContext(snapshotName string) *SnapshotContext {
+func NewSnapshotContext(
+	snapshotName string,
+) *SnapshotContext {
+
 	return &SnapshotContext{
 		snapshotName: snapshotName,
 		complete:     false,
@@ -39,7 +42,10 @@ func NewSnapshotContext(snapshotName string) *SnapshotContext {
 	}
 }
 
-func (sc *SnapshotContext) GetWatermark(hypertable *systemcatalog.Hypertable) (watermark *Watermark, present bool) {
+func (sc *SnapshotContext) GetWatermark(
+	hypertable *systemcatalog.Hypertable,
+) (watermark *Watermark, present bool) {
+
 	w, present := sc.watermarks[hypertable.CanonicalName()]
 	if !present {
 		return nil, false
@@ -48,7 +54,8 @@ func (sc *SnapshotContext) GetWatermark(hypertable *systemcatalog.Hypertable) (w
 }
 
 func (sc *SnapshotContext) GetOrCreateWatermark(
-	hypertable *systemcatalog.Hypertable) (watermark *Watermark, created bool) {
+	hypertable *systemcatalog.Hypertable,
+) (watermark *Watermark, created bool) {
 
 	w, present := sc.watermarks[hypertable.CanonicalName()]
 	if !present {
@@ -132,7 +139,10 @@ func (sc *SnapshotContext) MarshalBinary() (data []byte, err error) {
 	return buffer.Bytes(), nil
 }
 
-func (sc *SnapshotContext) UnmarshalBinary(data []byte) error {
+func (sc *SnapshotContext) UnmarshalBinary(
+	data []byte,
+) error {
+
 	buffer := encoding.NewReadBuffer(bytes.NewBuffer(data))
 
 	snapshotName, err := buffer.ReadString()
@@ -250,7 +260,10 @@ type Watermark struct {
 	low       map[string]any
 }
 
-func newWatermark(hypertable *systemcatalog.Hypertable) *Watermark {
+func newWatermark(
+	hypertable *systemcatalog.Hypertable,
+) *Watermark {
+
 	dataTypes := make(map[string]uint32)
 	if index, ok := hypertable.Columns().SnapshotIndex(); ok {
 		for _, column := range index.Columns() {
@@ -282,7 +295,10 @@ func (w *Watermark) HighWatermark() map[string]any {
 	return w.high
 }
 
-func (w *Watermark) SetHighWatermark(values map[string]any) {
+func (w *Watermark) SetHighWatermark(
+	values map[string]any,
+) {
+
 	w.high = values
 }
 
@@ -290,7 +306,10 @@ func (w *Watermark) LowWatermark() map[string]any {
 	return w.low
 }
 
-func (w *Watermark) SetLowWatermark(values map[string]any) {
+func (w *Watermark) SetLowWatermark(
+	values map[string]any,
+) {
+
 	w.low = values
 	w.checkComplete()
 }

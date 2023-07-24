@@ -40,7 +40,10 @@ type MultiShutdownAwaiter struct {
 	doneGroup sync.WaitGroup
 }
 
-func NewMultiShutdownAwaiter(slots uint) *MultiShutdownAwaiter {
+func NewMultiShutdownAwaiter(
+	slots uint,
+) *MultiShutdownAwaiter {
+
 	starters := make([]*Waiter, 0, slots)
 	for i := uint(0); i < slots; i++ {
 		starters = append(starters, NewWaiter())
@@ -60,11 +63,17 @@ func (msa *MultiShutdownAwaiter) SignalShutdown() {
 	}
 }
 
-func (msa *MultiShutdownAwaiter) AwaitShutdown(slot uint) error {
+func (msa *MultiShutdownAwaiter) AwaitShutdown(
+	slot uint,
+) error {
+
 	return msa.starters[slot].Await()
 }
 
-func (msa *MultiShutdownAwaiter) AwaitShutdownChan(slot uint) <-chan bool {
+func (msa *MultiShutdownAwaiter) AwaitShutdownChan(
+	slot uint,
+) <-chan bool {
+
 	return msa.starters[slot].done
 }
 

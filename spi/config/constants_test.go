@@ -9,7 +9,10 @@ import (
 	"testing"
 )
 
-func Test_Constants_Properties(t *testing.T) {
+func Test_Constants_Properties(
+	t *testing.T,
+) {
+
 	file, err := parser.ParseFile(&token.FileSet{}, "./constants.go", nil, 0)
 	if err != nil {
 		t.Error(err)
@@ -23,7 +26,10 @@ type visitor struct {
 	t      *testing.T
 }
 
-func (v *visitor) Visit(node ast.Node) (w ast.Visitor) {
+func (v *visitor) Visit(
+	node ast.Node,
+) (w ast.Visitor) {
+
 	if valueSpec, ok := node.(*ast.ValueSpec); ok {
 		name := valueSpec.Names[0].Name
 		literal := valueSpec.Values[0].(*ast.BasicLit)

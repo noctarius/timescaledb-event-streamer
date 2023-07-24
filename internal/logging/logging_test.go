@@ -9,7 +9,10 @@ import (
 	"testing"
 )
 
-func Test_New_File_Handler(t *testing.T) {
+func Test_New_File_Handler(
+	t *testing.T,
+) {
+
 	filename := lo.RandomString(10, lo.LowerCaseLettersCharset)
 	path := fmt.Sprintf("/tmp/%s", filename)
 	defer os.Remove(path)
@@ -26,7 +29,10 @@ func Test_New_File_Handler(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func Test_New_File_Handler_Max_Duration(t *testing.T) {
+func Test_New_File_Handler_Max_Duration(
+	t *testing.T,
+) {
+
 	filename := lo.RandomString(10, lo.LowerCaseLettersCharset)
 	path := fmt.Sprintf("/tmp/%s", filename)
 	defer os.Remove(path)
@@ -43,7 +49,10 @@ func Test_New_File_Handler_Max_Duration(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func Test_New_File_Handler_Cache(t *testing.T) {
+func Test_New_File_Handler_Cache(
+	t *testing.T,
+) {
+
 	filename := lo.RandomString(10, lo.LowerCaseLettersCharset)
 	path := fmt.Sprintf("/tmp/%s", filename)
 	defer os.Remove(path)

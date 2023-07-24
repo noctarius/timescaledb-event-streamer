@@ -30,7 +30,10 @@ type SchemaTestSuite struct {
 	testrunner.TestRunner
 }
 
-func TestSchemaTestSuite(t *testing.T) {
+func TestSchemaTestSuite(
+	t *testing.T,
+) {
+
 	suite.Run(t, new(SchemaTestSuite))
 }
 
@@ -38,7 +41,10 @@ func (sts *SchemaTestSuite) Test_Source_Schema() {
 
 }
 
-func extractSchemaField(raw schema.Struct, schemaFieldName string) schema.Struct {
+func extractSchemaField(
+	raw schema.Struct, schemaFieldName string,
+) schema.Struct {
+
 	rawSchema := raw["schema"].(map[string]any)
 	rawFields := rawSchema["fields"].([]map[string]any)
 	for _, rawField := range rawFields {

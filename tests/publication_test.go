@@ -41,7 +41,10 @@ type PublicationTestSuite struct {
 	testrunner.TestRunner
 }
 
-func TestPublicationTestSuite(t *testing.T) {
+func TestPublicationTestSuite(
+	t *testing.T,
+) {
+
 	suite.Run(t, new(PublicationTestSuite))
 }
 
@@ -545,7 +548,9 @@ func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_Without_State_S
 	)
 }
 
-func readAllAndPublishedChunks(context testrunner.Context, tableName, publicationName string) (
+func readAllAndPublishedChunks(
+	context testrunner.Context, tableName, publicationName string,
+) (
 	existingChunks map[string]systemcatalog.SystemEntity,
 	publishedChunks map[string]systemcatalog.SystemEntity,
 	err error,

@@ -8,7 +8,9 @@ import (
 )
 
 type XmlScanner interface {
-	ScanXml(v Xml) error
+	ScanXml(
+		v Xml,
+	) error
 }
 
 type XmlValuer interface {
@@ -20,7 +22,10 @@ type Xml struct {
 	Valid bool
 }
 
-func (x *Xml) ScanXml(v Xml) error {
+func (x *Xml) ScanXml(
+	v Xml,
+) error {
+
 	*x = v
 	return nil
 }
@@ -29,7 +34,10 @@ func (x Xml) XmlValue() (Xml, error) {
 	return x, nil
 }
 
-func (x *Xml) Scan(src any) error {
+func (x *Xml) Scan(
+	src any,
+) error {
+
 	if src == nil {
 		*x = Xml{}
 		return nil
@@ -59,7 +67,10 @@ func (x Xml) MarshalJSON() ([]byte, error) {
 	return json.Marshal(x.Xml)
 }
 
-func (x *Xml) UnmarshalJSON(b []byte) error {
+func (x *Xml) UnmarshalJSON(
+	b []byte,
+) error {
+
 	var s *string
 	if err := json.Unmarshal(b, &s); err != nil {
 		return err
@@ -76,7 +87,10 @@ func (x *Xml) UnmarshalJSON(b []byte) error {
 
 type XmlCodec struct{}
 
-func (XmlCodec) FormatSupported(format int16) bool {
+func (XmlCodec) FormatSupported(
+	format int16,
+) bool {
+
 	return format == pgtype.TextFormatCode || format == pgtype.BinaryFormatCode
 }
 
@@ -84,7 +98,10 @@ func (XmlCodec) PreferredFormat() int16 {
 	return pgtype.BinaryFormatCode
 }
 
-func (XmlCodec) PlanEncode(_ *pgtype.Map, _ uint32, format int16, value any) pgtype.EncodePlan {
+func (XmlCodec) PlanEncode(
+	_ *pgtype.Map, _ uint32, format int16, value any,
+) pgtype.EncodePlan {
+
 	if _, ok := value.(XmlValuer); !ok {
 		return nil
 	}
@@ -101,7 +118,10 @@ func (XmlCodec) PlanEncode(_ *pgtype.Map, _ uint32, format int16, value any) pgt
 
 type encodePlanXmlCodecBinary struct{}
 
-func (encodePlanXmlCodecBinary) Encode(value any, buf []byte) (newBuf []byte, err error) {
+func (encodePlanXmlCodecBinary) Encode(
+	value any, buf []byte,
+) (newBuf []byte, err error) {
+
 	xml, err := value.(XmlValuer).XmlValue()
 	if err != nil {
 		return nil, err
@@ -118,7 +138,10 @@ func (encodePlanXmlCodecBinary) Encode(value any, buf []byte) (newBuf []byte, er
 
 type encodePlanXmlCodecText struct{}
 
-func (encodePlanXmlCodecText) Encode(value any, buf []byte) (newBuf []byte, err error) {
+func (encodePlanXmlCodecText) Encode(
+	value any, buf []byte,
+) (newBuf []byte, err error) {
+
 	xml, err := value.(XmlValuer).XmlValue()
 	if err != nil {
 		return nil, err
@@ -133,7 +156,10 @@ func (encodePlanXmlCodecText) Encode(value any, buf []byte) (newBuf []byte, err 
 	return buf, nil
 }
 
-func (XmlCodec) PlanScan(_ *pgtype.Map, _ uint32, format int16, target any) pgtype.ScanPlan {
+func (XmlCodec) PlanScan(
+	_ *pgtype.Map, _ uint32, format int16, target any,
+) pgtype.ScanPlan {
+
 	switch format {
 	case pgtype.BinaryFormatCode:
 		switch target.(type) {
@@ -152,7 +178,10 @@ func (XmlCodec) PlanScan(_ *pgtype.Map, _ uint32, format int16, target any) pgty
 
 type scanPlanBinaryXmlToXmlScanner struct{}
 
-func (scanPlanBinaryXmlToXmlScanner) Scan(src []byte, dst any) error {
+func (scanPlanBinaryXmlToXmlScanner) Scan(
+	src []byte, dst any,
+) error {
+
 	scanner := (dst).(XmlScanner)
 
 	if src == nil {
@@ -168,7 +197,10 @@ func (scanPlanBinaryXmlToXmlScanner) Scan(src []byte, dst any) error {
 
 type scanPlanTextXmlToXmlScanner struct{}
 
-func (scanPlanTextXmlToXmlScanner) Scan(src []byte, dst any) error {
+func (scanPlanTextXmlToXmlScanner) Scan(
+	src []byte, dst any,
+) error {
+
 	scanner := (dst).(XmlScanner)
 
 	if src == nil {
@@ -178,7 +210,10 @@ func (scanPlanTextXmlToXmlScanner) Scan(src []byte, dst any) error {
 	return scanner.ScanXml(Xml{Xml: string(src), Valid: true})
 }
 
-func (c XmlCodec) DecodeDatabaseSQLValue(m *pgtype.Map, oid uint32, format int16, src []byte) (driver.Value, error) {
+func (c XmlCodec) DecodeDatabaseSQLValue(
+	m *pgtype.Map, oid uint32, format int16, src []byte,
+) (driver.Value, error) {
+
 	if src == nil {
 		return nil, nil
 	}
@@ -191,7 +226,10 @@ func (c XmlCodec) DecodeDatabaseSQLValue(m *pgtype.Map, oid uint32, format int16
 	return xml, nil
 }
 
-func (c XmlCodec) DecodeValue(m *pgtype.Map, oid uint32, format int16, src []byte) (any, error) {
+func (c XmlCodec) DecodeValue(
+	m *pgtype.Map, oid uint32, format int16, src []byte,
+) (any, error) {
+
 	if src == nil {
 		return nil, nil
 	}

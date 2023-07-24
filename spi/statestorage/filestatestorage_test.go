@@ -27,7 +27,10 @@ import (
 	"time"
 )
 
-func Test_Writing_Reading(t *testing.T) {
+func Test_Writing_Reading(
+	t *testing.T,
+) {
+
 	if runtime.GOOS == "windows" {
 		t.SkipNow()
 	}

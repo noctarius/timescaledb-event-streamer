@@ -50,7 +50,10 @@ const (
 	OP_DECOMPRESSION TimescaleOperation = "d"
 )
 
-func ReadEvent(record Struct, source Struct) Struct {
+func ReadEvent(
+	record Struct, source Struct,
+) Struct {
+
 	event := make(Struct)
 	event[FieldNameOperation] = string(OP_READ)
 	event[FieldNameAfter] = record
@@ -61,7 +64,10 @@ func ReadEvent(record Struct, source Struct) Struct {
 	return event
 }
 
-func CreateEvent(record Struct, source Struct) Struct {
+func CreateEvent(
+	record Struct, source Struct,
+) Struct {
+
 	event := make(Struct)
 	event[FieldNameOperation] = string(OP_CREATE)
 	event[FieldNameAfter] = record
@@ -72,7 +78,10 @@ func CreateEvent(record Struct, source Struct) Struct {
 	return event
 }
 
-func UpdateEvent(before, after, source Struct) Struct {
+func UpdateEvent(
+	before, after, source Struct,
+) Struct {
+
 	event := make(Struct)
 	event[FieldNameOperation] = string(OP_UPDATE)
 	if before != nil {
@@ -88,7 +97,10 @@ func UpdateEvent(before, after, source Struct) Struct {
 	return event
 }
 
-func DeleteEvent(before, source Struct, tombstone bool) Struct {
+func DeleteEvent(
+	before, source Struct, tombstone bool,
+) Struct {
+
 	event := make(Struct)
 	event[FieldNameOperation] = string(OP_DELETE)
 	if before != nil {
@@ -104,7 +116,10 @@ func DeleteEvent(before, source Struct, tombstone bool) Struct {
 	return event
 }
 
-func TruncateEvent(source Struct) Struct {
+func TruncateEvent(
+	source Struct,
+) Struct {
+
 	event := make(Struct)
 	event[FieldNameOperation] = string(OP_TRUNCATE)
 	if source != nil {
@@ -114,7 +129,10 @@ func TruncateEvent(source Struct) Struct {
 	return event
 }
 
-func MessageEvent(prefix string, content *string, source Struct) Struct {
+func MessageEvent(
+	prefix string, content *string, source Struct,
+) Struct {
+
 	event := make(Struct)
 	event[FieldNameOperation] = string(OP_MESSAGE)
 	block := Struct{
@@ -131,7 +149,10 @@ func MessageEvent(prefix string, content *string, source Struct) Struct {
 	return event
 }
 
-func CompressionEvent(source Struct) Struct {
+func CompressionEvent(
+	source Struct,
+) Struct {
+
 	event := make(Struct)
 	event[FieldNameOperation] = string(OP_TIMESCALE)
 	event[FieldNameTimescaleOp] = string(OP_COMPRESSION)
@@ -142,7 +163,10 @@ func CompressionEvent(source Struct) Struct {
 	return event
 }
 
-func DecompressionEvent(source Struct) Struct {
+func DecompressionEvent(
+	source Struct,
+) Struct {
+
 	event := make(Struct)
 	event[FieldNameOperation] = string(OP_TIMESCALE)
 	event[FieldNameTimescaleOp] = string(OP_DECOMPRESSION)
@@ -153,28 +177,39 @@ func DecompressionEvent(source Struct) Struct {
 	return event
 }
 
-func MessageKey(prefix string) Struct {
+func MessageKey(
+	prefix string,
+) Struct {
+
 	return Struct{
 		FieldNamePrefix: prefix,
 	}
 }
 
-func TimescaleKey(schemaName, tableName string) Struct {
+func TimescaleKey(
+	schemaName, tableName string,
+) Struct {
+
 	return Struct{
 		FieldNameSchema: schemaName,
 		FieldNameTable:  tableName,
 	}
 }
 
-func Envelope(schema, payload Struct) Struct {
+func Envelope(
+	schema, payload Struct,
+) Struct {
+
 	return Struct{
 		FieldNameSchema:  schema,
 		FieldNamePayload: payload,
 	}
 }
 
-func Source(lsn pglogrepl.LSN, timestamp time.Time, snapshot bool,
-	databaseName, schemaName, hypertableName string, transactionId *uint32) Struct {
+func Source(
+	lsn pglogrepl.LSN, timestamp time.Time, snapshot bool,
+	databaseName, schemaName, hypertableName string, transactionId *uint32,
+) Struct {
 
 	return Struct{
 		FieldNameVersion:   version.Version,
@@ -190,7 +225,10 @@ func Source(lsn pglogrepl.LSN, timestamp time.Time, snapshot bool,
 	}
 }
 
-func KeySchema(nameGenerator NameGenerator, table TableAlike) Struct {
+func KeySchema(
+	nameGenerator NameGenerator, table TableAlike,
+) Struct {
+
 	schemaTopicName := nameGenerator.SchemaTopicName(table)
 	hypertableKeySchemaName := fmt.Sprintf("%s.Key", schemaTopicName)
 
@@ -225,7 +263,10 @@ func TimescaleEventKeySchema() Struct {
 	}
 }
 
-func EnvelopeSchema(nameGenerator NameGenerator, table TableAlike) Struct {
+func EnvelopeSchema(
+	nameGenerator NameGenerator, table TableAlike,
+) Struct {
+
 	schemaTopicName := nameGenerator.SchemaTopicName(table)
 	hypertableSchemaName := fmt.Sprintf("%s.Value", schemaTopicName)
 	envelopeSchemaName := fmt.Sprintf("%s.Envelope", schemaTopicName)
@@ -243,7 +284,10 @@ func EnvelopeSchema(nameGenerator NameGenerator, table TableAlike) Struct {
 		Build()
 }
 
-func EnvelopeMessageSchema(nameGenerator NameGenerator) Struct {
+func EnvelopeMessageSchema(
+	nameGenerator NameGenerator,
+) Struct {
+
 	schemaTopicName := nameGenerator.MessageTopicName()
 	envelopeSchemaName := fmt.Sprintf("%s.Envelope", schemaTopicName)
 
@@ -316,8 +360,9 @@ func messageBlockSchema() Struct {
 	}
 }
 
-func simpleSchemaElement(fieldName FieldName,
-	schemaType Type, optional bool) Struct {
+func simpleSchemaElement(
+	fieldName FieldName, schemaType Type, optional bool,
+) Struct {
 
 	return Struct{
 		FieldNameType:     string(schemaType),
@@ -326,8 +371,9 @@ func simpleSchemaElement(fieldName FieldName,
 	}
 }
 
-func keySchemaElement(fieldName FieldName, index int,
-	schemaType Type, optional bool) Struct {
+func keySchemaElement(
+	fieldName FieldName, index int, schemaType Type, optional bool,
+) Struct {
 
 	return Struct{
 		FieldNameName:  fieldName,

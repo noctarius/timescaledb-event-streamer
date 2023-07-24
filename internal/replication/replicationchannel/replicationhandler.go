@@ -44,7 +44,10 @@ type replicationHandler struct {
 	logger             *logging.Logger
 }
 
-func newReplicationHandler(replicationContext context.ReplicationContext) (*replicationHandler, error) {
+func newReplicationHandler(
+	replicationContext context.ReplicationContext,
+) (*replicationHandler, error) {
+
 	logger, err := logging.NewLogger("ReplicationHandler")
 	if err != nil {
 		return nil, err
@@ -166,7 +169,10 @@ func (rh *replicationHandler) startReplicationHandler(
 	}
 }
 
-func (rh *replicationHandler) handleXLogData(xld pgtypes.XLogData) error {
+func (rh *replicationHandler) handleXLogData(
+	xld pgtypes.XLogData,
+) error {
+
 	msg, err := pgtypes.ParseXlogData(xld.WALData, rh.lastTransactionId)
 	if err != nil {
 		return fmt.Errorf("parsing logical replication message: %s", err)
@@ -184,7 +190,10 @@ func (rh *replicationHandler) handleXLogData(xld pgtypes.XLogData) error {
 	return nil
 }
 
-func (rh *replicationHandler) handleReplicationEvents(xld pgtypes.XLogData, msg pglogrepl.Message) error {
+func (rh *replicationHandler) handleReplicationEvents(
+	xld pgtypes.XLogData, msg pglogrepl.Message,
+) error {
+
 	switch logicalMsg := msg.(type) {
 	case *pglogrepl.RelationMessage:
 		intLogicalMsg := pgtypes.RelationMessage(*logicalMsg)
@@ -274,7 +283,10 @@ func (rh *replicationHandler) handleReplicationEvents(xld pgtypes.XLogData, msg 
 	}
 }
 
-func (rh *replicationHandler) handleDeleteMessage(xld pgtypes.XLogData, msg *pglogrepl.DeleteMessage) error {
+func (rh *replicationHandler) handleDeleteMessage(
+	xld pgtypes.XLogData, msg *pglogrepl.DeleteMessage,
+) error {
+
 	rel, ok := rh.relations[msg.RelationID]
 	if !ok {
 		rh.logger.Fatalf("unknown relation ID %d", msg.RelationID)
@@ -305,7 +317,10 @@ func (rh *replicationHandler) handleDeleteMessage(xld pgtypes.XLogData, msg *pgl
 	})
 }
 
-func (rh *replicationHandler) handleUpdateMessage(xld pgtypes.XLogData, msg *pglogrepl.UpdateMessage) error {
+func (rh *replicationHandler) handleUpdateMessage(
+	xld pgtypes.XLogData, msg *pglogrepl.UpdateMessage,
+) error {
+
 	rel, ok := rh.relations[msg.RelationID]
 	if !ok {
 		rh.logger.Fatalf("unknown relation ID %d", msg.RelationID)
@@ -342,7 +357,10 @@ func (rh *replicationHandler) handleUpdateMessage(xld pgtypes.XLogData, msg *pgl
 	})
 }
 
-func (rh *replicationHandler) handleInsertMessage(xld pgtypes.XLogData, msg *pglogrepl.InsertMessage) error {
+func (rh *replicationHandler) handleInsertMessage(
+	xld pgtypes.XLogData, msg *pglogrepl.InsertMessage,
+) error {
+
 	rel, ok := rh.relations[msg.RelationID]
 	if !ok {
 		rh.logger.Fatalf("unknown relation ID %d", msg.RelationID)

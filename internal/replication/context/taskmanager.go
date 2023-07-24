@@ -31,19 +31,39 @@ import (
 type Task = func(notificator Notificator)
 
 type Notificator interface {
-	NotifyBaseReplicationEventHandler(fn func(handler eventhandlers.BaseReplicationEventHandler) error)
-	NotifySystemCatalogReplicationEventHandler(fn func(handler eventhandlers.SystemCatalogReplicationEventHandler) error)
-	NotifyCompressionReplicationEventHandler(fn func(handler eventhandlers.CompressionReplicationEventHandler) error)
-	NotifyHypertableReplicationEventHandler(fn func(handler eventhandlers.HypertableReplicationEventHandler) error)
-	NotifyLogicalReplicationEventHandler(fn func(handler eventhandlers.LogicalReplicationEventHandler) error)
-	NotifySnapshottingEventHandler(fn func(handler eventhandlers.SnapshottingEventHandler) error)
+	NotifyBaseReplicationEventHandler(
+		fn func(handler eventhandlers.BaseReplicationEventHandler) error,
+	)
+	NotifySystemCatalogReplicationEventHandler(
+		fn func(handler eventhandlers.SystemCatalogReplicationEventHandler) error,
+	)
+	NotifyCompressionReplicationEventHandler(
+		fn func(handler eventhandlers.CompressionReplicationEventHandler) error,
+	)
+	NotifyHypertableReplicationEventHandler(
+		fn func(handler eventhandlers.HypertableReplicationEventHandler) error,
+	)
+	NotifyLogicalReplicationEventHandler(
+		fn func(handler eventhandlers.LogicalReplicationEventHandler) error,
+	)
+	NotifySnapshottingEventHandler(
+		fn func(handler eventhandlers.SnapshottingEventHandler) error,
+	)
 }
 
 type TaskManager interface {
-	RegisterReplicationEventHandler(handler eventhandlers.BaseReplicationEventHandler)
-	EnqueueTask(task Task) error
-	RunTask(task Task) error
-	EnqueueTaskAndWait(task Task) error
+	RegisterReplicationEventHandler(
+		handler eventhandlers.BaseReplicationEventHandler,
+	)
+	EnqueueTask(
+		task Task,
+	) error
+	RunTask(
+		task Task,
+	) error
+	EnqueueTaskAndWait(
+		task Task,
+	) error
 }
 
 type taskManager struct {
@@ -59,7 +79,10 @@ type taskManager struct {
 	shutdownActive      bool
 }
 
-func newTaskManager(config *spiconfig.Config) (*taskManager, error) {
+func newTaskManager(
+	config *spiconfig.Config,
+) (*taskManager, error) {
+
 	logger, err := logging.NewLogger("TaskDispatcher")
 	if err != nil {
 		return nil, errors.Wrap(err, 0)
@@ -81,7 +104,10 @@ func newTaskManager(config *spiconfig.Config) (*taskManager, error) {
 	return d, nil
 }
 
-func (d *taskManager) RegisterReplicationEventHandler(handler eventhandlers.BaseReplicationEventHandler) {
+func (d *taskManager) RegisterReplicationEventHandler(
+	handler eventhandlers.BaseReplicationEventHandler,
+) {
+
 	for _, candidate := range d.baseHandlers {
 		if candidate == handler {
 			return
@@ -135,7 +161,10 @@ func (d *taskManager) RegisterReplicationEventHandler(handler eventhandlers.Base
 	}
 }
 
-func (d *taskManager) UnregisterReplicationEventHandler(handler eventhandlers.BaseReplicationEventHandler) {
+func (d *taskManager) UnregisterReplicationEventHandler(
+	handler eventhandlers.BaseReplicationEventHandler,
+) {
+
 	for index, candidate := range d.baseHandlers {
 		if candidate == handler {
 			// Erase element (zero value) to prevent memory leak
@@ -221,7 +250,10 @@ func (d *taskManager) StopDispatcher() error {
 	return d.shutdownAwaiter.AwaitDone()
 }
 
-func (d *taskManager) EnqueueTask(task Task) error {
+func (d *taskManager) EnqueueTask(
+	task Task,
+) error {
+
 	if d.shutdownActive {
 		return fmt.Errorf("shutdown active, draining only")
 	}
@@ -229,7 +261,10 @@ func (d *taskManager) EnqueueTask(task Task) error {
 	return nil
 }
 
-func (d *taskManager) EnqueueTaskAndWait(task Task) error {
+func (d *taskManager) EnqueueTaskAndWait(
+	task Task,
+) error {
+
 	if d.shutdownActive {
 		return fmt.Errorf("shutdown active, draining only")
 	}
@@ -241,7 +276,10 @@ func (d *taskManager) EnqueueTaskAndWait(task Task) error {
 	return done.Await()
 }
 
-func (d *taskManager) RunTask(task Task) error {
+func (d *taskManager) RunTask(
+	task Task,
+) error {
+
 	notificator := &immediateNotificatorImpl{dispatcher: d}
 	task(notificator)
 	if notificator.errors == nil || len(notificator.errors) == 0 {
@@ -255,7 +293,8 @@ type notificatorImpl struct {
 }
 
 func (n *notificatorImpl) NotifyBaseReplicationEventHandler(
-	fn func(handler eventhandlers.BaseReplicationEventHandler) error) {
+	fn func(handler eventhandlers.BaseReplicationEventHandler) error,
+) {
 
 	for _, handler := range n.dispatcher.baseHandlers {
 		if err := fn(handler); err != nil {
@@ -265,7 +304,8 @@ func (n *notificatorImpl) NotifyBaseReplicationEventHandler(
 }
 
 func (n *notificatorImpl) NotifySystemCatalogReplicationEventHandler(
-	fn func(handler eventhandlers.SystemCatalogReplicationEventHandler) error) {
+	fn func(handler eventhandlers.SystemCatalogReplicationEventHandler) error,
+) {
 
 	for _, handler := range n.dispatcher.catalogHandlers {
 		if err := fn(handler); err != nil {
@@ -274,8 +314,9 @@ func (n *notificatorImpl) NotifySystemCatalogReplicationEventHandler(
 	}
 }
 
-func (n *notificatorImpl) NotifyCompressionReplicationEventHandler(fn func(
-	handler eventhandlers.CompressionReplicationEventHandler) error) {
+func (n *notificatorImpl) NotifyCompressionReplicationEventHandler(
+	fn func(handler eventhandlers.CompressionReplicationEventHandler) error,
+) {
 
 	for _, handler := range n.dispatcher.compressionHandlers {
 		if err := fn(handler); err != nil {
@@ -285,7 +326,8 @@ func (n *notificatorImpl) NotifyCompressionReplicationEventHandler(fn func(
 }
 
 func (n *notificatorImpl) NotifyHypertableReplicationEventHandler(
-	fn func(handler eventhandlers.HypertableReplicationEventHandler) error) {
+	fn func(handler eventhandlers.HypertableReplicationEventHandler) error,
+) {
 
 	for _, handler := range n.dispatcher.hypertableHandlers {
 		if err := fn(handler); err != nil {
@@ -295,7 +337,8 @@ func (n *notificatorImpl) NotifyHypertableReplicationEventHandler(
 }
 
 func (n *notificatorImpl) NotifyLogicalReplicationEventHandler(
-	fn func(handler eventhandlers.LogicalReplicationEventHandler) error) {
+	fn func(handler eventhandlers.LogicalReplicationEventHandler) error,
+) {
 
 	for _, handler := range n.dispatcher.logicalHandlers {
 		if err := fn(handler); err != nil {
@@ -305,7 +348,8 @@ func (n *notificatorImpl) NotifyLogicalReplicationEventHandler(
 }
 
 func (n *notificatorImpl) NotifySnapshottingEventHandler(
-	fn func(handler eventhandlers.SnapshottingEventHandler) error) {
+	fn func(handler eventhandlers.SnapshottingEventHandler) error,
+) {
 
 	for _, handler := range n.dispatcher.snapshotHandlers {
 		if err := fn(handler); err != nil {
@@ -314,7 +358,10 @@ func (n *notificatorImpl) NotifySnapshottingEventHandler(
 	}
 }
 
-func (n *notificatorImpl) handleError(err error) {
+func (n *notificatorImpl) handleError(
+	err error,
+) {
+
 	errMsg := err.Error()
 	if e, ok := err.(*errors.Error); ok {
 		errMsg = e.ErrorStack()
@@ -329,7 +376,8 @@ type immediateNotificatorImpl struct {
 }
 
 func (n *immediateNotificatorImpl) NotifyBaseReplicationEventHandler(
-	fn func(handler eventhandlers.BaseReplicationEventHandler) error) {
+	fn func(handler eventhandlers.BaseReplicationEventHandler) error,
+) {
 
 	for _, handler := range n.dispatcher.baseHandlers {
 		if err := fn(handler); err != nil {
@@ -339,7 +387,8 @@ func (n *immediateNotificatorImpl) NotifyBaseReplicationEventHandler(
 }
 
 func (n *immediateNotificatorImpl) NotifySystemCatalogReplicationEventHandler(
-	fn func(handler eventhandlers.SystemCatalogReplicationEventHandler) error) {
+	fn func(handler eventhandlers.SystemCatalogReplicationEventHandler) error,
+) {
 
 	for _, handler := range n.dispatcher.catalogHandlers {
 		if err := fn(handler); err != nil {
@@ -349,7 +398,8 @@ func (n *immediateNotificatorImpl) NotifySystemCatalogReplicationEventHandler(
 }
 
 func (n *immediateNotificatorImpl) NotifyCompressionReplicationEventHandler(fn func(
-	handler eventhandlers.CompressionReplicationEventHandler) error) {
+	handler eventhandlers.CompressionReplicationEventHandler) error,
+) {
 
 	for _, handler := range n.dispatcher.compressionHandlers {
 		if err := fn(handler); err != nil {
@@ -359,7 +409,8 @@ func (n *immediateNotificatorImpl) NotifyCompressionReplicationEventHandler(fn f
 }
 
 func (n *immediateNotificatorImpl) NotifyHypertableReplicationEventHandler(
-	fn func(handler eventhandlers.HypertableReplicationEventHandler) error) {
+	fn func(handler eventhandlers.HypertableReplicationEventHandler) error,
+) {
 
 	for _, handler := range n.dispatcher.hypertableHandlers {
 		if err := fn(handler); err != nil {
@@ -369,7 +420,8 @@ func (n *immediateNotificatorImpl) NotifyHypertableReplicationEventHandler(
 }
 
 func (n *immediateNotificatorImpl) NotifyLogicalReplicationEventHandler(
-	fn func(handler eventhandlers.LogicalReplicationEventHandler) error) {
+	fn func(handler eventhandlers.LogicalReplicationEventHandler) error,
+) {
 
 	for _, handler := range n.dispatcher.logicalHandlers {
 		if err := fn(handler); err != nil {
@@ -379,7 +431,8 @@ func (n *immediateNotificatorImpl) NotifyLogicalReplicationEventHandler(
 }
 
 func (n *immediateNotificatorImpl) NotifySnapshottingEventHandler(
-	fn func(handler eventhandlers.SnapshottingEventHandler) error) {
+	fn func(handler eventhandlers.SnapshottingEventHandler) error,
+) {
 
 	for _, handler := range n.dispatcher.snapshotHandlers {
 		if err := fn(handler); err != nil {
@@ -388,7 +441,10 @@ func (n *immediateNotificatorImpl) NotifySnapshottingEventHandler(
 	}
 }
 
-func (n *immediateNotificatorImpl) handleError(err error) {
+func (n *immediateNotificatorImpl) handleError(
+	err error,
+) {
+
 	if e, ok := err.(*errors.Error); !ok {
 		err = errors.Wrap(e, 0)
 	}

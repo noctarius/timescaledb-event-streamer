@@ -22,7 +22,10 @@ import (
 	"github.com/jackc/pglogrepl"
 )
 
-func DecodeTuples(relation *RelationMessage, tupleData *pglogrepl.TupleData) (map[string]any, error) {
+func DecodeTuples(
+	relation *RelationMessage, tupleData *pglogrepl.TupleData,
+) (map[string]any, error) {
+
 	values := map[string]any{}
 	if tupleData == nil {
 		return values, nil

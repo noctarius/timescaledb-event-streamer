@@ -41,7 +41,10 @@ type SystemConfig struct {
 	SideChannelProvider         context.SideChannelProvider
 }
 
-func NewSystemConfig(config *spiconfig.Config) *SystemConfig {
+func NewSystemConfig(
+	config *spiconfig.Config,
+) *SystemConfig {
+
 	sc := &SystemConfig{
 		Config: config,
 	}

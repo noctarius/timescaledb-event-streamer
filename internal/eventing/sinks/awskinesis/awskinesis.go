@@ -40,7 +40,10 @@ type awsKinesisSink struct {
 	awsKinesis *kinesis.Kinesis
 }
 
-func newAwsKinesisSink(config *spiconfig.Config) (sink.Sink, error) {
+func newAwsKinesisSink(
+	config *spiconfig.Config,
+) (sink.Sink, error) {
+
 	streamName := spiconfig.GetOrDefault[*string](config, spiconfig.PropertyKinesisStreamName, nil)
 	if streamName == nil {
 		return nil, errors.Errorf("AWS Kinesis sink needs the stream name to be configured")
@@ -123,7 +126,10 @@ func (a *awsKinesisSink) Stop() error {
 	return nil
 }
 
-func (a *awsKinesisSink) Emit(_ sink.Context, _ time.Time, topicName string, _, envelope schema.Struct) error {
+func (a *awsKinesisSink) Emit(
+	_ sink.Context, _ time.Time, topicName string, _, envelope schema.Struct,
+) error {
+
 	envelopeData, err := json.Marshal(envelope)
 	if err != nil {
 		return err

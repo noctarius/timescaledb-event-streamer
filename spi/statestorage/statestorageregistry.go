@@ -36,7 +36,10 @@ type registry struct {
 // RegisterStateStorage registers a config.StateStorageType to a
 // Provider implementation which creates the Storage
 // when requested
-func RegisterStateStorage(name config.StateStorageType, factory Factory) bool {
+func RegisterStateStorage(
+	name config.StateStorageType, factory Factory,
+) bool {
+
 	stateStorageRegistry.mutex.Lock()
 	defer stateStorageRegistry.mutex.Unlock()
 	if _, present := stateStorageRegistry.factories[name]; !present {
@@ -48,7 +51,10 @@ func RegisterStateStorage(name config.StateStorageType, factory Factory) bool {
 
 // NewStateStorage instantiates a new instance of the requested
 // Storage when available, otherwise returns an error.
-func NewStateStorage(name config.StateStorageType, config *config.Config) (Storage, error) {
+func NewStateStorage(
+	name config.StateStorageType, config *config.Config,
+) (Storage, error) {
+
 	stateStorageRegistry.mutex.Lock()
 	defer stateStorageRegistry.mutex.Unlock()
 	if p, present := stateStorageRegistry.factories[name]; present {

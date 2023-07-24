@@ -35,7 +35,10 @@ type redisSink struct {
 	client *redis.Client
 }
 
-func newRedisSink(config *spiconfig.Config) (sink.Sink, error) {
+func newRedisSink(
+	config *spiconfig.Config,
+) (sink.Sink, error) {
+
 	options := &redis.Options{
 		Network: spiconfig.GetOrDefault(
 			config, spiconfig.PropertyRedisNetwork, "tcp",
@@ -102,7 +105,10 @@ func (r *redisSink) Stop() error {
 	return r.client.Close()
 }
 
-func (r *redisSink) Emit(_ sink.Context, _ time.Time, topicName string, key, envelope schema.Struct) error {
+func (r *redisSink) Emit(
+	_ sink.Context, _ time.Time, topicName string, key, envelope schema.Struct,
+) error {
+
 	keyData, err := json.Marshal(key)
 	if err != nil {
 		return err

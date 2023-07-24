@@ -32,13 +32,19 @@ type ForwarderSink struct {
 	fn func(timestamp time.Time, topicName string, envelope schema.Struct) error
 }
 
-func NewForwarderSink(fn func(timestamp time.Time, topicName string, envelope schema.Struct) error) *ForwarderSink {
+func NewForwarderSink(
+	fn func(timestamp time.Time, topicName string, envelope schema.Struct) error,
+) *ForwarderSink {
+
 	return &ForwarderSink{
 		fn: fn,
 	}
 }
 
-func (t *ForwarderSink) Emit(timestamp time.Time, topicName string, envelope schema.Struct) error {
+func (t *ForwarderSink) Emit(
+	timestamp time.Time, topicName string, envelope schema.Struct,
+) error {
+
 	return t.fn(timestamp, topicName, envelope)
 }
 
@@ -69,25 +75,37 @@ func (t *EventCollectorSink) Stop() error {
 
 type EventCollectorSinkOption = func(eventCollectorSink *EventCollectorSink)
 
-func WithFilter(filter func(timestamp time.Time, topicName string, envelope Envelope) bool) EventCollectorSinkOption {
+func WithFilter(
+	filter func(timestamp time.Time, topicName string, envelope Envelope) bool,
+) EventCollectorSinkOption {
+
 	return func(eventCollectorSink *EventCollectorSink) {
 		eventCollectorSink.filter = filter
 	}
 }
 
-func WithPreHook(fn func(sink *EventCollectorSink)) EventCollectorSinkOption {
+func WithPreHook(
+	fn func(sink *EventCollectorSink),
+) EventCollectorSinkOption {
+
 	return func(eventCollectorSink *EventCollectorSink) {
 		eventCollectorSink.preHook = fn
 	}
 }
 
-func WithPostHook(fn func(sink *EventCollectorSink)) EventCollectorSinkOption {
+func WithPostHook(
+	fn func(sink *EventCollectorSink),
+) EventCollectorSinkOption {
+
 	return func(eventCollectorSink *EventCollectorSink) {
 		eventCollectorSink.postHook = fn
 	}
 }
 
-func NewEventCollectorSink(options ...EventCollectorSinkOption) *EventCollectorSink {
+func NewEventCollectorSink(
+	options ...EventCollectorSinkOption,
+) *EventCollectorSink {
+
 	eventCollectorSink := &EventCollectorSink{
 		keys:   make([]schema.Struct, 0),
 		events: make([]CollectedEvent, 0),
@@ -99,7 +117,10 @@ func NewEventCollectorSink(options ...EventCollectorSinkOption) *EventCollectorS
 	return eventCollectorSink
 }
 
-func (t *EventCollectorSink) SystemConfigConfigurator(config *sysconfig.SystemConfig) {
+func (t *EventCollectorSink) SystemConfigConfigurator(
+	config *sysconfig.SystemConfig,
+) {
+
 	config.SinkManagerProvider = func(
 		_ *spiconfig.Config, stateStorageManager statestorage.Manager,
 	) (sink.Manager, error) {
@@ -127,8 +148,9 @@ func (t *EventCollectorSink) NumOfEvents() int {
 	return len(t.events)
 }
 
-func (t *EventCollectorSink) Emit(_ sink.Context, timestamp time.Time,
-	topicName string, key, envelope schema.Struct) error {
+func (t *EventCollectorSink) Emit(
+	_ sink.Context, timestamp time.Time, topicName string, key, envelope schema.Struct,
+) error {
 
 	if t.preHook != nil {
 		t.preHook(t)

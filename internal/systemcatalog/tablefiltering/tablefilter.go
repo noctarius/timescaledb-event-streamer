@@ -33,7 +33,10 @@ type TableFilter struct {
 	acceptedByDefault bool
 }
 
-func NewTableFilter(excludes, includes []string, acceptedByDefault bool) (*TableFilter, error) {
+func NewTableFilter(
+	excludes, includes []string, acceptedByDefault bool,
+) (*TableFilter, error) {
+
 	excludeFilters := make([]*filter, 0)
 	for _, exclude := range excludes {
 		f, err := parseFilter(exclude)
@@ -60,7 +63,10 @@ func NewTableFilter(excludes, includes []string, acceptedByDefault bool) (*Table
 	}, nil
 }
 
-func (rf *TableFilter) Enabled(hypertable *systemcatalog.Hypertable) bool {
+func (rf *TableFilter) Enabled(
+	hypertable *systemcatalog.Hypertable,
+) bool {
+
 	// already tested?
 	canonicalName := hypertable.CanonicalName()
 	if v, present := rf.filterCache[canonicalName]; present {
@@ -95,7 +101,10 @@ type filter struct {
 	tableRegex     *regexp.Regexp
 }
 
-func parseFilter(filterTerm string) (*filter, error) {
+func parseFilter(
+	filterTerm string,
+) (*filter, error) {
+
 	tokens := strings.Split(filterTerm, ".")
 	if len(tokens) != 2 {
 		return nil, fmt.Errorf("failed parsing filter term: %s", filterTerm)
@@ -126,7 +135,10 @@ func parseFilter(filterTerm string) (*filter, error) {
 	return f, nil
 }
 
-func (f *filter) matches(hypertable *systemcatalog.Hypertable) bool {
+func (f *filter) matches(
+	hypertable *systemcatalog.Hypertable,
+) bool {
+
 	namespace := hypertable.SchemaName()
 	entity := hypertable.TableName()
 	if hypertable.IsContinuousAggregate() {
@@ -164,7 +176,10 @@ func (f *filter) matches(hypertable *systemcatalog.Hypertable) bool {
 	return true
 }
 
-func parseToken(token string) (string, bool, error) {
+func parseToken(
+	token string,
+) (string, bool, error) {
+
 	isQuoted := token[0] == '"' && token[len(token)-1] == '"'
 
 	// When not quoted, all identifiers are folded to lowercase

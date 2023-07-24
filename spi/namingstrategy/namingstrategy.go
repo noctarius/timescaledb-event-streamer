@@ -29,16 +29,25 @@ type Provider = func(config *config.Config) (NamingStrategy, error)
 // well as message topics
 type NamingStrategy interface {
 	// EventTopicName generates a event topic name for the given schema and table name
-	EventTopicName(topicPrefix string, schemaName, tableName string) string
+	EventTopicName(
+		topicPrefix string, schemaName, tableName string,
+	) string
 	// SchemaTopicName generates a schema topic name for the given schema and table name
-	SchemaTopicName(topicPrefix string, schemaName, tableName string) string
+	SchemaTopicName(
+		topicPrefix string, schemaName, tableName string,
+	) string
 	// MessageTopicName generates a message topic name for a replication message
-	MessageTopicName(topicPrefix string) string
+	MessageTopicName(
+		topicPrefix string,
+	) string
 }
 
 // SanitizeTopicName is a helper to sanitize topic
 // names to be as compatible as possible
-func SanitizeTopicName(topicName string) (topic string, changed bool) {
+func SanitizeTopicName(
+	topicName string,
+) (topic string, changed bool) {
+
 	runes := []rune(topicName)
 
 	builder := strings.Builder{}
@@ -53,7 +62,10 @@ func SanitizeTopicName(topicName string) (topic string, changed bool) {
 	return builder.String(), changed
 }
 
-func isValidCharacter(r rune) bool {
+func isValidCharacter(
+	r rune,
+) bool {
+
 	return r == '.' ||
 		r == '_' ||
 		r == '-' ||

@@ -35,6 +35,14 @@ import (
 	"time"
 )
 
+type keyFactoryFn func(
+	stream stream.Stream,
+) (schema.Struct, error)
+
+type payloadFactoryFn func(
+	source schema.Struct, stream stream.Stream,
+) (schema.Struct, error)
+
 type EventEmitter struct {
 	replicationContext context.ReplicationContext
 	filter             eventfiltering.EventFilter
@@ -83,7 +91,10 @@ func (ee *EventEmitter) NewEventHandler() eventhandlers.BaseReplicationEventHand
 	}
 }
 
-func (ee *EventEmitter) emit(xld pgtypes.XLogData, stream stream.Stream, key, value schema.Struct) error {
+func (ee *EventEmitter) emit(
+	xld pgtypes.XLogData, stream stream.Stream, key, value schema.Struct,
+) error {
+
 	// Retryable operation
 	operation := func() error {
 		ee.logger.Tracef("Publishing event: %+v", value)
@@ -102,8 +113,9 @@ type eventEmitterEventHandler struct {
 	typeManager  pgtypes.TypeManager
 }
 
-func (e *eventEmitterEventHandler) OnReadEvent(lsn pgtypes.LSN, hypertable *systemcatalog.Hypertable,
-	_ *systemcatalog.Chunk, newValues map[string]any) error {
+func (e *eventEmitterEventHandler) OnReadEvent(
+	lsn pgtypes.LSN, hypertable *systemcatalog.Hypertable, _ *systemcatalog.Chunk, newValues map[string]any,
+) error {
 
 	cnValues, err := e.convertValues(hypertable, newValues)
 	if err != nil {
@@ -129,8 +141,9 @@ func (e *eventEmitterEventHandler) OnReadEvent(lsn pgtypes.LSN, hypertable *syst
 	)
 }
 
-func (e *eventEmitterEventHandler) OnInsertEvent(xld pgtypes.XLogData, hypertable *systemcatalog.Hypertable,
-	_ *systemcatalog.Chunk, newValues map[string]any) error {
+func (e *eventEmitterEventHandler) OnInsertEvent(
+	xld pgtypes.XLogData, hypertable *systemcatalog.Hypertable, _ *systemcatalog.Chunk, newValues map[string]any,
+) error {
 
 	cnValues, err := e.convertValues(hypertable, newValues)
 	if err != nil {
@@ -147,8 +160,10 @@ func (e *eventEmitterEventHandler) OnInsertEvent(xld pgtypes.XLogData, hypertabl
 	)
 }
 
-func (e *eventEmitterEventHandler) OnUpdateEvent(xld pgtypes.XLogData, hypertable *systemcatalog.Hypertable,
-	_ *systemcatalog.Chunk, oldValues, newValues map[string]any) error {
+func (e *eventEmitterEventHandler) OnUpdateEvent(
+	xld pgtypes.XLogData, hypertable *systemcatalog.Hypertable,
+	_ *systemcatalog.Chunk, oldValues, newValues map[string]any,
+) error {
 
 	coValues, err := e.convertValues(hypertable, oldValues)
 	if err != nil {
@@ -169,8 +184,10 @@ func (e *eventEmitterEventHandler) OnUpdateEvent(xld pgtypes.XLogData, hypertabl
 	)
 }
 
-func (e *eventEmitterEventHandler) OnDeleteEvent(xld pgtypes.XLogData, hypertable *systemcatalog.Hypertable,
-	_ *systemcatalog.Chunk, oldValues map[string]any, tombstone bool) error {
+func (e *eventEmitterEventHandler) OnDeleteEvent(
+	xld pgtypes.XLogData, hypertable *systemcatalog.Hypertable,
+	_ *systemcatalog.Chunk, oldValues map[string]any, tombstone bool,
+) error {
 
 	coValues, err := e.convertValues(hypertable, oldValues)
 	if err != nil {
@@ -187,7 +204,10 @@ func (e *eventEmitterEventHandler) OnDeleteEvent(xld pgtypes.XLogData, hypertabl
 	)
 }
 
-func (e *eventEmitterEventHandler) OnTruncateEvent(xld pgtypes.XLogData, hypertable *systemcatalog.Hypertable) error {
+func (e *eventEmitterEventHandler) OnTruncateEvent(
+	xld pgtypes.XLogData, hypertable *systemcatalog.Hypertable,
+) error {
+
 	return e.emit(xld, hypertable,
 		func(stream stream.Stream) (schema.Struct, error) {
 			return nil, nil
@@ -198,7 +218,10 @@ func (e *eventEmitterEventHandler) OnTruncateEvent(xld pgtypes.XLogData, hyperta
 	)
 }
 
-func (e *eventEmitterEventHandler) OnMessageEvent(xld pgtypes.XLogData, msg *pgtypes.LogicalReplicationMessage) error {
+func (e *eventEmitterEventHandler) OnMessageEvent(
+	xld pgtypes.XLogData, msg *pgtypes.LogicalReplicationMessage,
+) error {
+
 	return e.emitMessageEvent(xld, msg,
 		func(source schema.Struct, stream stream.Stream) (schema.Struct, error) {
 			content := base64.StdEncoding.EncodeToString(msg.Content)
@@ -208,7 +231,8 @@ func (e *eventEmitterEventHandler) OnMessageEvent(xld pgtypes.XLogData, msg *pgt
 }
 
 func (e *eventEmitterEventHandler) OnChunkCompressedEvent(
-	xld pgtypes.XLogData, hypertable *systemcatalog.Hypertable, _ *systemcatalog.Chunk) error {
+	xld pgtypes.XLogData, hypertable *systemcatalog.Hypertable, _ *systemcatalog.Chunk,
+) error {
 
 	return e.emit(xld, hypertable,
 		func(stream stream.Stream) (schema.Struct, error) {
@@ -221,7 +245,8 @@ func (e *eventEmitterEventHandler) OnChunkCompressedEvent(
 }
 
 func (e *eventEmitterEventHandler) OnChunkDecompressedEvent(
-	xld pgtypes.XLogData, hypertable *systemcatalog.Hypertable, _ *systemcatalog.Chunk) error {
+	xld pgtypes.XLogData, hypertable *systemcatalog.Hypertable, _ *systemcatalog.Chunk,
+) error {
 
 	return e.emit(xld, hypertable,
 		func(stream stream.Stream) (schema.Struct, error) {
@@ -233,27 +258,40 @@ func (e *eventEmitterEventHandler) OnChunkDecompressedEvent(
 	)
 }
 
-func (e *eventEmitterEventHandler) OnRelationEvent(_ pgtypes.XLogData, _ *pgtypes.RelationMessage) error {
+func (e *eventEmitterEventHandler) OnRelationEvent(
+	_ pgtypes.XLogData, _ *pgtypes.RelationMessage,
+) error {
 	return nil
 }
 
-func (e *eventEmitterEventHandler) OnBeginEvent(_ pgtypes.XLogData, _ *pgtypes.BeginMessage) error {
+func (e *eventEmitterEventHandler) OnBeginEvent(
+	_ pgtypes.XLogData, _ *pgtypes.BeginMessage,
+) error {
 	return nil
 }
 
-func (e *eventEmitterEventHandler) OnCommitEvent(_ pgtypes.XLogData, _ *pgtypes.CommitMessage) error {
+func (e *eventEmitterEventHandler) OnCommitEvent(
+	_ pgtypes.XLogData, _ *pgtypes.CommitMessage,
+) error {
 	return nil
 }
 
-func (e *eventEmitterEventHandler) OnTypeEvent(_ pgtypes.XLogData, _ *pgtypes.TypeMessage) error {
+func (e *eventEmitterEventHandler) OnTypeEvent(
+	_ pgtypes.XLogData, _ *pgtypes.TypeMessage,
+) error {
 	return nil
 }
 
-func (e *eventEmitterEventHandler) OnOriginEvent(_ pgtypes.XLogData, _ *pgtypes.OriginMessage) error {
+func (e *eventEmitterEventHandler) OnOriginEvent(
+	_ pgtypes.XLogData, _ *pgtypes.OriginMessage,
+) error {
 	return nil
 }
 
-func (e *eventEmitterEventHandler) OnTransactionFinishedEvent(xld pgtypes.XLogData, msg *pgtypes.CommitMessage) error {
+func (e *eventEmitterEventHandler) OnTransactionFinishedEvent(
+	xld pgtypes.XLogData, msg *pgtypes.CommitMessage,
+) error {
+
 	e.eventEmitter.logger.Debugf(
 		"Transaction xid=%d (LSN: %s) marked as processed", xld.Xid, msg.TransactionEndLSN,
 	)
@@ -263,8 +301,7 @@ func (e *eventEmitterEventHandler) OnTransactionFinishedEvent(xld pgtypes.XLogDa
 
 func (e *eventEmitterEventHandler) emit(
 	xld pgtypes.XLogData, hypertable *systemcatalog.Hypertable,
-	keyFactory func(stream stream.Stream) (schema.Struct, error),
-	payloadFactory func(source schema.Struct, stream stream.Stream) (schema.Struct, error),
+	keyFactory keyFactoryFn, payloadFactory payloadFactoryFn,
 ) error {
 
 	return e.emit0(xld, false, hypertable, keyFactory, payloadFactory)
@@ -272,8 +309,7 @@ func (e *eventEmitterEventHandler) emit(
 
 func (e *eventEmitterEventHandler) emit0(
 	xld pgtypes.XLogData, snapshot bool, hypertable *systemcatalog.Hypertable,
-	keyFactory func(stream stream.Stream) (schema.Struct, error),
-	payloadFactory func(source schema.Struct, stream stream.Stream) (schema.Struct, error),
+	keyFactory keyFactoryFn, payloadFactory payloadFactoryFn,
 ) error {
 
 	selectedStream := e.eventEmitter.streamManager.GetOrCreateStream(hypertable)
@@ -313,8 +349,7 @@ func (e *eventEmitterEventHandler) emit0(
 }
 
 func (e *eventEmitterEventHandler) emitMessageEvent(
-	xld pgtypes.XLogData, msg *pgtypes.LogicalReplicationMessage,
-	payloadFactory func(source schema.Struct, stream stream.Stream) (schema.Struct, error),
+	xld pgtypes.XLogData, msg *pgtypes.LogicalReplicationMessage, payloadFactory payloadFactoryFn,
 ) error {
 
 	timestamp := time.Now()
@@ -354,18 +389,23 @@ func (e *eventEmitterEventHandler) emitMessageEvent(
 	return e.eventEmitter.emit(xld, selectedStream, key, value)
 }
 
-func (e *eventEmitterEventHandler) timescaleEventKey(hypertable *systemcatalog.Hypertable) (schema.Struct, error) {
+func (e *eventEmitterEventHandler) timescaleEventKey(
+	hypertable *systemcatalog.Hypertable,
+) (schema.Struct, error) {
+
 	return schema.TimescaleKey(hypertable.SchemaName(), hypertable.TableName()), nil
 }
 
 func (e *eventEmitterEventHandler) convertValues(
-	hypertable *systemcatalog.Hypertable, values map[string]any) (map[string]any, error) {
+	hypertable *systemcatalog.Hypertable, values map[string]any,
+) (map[string]any, error) {
 
 	return e.convertColumnValues(hypertable.TableColumns(), values)
 }
 
 func (e *eventEmitterEventHandler) convertColumnValues(
-	columns []schema.ColumnAlike, values map[string]any) (map[string]any, error) {
+	columns []schema.ColumnAlike, values map[string]any,
+) (map[string]any, error) {
 
 	if values == nil {
 		return nil, nil

@@ -40,7 +40,10 @@ type RedPandaIntegrationTestSuite struct {
 	testrunner.TestRunner
 }
 
-func TestRedPandaIntegrationTestSuite(t *testing.T) {
+func TestRedPandaIntegrationTestSuite(
+	t *testing.T,
+) {
+
 	suite.Run(t, new(RedPandaIntegrationTestSuite))
 }
 

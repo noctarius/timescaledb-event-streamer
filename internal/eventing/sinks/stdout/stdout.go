@@ -31,9 +31,15 @@ func init() {
 	sink.RegisterSink(spiconfig.Stdout, newStdoutSink)
 }
 
-func newStdoutSink(_ *spiconfig.Config) (sink.Sink, error) {
+func newStdoutSink(
+	_ *spiconfig.Config,
+) (sink.Sink, error) {
+
 	return sink.SinkFunc(
-		func(_ sink.Context, _ time.Time, _ string, _, envelope schema.Struct) error {
+		func(
+			_ sink.Context, _ time.Time, _ string, _, envelope schema.Struct,
+		) error {
+
 			delete(envelope, "schema")
 			data, err := json.Marshal(envelope)
 			if err != nil {

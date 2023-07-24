@@ -921,7 +921,10 @@ type DataTypeTestSuite struct {
 	testrunner.TestRunner
 }
 
-func TestDataTypeTestSuite(t *testing.T) {
+func TestDataTypeTestSuite(
+	t *testing.T,
+) {
+
 	suite.Run(t, new(DataTypeTestSuite))
 }
 
@@ -941,7 +944,10 @@ func (dtt *DataTypeTestSuite) Test_DataType_Support() {
 	}
 }
 
-func (dtt *DataTypeTestSuite) runDynamicDataTypeTest(testCase *DataTypeTest) {
+func (dtt *DataTypeTestSuite) runDynamicDataTypeTest(
+	testCase *DataTypeTest,
+) {
+
 	typeName := testCase.pgTypeName
 	if strings.HasSuffix(typeName, "[]") {
 		typeName = fmt.Sprintf("_%s", typeName[:len(typeName)-2])
@@ -957,8 +963,9 @@ func (dtt *DataTypeTestSuite) runDynamicDataTypeTest(testCase *DataTypeTest) {
 	})
 }
 
-func (dtt *DataTypeTestSuite) runDataTypeTest(testCase *DataTypeTest,
-	setupFn func(setupContext testrunner.SetupContext) error) {
+func (dtt *DataTypeTestSuite) runDataTypeTest(
+	testCase *DataTypeTest, setupFn func(setupContext testrunner.SetupContext) error,
+) {
 
 	columnName := makeColumnName(testCase)
 
@@ -1073,21 +1080,33 @@ type DataTypeTest struct {
 	missingSupport        bool
 }
 
-func quickCheckValue[T any](t *testing.T, testCase *DataTypeTest, value any) {
+func quickCheckValue[T any](
+	t *testing.T, testCase *DataTypeTest, value any,
+) {
+
 	v := checkType[T](t, value)
 	checkValue[T](t, expectedValue(testCase).(T), v)
 }
 
-func checkValue[T any](t *testing.T, expected, value T) {
+func checkValue[T any](
+	t *testing.T, expected, value T,
+) {
+
 	assert.Equal(t, expected, value)
 }
 
-func checkType[T any](t *testing.T, value any) T {
+func checkType[T any](
+	t *testing.T, value any,
+) T {
+
 	expectedType := reflect.TypeOf(*new(T))
 	return unwrapType(t, expectedType, value).(T)
 }
 
-func unwrapType(t *testing.T, expectedType reflect.Type, value any) any {
+func unwrapType(
+	t *testing.T, expectedType reflect.Type, value any,
+) any {
+
 	// Necessary adjustments due to JSON numbers only being float64
 	switch expectedType.Kind() {
 	case reflect.Int16:
@@ -1132,14 +1151,20 @@ func unwrapType(t *testing.T, expectedType reflect.Type, value any) any {
 	return value
 }
 
-func expectedValue(testCase *DataTypeTest) any {
+func expectedValue(
+	testCase *DataTypeTest,
+) any {
+
 	if testCase.expectedValueOverride != nil {
 		return testCase.expectedValueOverride
 	}
 	return testCase.value
 }
 
-func makeColumnName(testCase *DataTypeTest) string {
+func makeColumnName(
+	testCase *DataTypeTest,
+) string {
+
 	name := testCase.pgTypeName
 	if testCase.columnNameOverride != "" {
 		name = testCase.columnNameOverride

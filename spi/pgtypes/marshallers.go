@@ -79,21 +79,30 @@ var unmarshallers = map[uint32]BinaryUnmarshaller{
 	516272:                nil, // ltree, FIXME
 }
 
-func BinaryMarshall(buffer encoding.WriteBuffer, oid uint32, value any) error {
+func BinaryMarshall(
+	buffer encoding.WriteBuffer, oid uint32, value any,
+) error {
+
 	if marshaller, found := marshallers[oid]; found {
 		return marshaller(buffer, oid, value)
 	}
 	return ErrIllegalValue
 }
 
-func BinaryUnmarshall(buffer encoding.ReadBuffer, oid uint32) (value any, err error) {
+func BinaryUnmarshall(
+	buffer encoding.ReadBuffer, oid uint32,
+) (value any, err error) {
+
 	if unmarshaller, found := unmarshallers[oid]; found {
 		return unmarshaller(buffer, oid)
 	}
 	return nil, ErrIllegalValue
 }
 
-func boolMarshaller(buffer encoding.WriteBuffer, _ uint32, value any) error {
+func boolMarshaller(
+	buffer encoding.WriteBuffer, _ uint32, value any,
+) error {
+
 	switch v := value.(type) {
 	case bool:
 		return buffer.PutBool(v)
@@ -105,22 +114,34 @@ func boolMarshaller(buffer encoding.WriteBuffer, _ uint32, value any) error {
 
 }
 
-func boolUnmarshaller(buffer encoding.ReadBuffer, _ uint32) (value any, err error) {
+func boolUnmarshaller(
+	buffer encoding.ReadBuffer, _ uint32,
+) (value any, err error) {
+
 	return buffer.ReadBool()
 }
 
-func bitArrayMarshaller(buffer encoding.WriteBuffer, _ uint32, value any) error {
+func bitArrayMarshaller(
+	buffer encoding.WriteBuffer, _ uint32, value any,
+) error {
+
 	if data, ok := value.([]byte); ok {
 		return buffer.PutBytes(data)
 	}
 	return ErrIllegalValue
 }
 
-func bitArrayUnmarshaller(buffer encoding.ReadBuffer, _ uint32) (value any, err error) {
+func bitArrayUnmarshaller(
+	buffer encoding.ReadBuffer, _ uint32,
+) (value any, err error) {
+
 	return buffer.ReadBytes()
 }
 
-func intMarshaller(buffer encoding.WriteBuffer, _ uint32, value any) error {
+func intMarshaller(
+	buffer encoding.WriteBuffer, _ uint32, value any,
+) error {
+
 	switch v := value.(type) {
 	case int8:
 		return buffer.PutInt8(v)
@@ -143,7 +164,10 @@ func intMarshaller(buffer encoding.WriteBuffer, _ uint32, value any) error {
 	}
 }
 
-func intUnmarshaller(buffer encoding.ReadBuffer, oid uint32) (value any, err error) {
+func intUnmarshaller(
+	buffer encoding.ReadBuffer, oid uint32,
+) (value any, err error) {
+
 	switch oid {
 	case pgtype.Int2OID:
 		return buffer.ReadInt16()
@@ -156,7 +180,10 @@ func intUnmarshaller(buffer encoding.ReadBuffer, oid uint32) (value any, err err
 	}
 }
 
-func floatMarshaller(buffer encoding.WriteBuffer, oid uint32, value any) error {
+func floatMarshaller(
+	buffer encoding.WriteBuffer, oid uint32, value any,
+) error {
+
 	switch v := value.(type) {
 	case float32:
 		return buffer.PutFloat32(v)
@@ -171,7 +198,10 @@ func floatMarshaller(buffer encoding.WriteBuffer, oid uint32, value any) error {
 	}
 }
 
-func floatUnmarshaller(buffer encoding.ReadBuffer, oid uint32) (value any, err error) {
+func floatUnmarshaller(
+	buffer encoding.ReadBuffer, oid uint32,
+) (value any, err error) {
+
 	switch oid {
 	case pgtype.Float4OID:
 		return buffer.ReadFloat32()
@@ -182,18 +212,27 @@ func floatUnmarshaller(buffer encoding.ReadBuffer, oid uint32) (value any, err e
 	}
 }
 
-func stringMarshaller(buffer encoding.WriteBuffer, _ uint32, value any) error {
+func stringMarshaller(
+	buffer encoding.WriteBuffer, _ uint32, value any,
+) error {
+
 	if s, ok := value.(string); ok {
 		return buffer.PutString(s)
 	}
 	return ErrIllegalValue
 }
 
-func stringUnmarshaller(buffer encoding.ReadBuffer, _ uint32) (value any, err error) {
+func stringUnmarshaller(
+	buffer encoding.ReadBuffer, _ uint32,
+) (value any, err error) {
+
 	return buffer.ReadString()
 }
 
-func timestampMarshaller(buffer encoding.WriteBuffer, _ uint32, value any) error {
+func timestampMarshaller(
+	buffer encoding.WriteBuffer, _ uint32, value any,
+) error {
+
 	if t, ok := value.(time.Time); ok {
 		if data, err := t.MarshalBinary(); err == nil {
 			return buffer.PutBytes(data)
@@ -204,7 +243,10 @@ func timestampMarshaller(buffer encoding.WriteBuffer, _ uint32, value any) error
 	return ErrIllegalValue
 }
 
-func timestampUnmarshaller(buffer encoding.ReadBuffer, _ uint32) (value any, err error) {
+func timestampUnmarshaller(
+	buffer encoding.ReadBuffer, _ uint32,
+) (value any, err error) {
+
 	data, err := buffer.ReadBytes()
 	if err != nil {
 		return nil, err
@@ -216,14 +258,20 @@ func timestampUnmarshaller(buffer encoding.ReadBuffer, _ uint32) (value any, err
 	return t, nil
 }
 
-func intervalMarshaller(buffer encoding.WriteBuffer, _ uint32, value any) error {
+func intervalMarshaller(
+	buffer encoding.WriteBuffer, _ uint32, value any,
+) error {
+
 	if d, ok := value.(time.Duration); ok {
 		return buffer.PutInt64(int64(d))
 	}
 	return ErrIllegalValue
 }
 
-func intervalUnmarshaller(buffer encoding.ReadBuffer, _ uint32) (value any, err error) {
+func intervalUnmarshaller(
+	buffer encoding.ReadBuffer, _ uint32,
+) (value any, err error) {
+
 	d, err := buffer.ReadInt64()
 	if err != nil {
 		return time.Second * 0, err
@@ -231,18 +279,27 @@ func intervalUnmarshaller(buffer encoding.ReadBuffer, _ uint32) (value any, err 
 	return time.Duration(d), nil
 }
 
-func byteArrayMarshaller(buffer encoding.WriteBuffer, _ uint32, value any) error {
+func byteArrayMarshaller(
+	buffer encoding.WriteBuffer, _ uint32, value any,
+) error {
+
 	if data, ok := value.([]byte); ok {
 		return buffer.PutBytes(data)
 	}
 	return ErrIllegalValue
 }
 
-func byteArrayUnmarshaller(buffer encoding.ReadBuffer, _ uint32) (value any, err error) {
+func byteArrayUnmarshaller(
+	buffer encoding.ReadBuffer, _ uint32,
+) (value any, err error) {
+
 	return buffer.ReadBytes()
 }
 
-func jsonMarshaller(buffer encoding.WriteBuffer, _ uint32, value any) error {
+func jsonMarshaller(
+	buffer encoding.WriteBuffer, _ uint32, value any,
+) error {
+
 	if v, ok := value.(map[string]any); ok {
 		d, err := json.Marshal(v)
 		if err != nil {
@@ -253,7 +310,10 @@ func jsonMarshaller(buffer encoding.WriteBuffer, _ uint32, value any) error {
 	return ErrIllegalValue
 }
 
-func jsonUnmarshaller(buffer encoding.ReadBuffer, _ uint32) (value any, err error) {
+func jsonUnmarshaller(
+	buffer encoding.ReadBuffer, _ uint32,
+) (value any, err error) {
+
 	d, err := buffer.ReadBytes()
 	if err != nil {
 		return nil, err
@@ -265,7 +325,10 @@ func jsonUnmarshaller(buffer encoding.ReadBuffer, _ uint32) (value any, err erro
 	return data, nil
 }
 
-func uuidMarshaller(buffer encoding.WriteBuffer, _ uint32, value any) error {
+func uuidMarshaller(
+	buffer encoding.WriteBuffer, _ uint32, value any,
+) error {
+
 	if u, ok := value.(pgtype.UUID); ok {
 		if err := buffer.PutBytes(u.Bytes[:]); err != nil {
 			return err
@@ -275,7 +338,10 @@ func uuidMarshaller(buffer encoding.WriteBuffer, _ uint32, value any) error {
 	return ErrIllegalValue
 }
 
-func uuidUnmarshaller(buffer encoding.ReadBuffer, _ uint32) (value any, err error) {
+func uuidUnmarshaller(
+	buffer encoding.ReadBuffer, _ uint32,
+) (value any, err error) {
+
 	d, err := buffer.ReadBytes()
 	if err != nil {
 		return nil, err

@@ -36,7 +36,10 @@ type IntegrationSnapshotTestSuite struct {
 	testrunner.TestRunner
 }
 
-func TestIntegrationSnapshotTestSuite(t *testing.T) {
+func TestIntegrationSnapshotTestSuite(
+	t *testing.T,
+) {
+
 	suite.Run(t, new(IntegrationSnapshotTestSuite))
 }
 

@@ -40,7 +40,10 @@ type KafkaIntegrationTestSuite struct {
 	testrunner.TestRunner
 }
 
-func TestKafkaIntegrationTestSuite(t *testing.T) {
+func TestKafkaIntegrationTestSuite(
+	t *testing.T,
+) {
+
 	suite.Run(t, new(KafkaIntegrationTestSuite))
 }
 

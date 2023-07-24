@@ -21,7 +21,10 @@ import (
 	"github.com/jackc/pglogrepl"
 )
 
-func ParseXlogData(data []byte, lastTransactionId *uint32) (pglogrepl.Message, error) {
+func ParseXlogData(
+	data []byte, lastTransactionId *uint32,
+) (pglogrepl.Message, error) {
+
 	// Normally unsupported message received
 	var decoder pglogrepl.MessageDecoder
 	msgType := pglogrepl.MessageType(data[0])

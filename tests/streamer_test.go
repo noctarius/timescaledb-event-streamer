@@ -39,7 +39,10 @@ type IntegrationTestSuite struct {
 	testrunner.TestRunner
 }
 
-func TestIntegrationTestSuite(t *testing.T) {
+func TestIntegrationTestSuite(
+	t *testing.T,
+) {
+
 	suite.Run(t, new(IntegrationTestSuite))
 }
 

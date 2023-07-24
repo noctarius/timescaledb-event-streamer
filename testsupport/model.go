@@ -68,7 +68,10 @@ type Envelope struct {
 	Schema  Schema  `json:"schema"`
 }
 
-func GetField(name string, fields []Field) (Field, bool) {
+func GetField(
+	name string, fields []Field,
+) (Field, bool) {
+
 	for _, field := range fields {
 		if field.Field == name {
 			return field, true
@@ -85,7 +88,10 @@ type Column struct {
 	defaultValue *string
 }
 
-func NewColumn(name, pgType string, nullable, primaryKey bool, defaultValue *string) Column {
+func NewColumn(
+	name, pgType string, nullable, primaryKey bool, defaultValue *string,
+) Column {
+
 	return Column{
 		name:         name,
 		pgType:       pgType,

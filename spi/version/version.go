@@ -67,7 +67,10 @@ func (pv PostgresVersion) String() string {
 // Compare returns a negative value if the current version
 // is lower than other, returns 0 if the versions match,
 // otherwise it returns a value larger than 0.
-func (pv PostgresVersion) Compare(other PostgresVersion) int {
+func (pv PostgresVersion) Compare(
+	other PostgresVersion,
+) int {
+
 	if pv < other {
 		return -1
 	}
@@ -79,7 +82,10 @@ func (pv PostgresVersion) Compare(other PostgresVersion) int {
 
 // ParsePostgresVersion parses a version string retrieved from
 // a PostgreSQL server and returns a PostgresVersion instance
-func ParsePostgresVersion(version string) (PostgresVersion, error) {
+func ParsePostgresVersion(
+	version string,
+) (PostgresVersion, error) {
+
 	matches := postgresqlVersionRegex.FindStringSubmatch(version)
 	if len(matches) < 3 {
 		return 0, errors.Errorf("failed to extract postgresql version")
@@ -129,7 +135,10 @@ func (tv TimescaleVersion) String() string {
 // Compare returns a negative value if the current version
 // is lower than other, returns 0 if the versions match,
 // otherwise it returns a value larger than 0.
-func (tv TimescaleVersion) Compare(other TimescaleVersion) int {
+func (tv TimescaleVersion) Compare(
+	other TimescaleVersion,
+) int {
+
 	if tv < other {
 		return -1
 	}
@@ -142,7 +151,10 @@ func (tv TimescaleVersion) Compare(other TimescaleVersion) int {
 // ParseTimescaleVersion parses a TimescaleDB extension version
 // string retrieved from a PostgreSQL server and returns a
 // TimescaleVersion instance
-func ParseTimescaleVersion(version string) (TimescaleVersion, error) {
+func ParseTimescaleVersion(
+	version string,
+) (TimescaleVersion, error) {
+
 	matches := timescaledbVersionRegex.FindStringSubmatch(version)
 	if len(matches) < 3 {
 		return 0, errors.Errorf("failed to extract timescale version")

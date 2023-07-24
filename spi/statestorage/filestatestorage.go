@@ -47,7 +47,10 @@ type fileStateStorage struct {
 	shutdownWaiter *waiting.ShutdownAwaiter
 }
 
-func newFileStateStorage(config *spiconfig.Config) (Storage, error) {
+func newFileStateStorage(
+	config *spiconfig.Config,
+) (Storage, error) {
+
 	path := spiconfig.GetOrDefault(config, spiconfig.PropertyFileStateStoragePath, "")
 	if path == "" {
 		return nil, errors.Errorf("FileStateStorage needs a path to be configured")
@@ -55,7 +58,10 @@ func newFileStateStorage(config *spiconfig.Config) (Storage, error) {
 	return NewFileStateStorage(path)
 }
 
-func NewFileStateStorage(path string) (Storage, error) {
+func NewFileStateStorage(
+	path string,
+) (Storage, error) {
+
 	logger, err := logging.NewLogger("FileStateStorage")
 	if err != nil {
 		return nil, err
@@ -267,14 +273,20 @@ func (f *fileStateStorage) Get() (map[string]*Offset, error) {
 	return f.offsets, nil
 }
 
-func (f *fileStateStorage) Set(key string, value *Offset) error {
+func (f *fileStateStorage) Set(
+	key string, value *Offset,
+) error {
+
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 	f.offsets[key] = value
 	return nil
 }
 
-func (f *fileStateStorage) StateEncoder(name string, encoder encoding.BinaryMarshaler) error {
+func (f *fileStateStorage) StateEncoder(
+	name string, encoder encoding.BinaryMarshaler,
+) error {
+
 	data, err := encoder.MarshalBinary()
 	if err != nil {
 		return err
@@ -283,7 +295,10 @@ func (f *fileStateStorage) StateEncoder(name string, encoder encoding.BinaryMars
 	return nil
 }
 
-func (f *fileStateStorage) StateDecoder(name string, decoder encoding.BinaryUnmarshaler) (bool, error) {
+func (f *fileStateStorage) StateDecoder(
+	name string, decoder encoding.BinaryUnmarshaler,
+) (bool, error) {
+
 	if data, present := f.EncodedState(name); present {
 		if err := decoder.UnmarshalBinary(data); err != nil {
 			return true, errors.Wrap(err, 0)
@@ -293,14 +308,20 @@ func (f *fileStateStorage) StateDecoder(name string, decoder encoding.BinaryUnma
 	return false, nil
 }
 
-func (f *fileStateStorage) EncodedState(key string) (encodedState []byte, present bool) {
+func (f *fileStateStorage) EncodedState(
+	key string,
+) (encodedState []byte, present bool) {
+
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 	encodedState, present = f.encodedStates[key]
 	return
 }
 
-func (f *fileStateStorage) SetEncodedState(key string, encodedState []byte) {
+func (f *fileStateStorage) SetEncodedState(
+	key string, encodedState []byte,
+) {
+
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 	f.encodedStates[key] = encodedState

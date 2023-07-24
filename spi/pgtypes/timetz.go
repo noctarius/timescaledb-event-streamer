@@ -23,7 +23,9 @@ var (
 )
 
 type TimetzScanner interface {
-	ScanTimetz(v Timetz) error
+	ScanTimetz(
+		v Timetz,
+	) error
 }
 
 type TimetzValuer interface {
@@ -35,7 +37,10 @@ type Timetz struct {
 	Valid bool
 }
 
-func (ttz *Timetz) ScanTimetz(v Timetz) error {
+func (ttz *Timetz) ScanTimetz(
+	v Timetz,
+) error {
+
 	*ttz = v
 	return nil
 }
@@ -44,7 +49,10 @@ func (ttz Timetz) TimetzValue() (Timetz, error) {
 	return ttz, nil
 }
 
-func (ttz *Timetz) Scan(src any) error {
+func (ttz *Timetz) Scan(
+	src any,
+) error {
+
 	if src == nil {
 		*ttz = Timetz{}
 		return nil
@@ -77,7 +85,10 @@ func (ttz Timetz) MarshalJSON() ([]byte, error) {
 	return json.Marshal(ttz.Time.Format(format))
 }
 
-func (ttz *Timetz) UnmarshalJSON(b []byte) error {
+func (ttz *Timetz) UnmarshalJSON(
+	b []byte,
+) error {
+
 	var s *string
 	if err := json.Unmarshal(b, &s); err != nil {
 		return err
@@ -109,7 +120,10 @@ func (ttz *Timetz) UnmarshalJSON(b []byte) error {
 
 type TimetzCodec struct{}
 
-func (TimetzCodec) FormatSupported(format int16) bool {
+func (TimetzCodec) FormatSupported(
+	format int16,
+) bool {
+
 	return format == pgtype.TextFormatCode || format == pgtype.BinaryFormatCode
 }
 
@@ -117,7 +131,10 @@ func (TimetzCodec) PreferredFormat() int16 {
 	return pgtype.BinaryFormatCode
 }
 
-func (TimetzCodec) PlanEncode(_ *pgtype.Map, _ uint32, format int16, value any) pgtype.EncodePlan {
+func (TimetzCodec) PlanEncode(
+	_ *pgtype.Map, _ uint32, format int16, value any,
+) pgtype.EncodePlan {
+
 	if _, ok := value.(TimetzValuer); !ok {
 		return nil
 	}
@@ -134,7 +151,10 @@ func (TimetzCodec) PlanEncode(_ *pgtype.Map, _ uint32, format int16, value any) 
 
 type encodePlanTimetzCodecBinary struct{}
 
-func (encodePlanTimetzCodecBinary) Encode(value any, buf []byte) (newBuf []byte, err error) {
+func (encodePlanTimetzCodecBinary) Encode(
+	value any, buf []byte,
+) (newBuf []byte, err error) {
+
 	ts, err := value.(TimetzValuer).TimetzValue()
 	if err != nil {
 		return nil, err
@@ -157,7 +177,10 @@ func (encodePlanTimetzCodecBinary) Encode(value any, buf []byte) (newBuf []byte,
 
 type encodePlanTimetzCodecText struct{}
 
-func (encodePlanTimetzCodecText) Encode(value any, buf []byte) (newBuf []byte, err error) {
+func (encodePlanTimetzCodecText) Encode(
+	value any, buf []byte,
+) (newBuf []byte, err error) {
+
 	ts, err := value.(TimetzValuer).TimetzValue()
 	if err != nil {
 		return nil, err
@@ -173,7 +196,10 @@ func (encodePlanTimetzCodecText) Encode(value any, buf []byte) (newBuf []byte, e
 	return buf, nil
 }
 
-func (TimetzCodec) PlanScan(_ *pgtype.Map, _ uint32, format int16, target any) pgtype.ScanPlan {
+func (TimetzCodec) PlanScan(
+	_ *pgtype.Map, _ uint32, format int16, target any,
+) pgtype.ScanPlan {
+
 	switch format {
 	case pgtype.BinaryFormatCode:
 		switch target.(type) {
@@ -192,7 +218,10 @@ func (TimetzCodec) PlanScan(_ *pgtype.Map, _ uint32, format int16, target any) p
 
 type scanPlanBinaryTimetzToTimetzScanner struct{}
 
-func (scanPlanBinaryTimetzToTimetzScanner) Scan(src []byte, dst any) error {
+func (scanPlanBinaryTimetzToTimetzScanner) Scan(
+	src []byte, dst any,
+) error {
+
 	scanner := (dst).(TimetzScanner)
 
 	if src == nil {
@@ -214,7 +243,10 @@ func (scanPlanBinaryTimetzToTimetzScanner) Scan(src []byte, dst any) error {
 
 type scanPlanTextTimetzToTimetzScanner struct{}
 
-func (scanPlanTextTimetzToTimetzScanner) Scan(src []byte, dst any) error {
+func (scanPlanTextTimetzToTimetzScanner) Scan(
+	src []byte, dst any,
+) error {
+
 	scanner := (dst).(TimetzScanner)
 
 	if src == nil {
@@ -245,7 +277,10 @@ func (scanPlanTextTimetzToTimetzScanner) Scan(src []byte, dst any) error {
 	return scanner.ScanTimetz(Timetz{Time: tim, Valid: true})
 }
 
-func (c TimetzCodec) DecodeDatabaseSQLValue(m *pgtype.Map, oid uint32, format int16, src []byte) (driver.Value, error) {
+func (c TimetzCodec) DecodeDatabaseSQLValue(
+	m *pgtype.Map, oid uint32, format int16, src []byte,
+) (driver.Value, error) {
+
 	if src == nil {
 		return nil, nil
 	}
@@ -258,7 +293,10 @@ func (c TimetzCodec) DecodeDatabaseSQLValue(m *pgtype.Map, oid uint32, format in
 	return ttz, nil
 }
 
-func (c TimetzCodec) DecodeValue(m *pgtype.Map, oid uint32, format int16, src []byte) (any, error) {
+func (c TimetzCodec) DecodeValue(
+	m *pgtype.Map, oid uint32, format int16, src []byte,
+) (any, error) {
+
 	if src == nil {
 		return nil, nil
 	}

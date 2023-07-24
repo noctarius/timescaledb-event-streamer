@@ -9,10 +9,18 @@ type PublicationManager interface {
 	CreatePublication() (bool, error)
 	ExistsPublication() (bool, error)
 	DropPublication() error
-	ReadPublishedTables() ([]systemcatalog.SystemEntity, error)
-	ExistsTableInPublication(entity systemcatalog.SystemEntity) (found bool, err error)
-	AttachTablesToPublication(entities ...systemcatalog.SystemEntity) error
-	DetachTablesFromPublication(entities ...systemcatalog.SystemEntity) error
+	ReadPublishedTables() (
+		[]systemcatalog.SystemEntity, error,
+	)
+	ExistsTableInPublication(
+		entity systemcatalog.SystemEntity,
+	) (found bool, err error)
+	AttachTablesToPublication(
+		entities ...systemcatalog.SystemEntity,
+	) error
+	DetachTablesFromPublication(
+		entities ...systemcatalog.SystemEntity,
+	) error
 }
 
 type publicationManager struct {
@@ -31,17 +39,26 @@ func (pm *publicationManager) PublicationAutoDrop() bool {
 	return pm.replicationContext.publicationAutoDrop
 }
 
-func (pm *publicationManager) ExistsTableInPublication(entity systemcatalog.SystemEntity) (found bool, err error) {
+func (pm *publicationManager) ExistsTableInPublication(
+	entity systemcatalog.SystemEntity,
+) (found bool, err error) {
+
 	return pm.replicationContext.sideChannel.ExistsTableInPublication(
 		pm.PublicationName(), entity.SchemaName(), entity.TableName(),
 	)
 }
 
-func (pm *publicationManager) AttachTablesToPublication(entities ...systemcatalog.SystemEntity) error {
+func (pm *publicationManager) AttachTablesToPublication(
+	entities ...systemcatalog.SystemEntity,
+) error {
+
 	return pm.replicationContext.sideChannel.AttachTablesToPublication(pm.PublicationName(), entities...)
 }
 
-func (pm *publicationManager) DetachTablesFromPublication(entities ...systemcatalog.SystemEntity) error {
+func (pm *publicationManager) DetachTablesFromPublication(
+	entities ...systemcatalog.SystemEntity,
+) error {
+
 	return pm.replicationContext.sideChannel.DetachTablesFromPublication(pm.PublicationName(), entities...)
 }
 

@@ -48,7 +48,10 @@ type Snapshotter struct {
 	logger             *logging.Logger
 }
 
-func NewSnapshotter(partitionCount uint8, replicationContext context.ReplicationContext) (*Snapshotter, error) {
+func NewSnapshotter(
+	partitionCount uint8, replicationContext context.ReplicationContext,
+) (*Snapshotter, error) {
+
 	snapshotQueues := make([]chan SnapshotTask, partitionCount)
 	for i := range snapshotQueues {
 		snapshotQueues[i] = make(chan SnapshotTask, 128)
@@ -70,7 +73,10 @@ func NewSnapshotter(partitionCount uint8, replicationContext context.Replication
 	}, nil
 }
 
-func (s *Snapshotter) EnqueueSnapshot(task SnapshotTask) error {
+func (s *Snapshotter) EnqueueSnapshot(
+	task SnapshotTask,
+) error {
+
 	enqueueSnapshotTask := func() {
 		// Partition calculation
 		hasher := fnv.New64a()
@@ -135,14 +141,20 @@ func (s *Snapshotter) StopSnapshotter() {
 	s.shutdownAwaiter.AwaitDone()
 }
 
-func (s *Snapshotter) snapshot(task SnapshotTask) error {
+func (s *Snapshotter) snapshot(
+	task SnapshotTask,
+) error {
+
 	if task.Chunk != nil {
 		return s.snapshotChunk(task)
 	}
 	return s.snapshotHypertable(task)
 }
 
-func (s *Snapshotter) snapshotChunk(task SnapshotTask) error {
+func (s *Snapshotter) snapshotChunk(
+	task SnapshotTask,
+) error {
+
 	alreadyPublished, err := s.publicationManager.ExistsTableInPublication(task.Chunk)
 	if err != nil {
 		return errors.Wrap(err, 0)
@@ -179,7 +191,10 @@ func (s *Snapshotter) snapshotChunk(task SnapshotTask) error {
 	})
 }
 
-func (s *Snapshotter) snapshotHypertable(task SnapshotTask) error {
+func (s *Snapshotter) snapshotHypertable(
+	task SnapshotTask,
+) error {
+
 	stateManager := s.replicationContext.StateStorageManager()
 
 	// tableSnapshotState
@@ -236,7 +251,10 @@ func (s *Snapshotter) snapshotHypertable(task SnapshotTask) error {
 	)
 }
 
-func (s *Snapshotter) runSnapshotFetchBatch(task SnapshotTask) error {
+func (s *Snapshotter) runSnapshotFetchBatch(
+	task SnapshotTask,
+) error {
+
 	return s.replicationContext.FetchHypertableSnapshotBatch(
 		task.Hypertable, *task.SnapshotName,
 		func(lsn pgtypes.LSN, values map[string]any) error {

@@ -42,7 +42,10 @@ type ReplicationConnection struct {
 	replicationSlotCreated bool
 }
 
-func NewReplicationConnection(replicationContext context.ReplicationContext) (*ReplicationConnection, error) {
+func NewReplicationConnection(
+	replicationContext context.ReplicationContext,
+) (*ReplicationConnection, error) {
+
 	logger, err := logging.NewLogger("ReplicationConnection")
 	if err != nil {
 		return nil, err
@@ -69,7 +72,10 @@ func NewReplicationConnection(replicationContext context.ReplicationContext) (*R
 	return rc, nil
 }
 
-func (rc *ReplicationConnection) ReceiveMessage(deadline time.Time) (pgproto3.BackendMessage, error) {
+func (rc *ReplicationConnection) ReceiveMessage(
+	deadline time.Time,
+) (pgproto3.BackendMessage, error) {
+
 	ctx, cancel := stdcontext.WithDeadline(stdcontext.Background(), deadline)
 	defer cancel()
 
@@ -96,7 +102,10 @@ func (rc *ReplicationConnection) SendStatusUpdate() error {
 	return nil
 }
 
-func (rc *ReplicationConnection) StartReplication(pluginArguments []string) (pgtypes.LSN, error) {
+func (rc *ReplicationConnection) StartReplication(
+	pluginArguments []string,
+) (pgtypes.LSN, error) {
+
 	restartLSN, err := rc.locateRestartLSN()
 	if err != nil {
 		return 0, errors.Wrap(err, 0)

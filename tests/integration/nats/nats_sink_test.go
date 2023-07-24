@@ -42,7 +42,10 @@ type NatsIntegrationTestSuite struct {
 	testrunner.TestRunner
 }
 
-func TestNatsIntegrationTestSuite(t *testing.T) {
+func TestNatsIntegrationTestSuite(
+	t *testing.T,
+) {
+
 	suite.Run(t, new(NatsIntegrationTestSuite))
 }
 

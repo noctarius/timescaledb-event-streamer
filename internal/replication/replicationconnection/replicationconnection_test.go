@@ -34,7 +34,10 @@ import (
 	"time"
 )
 
-func Test_ReplicationConnection_locateRestartLSN_empty(t *testing.T) {
+func Test_ReplicationConnection_locateRestartLSN_empty(
+	t *testing.T,
+) {
+
 	replicationContext := &testReplicationContext{
 		replicationSlotName: "test",
 		stateStorageManager: statestorage.NewStateStorageManager(statestorage.NewDummyStateStorage()),
@@ -73,7 +76,10 @@ func Test_ReplicationConnection_locateRestartLSN_empty(t *testing.T) {
 	assert.Equal(t, restartPoint, pgtypes.LSN(10000))
 }
 
-func Test_ReplicationConnection_locateRestartLSN_from_offset(t *testing.T) {
+func Test_ReplicationConnection_locateRestartLSN_from_offset(
+	t *testing.T,
+) {
+
 	stateStorageManager := statestorage.NewStateStorageManager(statestorage.NewDummyStateStorage())
 	replicationContext := &testReplicationContext{
 		replicationSlotName: "test",
@@ -121,7 +127,10 @@ func Test_ReplicationConnection_locateRestartLSN_from_offset(t *testing.T) {
 	assert.Equal(t, restartPoint, pgtypes.LSN(20000))
 }
 
-func Test_ReplicationConnection_locateRestartLSN_from_confirmed_flush_LSN_larger(t *testing.T) {
+func Test_ReplicationConnection_locateRestartLSN_from_confirmed_flush_LSN_larger(
+	t *testing.T,
+) {
+
 	stateStorageManager := statestorage.NewStateStorageManager(statestorage.NewDummyStateStorage())
 	replicationContext := &testReplicationContext{
 		replicationSlotName: "test",
@@ -169,7 +178,10 @@ func Test_ReplicationConnection_locateRestartLSN_from_confirmed_flush_LSN_larger
 	assert.Equal(t, restartPoint, pgtypes.LSN(21000))
 }
 
-func Test_ReplicationConnection_locateRestartLSN_from_confirmed_flush_LSN_smaller(t *testing.T) {
+func Test_ReplicationConnection_locateRestartLSN_from_confirmed_flush_LSN_smaller(
+	t *testing.T,
+) {
+
 	stateStorageManager := statestorage.NewStateStorageManager(statestorage.NewDummyStateStorage())
 	replicationContext := &testReplicationContext{
 		replicationSlotName: "test",
@@ -217,7 +229,10 @@ func Test_ReplicationConnection_locateRestartLSN_from_confirmed_flush_LSN_smalle
 	assert.Equal(t, restartPoint, pgtypes.LSN(20000))
 }
 
-func Test_ReplicationConnection_locateRestartLSN_error_physical_slot(t *testing.T) {
+func Test_ReplicationConnection_locateRestartLSN_error_physical_slot(
+	t *testing.T,
+) {
+
 	stateStorageManager := statestorage.NewStateStorageManager(statestorage.NewDummyStateStorage())
 	replicationContext := &testReplicationContext{
 		replicationSlotName: "test",
@@ -261,7 +276,10 @@ func Test_ReplicationConnection_locateRestartLSN_error_physical_slot(t *testing.
 	assert.Error(t, err, "illegal slot type found for existing replication slot 'test', expected logical but found physical")
 }
 
-func Test_ReplicationConnection_locateRestartLSN_error_plugin_name(t *testing.T) {
+func Test_ReplicationConnection_locateRestartLSN_error_plugin_name(
+	t *testing.T,
+) {
+
 	stateStorageManager := statestorage.NewStateStorageManager(statestorage.NewDummyStateStorage())
 	replicationContext := &testReplicationContext{
 		replicationSlotName: "test",
@@ -321,11 +339,17 @@ func (t testReplicationContext) StopReplicationContext() error {
 	return nil
 }
 
-func (t testReplicationContext) NewSideChannelConnection(ctx stdcontext.Context) (*pgx.Conn, error) {
+func (t testReplicationContext) NewSideChannelConnection(
+	ctx stdcontext.Context,
+) (*pgx.Conn, error) {
+
 	return nil, nil
 }
 
-func (t testReplicationContext) NewReplicationChannelConnection(ctx stdcontext.Context) (*pgconn.PgConn, error) {
+func (t testReplicationContext) NewReplicationChannelConnection(
+	ctx stdcontext.Context,
+) (*pgconn.PgConn, error) {
+
 	return nil, nil
 }
 
@@ -359,57 +383,56 @@ func (t testReplicationContext) Offset() (*statestorage.Offset, error) {
 	return nil, nil
 }
 
-func (t testReplicationContext) SetLastTransactionId(xid uint32) {
-	//TODO implement me
-	panic("implement me")
+func (t testReplicationContext) SetLastTransactionId(
+	xid uint32,
+) {
 }
 
 func (t testReplicationContext) LastTransactionId() uint32 {
-	//TODO implement me
-	panic("implement me")
+	return 0
 }
 
-func (t testReplicationContext) SetLastBeginLSN(lsn pgtypes.LSN) {
-	//TODO implement me
-	panic("implement me")
+func (t testReplicationContext) SetLastBeginLSN(
+	lsn pgtypes.LSN,
+) {
 }
 
 func (t testReplicationContext) LastBeginLSN() pgtypes.LSN {
-	//TODO implement me
-	panic("implement me")
+	return 0
 }
 
-func (t testReplicationContext) SetLastCommitLSN(lsn pgtypes.LSN) {
-	//TODO implement me
-	panic("implement me")
+func (t testReplicationContext) SetLastCommitLSN(
+	lsn pgtypes.LSN,
+) {
 }
 
 func (t testReplicationContext) LastCommitLSN() pgtypes.LSN {
-	//TODO implement me
-	panic("implement me")
+	return 0
 }
 
-func (t testReplicationContext) AcknowledgeReceived(xld pgtypes.XLogData) {
-	//TODO implement me
-	panic("implement me")
+func (t testReplicationContext) AcknowledgeReceived(
+	xld pgtypes.XLogData,
+) {
 }
 
 func (t testReplicationContext) LastReceivedLSN() pgtypes.LSN {
-	//TODO implement me
-	panic("implement me")
+	return 0
 }
 
-func (t testReplicationContext) AcknowledgeProcessed(xld pgtypes.XLogData, processedLSN *pgtypes.LSN) error {
-	//TODO implement me
-	panic("implement me")
+func (t testReplicationContext) AcknowledgeProcessed(
+	xld pgtypes.XLogData, processedLSN *pgtypes.LSN,
+) error {
+
+	return nil
 }
 
 func (t testReplicationContext) LastProcessedLSN() pgtypes.LSN {
-	//TODO implement me
-	panic("implement me")
+	return 0
 }
 
-func (t testReplicationContext) SetPositionLSNs(receivedLSN, processedLSN pgtypes.LSN) {
+func (t testReplicationContext) SetPositionLSNs(
+	receivedLSN, processedLSN pgtypes.LSN,
+) {
 }
 
 func (t testReplicationContext) InitialSnapshotMode() spiconfig.InitialSnapshotMode {
@@ -483,18 +506,23 @@ func (t testReplicationContext) HasTablePrivilege(
 	return false, err
 }
 
-func (t testReplicationContext) LoadHypertables(cb func(hypertable *systemcatalog.Hypertable) error) error {
+func (t testReplicationContext) LoadHypertables(
+	cb func(hypertable *systemcatalog.Hypertable) error,
+) error {
+
 	return nil
 }
 
-func (t testReplicationContext) LoadChunks(cb func(chunk *systemcatalog.Chunk) error) error {
+func (t testReplicationContext) LoadChunks(
+	cb func(chunk *systemcatalog.Chunk) error,
+) error {
+
 	return nil
 }
 
 func (t testReplicationContext) ReadHypertableSchema(
 	cb context.HypertableSchemaCallback,
-	pgTypeResolver func(oid uint32) (pgtypes.PgType, error),
-	hypertables ...*systemcatalog.Hypertable,
+	pgTypeResolver func(oid uint32) (pgtypes.PgType, error), hypertables ...*systemcatalog.Hypertable,
 ) error {
 
 	return nil
@@ -535,12 +563,16 @@ func (t testReplicationContext) ReadContinuousAggregate(
 	return "", "", false, nil
 }
 
-func (t testReplicationContext) ExistsReplicationSlot(slotName string) (found bool, err error) {
+func (t testReplicationContext) ExistsReplicationSlot(
+	slotName string,
+) (found bool, err error) {
+
 	return false, nil
 }
 
 func (t testReplicationContext) ReadReplicationSlot(
 	slotName string,
 ) (pluginName, slotType string, restartLsn, confirmedFlushLsn pgtypes.LSN, err error) {
+
 	return t.readReplicationSlot(slotName)
 }

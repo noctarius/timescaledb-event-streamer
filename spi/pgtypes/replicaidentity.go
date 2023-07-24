@@ -21,7 +21,10 @@ import "fmt"
 
 type ReplicaIdentity string
 
-func (ri *ReplicaIdentity) Scan(src interface{}) error {
+func (ri *ReplicaIdentity) Scan(
+	src interface{},
+) error {
+
 	if c, ok := src.(string); ok {
 		*ri = ReplicaIdentity(c)
 		return nil
@@ -54,7 +57,10 @@ func (ri ReplicaIdentity) Description() string {
 	return "Unknown REPLICA IDENTITY"
 }
 
-func AsReplicaIdentity(val string) ReplicaIdentity {
+func AsReplicaIdentity(
+	val string,
+) ReplicaIdentity {
+
 	switch val {
 	case string(NOTHING):
 		return NOTHING

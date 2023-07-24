@@ -395,8 +395,12 @@ var optimizedTypes = map[string]typeRegistration{
 var ErrIllegalValue = fmt.Errorf("illegal value for data type conversion")
 
 type TypeManager interface {
-	DataType(oid uint32) (PgType, error)
-	Converter(oid uint32) (Converter, error)
+	DataType(
+		oid uint32,
+	) (PgType, error)
+	Converter(
+		oid uint32,
+	) (Converter, error)
 	NumKnownTypes() int
 }
 
@@ -410,7 +414,10 @@ type typeManager struct {
 	optimizedConverters map[uint32]typeRegistration
 }
 
-func NewTypeManager(typeResolver TypeResolver) (TypeManager, error) {
+func NewTypeManager(
+	typeResolver TypeResolver,
+) (TypeManager, error) {
+
 	logger, err := logging.NewLogger("TypeManager")
 	if err != nil {
 		return nil, err
@@ -496,15 +503,20 @@ func (tm *typeManager) initialize() error {
 	return nil
 }
 
-func (tm *typeManager) typeFactory(namespace, name string, kind PgKind, oid uint32,
-	category PgCategory, arrayType, recordType bool, oidArray uint32, oidElement uint32,
-	oidParent uint32, modifiers int, enumValues []string, delimiter string) PgType {
+func (tm *typeManager) typeFactory(
+	namespace, name string, kind PgKind, oid uint32, category PgCategory,
+	arrayType, recordType bool, oidArray uint32, oidElement uint32,
+	oidParent uint32, modifiers int, enumValues []string, delimiter string,
+) PgType {
 
 	return newType(tm, namespace, name, kind, oid, category, arrayType, recordType,
 		oidArray, oidElement, oidParent, modifiers, enumValues, delimiter)
 }
 
-func (tm *typeManager) DataType(oid uint32) (PgType, error) {
+func (tm *typeManager) DataType(
+	oid uint32,
+) (PgType, error) {
+
 	tm.typeCacheMutex.Lock()
 	defer tm.typeCacheMutex.Unlock()
 
@@ -527,7 +539,10 @@ func (tm *typeManager) DataType(oid uint32) (PgType, error) {
 	return dataType, nil
 }
 
-func (tm *typeManager) Converter(oid uint32) (Converter, error) {
+func (tm *typeManager) Converter(
+	oid uint32,
+) (Converter, error) {
+
 	if registration, present := coreTypes[oid]; present {
 		return registration.converter, nil
 	}
@@ -543,7 +558,10 @@ func (tm *typeManager) NumKnownTypes() int {
 	return len(tm.typeCache)
 }
 
-func (tm *typeManager) OidByName(name string) uint32 {
+func (tm *typeManager) OidByName(
+	name string,
+) uint32 {
+
 	tm.typeCacheMutex.Lock()
 	defer tm.typeCacheMutex.Unlock()
 	oid, present := tm.typeNameCache[name]
@@ -553,7 +571,10 @@ func (tm *typeManager) OidByName(name string) uint32 {
 	return oid
 }
 
-func (tm *typeManager) getSchemaType(oid uint32, arrayType bool, kind PgKind) schema.Type {
+func (tm *typeManager) getSchemaType(
+	oid uint32, arrayType bool, kind PgKind,
+) schema.Type {
+
 	if registration, present := coreTypes[oid]; present {
 		return registration.schemaType
 	}
@@ -568,7 +589,10 @@ func (tm *typeManager) getSchemaType(oid uint32, arrayType bool, kind PgKind) sc
 	return schema.STRUCT
 }
 
-func (tm *typeManager) resolveSchemaBuilder(pgType *pgType) schema.Builder {
+func (tm *typeManager) resolveSchemaBuilder(
+	pgType *pgType,
+) schema.Builder {
+
 	if registration, present := tm.optimizedConverters[pgType.oid]; present {
 		if registration.schemaBuilder != nil {
 			return registration.schemaBuilder
@@ -637,7 +661,10 @@ type lazyArrayConverter struct {
 	converter   Converter
 }
 
-func (lac *lazyArrayConverter) convert(oid uint32, value any) (any, error) {
+func (lac *lazyArrayConverter) convert(
+	oid uint32, value any,
+) (any, error) {
+
 	if lac.converter == nil {
 		elementType, err := lac.typeManager.DataType(lac.oidElement)
 		if err != nil {
@@ -661,7 +688,10 @@ func (lac *lazyArrayConverter) convert(oid uint32, value any) (any, error) {
 	return lac.converter(oid, value)
 }
 
-func schemaType2ReflectiveType(schemaType schema.Type) (reflect.Type, error) {
+func schemaType2ReflectiveType(
+	schemaType schema.Type,
+) (reflect.Type, error) {
+
 	switch schemaType {
 	case schema.INT8:
 		return int8Type, nil

@@ -61,12 +61,18 @@ func (d *dummyStateStorage) Get() (map[string]*Offset, error) {
 	return d.offsets, nil
 }
 
-func (d *dummyStateStorage) Set(key string, value *Offset) error {
+func (d *dummyStateStorage) Set(
+	key string, value *Offset,
+) error {
+
 	d.offsets[key] = value
 	return nil
 }
 
-func (d *dummyStateStorage) StateEncoder(name string, encoder encoding.BinaryMarshaler) error {
+func (d *dummyStateStorage) StateEncoder(
+	name string, encoder encoding.BinaryMarshaler,
+) error {
+
 	data, err := encoder.MarshalBinary()
 	if err != nil {
 		return err
@@ -75,7 +81,10 @@ func (d *dummyStateStorage) StateEncoder(name string, encoder encoding.BinaryMar
 	return nil
 }
 
-func (d *dummyStateStorage) StateDecoder(name string, decoder encoding.BinaryUnmarshaler) (bool, error) {
+func (d *dummyStateStorage) StateDecoder(
+	name string, decoder encoding.BinaryUnmarshaler,
+) (bool, error) {
+
 	if data, present := d.encodedStates[name]; present {
 		if err := decoder.UnmarshalBinary(data); err != nil {
 			return true, errors.Wrap(err, 0)
@@ -85,11 +94,17 @@ func (d *dummyStateStorage) StateDecoder(name string, decoder encoding.BinaryUnm
 	return false, nil
 }
 
-func (d *dummyStateStorage) EncodedState(key string) (encodedState []byte, present bool) {
+func (d *dummyStateStorage) EncodedState(
+	key string,
+) (encodedState []byte, present bool) {
+
 	encodedState, present = d.encodedStates[key]
 	return
 }
 
-func (d *dummyStateStorage) SetEncodedState(key string, encodedState []byte) {
+func (d *dummyStateStorage) SetEncodedState(
+	key string, encodedState []byte,
+) {
+
 	d.encodedStates[key] = encodedState
 }

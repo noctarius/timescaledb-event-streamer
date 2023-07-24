@@ -37,11 +37,17 @@ type EventEmitterProvider = func(
 	streamManager stream.Manager, typeManager pgtypes.TypeManager,
 ) (*eventemitting.EventEmitter, error)
 
-func DefaultSideChannelProvider(replicationContext context.ReplicationContext) (context.SideChannel, error) {
+func DefaultSideChannelProvider(
+	replicationContext context.ReplicationContext,
+) (context.SideChannel, error) {
+
 	return context.NewSideChannel(replicationContext)
 }
 
-func DefaultSinkManagerProvider(config *spiconfig.Config, stateStorageManager statestorage.Manager) (sink.Manager, error) {
+func DefaultSinkManagerProvider(
+	config *spiconfig.Config, stateStorageManager statestorage.Manager,
+) (sink.Manager, error) {
+
 	name := spiconfig.GetOrDefault(config, spiconfig.PropertySink, spiconfig.Stdout)
 	s, err := sink.NewSink(name, config)
 	if err != nil {
@@ -50,7 +56,10 @@ func DefaultSinkManagerProvider(config *spiconfig.Config, stateStorageManager st
 	return sink.NewSinkManager(stateStorageManager, s), nil
 }
 
-func DefaultNamingStrategyProvider(config *spiconfig.Config) (namingstrategy.NamingStrategy, error) {
+func DefaultNamingStrategyProvider(
+	config *spiconfig.Config,
+) (namingstrategy.NamingStrategy, error) {
+
 	name := spiconfig.GetOrDefault(config, spiconfig.PropertyNamingStrategy, spiconfig.Debezium)
 	return namingstrategy.NewNamingStrategy(name, config)
 }
@@ -68,7 +77,10 @@ func DefaultEventEmitterProvider(
 	return eventemitting.NewEventEmitter(replicationContext, streamManager, typeManager, filters)
 }
 
-func DefaultStateStorageManagerProvider(config *spiconfig.Config) (statestorage.Manager, error) {
+func DefaultStateStorageManagerProvider(
+	config *spiconfig.Config,
+) (statestorage.Manager, error) {
+
 	name := spiconfig.GetOrDefault(config, spiconfig.PropertyStateStorageType, spiconfig.NoneStorage)
 	s, err := statestorage.NewStateStorage(name, config)
 	if err != nil {
@@ -78,8 +90,7 @@ func DefaultStateStorageManagerProvider(config *spiconfig.Config) (statestorage.
 }
 func DefaultReplicationContextProvider(
 	config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
-	stateStorageManager statestorage.Manager,
-	sideChannelProvider context.SideChannelProvider,
+	stateStorageManager statestorage.Manager, sideChannelProvider context.SideChannelProvider,
 ) (context.ReplicationContext, error) {
 
 	return context.NewReplicationContext(config, pgxConfig, stateStorageManager, sideChannelProvider)

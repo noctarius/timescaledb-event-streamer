@@ -18,8 +18,12 @@ type Provider = func(
 type Manager interface {
 	Start() error
 	Stop() error
-	GetStream(table schema.TableAlike) (stream Stream, present bool)
-	GetOrCreateStream(table schema.TableAlike) Stream
+	GetStream(
+		table schema.TableAlike,
+	) (stream Stream, present bool)
+	GetOrCreateStream(
+		table schema.TableAlike,
+	) Stream
 }
 
 type streamManager struct {
@@ -34,6 +38,7 @@ type streamManager struct {
 func NewStreamManager(
 	nameGenerator schema.NameGenerator, typeManager pgtypes.TypeManager, sinkManager sink.Manager,
 ) (Manager, error) {
+
 	return &streamManager{
 		nameGenerator: nameGenerator,
 		typeManager:   typeManager,
@@ -52,13 +57,19 @@ func (s *streamManager) Stop() error {
 	return s.sinkManager.Stop()
 }
 
-func (s *streamManager) GetStream(table schema.TableAlike) (stream Stream, present bool) {
+func (s *streamManager) GetStream(
+	table schema.TableAlike,
+) (stream Stream, present bool) {
+
 	s.streamsMutex.Lock()
 	defer s.streamsMutex.Unlock()
 	return s.getStream(table)
 }
 
-func (s *streamManager) GetOrCreateStream(table schema.TableAlike) Stream {
+func (s *streamManager) GetOrCreateStream(
+	table schema.TableAlike,
+) Stream {
+
 	s.streamsMutex.Lock()
 	defer s.streamsMutex.Unlock()
 	stream, present := s.getStream(table)
@@ -68,7 +79,10 @@ func (s *streamManager) GetOrCreateStream(table schema.TableAlike) Stream {
 	return s.createStream(table)
 }
 
-func (s *streamManager) getStream(table schema.TableAlike) (stream Stream, present bool) {
+func (s *streamManager) getStream(
+	table schema.TableAlike,
+) (stream Stream, present bool) {
+
 	streamName := messageStreamName
 	if table != nil {
 		streamName = table.CanonicalName()
@@ -77,7 +91,10 @@ func (s *streamManager) getStream(table schema.TableAlike) (stream Stream, prese
 	return stream, present
 }
 
-func (s *streamManager) createStream(table schema.TableAlike) Stream {
+func (s *streamManager) createStream(
+	table schema.TableAlike,
+) Stream {
+
 	stream := Stream(nil)
 	streamName := messageStreamName
 	if table == nil {

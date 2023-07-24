@@ -22,7 +22,10 @@ import (
 	"testing"
 )
 
-func TestDebeziumNamingStrategy_EventTopicName(t *testing.T) {
+func TestDebeziumNamingStrategy_EventTopicName(
+	t *testing.T,
+) {
+
 	topicPrefix := "foobar"
 
 	strategy := debeziumNamingStrategy{}
@@ -30,7 +33,10 @@ func TestDebeziumNamingStrategy_EventTopicName(t *testing.T) {
 	assert.Equal(t, "foobar.schema.hypertable", topicName)
 }
 
-func TestDebeziumNamingStrategy_SchemaTopicName(t *testing.T) {
+func TestDebeziumNamingStrategy_SchemaTopicName(
+	t *testing.T,
+) {
+
 	topicPrefix := "foobar"
 
 	strategy := debeziumNamingStrategy{}

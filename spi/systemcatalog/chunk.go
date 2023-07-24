@@ -32,8 +32,9 @@ type Chunk struct {
 	compressed        bool
 }
 
-func NewChunk(id, hypertableId int32, schemaName, tableName string, dropped bool,
-	status int32, compressedChunkId *int32) *Chunk {
+func NewChunk(
+	id, hypertableId int32, schemaName, tableName string, dropped bool, status int32, compressedChunkId *int32,
+) *Chunk {
 
 	return &Chunk{
 		baseSystemEntity: &baseSystemEntity{
@@ -95,8 +96,9 @@ func (c *Chunk) String() string {
 	return builder.String()
 }
 
-func (c *Chunk) ApplyChanges(schemaName, tableName string, dropped bool,
-	status int32, compressedChunkId *int32) (*Chunk, map[string]string) {
+func (c *Chunk) ApplyChanges(
+	schemaName, tableName string, dropped bool, status int32, compressedChunkId *int32,
+) (*Chunk, map[string]string) {
 
 	c2 := &Chunk{
 		baseSystemEntity: &baseSystemEntity{
@@ -112,7 +114,10 @@ func (c *Chunk) ApplyChanges(schemaName, tableName string, dropped bool,
 	return c2, c.differences(c2)
 }
 
-func (c *Chunk) differences(new *Chunk) map[string]string {
+func (c *Chunk) differences(
+	new *Chunk,
+) map[string]string {
+
 	differences := make(map[string]string, 0)
 	if c.id != new.id {
 		differences["id"] = fmt.Sprintf("%d=>%d", c.id, new.id)

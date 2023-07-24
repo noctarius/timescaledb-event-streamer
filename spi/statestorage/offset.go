@@ -32,7 +32,10 @@ type Offset struct {
 	LSN            pgtypes.LSN `json:"lsn"`
 }
 
-func (o *Offset) UnmarshalBinary(data []byte) error {
+func (o *Offset) UnmarshalBinary(
+	data []byte,
+) error {
+
 	o.Timestamp = time.Unix(0, int64(binary.BigEndian.Uint64(data[:8]))).In(time.UTC)
 	o.Snapshot = data[8] == 1
 	o.SnapshotOffset = int(binary.BigEndian.Uint32(data[9:]))
@@ -69,7 +72,10 @@ func (o *Offset) MarshalBinary() ([]byte, error) {
 	return data, nil
 }
 
-func (o *Offset) Equal(other *Offset) bool {
+func (o *Offset) Equal(
+	other *Offset,
+) bool {
+
 	if !o.Timestamp.Equal(other.Timestamp) {
 		return false
 	}

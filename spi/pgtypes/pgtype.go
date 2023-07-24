@@ -64,7 +64,9 @@ type PgType interface {
 	SchemaType() schema.Type
 	SchemaBuilder() schema.Builder
 	Format() string
-	Equal(other PgType) bool
+	Equal(
+		other PgType,
+	) bool
 }
 
 type pgType struct {
@@ -90,9 +92,11 @@ type pgType struct {
 	resolvedParentType  PgType
 }
 
-func newType(typeManager *typeManager, namespace, name string, kind PgKind, oid uint32,
+func newType(
+	typeManager *typeManager, namespace, name string, kind PgKind, oid uint32,
 	category PgCategory, arrayType, recordType bool, oidArray, oidElement, oidParent uint32,
-	modifiers int, enumValues []string, delimiter string) PgType {
+	modifiers int, enumValues []string, delimiter string,
+) PgType {
 
 	t := &pgType{
 		namespace:   namespace,
@@ -228,7 +232,10 @@ func (t *pgType) Format() string {
 	return t.Name()
 }
 
-func (t *pgType) Equal(other PgType) bool {
+func (t *pgType) Equal(
+	other PgType,
+) bool {
+
 	return t.namespace == other.Namespace() &&
 		t.name == other.Name() &&
 		t.kind == other.Kind() &&

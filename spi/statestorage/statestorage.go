@@ -38,9 +38,19 @@ type Storage interface {
 	Save() error
 	Load() error
 	Get() (map[string]*Offset, error)
-	Set(key string, value *Offset) error
-	StateEncoder(name string, encoder encoding.BinaryMarshaler) error
-	StateDecoder(name string, decoder encoding.BinaryUnmarshaler) (present bool, err error)
-	EncodedState(name string) (encodedState []byte, present bool)
-	SetEncodedState(name string, encodedState []byte)
+	Set(
+		key string, value *Offset,
+	) error
+	StateEncoder(
+		name string, encoder encoding.BinaryMarshaler,
+	) error
+	StateDecoder(
+		name string, decoder encoding.BinaryUnmarshaler,
+	) (present bool, err error)
+	EncodedState(
+		name string,
+	) (encodedState []byte, present bool)
+	SetEncodedState(
+		name string, encodedState []byte,
+	)
 }

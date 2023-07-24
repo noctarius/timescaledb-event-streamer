@@ -20,29 +20,51 @@ const (
 
 type Builder interface {
 	SchemaType() Type
-	FieldName(fieldName string) Builder
+	FieldName(
+		fieldName string,
+	) Builder
 	GetFieldName() string
-	SchemaName(schemaName string) Builder
+	SchemaName(
+		schemaName string,
+	) Builder
 	GetSchemaName() string
 	Optional() Builder
 	Required() Builder
-	SetOptional(optional bool) Builder
+	SetOptional(
+		optional bool,
+	) Builder
 	IsOptional() bool
-	DefaultValue(defaultValue *string) Builder
+	DefaultValue(
+		defaultValue *string,
+	) Builder
 	GetDefaultValue() *string
-	Version(version int) Builder
+	Version(
+		version int,
+	) Builder
 	GetVersion() int
-	Index(index int) Builder
+	Index(
+		index int,
+	) Builder
 	GetIndex() int
-	Documentation(documentation *string) Builder
+	Documentation(
+		documentation *string,
+	) Builder
 	GetDocumentation() *string
-	Parameter(key string, value any) Builder
+	Parameter(
+		key string, value any,
+	) Builder
 	Parameters() map[string]any
-	Field(name FieldName, index int, schemaBuilder Builder) Builder
+	Field(
+		name FieldName, index int, schemaBuilder Builder,
+	) Builder
 	Fields() map[string]Field
-	KeySchema(builder Builder) Builder
+	KeySchema(
+		builder Builder,
+	) Builder
 	GetKeySchema() Builder
-	ValueSchema(builder Builder) Builder
+	ValueSchema(
+		builder Builder,
+	) Builder
 	GetValueSchema() Builder
 	Clone() Builder
 	Build() Struct
@@ -90,14 +112,20 @@ func Bytes() Builder {
 	return NewSchemaBuilder(BYTES)
 }
 
-func Enum(enumValues []string) Builder {
+func Enum(
+	enumValues []string,
+) Builder {
+
 	return String().
 		SchemaName(EnumSchemaName).
 		Version(1).
 		Parameter(FieldNameAllowed, enumValues)
 }
 
-func Bits(length int) Builder {
+func Bits(
+	length int,
+) Builder {
+
 	return String().
 		SchemaName(BitsSchemaName).
 		Parameter(FieldNameLength, strconv.FormatInt(int64(length), 10)).
@@ -162,7 +190,10 @@ type schemaBuilderImpl struct {
 	valueSchemaBuilder Builder
 }
 
-func NewSchemaBuilder(schemaType Type) Builder {
+func NewSchemaBuilder(
+	schemaType Type,
+) Builder {
+
 	return &schemaBuilderImpl{
 		schemaType: schemaType,
 		index:      -1,
@@ -173,7 +204,10 @@ func (s *schemaBuilderImpl) SchemaType() Type {
 	return s.schemaType
 }
 
-func (s *schemaBuilderImpl) FieldName(fieldName string) Builder {
+func (s *schemaBuilderImpl) FieldName(
+	fieldName string,
+) Builder {
+
 	s.fieldName = fieldName
 	return s
 }
@@ -182,7 +216,10 @@ func (s *schemaBuilderImpl) GetFieldName() string {
 	return s.fieldName
 }
 
-func (s *schemaBuilderImpl) SchemaName(schemaName string) Builder {
+func (s *schemaBuilderImpl) SchemaName(
+	schemaName string,
+) Builder {
+
 	s.schemaName = schemaName
 	return s
 }
@@ -196,7 +233,10 @@ func (s *schemaBuilderImpl) Optional() Builder {
 	return s
 }
 
-func (s *schemaBuilderImpl) SetOptional(optional bool) Builder {
+func (s *schemaBuilderImpl) SetOptional(
+	optional bool,
+) Builder {
+
 	s.optional = optional
 	return s
 }
@@ -210,7 +250,10 @@ func (s *schemaBuilderImpl) IsOptional() bool {
 	return s.optional
 }
 
-func (s *schemaBuilderImpl) DefaultValue(defaultValue *string) Builder {
+func (s *schemaBuilderImpl) DefaultValue(
+	defaultValue *string,
+) Builder {
+
 	s.defaultValue = defaultValue
 	return s
 }
@@ -219,7 +262,10 @@ func (s *schemaBuilderImpl) GetDefaultValue() *string {
 	return s.defaultValue
 }
 
-func (s *schemaBuilderImpl) Version(version int) Builder {
+func (s *schemaBuilderImpl) Version(
+	version int,
+) Builder {
+
 	s.version = version
 	return s
 }
@@ -228,7 +274,10 @@ func (s *schemaBuilderImpl) GetVersion() int {
 	return s.version
 }
 
-func (s *schemaBuilderImpl) Index(index int) Builder {
+func (s *schemaBuilderImpl) Index(
+	index int,
+) Builder {
+
 	s.index = index
 	return s
 }
@@ -237,7 +286,10 @@ func (s *schemaBuilderImpl) GetIndex() int {
 	return s.index
 }
 
-func (s *schemaBuilderImpl) Documentation(documentation *string) Builder {
+func (s *schemaBuilderImpl) Documentation(
+	documentation *string,
+) Builder {
+
 	s.documentation = documentation
 	return s
 }
@@ -246,7 +298,10 @@ func (s *schemaBuilderImpl) GetDocumentation() *string {
 	return s.documentation
 }
 
-func (s *schemaBuilderImpl) Parameter(key string, value any) Builder {
+func (s *schemaBuilderImpl) Parameter(
+	key string, value any,
+) Builder {
+
 	if s.parameters == nil {
 		s.parameters = make(map[string]any)
 	}
@@ -258,7 +313,10 @@ func (s *schemaBuilderImpl) Parameters() map[string]any {
 	return s.parameters
 }
 
-func (s *schemaBuilderImpl) Field(name FieldName, index int, schemaBuilder Builder) Builder {
+func (s *schemaBuilderImpl) Field(
+	name FieldName, index int, schemaBuilder Builder,
+) Builder {
+
 	if s.fields == nil {
 		s.fields = make(map[string]Field)
 	}
@@ -274,7 +332,10 @@ func (s *schemaBuilderImpl) Fields() map[string]Field {
 	return s.fields
 }
 
-func (s *schemaBuilderImpl) KeySchema(builder Builder) Builder {
+func (s *schemaBuilderImpl) KeySchema(
+	builder Builder,
+) Builder {
+
 	s.keySchemaBuilder = builder
 	return s
 }
@@ -283,7 +344,10 @@ func (s *schemaBuilderImpl) GetKeySchema() Builder {
 	return s.keySchemaBuilder
 }
 
-func (s *schemaBuilderImpl) ValueSchema(builder Builder) Builder {
+func (s *schemaBuilderImpl) ValueSchema(
+	builder Builder,
+) Builder {
+
 	s.valueSchemaBuilder = builder
 	return s
 }

@@ -24,12 +24,18 @@ var timestampAsTextFormat = "2006-01-02T15:04:05.999999"
 
 type rangeValueTransformer = func(value any) (string, error)
 
-func arrayConverter[T any](oidElement uint32, elementConverter Converter) Converter {
+func arrayConverter[T any](
+	oidElement uint32, elementConverter Converter,
+) Converter {
+
 	targetType := reflect.TypeOf(*new(T))
 	return reflectiveArrayConverter(oidElement, targetType, elementConverter)
 }
 
-func reflectiveArrayConverter(oidElement uint32, targetType reflect.Type, elementConverter Converter) Converter {
+func reflectiveArrayConverter(
+	oidElement uint32, targetType reflect.Type, elementConverter Converter,
+) Converter {
+
 	if targetType.Kind() != reflect.Array && targetType.Kind() != reflect.Slice {
 		panic(fmt.Sprintf("arrayConverter needs array / slice type but got %s", targetType.String()))
 	}
@@ -64,7 +70,10 @@ func reflectiveArrayConverter(oidElement uint32, targetType reflect.Type, elemen
 	}
 }
 
-func float42float(_ uint32, value any) (any, error) {
+func float42float(
+	_ uint32, value any,
+) (any, error) {
+
 	switch v := value.(type) {
 	case pgtype.Float4:
 		return v.Float32, nil
@@ -76,7 +85,10 @@ func float42float(_ uint32, value any) (any, error) {
 	return nil, ErrIllegalValue
 }
 
-func float82float(_ uint32, value any) (any, error) {
+func float82float(
+	_ uint32, value any,
+) (any, error) {
+
 	switch v := value.(type) {
 	case pgtype.Float8:
 		return v.Float64, nil
@@ -88,7 +100,10 @@ func float82float(_ uint32, value any) (any, error) {
 	return nil, ErrIllegalValue
 }
 
-func date2int32(_ uint32, value any) (any, error) {
+func date2int32(
+	_ uint32, value any,
+) (any, error) {
+
 	if v, ok := value.(pgtype.Date); ok {
 		value = v.Time
 	}
@@ -98,14 +113,20 @@ func date2int32(_ uint32, value any) (any, error) {
 	return nil, ErrIllegalValue
 }
 
-func char2text(_ uint32, value any) (any, error) {
+func char2text(
+	_ uint32, value any,
+) (any, error) {
+
 	if v, ok := value.(int32); ok {
 		return fmt.Sprintf("%c", v), nil
 	}
 	return nil, ErrIllegalValue
 }
 
-func timestamp2text(oid uint32, value any) (any, error) {
+func timestamp2text(
+	oid uint32, value any,
+) (any, error) {
+
 	if v, ok := value.(time.Time); ok {
 		switch oid {
 		case pgtype.DateOID:
@@ -119,7 +140,10 @@ func timestamp2text(oid uint32, value any) (any, error) {
 	return nil, ErrIllegalValue
 }
 
-func time2text(_ uint32, value any) (any, error) {
+func time2text(
+	_ uint32, value any,
+) (any, error) {
+
 	var micros int64
 	if v, ok := value.(pgtype.Time); ok {
 		micros = v.Microseconds
@@ -142,14 +166,20 @@ func time2text(_ uint32, value any) (any, error) {
 	), nil
 }
 
-func timestamp2int64(_ uint32, value any) (any, error) {
+func timestamp2int64(
+	_ uint32, value any,
+) (any, error) {
+
 	if v, ok := value.(time.Time); ok {
 		return v.UnixMilli(), nil
 	}
 	return nil, ErrIllegalValue
 }
 
-func bits2string(_ uint32, value any) (any, error) {
+func bits2string(
+	_ uint32, value any,
+) (any, error) {
+
 	if v, ok := value.(pgtype.Bits); ok {
 		if !v.Valid {
 			return nil, nil
@@ -171,7 +201,10 @@ func bits2string(_ uint32, value any) (any, error) {
 	return nil, ErrIllegalValue
 }
 
-func json2text(_ uint32, value any) (any, error) {
+func json2text(
+	_ uint32, value any,
+) (any, error) {
+
 	if v, ok := value.(map[string]any); ok {
 		d, err := json.Marshal(v)
 		if err != nil {
@@ -182,7 +215,10 @@ func json2text(_ uint32, value any) (any, error) {
 	return nil, ErrIllegalValue
 }
 
-func uuid2text(_ uint32, value any) (any, error) {
+func uuid2text(
+	_ uint32, value any,
+) (any, error) {
+
 	if v, ok := value.(pgtype.UUID); ok {
 		u, err := uuid.FormatUUID(v.Bytes[:])
 		if err != nil {
@@ -199,28 +235,40 @@ func uuid2text(_ uint32, value any) (any, error) {
 	return nil, ErrIllegalValue
 }
 
-func uint322int64(_ uint32, value any) (any, error) {
+func uint322int64(
+	_ uint32, value any,
+) (any, error) {
+
 	if v, ok := value.(uint32); ok {
 		return int64(v), nil
 	}
 	return nil, ErrIllegalValue
 }
 
-func macaddr2text(_ uint32, value any) (any, error) {
+func macaddr2text(
+	_ uint32, value any,
+) (any, error) {
+
 	if v, ok := value.(net.HardwareAddr); ok {
 		return strings.ToLower(v.String()), nil
 	}
 	return nil, ErrIllegalValue
 }
 
-func addr2text(_ uint32, value any) (any, error) {
+func addr2text(
+	_ uint32, value any,
+) (any, error) {
+
 	if v, ok := value.(netip.Prefix); ok {
 		return v.String(), nil
 	}
 	return nil, ErrIllegalValue
 }
 
-func interval2int64(_ uint32, value any) (any, error) {
+func interval2int64(
+	_ uint32, value any,
+) (any, error) {
+
 	if v, ok := value.(pgtype.Interval); ok {
 		return v.Microseconds +
 			(int64(v.Days) * microsPerDay) +
@@ -229,7 +277,10 @@ func interval2int64(_ uint32, value any) (any, error) {
 	return nil, ErrIllegalValue
 }
 
-func numeric2float64(_ uint32, value any) (any, error) {
+func numeric2float64(
+	_ uint32, value any,
+) (any, error) {
+
 	if v, ok := value.(pgtype.Numeric); ok {
 		f, err := v.Float64Value()
 		if err != nil {
@@ -240,14 +291,20 @@ func numeric2float64(_ uint32, value any) (any, error) {
 	return nil, ErrIllegalValue
 }
 
-func bytes2hexstring(_ uint32, value any) (any, error) {
+func bytes2hexstring(
+	_ uint32, value any,
+) (any, error) {
+
 	if v, ok := value.([]byte); ok {
 		return hex.EncodeToString(v), nil
 	}
 	return nil, ErrIllegalValue
 }
 
-func ltree2string(_ uint32, value any) (any, error) {
+func ltree2string(
+	_ uint32, value any,
+) (any, error) {
+
 	if v, ok := value.(Ltree); ok {
 		if !v.Valid {
 			return nil, nil
@@ -257,7 +314,10 @@ func ltree2string(_ uint32, value any) (any, error) {
 	return nil, ErrIllegalValue
 }
 
-func numrange2string(_ uint32, value any) (any, error) {
+func numrange2string(
+	_ uint32, value any,
+) (any, error) {
+
 	return range2string(value, func(value any) (string, error) {
 		switch v := value.(type) {
 		case float64:
@@ -276,13 +336,19 @@ func numrange2string(_ uint32, value any) (any, error) {
 	})
 }
 
-func intrange2string(_ uint32, value any) (any, error) {
+func intrange2string(
+	_ uint32, value any,
+) (any, error) {
+
 	return range2string(value, func(value any) (string, error) {
 		return fmt.Sprintf("%d", value), nil
 	})
 }
 
-func timestamprange2string(oid uint32, value any) (any, error) {
+func timestamprange2string(
+	oid uint32, value any,
+) (any, error) {
+
 	return range2string(value, func(value any) (string, error) {
 		if oid == pgtype.TstzrangeOID {
 			oid = pgtype.TimestamptzOID
@@ -299,7 +365,10 @@ func timestamprange2string(oid uint32, value any) (any, error) {
 	})
 }
 
-func range2string(value any, transformer rangeValueTransformer) (any, error) {
+func range2string(
+	value any, transformer rangeValueTransformer,
+) (any, error) {
+
 	if v, ok := value.(pgtype.Range[any]); ok {
 		lowerBound := "("
 		if v.LowerType == pgtype.Inclusive {

@@ -14,21 +14,35 @@ type Manager interface {
 	Start() error
 	Stop() error
 	Get() (map[string]*Offset, error)
-	Set(key string, value *Offset) error
-	StateEncoder(name string, encoder encoding.BinaryMarshaler) error
-	StateDecoder(name string, decoder encoding.BinaryUnmarshaler) (present bool, err error)
-	SetEncodedState(name string, encodedState []byte)
-	EncodedState(name string) (encodedState []byte, present bool)
+	Set(
+		key string, value *Offset,
+	) error
+	StateEncoder(
+		name string, encoder encoding.BinaryMarshaler,
+	) error
+	StateDecoder(
+		name string, decoder encoding.BinaryUnmarshaler,
+	) (present bool, err error)
+	SetEncodedState(
+		name string, encodedState []byte,
+	)
+	EncodedState(
+		name string,
+	) (encodedState []byte, present bool)
 	SnapshotContext() (*watermark.SnapshotContext, error)
-	SnapshotContextTransaction(snapshotName string, createIfNotExists bool,
-		transaction func(snapshotContext *watermark.SnapshotContext) error) error
+	SnapshotContextTransaction(
+		snapshotName string, createIfNotExists bool, transaction func(snapshotContext *watermark.SnapshotContext) error,
+	) error
 }
 
 type stateManager struct {
 	stateStorage Storage
 }
 
-func NewStateStorageManager(stateStorage Storage) Manager {
+func NewStateStorageManager(
+	stateStorage Storage,
+) Manager {
+
 	return &stateManager{
 		stateStorage: stateStorage,
 	}
@@ -46,23 +60,38 @@ func (sm *stateManager) Get() (map[string]*Offset, error) {
 	return sm.stateStorage.Get()
 }
 
-func (sm *stateManager) Set(key string, value *Offset) error {
+func (sm *stateManager) Set(
+	key string, value *Offset,
+) error {
+
 	return sm.stateStorage.Set(key, value)
 }
 
-func (sm *stateManager) StateEncoder(name string, encoder encoding.BinaryMarshaler) error {
+func (sm *stateManager) StateEncoder(
+	name string, encoder encoding.BinaryMarshaler,
+) error {
+
 	return sm.stateStorage.StateEncoder(name, encoder)
 }
 
-func (sm *stateManager) StateDecoder(name string, decoder encoding.BinaryUnmarshaler) (present bool, err error) {
+func (sm *stateManager) StateDecoder(
+	name string, decoder encoding.BinaryUnmarshaler,
+) (present bool, err error) {
+
 	return sm.stateStorage.StateDecoder(name, decoder)
 }
 
-func (sm *stateManager) SetEncodedState(name string, encodedState []byte) {
+func (sm *stateManager) SetEncodedState(
+	name string, encodedState []byte,
+) {
+
 	sm.stateStorage.SetEncodedState(name, encodedState)
 }
 
-func (sm *stateManager) EncodedState(name string) (encodedState []byte, present bool) {
+func (sm *stateManager) EncodedState(
+	name string,
+) (encodedState []byte, present bool) {
+
 	return sm.stateStorage.EncodedState(name)
 }
 
@@ -78,8 +107,9 @@ func (sm *stateManager) SnapshotContext() (*watermark.SnapshotContext, error) {
 	return snapshotContext, nil
 }
 
-func (sm *stateManager) SnapshotContextTransaction(snapshotName string,
-	createIfNotExists bool, transaction func(snapshotContext *watermark.SnapshotContext) error) error {
+func (sm *stateManager) SnapshotContextTransaction(
+	snapshotName string, createIfNotExists bool, transaction func(snapshotContext *watermark.SnapshotContext) error,
+) error {
 
 	retrieval := func() (*watermark.SnapshotContext, error) {
 		return sm.SnapshotContext()
@@ -110,12 +140,16 @@ func (sm *stateManager) SnapshotContextTransaction(snapshotName string,
 	return nil
 }
 
-func (sm *stateManager) setSnapshotContext(snapshotContext *watermark.SnapshotContext) error {
+func (sm *stateManager) setSnapshotContext(
+	snapshotContext *watermark.SnapshotContext,
+) error {
+
 	return sm.StateEncoder(stateContextName, snapshotContext)
 }
 
 func (sm *stateManager) getOrCreateSnapshotContext(
-	snapshotName string) (*watermark.SnapshotContext, error) {
+	snapshotName string,
+) (*watermark.SnapshotContext, error) {
 
 	snapshotContext, err := sm.SnapshotContext()
 	if err != nil {
