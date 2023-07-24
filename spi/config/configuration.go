@@ -72,7 +72,6 @@ type PostgreSQLConfig struct {
 	ReplicationSlot ReplicationSlotConfig `toml:"replicationslot" yaml:"replicationSlot"`
 	Transaction     TransactionConfig     `toml:"transaction" yaml:"transaction"`
 	Snapshot        SnapshotConfig        `toml:"snapshot" yaml:"snapshot"`
-	Internal        InternalConfig        `toml:"internal" yaml:"internal"`
 }
 
 type InternalConfig struct {
@@ -161,7 +160,7 @@ type NatsConfig struct {
 }
 
 type KafkaSaslConfig struct {
-	Enabled   bool                 `toml:"user" yaml:"enabled"`
+	Enabled   bool                 `toml:"enabled" yaml:"enabled"`
 	User      string               `toml:"user" yaml:"user"`
 	Password  string               `toml:"password" yaml:"password"`
 	Mechanism sarama.SASLMechanism `toml:"mechanism" yaml:"mechanism"`
@@ -265,6 +264,7 @@ type Config struct {
 	TimescaleDB  TimescaleDBConfig  `toml:"timescaledb" yaml:"timescaledb"`
 	Logging      LoggerConfig       `toml:"logging" yaml:"logging"`
 	StateStorage StateStorageConfig `toml:"statestorage" yaml:"stateStorage"`
+	Internal     InternalConfig     `toml:"internal" yaml:"internal"`
 	Plugins      []string           `toml:"plugins" yaml:"plugins"`
 }
 

@@ -23,6 +23,7 @@ import (
 	"os"
 	"reflect"
 	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -325,4 +326,35 @@ postgresql.transaction.window.maxsize = 100000`
 	assert.Equal(t, true, *config.PostgreSQL.Transaction.Window.Enabled)
 	assert.Equal(t, 60, config.PostgreSQL.Transaction.Window.Timeout)
 	assert.Equal(t, uint(100000), config.PostgreSQL.Transaction.Window.MaxSize)
+}
+
+func Test_Config_Tags_Match_Between_Yaml_Toml(t *testing.T) {
+	configValue := reflect.ValueOf(Config{})
+
+	var recursiveCheck func(value reflect.Value, path string)
+	recursiveCheck = func(value reflect.Value, path string) {
+		numOfFields := value.NumField()
+		for i := 0; i < numOfFields; i++ {
+			fieldType := value.Type().Field(i)
+
+			toml := fieldType.Tag.Get("toml")
+			yaml := fieldType.Tag.Get("yaml")
+
+			fieldPath := toml
+			if len(path) > 0 {
+				fieldPath = path + "." + fieldPath
+			}
+
+			if strings.ToLower(yaml) != toml {
+				t.Errorf("Yaml and Toml tags aren't matching at path %s: %s != %s", fieldPath, yaml, toml)
+			}
+
+			fieldValue := value.Field(i)
+			if fieldValue.Kind() == reflect.Struct {
+				recursiveCheck(fieldValue, fieldPath)
+			}
+		}
+	}
+
+	recursiveCheck(configValue, "")
 }
