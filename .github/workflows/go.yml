@@ -45,7 +45,7 @@ jobs:
 
     - name: License Check
       run: |
-        go install github.com/uw-labs/lichen@latest
+        go install github.com/uw-labs/lichen@v0.1.7
         make license-check
 
   test:

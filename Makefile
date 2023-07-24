@@ -9,6 +9,10 @@ docker:
 license-check: build
 	lichen --config=.lichen.yaml dist/timescaledb-event-streamer
 
+.PHONY: license-header-check
+license-header-check:
+	license-header-checker -v .license.header.txt . go
+
 .PHONY: build-local
 build-local:
 	@echo Building MacOS amd64...
