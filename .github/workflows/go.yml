@@ -43,6 +43,11 @@ jobs:
     - name: Build
       run: make build
 
+    - name: License Check
+      run: |
+        go install github.com/uw-labs/lichen@latest
+        make license-check
+
   test:
     strategy:
       fail-fast: false

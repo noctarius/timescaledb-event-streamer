@@ -1,0 +1,9 @@
+allow:
+  - "MIT"
+  - "Apache-2.0"
+  - "BSD-3-Clause"
+  - "BSD-2-Clause"
+  - "MPL-2.0"
+  - "ISC"
+  - "PostgreSQL"
+  - "BSD-2-Clause-FreeBSD"

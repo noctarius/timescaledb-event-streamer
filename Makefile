@@ -5,6 +5,10 @@ GIT_BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD)
 docker:
 	docker build .
 
+.PHONY: license-check
+license-check: build
+	lichen --config=.lichen.yaml dist/timescaledb-event-streamer
+
 .PHONY: build-local
 build-local:
 	@echo Building MacOS amd64...
