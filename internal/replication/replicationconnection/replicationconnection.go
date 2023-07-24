@@ -15,17 +15,18 @@
  * limitations under the License.
  */
 
-package context
+package replicationconnection
 
 import (
-	"context"
+	stdcontext "context"
 	"fmt"
 	"github.com/go-errors/errors"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pglogrepl"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgproto3"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
+	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
+	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"time"
 )
@@ -34,14 +35,14 @@ const outputPlugin = "pgoutput"
 
 type ReplicationConnection struct {
 	logger             *logging.Logger
-	replicationContext *replicationContext
+	replicationContext context.ReplicationContext
 
 	conn                   *pgconn.PgConn
 	identification         pglogrepl.IdentifySystemResult
 	replicationSlotCreated bool
 }
 
-func newReplicationConnection(replicationContext *replicationContext) (*ReplicationConnection, error) {
+func NewReplicationConnection(replicationContext context.ReplicationContext) (*ReplicationConnection, error) {
 	logger, err := logging.NewLogger("ReplicationConnection")
 	if err != nil {
 		return nil, err
@@ -69,7 +70,7 @@ func newReplicationConnection(replicationContext *replicationContext) (*Replicat
 }
 
 func (rc *ReplicationConnection) ReceiveMessage(deadline time.Time) (pgproto3.BackendMessage, error) {
-	ctx, cancel := context.WithDeadline(context.Background(), deadline)
+	ctx, cancel := stdcontext.WithDeadline(stdcontext.Background(), deadline)
 	defer cancel()
 
 	msg, err := rc.conn.ReceiveMessage(ctx)
@@ -83,8 +84,8 @@ func (rc *ReplicationConnection) ReceiveMessage(deadline time.Time) (pgproto3.Ba
 }
 
 func (rc *ReplicationConnection) SendStatusUpdate() error {
-	/*receivedLSN*/ _, processedLSN := rc.replicationContext.positionLSNs()
-	if err := pglogrepl.SendStandbyStatusUpdate(context.Background(), rc.conn,
+	processedLSN := rc.replicationContext.LastProcessedLSN()
+	if err := pglogrepl.SendStandbyStatusUpdate(stdcontext.Background(), rc.conn,
 		pglogrepl.StandbyStatusUpdate{
 			WALWritePosition: pglogrepl.LSN(processedLSN) + 1,
 			WALApplyPosition: pglogrepl.LSN(processedLSN) + 1,
@@ -96,16 +97,16 @@ func (rc *ReplicationConnection) SendStatusUpdate() error {
 }
 
 func (rc *ReplicationConnection) StartReplication(pluginArguments []string) (pgtypes.LSN, error) {
-	restartLSN, err := rc.locateRestartLSN(rc.replicationContext.sideChannel.ReadReplicationSlot)
+	restartLSN, err := rc.locateRestartLSN()
 	if err != nil {
 		return 0, errors.Wrap(err, 0)
 	}
 
 	// Configure initial LSN in case there isn't anything immediate to handle
 	// we don't want to send LSN 0 to the server
-	rc.replicationContext.setPositionLSNs(restartLSN, restartLSN)
+	rc.replicationContext.SetPositionLSNs(restartLSN, restartLSN)
 
-	if err := pglogrepl.StartReplication(context.Background(), rc.conn,
+	if err := pglogrepl.StartReplication(stdcontext.Background(), rc.conn,
 		rc.replicationContext.ReplicationSlotName(), pglogrepl.LSN(restartLSN),
 		pglogrepl.StartReplicationOptions{
 			PluginArgs: pluginArguments,
@@ -115,7 +116,7 @@ func (rc *ReplicationConnection) StartReplication(pluginArguments []string) (pgt
 			return 0, errors.Wrap(err, 0)
 		}
 
-		return restartLSN, pglogrepl.StartReplication(context.Background(), rc.conn,
+		return restartLSN, pglogrepl.StartReplication(stdcontext.Background(), rc.conn,
 			rc.replicationContext.ReplicationSlotName(), pglogrepl.LSN(restartLSN),
 			pglogrepl.StartReplicationOptions{
 				PluginArgs: pluginArguments,
@@ -126,7 +127,7 @@ func (rc *ReplicationConnection) StartReplication(pluginArguments []string) (pgt
 }
 
 func (rc *ReplicationConnection) StopReplication() error {
-	_, err := pglogrepl.SendStandbyCopyDone(context.Background(), rc.conn)
+	_, err := pglogrepl.SendStandbyCopyDone(stdcontext.Background(), rc.conn)
 	if e, ok := err.(*pgconn.PgError); ok {
 		if e.Code == pgerrcode.InternalError {
 			return nil
@@ -139,12 +140,12 @@ func (rc *ReplicationConnection) StopReplication() error {
 }
 
 func (rc *ReplicationConnection) CreateReplicationSlot() (slotName, snapshotName string, created bool, err error) {
-	if !rc.replicationContext.replicationSlotCreate {
+	if !rc.replicationContext.ReplicationSlotCreate() {
 		return "", "", false, nil
 	}
 
 	replicationSlotName := rc.replicationContext.ReplicationSlotName()
-	found, err := rc.replicationContext.sideChannel.ExistsReplicationSlot(replicationSlotName)
+	found, err := rc.replicationContext.ExistsReplicationSlot(replicationSlotName)
 	if err != nil {
 		return "", "", false, errors.Wrap(err, 0)
 	}
@@ -153,7 +154,7 @@ func (rc *ReplicationConnection) CreateReplicationSlot() (slotName, snapshotName
 		return replicationSlotName, "", false, nil
 	}
 
-	slot, err := pglogrepl.CreateReplicationSlot(context.Background(), rc.conn, replicationSlotName, outputPlugin,
+	slot, err := pglogrepl.CreateReplicationSlot(stdcontext.Background(), rc.conn, replicationSlotName, outputPlugin,
 		pglogrepl.CreateReplicationSlotOptions{
 			SnapshotAction: "EXPORT_SNAPSHOT",
 		},
@@ -167,10 +168,10 @@ func (rc *ReplicationConnection) CreateReplicationSlot() (slotName, snapshotName
 }
 
 func (rc *ReplicationConnection) DropReplicationSlot() error {
-	if !rc.replicationSlotCreated || !rc.replicationContext.replicationSlotAutoDrop {
+	if !rc.replicationSlotCreated || !rc.replicationContext.ReplicationSlotAutoDrop() {
 		return nil
 	}
-	if err := pglogrepl.DropReplicationSlot(context.Background(), rc.conn, rc.replicationContext.ReplicationSlotName(),
+	if err := pglogrepl.DropReplicationSlot(stdcontext.Background(), rc.conn, rc.replicationContext.ReplicationSlotName(),
 		pglogrepl.DropReplicationSlotOptions{
 			Wait: true,
 		},
@@ -182,11 +183,11 @@ func (rc *ReplicationConnection) DropReplicationSlot() error {
 }
 
 func (rc *ReplicationConnection) Close() error {
-	return rc.conn.Close(context.Background())
+	return rc.conn.Close(stdcontext.Background())
 }
 
 func (rc *ReplicationConnection) reconnect() error {
-	conn, err := rc.replicationContext.newReplicationChannelConnection(context.Background())
+	conn, err := rc.replicationContext.NewReplicationChannelConnection(stdcontext.Background())
 	if err != nil {
 		return errors.Wrap(err, 0)
 	}
@@ -195,18 +196,18 @@ func (rc *ReplicationConnection) reconnect() error {
 }
 
 func (rc *ReplicationConnection) identifySystem() (pglogrepl.IdentifySystemResult, error) {
-	return pglogrepl.IdentifySystem(context.Background(), rc.conn)
+	return pglogrepl.IdentifySystem(stdcontext.Background(), rc.conn)
 }
 
-func (rc *ReplicationConnection) locateRestartLSN(readReplicationSlot readReplicationSlotFunc) (pgtypes.LSN, error) {
-	replicationSlotName := rc.replicationContext.replicationSlotName
+func (rc *ReplicationConnection) locateRestartLSN() (pgtypes.LSN, error) {
+	replicationSlotName := rc.replicationContext.ReplicationSlotName()
 
 	offset, err := rc.replicationContext.Offset()
 	if err != nil {
 		return 0, errors.Wrap(err, 0)
 	}
 
-	pluginName, slotType, _, confirmedFlushLSN, err := readReplicationSlot(replicationSlotName)
+	pluginName, slotType, _, confirmedFlushLSN, err := rc.replicationContext.ReadReplicationSlot(replicationSlotName)
 	if err != nil {
 		return 0, errors.Wrap(err, 0)
 	}

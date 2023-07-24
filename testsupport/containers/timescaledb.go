@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
+	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"io"

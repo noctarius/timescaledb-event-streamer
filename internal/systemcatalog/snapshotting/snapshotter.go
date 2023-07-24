@@ -19,9 +19,9 @@ package snapshotting
 
 import (
 	"github.com/go-errors/errors"
+	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
+	"github.com/noctarius/timescaledb-event-streamer/internal/waiting"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
@@ -44,7 +44,7 @@ type Snapshotter struct {
 	taskManager        context.TaskManager
 	publicationManager context.PublicationManager
 	snapshotQueues     []chan SnapshotTask
-	shutdownAwaiter    *supporting.MultiShutdownAwaiter
+	shutdownAwaiter    *waiting.MultiShutdownAwaiter
 	logger             *logging.Logger
 }
 
@@ -66,7 +66,7 @@ func NewSnapshotter(partitionCount uint8, replicationContext context.Replication
 		publicationManager: replicationContext.PublicationManager(),
 		snapshotQueues:     snapshotQueues,
 		logger:             logger,
-		shutdownAwaiter:    supporting.NewMultiShutdownAwaiter(uint(partitionCount)),
+		shutdownAwaiter:    waiting.NewMultiShutdownAwaiter(uint(partitionCount)),
 	}, nil
 }
 

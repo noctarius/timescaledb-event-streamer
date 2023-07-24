@@ -19,9 +19,8 @@ package systemcatalog
 
 import (
 	"github.com/go-errors/errors"
+	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/snapshotting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/tablefiltering"
 	"github.com/noctarius/timescaledb-event-streamer/spi/config"
@@ -29,6 +28,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/watermark"
+	"github.com/samber/lo"
 	"sync"
 )
 
@@ -234,7 +234,7 @@ func (sc *SystemCatalog) UnregisterChunk(chunk *systemcatalog.Chunk) error {
 	sc.rwLock.RLock()
 	defer sc.rwLock.RUnlock()
 	if present {
-		index := supporting.IndexOf(sc.hypertable2chunks[hypertable.Id()], chunk.Id())
+		index := lo.IndexOf(sc.hypertable2chunks[hypertable.Id()], chunk.Id())
 		// Erase element (zero value) to prevent memory leak
 		if index >= 0 {
 			sc.hypertable2chunks[hypertable.Id()][index] = 0

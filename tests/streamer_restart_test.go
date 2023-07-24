@@ -20,12 +20,13 @@ package tests
 import (
 	stdctx "context"
 	"fmt"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
+	"github.com/noctarius/timescaledb-event-streamer/internal/waiting"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	inttest "github.com/noctarius/timescaledb-event-streamer/testsupport"
 	"github.com/noctarius/timescaledb-event-streamer/testsupport/testrunner"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/suite"
 	"os"
 	"testing"
@@ -41,7 +42,7 @@ func TestIntegrationRestartTestSuite(t *testing.T) {
 }
 
 func (irts *IntegrationRestartTestSuite) Test_Restart_Streamer() {
-	waiter := supporting.NewWaiterWithTimeout(time.Second * 60)
+	waiter := waiting.NewWaiterWithTimeout(time.Second * 60)
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
@@ -125,12 +126,12 @@ func (irts *IntegrationRestartTestSuite) Test_Restart_Streamer() {
 
 			context.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
 			context.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
-				config.Config.PostgreSQL.ReplicationSlot.Name = supporting.RandomTextString(20)
-				config.Config.PostgreSQL.ReplicationSlot.Create = supporting.AddrOf(true)
-				config.Config.PostgreSQL.ReplicationSlot.AutoDrop = supporting.AddrOf(false)
-				config.Config.PostgreSQL.Publication.Name = supporting.RandomTextString(10)
-				config.Config.PostgreSQL.Publication.Create = supporting.AddrOf(true)
-				config.Config.PostgreSQL.Publication.AutoDrop = supporting.AddrOf(false)
+				config.Config.PostgreSQL.ReplicationSlot.Name = lo.RandomString(20, lo.LowerCaseLettersCharset)
+				config.Config.PostgreSQL.ReplicationSlot.Create = lo.ToPtr(true)
+				config.Config.PostgreSQL.ReplicationSlot.AutoDrop = lo.ToPtr(false)
+				config.Config.PostgreSQL.Publication.Name = lo.RandomString(10, lo.LowerCaseLettersCharset)
+				config.Config.PostgreSQL.Publication.Create = lo.ToPtr(true)
+				config.Config.PostgreSQL.Publication.AutoDrop = lo.ToPtr(false)
 				config.Config.StateStorage.Type = spiconfig.FileStorage
 				config.Config.StateStorage.FileStorage.Path = tempFile
 			})
@@ -146,7 +147,7 @@ func (irts *IntegrationRestartTestSuite) Test_Restart_Streamer() {
 }
 
 func (irts *IntegrationRestartTestSuite) Test_Restart_Streamer_After_Backend_Kill() {
-	waiter := supporting.NewWaiterWithTimeout(time.Second * 60)
+	waiter := waiting.NewWaiterWithTimeout(time.Second * 60)
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
@@ -163,7 +164,7 @@ func (irts *IntegrationRestartTestSuite) Test_Restart_Streamer_After_Backend_Kil
 		}),
 	)
 
-	replicationSlotName := supporting.RandomTextString(20)
+	replicationSlotName := lo.RandomString(20, lo.LowerCaseLettersCharset)
 
 	irts.RunTest(
 		func(context testrunner.Context) error {
@@ -244,11 +245,11 @@ func (irts *IntegrationRestartTestSuite) Test_Restart_Streamer_After_Backend_Kil
 			context.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
 			context.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
 				config.Config.PostgreSQL.ReplicationSlot.Name = replicationSlotName
-				config.Config.PostgreSQL.ReplicationSlot.Create = supporting.AddrOf(true)
-				config.Config.PostgreSQL.ReplicationSlot.AutoDrop = supporting.AddrOf(false)
-				config.Config.PostgreSQL.Publication.Name = supporting.RandomTextString(10)
-				config.Config.PostgreSQL.Publication.Create = supporting.AddrOf(true)
-				config.Config.PostgreSQL.Publication.AutoDrop = supporting.AddrOf(false)
+				config.Config.PostgreSQL.ReplicationSlot.Create = lo.ToPtr(true)
+				config.Config.PostgreSQL.ReplicationSlot.AutoDrop = lo.ToPtr(false)
+				config.Config.PostgreSQL.Publication.Name = lo.RandomString(10, lo.LowerCaseLettersCharset)
+				config.Config.PostgreSQL.Publication.Create = lo.ToPtr(true)
+				config.Config.PostgreSQL.Publication.AutoDrop = lo.ToPtr(false)
 				config.Config.StateStorage.Type = spiconfig.FileStorage
 				config.Config.StateStorage.FileStorage.Path = tempFile
 			})

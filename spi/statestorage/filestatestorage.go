@@ -22,8 +22,8 @@ import (
 	"encoding/binary"
 	"github.com/docker/docker/pkg/ioutils"
 	"github.com/go-errors/errors"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
+	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
+	"github.com/noctarius/timescaledb-event-streamer/internal/waiting"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"os"
 	"path/filepath"
@@ -44,7 +44,7 @@ type fileStateStorage struct {
 	encodedStates map[string][]byte
 
 	ticker         *time.Ticker
-	shutdownWaiter *supporting.ShutdownAwaiter
+	shutdownWaiter *waiting.ShutdownAwaiter
 }
 
 func newFileStateStorage(config *spiconfig.Config) (Storage, error) {
@@ -93,7 +93,7 @@ func NewFileStateStorage(path string) (Storage, error) {
 	return &fileStateStorage{
 		path:           path,
 		logger:         logger,
-		shutdownWaiter: supporting.NewShutdownAwaiter(),
+		shutdownWaiter: waiting.NewShutdownAwaiter(),
 		offsets:        make(map[string]*Offset),
 		encodedStates:  make(map[string][]byte),
 	}, nil

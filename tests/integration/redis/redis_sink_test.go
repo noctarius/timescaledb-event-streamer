@@ -23,13 +23,13 @@ import (
 	"fmt"
 	"github.com/go-errors/errors"
 	"github.com/go-redis/redis"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
+	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	inttest "github.com/noctarius/timescaledb-event-streamer/testsupport"
 	"github.com/noctarius/timescaledb-event-streamer/testsupport/containers"
 	"github.com/noctarius/timescaledb-event-streamer/testsupport/testrunner"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"github.com/testcontainers/testcontainers-go"
@@ -46,7 +46,7 @@ func TestRedisIntegrationTestSuite(t *testing.T) {
 }
 
 func (rits *RedisIntegrationTestSuite) Test_Redis_Sink() {
-	topicPrefix := supporting.RandomTextString(10)
+	topicPrefix := lo.RandomString(10, lo.LowerCaseLettersCharset)
 
 	redisLogger, err := logging.NewLogger("Test_Redis_Sink")
 	if err != nil {
@@ -68,8 +68,8 @@ func (rits *RedisIntegrationTestSuite) Test_Redis_Sink() {
 				testrunner.GetAttribute[string](ctx, "tableName"),
 			)
 
-			groupName := supporting.RandomTextString(10)
-			consumerName := supporting.RandomTextString(10)
+			groupName := lo.RandomString(10, lo.LowerCaseLettersCharset)
+			consumerName := lo.RandomString(10, lo.LowerCaseLettersCharset)
 
 			if err := client.XGroupCreateMkStream(subjectName, groupName, "0").Err(); err != nil {
 				return err

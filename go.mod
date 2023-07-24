@@ -20,7 +20,7 @@ require (
 	github.com/jackc/pglogrepl v0.0.0-20221125161640-1e972958ba03
 	github.com/jackc/pgx/v5 v5.4.1
 	github.com/nats-io/nats.go v1.27.1
-	github.com/reugn/async v0.5.0
+	github.com/samber/lo v1.38.1
 	github.com/stretchr/testify v1.8.4
 	github.com/testcontainers/testcontainers-go v0.21.0
 	github.com/testcontainers/testcontainers-go/modules/localstack v0.21.0

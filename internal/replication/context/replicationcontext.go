@@ -23,12 +23,12 @@ import (
 	"github.com/jackc/pglogrepl"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/version"
+	"github.com/samber/lo"
 	"github.com/urfave/cli"
 	"sync"
 )
@@ -46,8 +46,8 @@ type SnapshotRowCallback = func(lsn pgtypes.LSN, values map[string]any) error
 type ReplicationContext interface {
 	StartReplicationContext() error
 	StopReplicationContext() error
-	NewReplicationConnection() (*ReplicationConnection, error)
 	NewSideChannelConnection(ctx context.Context) (*pgx.Conn, error)
+	NewReplicationChannelConnection(ctx context.Context) (*pgconn.PgConn, error)
 
 	PublicationManager() PublicationManager
 	StateStorageManager() statestorage.Manager
@@ -65,6 +65,7 @@ type ReplicationContext interface {
 	LastReceivedLSN() pgtypes.LSN
 	AcknowledgeProcessed(xld pgtypes.XLogData, processedLSN *pgtypes.LSN) error
 	LastProcessedLSN() pgtypes.LSN
+	SetPositionLSNs(receivedLSN, processedLSN pgtypes.LSN)
 
 	InitialSnapshotMode() spiconfig.InitialSnapshotMode
 	DatabaseUsername() string
@@ -99,6 +100,10 @@ type ReplicationContext interface {
 	ReadSnapshotHighWatermark(hypertable *systemcatalog.Hypertable, snapshotName string) (map[string]any, error)
 	ReadReplicaIdentity(entity systemcatalog.SystemEntity) (pgtypes.ReplicaIdentity, error)
 	ReadContinuousAggregate(materializedHypertableId int32) (viewSchema, viewName string, found bool, err error)
+	ExistsReplicationSlot(slotName string) (found bool, err error)
+	ReadReplicationSlot(
+		slotName string,
+	) (pluginName, slotType string, restartLsn, confirmedFlushLsn pgtypes.LSN, err error)
 }
 
 type replicationContext struct {
@@ -157,7 +162,7 @@ func NewReplicationContext(
 		config, spiconfig.PropertyPostgresqlSnapshotBatchsize, 1000,
 	)
 	replicationSlotName := spiconfig.GetOrDefault(
-		config, spiconfig.PropertyPostgresqlReplicationSlotName, supporting.RandomTextString(20),
+		config, spiconfig.PropertyPostgresqlReplicationSlotName, lo.RandomString(20, lo.LowerCaseLettersCharset),
 	)
 	replicationSlotCreate := spiconfig.GetOrDefault(
 		config, spiconfig.PropertyPostgresqlReplicationSlotCreate, true,
@@ -331,6 +336,14 @@ func (rc *replicationContext) LastProcessedLSN() pgtypes.LSN {
 	return rc.lastProcessedLSN
 }
 
+func (rc *replicationContext) SetPositionLSNs(receivedLSN, processedLSN pgtypes.LSN) {
+	rc.lsnMutex.Lock()
+	defer rc.lsnMutex.Unlock()
+
+	rc.lastReceivedLSN = receivedLSN
+	rc.lastProcessedLSN = processedLSN
+}
+
 func (rc *replicationContext) AcknowledgeReceived(xld pgtypes.XLogData) {
 	rc.lsnMutex.Lock()
 	defer rc.lsnMutex.Unlock()
@@ -487,34 +500,26 @@ func (rc *replicationContext) ReadContinuousAggregate(
 	return rc.sideChannel.ReadContinuousAggregate(materializedHypertableId)
 }
 
-func (rc *replicationContext) NewReplicationConnection() (*ReplicationConnection, error) {
-	return newReplicationConnection(rc)
+func (rc *replicationContext) ExistsReplicationSlot(slotName string) (found bool, err error) {
+	return rc.sideChannel.ExistsReplicationSlot(slotName)
+}
+
+func (rc *replicationContext) ReadReplicationSlot(
+	slotName string,
+) (pluginName, slotType string, restartLsn, confirmedFlushLsn pgtypes.LSN, err error) {
+
+	return rc.sideChannel.ReadReplicationSlot(slotName)
 }
 
 func (rc *replicationContext) NewSideChannelConnection(ctx context.Context) (*pgx.Conn, error) {
 	return pgx.ConnectConfig(ctx, rc.pgxConfig)
 }
 
-func (rc *replicationContext) newReplicationChannelConnection(ctx context.Context) (*pgconn.PgConn, error) {
+func (rc *replicationContext) NewReplicationChannelConnection(ctx context.Context) (*pgconn.PgConn, error) {
 	connConfig := rc.pgxConfig.Config.Copy()
 	if connConfig.RuntimeParams == nil {
 		connConfig.RuntimeParams = make(map[string]string)
 	}
 	connConfig.RuntimeParams["replication"] = "database"
 	return pgconn.ConnectConfig(ctx, connConfig)
-}
-
-func (rc *replicationContext) setPositionLSNs(receivedLSN, processedLSN pgtypes.LSN) {
-	rc.lsnMutex.Lock()
-	defer rc.lsnMutex.Unlock()
-
-	rc.lastReceivedLSN = receivedLSN
-	rc.lastProcessedLSN = processedLSN
-}
-
-func (rc *replicationContext) positionLSNs() (receivedLSN, processedLSN pgtypes.LSN) {
-	rc.lsnMutex.Lock()
-	defer rc.lsnMutex.Unlock()
-
-	return rc.lastReceivedLSN, rc.lastProcessedLSN
 }

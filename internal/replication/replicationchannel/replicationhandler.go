@@ -22,9 +22,10 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/jackc/pglogrepl"
 	"github.com/jackc/pgx/v5/pgproto3"
+	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
+	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationconnection"
+	"github.com/noctarius/timescaledb-event-streamer/internal/waiting"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"runtime"
@@ -37,7 +38,7 @@ type replicationHandler struct {
 	taskManager        context.TaskManager
 	clientXLogPos      pglogrepl.LSN
 	relations          map[uint32]*pgtypes.RelationMessage
-	shutdownAwaiter    *supporting.ShutdownAwaiter
+	shutdownAwaiter    *waiting.ShutdownAwaiter
 	loopDead           atomic.Bool
 	lastTransactionId  *uint32
 	logger             *logging.Logger
@@ -53,7 +54,7 @@ func newReplicationHandler(replicationContext context.ReplicationContext) (*repl
 		replicationContext: replicationContext,
 		taskManager:        replicationContext.TaskManager(),
 		relations:          make(map[uint32]*pgtypes.RelationMessage),
-		shutdownAwaiter:    supporting.NewShutdownAwaiter(),
+		shutdownAwaiter:    waiting.NewShutdownAwaiter(),
 		logger:             logger,
 		loopDead:           atomic.Bool{},
 	}, nil
@@ -69,7 +70,7 @@ func (rh *replicationHandler) stopReplicationHandler() error {
 }
 
 func (rh *replicationHandler) startReplicationHandler(
-	replicationConnection *context.ReplicationConnection, restartLSN pgtypes.LSN,
+	replicationConnection *replicationconnection.ReplicationConnection, restartLSN pgtypes.LSN,
 ) error {
 
 	standbyMessageTimeout := time.Second * 5

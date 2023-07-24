@@ -25,6 +25,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/plugins"
+	"github.com/samber/lo"
 	"github.com/urfave/cli"
 
 	// Register built-in naming strategies
@@ -74,7 +75,7 @@ func NewStreamer(config *sysconfig.SystemConfig) (*Streamer, *cli.ExitError) {
 	}
 
 	if config.Topic.Prefix == "" {
-		config.Topic.Prefix = supporting.RandomTextString(20)
+		config.Topic.Prefix = lo.RandomString(20, lo.LowerCaseLettersCharset)
 	}
 
 	// Start all potential plugins, to make sure they're registered

@@ -23,13 +23,14 @@ import (
 	"fmt"
 	"github.com/go-errors/errors"
 	"github.com/nats-io/nats.go"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
+	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
+	"github.com/noctarius/timescaledb-event-streamer/internal/waiting"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	inttest "github.com/noctarius/timescaledb-event-streamer/testsupport"
 	"github.com/noctarius/timescaledb-event-streamer/testsupport/containers"
 	"github.com/noctarius/timescaledb-event-streamer/testsupport/testrunner"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"github.com/testcontainers/testcontainers-go"
@@ -46,7 +47,7 @@ func TestNatsIntegrationTestSuite(t *testing.T) {
 }
 
 func (nits *NatsIntegrationTestSuite) Test_Nats_Sink() {
-	topicPrefix := supporting.RandomTextString(10)
+	topicPrefix := lo.RandomString(10, lo.LowerCaseLettersCharset)
 
 	natsLogger, err := logging.NewLogger("Test_Nats_Sink")
 	if err != nil {
@@ -78,8 +79,8 @@ func (nits *NatsIntegrationTestSuite) Test_Nats_Sink() {
 				testrunner.GetAttribute[string](ctx, "tableName"),
 			)
 
-			streamName := supporting.RandomTextString(10)
-			groupName := supporting.RandomTextString(10)
+			streamName := lo.RandomString(10, lo.LowerCaseLettersCharset)
+			groupName := lo.RandomString(10, lo.LowerCaseLettersCharset)
 
 			natsLogger.Println("Creating NATS JetStream stream...")
 			_, err = js.AddStream(&nats.StreamConfig{
@@ -90,7 +91,7 @@ func (nits *NatsIntegrationTestSuite) Test_Nats_Sink() {
 				return err
 			}
 
-			waiter := supporting.NewWaiterWithTimeout(time.Minute)
+			waiter := waiting.NewWaiterWithTimeout(time.Minute)
 			envelopes := make([]inttest.Envelope, 0)
 			_, err = js.QueueSubscribe(subjectName, groupName, func(msg *nats.Msg) {
 				envelope := inttest.Envelope{}

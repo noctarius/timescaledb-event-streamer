@@ -21,14 +21,15 @@ import (
 	stdctx "context"
 	"fmt"
 	"github.com/jackc/pglogrepl"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
+	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
+	"github.com/noctarius/timescaledb-event-streamer/internal/waiting"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/version"
 	inttest "github.com/noctarius/timescaledb-event-streamer/testsupport"
 	"github.com/noctarius/timescaledb-event-streamer/testsupport/testrunner"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/suite"
 	"testing"
 	"time"
@@ -43,7 +44,7 @@ func TestIntegrationTestSuite(t *testing.T) {
 }
 
 func (its *IntegrationTestSuite) TestInitialSnapshot_Single_Chunk() {
-	waiter := supporting.NewWaiterWithTimeout(time.Second * 30)
+	waiter := waiting.NewWaiterWithTimeout(time.Second * 30)
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
@@ -101,7 +102,7 @@ func (its *IntegrationTestSuite) TestInitialSnapshot_Single_Chunk() {
 }
 
 func (its *IntegrationTestSuite) TestInitialSnapshot_Multi_Chunk() {
-	waiter := supporting.NewWaiterWithTimeout(time.Second * 60)
+	waiter := waiting.NewWaiterWithTimeout(time.Second * 60)
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
@@ -159,7 +160,7 @@ func (its *IntegrationTestSuite) TestInitialSnapshot_Multi_Chunk() {
 }
 
 func (its *IntegrationTestSuite) TestCreateEvents() {
-	waiter := supporting.NewWaiterWithTimeout(time.Second * 20)
+	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
@@ -252,7 +253,7 @@ func (its *IntegrationTestSuite) TestCreateEvents() {
 }
 
 func (its *IntegrationTestSuite) TestUpdateEvents() {
-	waiter := supporting.NewWaiterWithTimeout(time.Second * 20)
+	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
@@ -345,7 +346,7 @@ func (its *IntegrationTestSuite) TestUpdateEvents() {
 }
 
 func (its *IntegrationTestSuite) TestDeleteEvents() {
-	waiter := supporting.NewWaiterWithTimeout(time.Second * 20)
+	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
@@ -432,7 +433,7 @@ func (its *IntegrationTestSuite) TestDeleteEvents() {
 }
 
 func (its *IntegrationTestSuite) TestTruncateEvents() {
-	waiter := supporting.NewWaiterWithTimeout(time.Second * 20)
+	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
@@ -520,7 +521,7 @@ func (its *IntegrationTestSuite) TestTruncateEvents() {
 }
 
 func (its *IntegrationTestSuite) TestCompressionEvents() {
-	waiter := supporting.NewWaiterWithTimeout(time.Second * 20)
+	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
@@ -623,7 +624,7 @@ func (its *IntegrationTestSuite) TestCompressionEvents() {
 }
 
 func (its *IntegrationTestSuite) TestCompressionPartialInsertEvents() {
-	waiter := supporting.NewWaiterWithTimeout(time.Second * 20)
+	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
@@ -745,7 +746,7 @@ func (its *IntegrationTestSuite) TestCompressionPartialInsertEvents() {
 }
 
 func (its *IntegrationTestSuite) TestDecompressionEvents() {
-	waiter := supporting.NewWaiterWithTimeout(time.Second * 20)
+	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
@@ -869,7 +870,7 @@ func (its *IntegrationTestSuite) TestDecompressionEvents() {
 }
 
 func (its *IntegrationTestSuite) TestCompression_Decompression_SingleTransaction_Events() {
-	waiter := supporting.NewWaiterWithTimeout(time.Second * 20)
+	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
@@ -993,7 +994,7 @@ func (its *IntegrationTestSuite) TestCompression_Decompression_SingleTransaction
 }
 
 func (its *IntegrationTestSuite) TestContinuousAggregateCreateEvents() {
-	waiter := supporting.NewWaiterWithTimeout(time.Second * 20)
+	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
@@ -1058,7 +1059,7 @@ func (its *IntegrationTestSuite) TestContinuousAggregateCreateEvents() {
 			}
 			testrunner.Attribute(context, "tableName", tn)
 
-			aggregateName := supporting.RandomTextString(10)
+			aggregateName := lo.RandomString(10, lo.LowerCaseLettersCharset)
 			testrunner.Attribute(context, "aggregateName", aggregateName)
 
 			if _, err := context.Exec(stdctx.Background(),
@@ -1082,7 +1083,7 @@ func (its *IntegrationTestSuite) TestContinuousAggregateCreateEvents() {
 }
 
 func (its *IntegrationTestSuite) TestContinuousAggregate_Scheduled_Refresh_CreateEvents() {
-	waiter := supporting.NewWaiterWithTimeout(time.Second * 30)
+	waiter := waiting.NewWaiterWithTimeout(time.Second * 30)
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
@@ -1159,7 +1160,7 @@ func (its *IntegrationTestSuite) TestContinuousAggregate_Scheduled_Refresh_Creat
 			}
 			testrunner.Attribute(context, "tableName", tn)
 
-			aggregateName := supporting.RandomTextString(10)
+			aggregateName := lo.RandomString(10, lo.LowerCaseLettersCharset)
 			testrunner.Attribute(context, "aggregateName", aggregateName)
 
 			if _, err := context.Exec(stdctx.Background(),
@@ -1191,7 +1192,7 @@ func (its *IntegrationTestSuite) TestContinuousAggregate_Scheduled_Refresh_Creat
 }
 
 func (its *IntegrationTestSuite) Ignore_TestRollbackEvents() {
-	waiter := supporting.NewWaiterWithTimeout(time.Second * 20)
+	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
@@ -1251,7 +1252,7 @@ func (its *IntegrationTestSuite) Ignore_TestRollbackEvents() {
 			}
 			testrunner.Attribute(context, "tableName", tn)
 
-			aggregateName := supporting.RandomTextString(10)
+			aggregateName := lo.RandomString(10, lo.LowerCaseLettersCharset)
 			testrunner.Attribute(context, "aggregateName", aggregateName)
 
 			if _, err := context.Exec(stdctx.Background(),
@@ -1275,7 +1276,7 @@ func (its *IntegrationTestSuite) Ignore_TestRollbackEvents() {
 }
 
 func (its *IntegrationTestSuite) Test_Acknowledge_To_PG_With_Only_Begin_Commit() {
-	waiter := supporting.NewWaiterWithTimeout(time.Second * 60)
+	waiter := waiting.NewWaiterWithTimeout(time.Second * 60)
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
@@ -1289,7 +1290,7 @@ func (its *IntegrationTestSuite) Test_Acknowledge_To_PG_With_Only_Begin_Commit()
 		}),
 	)
 
-	replicationSlotName := supporting.RandomTextString(20)
+	replicationSlotName := lo.RandomString(20, lo.LowerCaseLettersCharset)
 	its.RunTest(
 		func(context testrunner.Context) error {
 			pgVersion := context.PostgresqlVersion()

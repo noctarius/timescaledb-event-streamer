@@ -21,8 +21,9 @@ import (
 	"fmt"
 	"github.com/noctarius/timescaledb-event-streamer/internal"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
+	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
+	"github.com/noctarius/timescaledb-event-streamer/internal/waiting"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/version"
 	"github.com/urfave/cli"
@@ -156,7 +157,7 @@ func start(*cli.Context) error {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
-	done := supporting.NewWaiter()
+	done := waiting.NewWaiter()
 	go func() {
 		<-signals
 		if err := streamer.Stop(); err != nil {

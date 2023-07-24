@@ -26,13 +26,13 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/go-errors/errors"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
+	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	inttest "github.com/noctarius/timescaledb-event-streamer/testsupport"
 	"github.com/noctarius/timescaledb-event-streamer/testsupport/containers"
 	"github.com/noctarius/timescaledb-event-streamer/testsupport/testrunner"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"github.com/testcontainers/testcontainers-go"
@@ -50,8 +50,8 @@ func TestAwsSqsIntegrationTestSuite(t *testing.T) {
 
 func (asits *AwsSqsIntegrationTestSuite) Test_Aws_Sqs_Sink() {
 	awsRegion := "us-east-1"
-	topicPrefix := supporting.RandomTextString(10)
-	queueName := fmt.Sprintf("%s.fifo", supporting.RandomTextString(10))
+	topicPrefix := lo.RandomString(10, lo.LowerCaseLettersCharset)
+	queueName := fmt.Sprintf("%s.fifo", lo.RandomString(10, lo.LowerCaseLettersCharset))
 
 	sqsLogger, err := logging.NewLogger("Test_Aws_Sqs_Sink")
 	if err != nil {

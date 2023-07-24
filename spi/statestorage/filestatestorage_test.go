@@ -18,8 +18,8 @@
 package statestorage
 
 import (
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"runtime"
@@ -43,14 +43,14 @@ func Test_Writing_Reading(t *testing.T) {
 		Snapshot:       true,
 		SnapshotOffset: 1000,
 		LSN:            pgtypes.LSN(1000000),
-		SnapshotName:   supporting.AddrOf("foo-12345-12345"),
+		SnapshotName:   lo.ToPtr("foo-12345-12345"),
 	}
 	bar := &Offset{
 		Timestamp:      time.Date(2023, 01, 01, 1, 0, 0, 0, time.UTC),
 		Snapshot:       true,
 		SnapshotOffset: 2000,
 		LSN:            pgtypes.LSN(2000000),
-		SnapshotName:   supporting.AddrOf("bar-54321-54321"),
+		SnapshotName:   lo.ToPtr("bar-54321-54321"),
 	}
 	baz := &Offset{
 		Timestamp:      time.Date(2023, 02, 01, 1, 0, 0, 0, time.UTC),

@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
+	"github.com/noctarius/timescaledb-event-streamer/internal/waiting"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	inttest "github.com/noctarius/timescaledb-event-streamer/testsupport"
 	"github.com/noctarius/timescaledb-event-streamer/testsupport/testrunner"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/suite"
 	"os"
 	"strings"
@@ -45,7 +47,7 @@ func TestPublicationTestSuite(t *testing.T) {
 
 func (pts *PublicationTestSuite) Test_Preexisting_Chunks_Added_To_Publication() {
 	testSink := inttest.NewEventCollectorSink()
-	publicationName := supporting.RandomTextString(10)
+	publicationName := lo.RandomString(10, lo.LowerCaseLettersCharset)
 
 	var tableName string
 	pts.RunTest(
@@ -101,7 +103,7 @@ func (pts *PublicationTestSuite) Test_Preexisting_Chunks_Added_To_Publication() 
 }
 
 func (pts *PublicationTestSuite) Test_Reloading_From_Known_Chunks() {
-	waiter := supporting.NewWaiterWithTimeout(time.Second * 20)
+	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
@@ -113,9 +115,9 @@ func (pts *PublicationTestSuite) Test_Reloading_From_Known_Chunks() {
 		}),
 	)
 
-	publicationName := supporting.RandomTextString(10)
-	replicationSlotName := supporting.RandomTextString(20)
-	stateStorageFile := fmt.Sprintf("/tmp/%s", supporting.RandomTextString(10))
+	publicationName := lo.RandomString(10, lo.LowerCaseLettersCharset)
+	replicationSlotName := lo.RandomString(20, lo.LowerCaseLettersCharset)
+	stateStorageFile := fmt.Sprintf("/tmp/%s", lo.RandomString(10, lo.LowerCaseLettersCharset))
 
 	var tableName string
 	pts.RunTest(
@@ -209,10 +211,10 @@ func (pts *PublicationTestSuite) Test_Reloading_From_Known_Chunks() {
 			context.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
 			context.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
 				config.PostgreSQL.Publication.Name = publicationName
-				config.PostgreSQL.Publication.AutoDrop = supporting.AddrOf(false)
+				config.PostgreSQL.Publication.AutoDrop = lo.ToPtr(false)
 
 				config.PostgreSQL.ReplicationSlot.Name = replicationSlotName
-				config.PostgreSQL.ReplicationSlot.AutoDrop = supporting.AddrOf(false)
+				config.PostgreSQL.ReplicationSlot.AutoDrop = lo.ToPtr(false)
 
 				config.StateStorage.Type = spiconfig.FileStorage
 				config.StateStorage.FileStorage = spiconfig.FileStorageConfig{
@@ -231,7 +233,7 @@ func (pts *PublicationTestSuite) Test_Reloading_From_Known_Chunks() {
 }
 
 func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_With_State_Storage() {
-	waiter := supporting.NewWaiterWithTimeout(time.Second * 20)
+	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
@@ -243,9 +245,9 @@ func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_With_State_Stor
 		}),
 	)
 
-	publicationName := supporting.RandomTextString(10)
-	replicationSlotName := supporting.RandomTextString(20)
-	stateStorageFile := fmt.Sprintf("/tmp/%s", supporting.RandomTextString(10))
+	publicationName := lo.RandomString(10, lo.LowerCaseLettersCharset)
+	replicationSlotName := lo.RandomString(20, lo.LowerCaseLettersCharset)
+	stateStorageFile := fmt.Sprintf("/tmp/%s", lo.RandomString(10, lo.LowerCaseLettersCharset))
 
 	var tableName string
 	pts.RunTest(
@@ -275,13 +277,13 @@ func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_With_State_Stor
 
 			// Break publication by dropping random chunks
 			chunksToDrop := make([]string, 0)
-			publishedChunkList := supporting.MapMapper(
+			publishedChunkList := lo.MapToSlice(
 				publishedChunks,
 				func(_ string, element systemcatalog.SystemEntity) string {
 					return element.CanonicalName()
 				},
 			)
-			publishedChunkList = supporting.Filter(publishedChunkList, func(item string) bool {
+			publishedChunkList = lo.Filter(publishedChunkList, func(item string, _ int) bool {
 				return item != "\"_timescaledb_catalog\".\"chunk\"" &&
 					item != "\"_timescaledb_catalog\".\"hypertable\""
 			})
@@ -368,10 +370,10 @@ func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_With_State_Stor
 			context.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
 			context.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
 				config.PostgreSQL.Publication.Name = publicationName
-				config.PostgreSQL.Publication.AutoDrop = supporting.AddrOf(false)
+				config.PostgreSQL.Publication.AutoDrop = lo.ToPtr(false)
 
 				config.PostgreSQL.ReplicationSlot.Name = replicationSlotName
-				config.PostgreSQL.ReplicationSlot.AutoDrop = supporting.AddrOf(false)
+				config.PostgreSQL.ReplicationSlot.AutoDrop = lo.ToPtr(false)
 
 				config.StateStorage.Type = spiconfig.FileStorage
 				config.StateStorage.FileStorage = spiconfig.FileStorageConfig{
@@ -390,7 +392,7 @@ func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_With_State_Stor
 }
 
 func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_Without_State_Storage() {
-	waiter := supporting.NewWaiterWithTimeout(time.Second * 60)
+	waiter := waiting.NewWaiterWithTimeout(time.Second * 60)
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
@@ -402,9 +404,9 @@ func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_Without_State_S
 		}),
 	)
 
-	publicationName := supporting.RandomTextString(10)
-	replicationSlotName := supporting.RandomTextString(20)
-	stateStorageFile := fmt.Sprintf("/tmp/%s", supporting.RandomTextString(10))
+	publicationName := lo.RandomString(10, lo.LowerCaseLettersCharset)
+	replicationSlotName := lo.RandomString(20, lo.LowerCaseLettersCharset)
+	stateStorageFile := fmt.Sprintf("/tmp/%s", lo.RandomString(10, lo.LowerCaseLettersCharset))
 
 	var tableName string
 	pts.RunTest(
@@ -434,13 +436,13 @@ func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_Without_State_S
 
 			// Break publication by dropping random chunks
 			chunksToDrop := make([]string, 0)
-			publishedChunkList := supporting.MapMapper(
+			publishedChunkList := lo.MapToSlice(
 				publishedChunks,
 				func(_ string, element systemcatalog.SystemEntity) string {
 					return element.CanonicalName()
 				},
 			)
-			publishedChunkList = supporting.Filter(publishedChunkList, func(item string) bool {
+			publishedChunkList = lo.Filter(publishedChunkList, func(item string, _ int) bool {
 				return item != "\"_timescaledb_catalog\".\"chunk\"" &&
 					item != "\"_timescaledb_catalog\".\"hypertable\""
 			})
@@ -527,10 +529,10 @@ func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_Without_State_S
 			context.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
 			context.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
 				config.PostgreSQL.Publication.Name = publicationName
-				config.PostgreSQL.Publication.AutoDrop = supporting.AddrOf(false)
+				config.PostgreSQL.Publication.AutoDrop = lo.ToPtr(false)
 
 				config.PostgreSQL.ReplicationSlot.Name = replicationSlotName
-				config.PostgreSQL.ReplicationSlot.AutoDrop = supporting.AddrOf(false)
+				config.PostgreSQL.ReplicationSlot.AutoDrop = lo.ToPtr(false)
 			})
 			return nil
 		}),

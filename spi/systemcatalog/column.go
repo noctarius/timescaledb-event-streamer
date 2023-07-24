@@ -23,6 +23,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
+	"github.com/samber/lo"
 	"strings"
 )
 
@@ -38,7 +39,7 @@ func (c Columns) SnapshotIndex() (index *Index, present bool) {
 		return index, true
 	}
 
-	dimensionColumns := supporting.Filter(c, func(item Column) bool {
+	dimensionColumns := lo.Filter(c, func(item Column, _ int) bool {
 		return item.IsDimension()
 	})
 
@@ -54,7 +55,7 @@ func (c Columns) SnapshotIndex() (index *Index, present bool) {
 // HasPrimaryKey returns true if the collection of columns contains
 // one or more primary key column(s)
 func (c Columns) HasPrimaryKey() bool {
-	return supporting.ContainsWithMatcher(c, func(other Column) bool {
+	return lo.ContainsBy(c, func(other Column) bool {
 		return other.IsPrimaryKey()
 	})
 }
@@ -68,7 +69,7 @@ func (c Columns) PrimaryKeyIndex() (index *Index, present bool) {
 		return nil, false
 	}
 
-	primaryKeyColumns := supporting.Filter(c, func(item Column) bool {
+	primaryKeyColumns := lo.Filter(c, func(item Column, _ int) bool {
 		return item.IsPrimaryKey()
 	})
 
@@ -85,7 +86,7 @@ func (c Columns) PrimaryKeyIndex() (index *Index, present bool) {
 // HasReplicaIdentity returns true if the collection of columns contains
 // one or more replica identity column(s)
 func (c Columns) HasReplicaIdentity() bool {
-	return supporting.ContainsWithMatcher(c, func(other Column) bool {
+	return lo.ContainsBy(c, func(other Column) bool {
 		return other.IsReplicaIdent()
 	})
 }
@@ -99,7 +100,7 @@ func (c Columns) ReplicaIdentityIndex() (index *Index, present bool) {
 		return nil, false
 	}
 
-	replicaIdentityColumns := supporting.Filter(c, func(item Column) bool {
+	replicaIdentityColumns := lo.Filter(c, func(item Column, _ int) bool {
 		return item.IsReplicaIdent()
 	})
 

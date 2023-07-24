@@ -24,14 +24,14 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/jackc/pglogrepl"
 	"github.com/noctarius/timescaledb-event-streamer/internal/eventing/eventfiltering"
+	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/stream"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
+	"github.com/samber/lo"
 	"time"
 )
 
@@ -202,7 +202,7 @@ func (e *eventEmitterEventHandler) OnMessageEvent(xld pgtypes.XLogData, msg *pgt
 	return e.emitMessageEvent(xld, msg,
 		func(source schema.Struct, stream stream.Stream) (schema.Struct, error) {
 			content := base64.StdEncoding.EncodeToString(msg.Content)
-			return schema.MessageEvent(msg.Prefix, supporting.AddrOf(content), source), nil
+			return schema.MessageEvent(msg.Prefix, lo.ToPtr(content), source), nil
 		},
 	)
 }

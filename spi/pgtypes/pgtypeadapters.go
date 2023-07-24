@@ -20,7 +20,7 @@ package pgtypes
 import (
 	"fmt"
 	"github.com/jackc/pglogrepl"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
+	"github.com/samber/lo"
 	"strconv"
 	"strings"
 )
@@ -128,7 +128,7 @@ func (m TruncateMessage) String() string {
 	builder.WriteString(fmt.Sprintf("option:%d ", m.Option))
 	builder.WriteString(fmt.Sprintf("relationNum:%d ", m.RelationNum))
 	builder.WriteString(fmt.Sprintf("relationIds:[%s]", strings.Join(
-		supporting.Map(m.RelationIDs, func(element uint32) string {
+		lo.Map(m.RelationIDs, func(element uint32, _ int) string {
 			return strconv.FormatUint(uint64(element), 10)
 		}), ", ",
 	)))

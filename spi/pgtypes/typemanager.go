@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"github.com/go-errors/errors"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
+	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
+	"github.com/samber/lo"
 	"reflect"
 	"sync"
 )
@@ -436,12 +436,11 @@ func (tm *typeManager) initialize() error {
 	tm.typeCacheMutex.Lock()
 	defer tm.typeCacheMutex.Unlock()
 
-	coreTypesSlice := supporting.MapMapper(coreTypes, func(key uint32, _ typeRegistration) uint32 {
-		return key
-	})
+	// Extract keys from the built-in core types
+	coreTypesSlice := lo.Keys(coreTypes)
 
 	if err := tm.typeResolver.ReadPgTypes(tm.typeFactory, func(typ PgType) error {
-		if supporting.IndexOf(coreTypesSlice, typ.Oid()) != -1 {
+		if lo.IndexOf(coreTypesSlice, typ.Oid()) != -1 {
 			return nil
 		}
 

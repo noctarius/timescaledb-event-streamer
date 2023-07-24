@@ -20,8 +20,8 @@ package systemcatalog
 import (
 	"fmt"
 	"github.com/go-errors/errors"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
+	"github.com/samber/lo"
 	"reflect"
 	"strings"
 	"time"
@@ -104,7 +104,7 @@ func (i *Index) String() string {
 // in a WHERE-clause:
 // (col1, col2, col3, ...)
 func (i *Index) AsSqlTuple() string {
-	columnList := supporting.Map(i.columns, func(t Column) string {
+	columnList := lo.Map(i.columns, func(t Column, _ int) string {
 		return t.Name()
 	})
 	return fmt.Sprintf("(%s)", strings.Join(columnList, ","))
@@ -118,7 +118,7 @@ func (i *Index) AsSqlOrderBy(desc bool) string {
 		order = "DESC"
 	}
 
-	columnList := supporting.Map(i.columns, func(t Column) string {
+	columnList := lo.Map(i.columns, func(t Column, _ int) string {
 		return fmt.Sprintf("%s %s", t.Name(), order)
 	})
 	return strings.Join(columnList, ",")
@@ -158,7 +158,7 @@ func (i *Index) whereClause(comparison string, params map[string]any) (string, b
 	tupleList := i.AsSqlTuple()
 
 	success := true
-	comparisonList := supporting.Map(i.columns, func(t Column) string {
+	comparisonList := lo.Map(i.columns, func(t Column, _ int) string {
 		v, present := params[t.name]
 		if !present {
 			success = false
@@ -214,19 +214,14 @@ func param2value(param any, column Column) string {
 		return fmt.Sprintf("bytea '\\x%X'", bytes)
 	case schema.ARRAY:
 		numOfElements := pv.Len()
-		index := 0
-		iterator := func() (reflect.Value, bool) {
-			if index < numOfElements {
-				element := pv.Index(index)
-				index++
-				return element, true
-			}
-			return reflect.Zero(pt), false
-		}
-
-		elements := supporting.MapWithIterator(iterator, func(element reflect.Value) string {
-			return param2value(element.Interface(), column) // FIXME, right now arrays aren't fully supported
-		})
+		elements := lo.Map(
+			lo.RepeatBy(numOfElements, func(index int) reflect.Value {
+				return pv.Index(index)
+			}),
+			func(item reflect.Value, _ int) string {
+				return param2value(item.Interface(), column) // FIXME, right now arrays aren't fully supported
+			},
+		)
 		return fmt.Sprintf("'{%s}'", strings.Join(elements, ","))
 
 	default:

@@ -18,7 +18,7 @@
 package config
 
 import (
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"reflect"
@@ -121,7 +121,7 @@ func Test_Config_Read_String_Ptr_From_String_Ptr(t *testing.T) {
 			Type: AwsSQS,
 			AwsSqs: AwsSqsConfig{
 				Queue: AwsSqsQueueConfig{
-					Url: supporting.AddrOf("test"),
+					Url: lo.ToPtr("test"),
 				},
 			},
 		},
@@ -137,7 +137,7 @@ func Test_Config_Read_String_From_String_Ptr(t *testing.T) {
 			Type: AwsSQS,
 			AwsSqs: AwsSqsConfig{
 				Queue: AwsSqsQueueConfig{
-					Url: supporting.AddrOf("test"),
+					Url: lo.ToPtr("test"),
 				},
 			},
 		},

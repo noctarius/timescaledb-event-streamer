@@ -2,6 +2,7 @@ package schema
 
 import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
+	"github.com/samber/lo"
 	"strconv"
 )
 
@@ -318,11 +319,7 @@ func (s *schemaBuilderImpl) Build() Struct {
 		schemaStruct[FieldNameKeySchema] = s.keySchemaBuilder.Build()
 		schemaStruct[FieldNameValueSchema] = s.valueSchemaBuilder.Build()
 	case STRUCT:
-		fields := supporting.MapMapper(s.fields, func(key string, element Field) Field {
-			return element
-		})
-
-		supporting.Sort(fields, func(this, other Field) bool {
+		fields := supporting.Sort(lo.Values(s.fields), func(this, other Field) bool {
 			return this.Index() < other.Index()
 		})
 

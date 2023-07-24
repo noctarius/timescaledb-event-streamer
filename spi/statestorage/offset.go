@@ -19,8 +19,8 @@ package statestorage
 
 import (
 	"encoding/binary"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
+	"github.com/samber/lo"
 	"time"
 )
 
@@ -40,7 +40,7 @@ func (o *Offset) UnmarshalBinary(data []byte) error {
 	if o.Snapshot {
 		snapshotNameLength := int(data[21])
 		if snapshotNameLength > 0 {
-			o.SnapshotName = supporting.AddrOf(string(data[22 : 22+snapshotNameLength]))
+			o.SnapshotName = lo.ToPtr(string(data[22 : 22+snapshotNameLength]))
 		}
 	}
 	return nil

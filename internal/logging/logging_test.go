@@ -2,23 +2,23 @@ package logging
 
 import (
 	"fmt"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
 )
 
 func Test_New_File_Handler(t *testing.T) {
-	filename := supporting.RandomTextString(10)
+	filename := lo.RandomString(10, lo.LowerCaseLettersCharset)
 	path := fmt.Sprintf("/tmp/%s", filename)
 	defer os.Remove(path)
 
 	config := spiconfig.LoggerFileConfig{
-		Enabled:  supporting.AddrOf(true),
+		Enabled:  lo.ToPtr(true),
 		Path:     path,
-		Rotate:   supporting.AddrOf(true),
-		MaxSize:  supporting.AddrOf("5MB"),
+		Rotate:   lo.ToPtr(true),
+		MaxSize:  lo.ToPtr("5MB"),
 		Compress: false,
 	}
 
@@ -27,15 +27,15 @@ func Test_New_File_Handler(t *testing.T) {
 }
 
 func Test_New_File_Handler_Max_Duration(t *testing.T) {
-	filename := supporting.RandomTextString(10)
+	filename := lo.RandomString(10, lo.LowerCaseLettersCharset)
 	path := fmt.Sprintf("/tmp/%s", filename)
 	defer os.Remove(path)
 
 	config := spiconfig.LoggerFileConfig{
-		Enabled:     supporting.AddrOf(true),
+		Enabled:     lo.ToPtr(true),
 		Path:        path,
-		Rotate:      supporting.AddrOf(true),
-		MaxDuration: supporting.AddrOf(600),
+		Rotate:      lo.ToPtr(true),
+		MaxDuration: lo.ToPtr(600),
 		Compress:    false,
 	}
 
@@ -44,15 +44,15 @@ func Test_New_File_Handler_Max_Duration(t *testing.T) {
 }
 
 func Test_New_File_Handler_Cache(t *testing.T) {
-	filename := supporting.RandomTextString(10)
+	filename := lo.RandomString(10, lo.LowerCaseLettersCharset)
 	path := fmt.Sprintf("/tmp/%s", filename)
 	defer os.Remove(path)
 
 	config := spiconfig.LoggerFileConfig{
-		Enabled:  supporting.AddrOf(true),
+		Enabled:  lo.ToPtr(true),
 		Path:     path,
-		Rotate:   supporting.AddrOf(true),
-		MaxSize:  supporting.AddrOf("5MB"),
+		Rotate:   lo.ToPtr(true),
+		MaxSize:  lo.ToPtr("5MB"),
 		Compress: false,
 	}
 

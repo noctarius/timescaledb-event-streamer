@@ -22,13 +22,13 @@ import (
 	"fmt"
 	"github.com/Shopify/sarama"
 	"github.com/go-errors/errors"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/tests/integration"
 	inttest "github.com/noctarius/timescaledb-event-streamer/testsupport"
 	"github.com/noctarius/timescaledb-event-streamer/testsupport/containers"
 	"github.com/noctarius/timescaledb-event-streamer/testsupport/testrunner"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"github.com/testcontainers/testcontainers-go"
@@ -45,7 +45,7 @@ func TestRedPandaIntegrationTestSuite(t *testing.T) {
 }
 
 func (kits *RedPandaIntegrationTestSuite) Test_RedPanda_Sink() {
-	topicPrefix := supporting.RandomTextString(10)
+	topicPrefix := lo.RandomString(10, lo.LowerCaseLettersCharset)
 
 	var container testcontainers.Container
 
@@ -57,7 +57,7 @@ func (kits *RedPandaIntegrationTestSuite) Test_RedPanda_Sink() {
 				testrunner.GetAttribute[string](ctx, "tableName"),
 			)
 
-			groupName := supporting.RandomTextString(10)
+			groupName := lo.RandomString(10, lo.LowerCaseLettersCharset)
 
 			config := sarama.NewConfig()
 			client, err := sarama.NewConsumerGroup(testrunner.GetAttribute[[]string](ctx, "brokers"), groupName, config)

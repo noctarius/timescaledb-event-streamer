@@ -4,7 +4,7 @@ import (
 	stdctx "context"
 	"fmt"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
+	"github.com/noctarius/timescaledb-event-streamer/internal/waiting"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	inttest "github.com/noctarius/timescaledb-event-streamer/testsupport"
@@ -962,7 +962,7 @@ func (dtt *DataTypeTestSuite) runDataTypeTest(testCase *DataTypeTest,
 
 	columnName := makeColumnName(testCase)
 
-	waiter := supporting.NewWaiterWithTimeout(time.Second * 10)
+	waiter := waiting.NewWaiterWithTimeout(time.Second * 10)
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {

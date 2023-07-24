@@ -1,8 +1,8 @@
 package awssqs
 
 import (
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -13,10 +13,10 @@ func Test_AWS_SQS_Config_Loading(t *testing.T) {
 			Type: "sqs",
 			AwsSqs: spiconfig.AwsSqsConfig{
 				Queue: spiconfig.AwsSqsQueueConfig{
-					Url: supporting.AddrOf("https://test_url"),
+					Url: lo.ToPtr("https://test_url"),
 				},
 				Aws: spiconfig.AwsConnectionConfig{
-					Region:          supporting.AddrOf("aws_region"),
+					Region:          lo.ToPtr("aws_region"),
 					Endpoint:        "aws_endpoint",
 					AccessKeyId:     "aws_access_key_id",
 					SecretAccessKey: "aws_secret_access_key",

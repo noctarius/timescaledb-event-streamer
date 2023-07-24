@@ -20,14 +20,15 @@ package logicalreplicationresolver
 import (
 	"github.com/go-errors/errors"
 	"github.com/jackc/pglogrepl"
+	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	spicatalog "github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
+	"github.com/samber/lo"
 )
 
 type logicalReplicationResolver struct {
@@ -301,10 +302,7 @@ func (l *logicalReplicationResolver) OnTruncateEvent(xld pgtypes.XLogData, msg *
 		}
 	}
 
-	truncatedHypertables = supporting.DistinctItems(truncatedHypertables, func(item *spicatalog.Hypertable) string {
-		return item.CanonicalName()
-	})
-
+	truncatedHypertables = lo.UniqBy(truncatedHypertables, (*spicatalog.Hypertable).CanonicalName)
 	for _, hypertable := range truncatedHypertables {
 		if err := l.taskManager.EnqueueTask(func(notificator context.Notificator) {
 			notificator.NotifyHypertableReplicationEventHandler(

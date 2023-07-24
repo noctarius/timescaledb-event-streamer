@@ -2,9 +2,10 @@ package replication
 
 import (
 	"fmt"
+	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -80,9 +81,9 @@ func Test_Replicator_Select_Missing_Tables_Random_Selection(t *testing.T) {
 		index := supporting.RandomNumber(0, 1000)
 		chunk := knownTables[index]
 
-		if supporting.IndexOfWithMatcher(publishedChunkTables, func(other systemcatalog.SystemEntity) bool {
+		if lo.ContainsBy(publishedChunkTables, func(other systemcatalog.SystemEntity) bool {
 			return other.CanonicalName() == chunk.CanonicalName()
-		}) != -1 {
+		}) {
 			goto retry
 		}
 		publishedChunkTables = append(publishedChunkTables, chunk)
@@ -122,15 +123,15 @@ func Test_Replicator_Select_Missing_Tables_Random_Selection(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		chunk := knownTables[i]
 
-		if supporting.IndexOfWithMatcher(publishedChunkTables, func(other systemcatalog.SystemEntity) bool {
+		if lo.ContainsBy(publishedChunkTables, func(other systemcatalog.SystemEntity) bool {
 			return other.CanonicalName() == chunk.CanonicalName()
-		}) >= 0 {
+		}) {
 			mergeChunkTables = append(mergeChunkTables, chunk)
 		}
 
-		if supporting.IndexOfWithMatcher(neededChunkTables, func(other systemcatalog.SystemEntity) bool {
+		if lo.ContainsBy(neededChunkTables, func(other systemcatalog.SystemEntity) bool {
 			return other.CanonicalName() == chunk.CanonicalName()
-		}) >= 0 {
+		}) {
 			mergeChunkTables = append(mergeChunkTables, chunk)
 		}
 	}

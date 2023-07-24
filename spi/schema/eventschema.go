@@ -20,8 +20,8 @@ package schema
 import (
 	"fmt"
 	"github.com/jackc/pglogrepl"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/spi/version"
+	"github.com/samber/lo"
 	"time"
 )
 
@@ -270,7 +270,7 @@ func SourceSchema() Builder {
 		Field(FieldNameConnector, -1, String().Required()).
 		Field(FieldNameName, -1, String().Required()).
 		Field(FieldNameTimestamp, -1, String().Required()).
-		Field(FieldNameSnapshot, -1, Boolean().DefaultValue(supporting.AddrOf("false"))).
+		Field(FieldNameSnapshot, -1, Boolean().DefaultValue(lo.ToPtr("false"))).
 		Field(FieldNameSchema, -1, String().Required()).
 		Field(FieldNameTable, -1, String().Required()).
 		Field(FieldNameTxId, -1, Int64()).

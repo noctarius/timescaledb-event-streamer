@@ -7,7 +7,7 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/hashicorp/go-uuid"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
+	"github.com/samber/lo"
 	"math"
 	"math/big"
 	"net"
@@ -159,7 +159,7 @@ func bits2string(_ uint32, value any) (any, error) {
 
 		remaining := v.Len
 		for _, b := range v.Bytes {
-			length := supporting.Min(remaining, 8)
+			length := lo.Min([]int32{remaining, 8})
 			for i := int32(0); i < length; i++ {
 				zeroOrOne := b >> (7 - i) & 1
 				builder.WriteString(fmt.Sprintf("%c", '0'+zeroOrOne))

@@ -25,12 +25,12 @@ import (
 	"github.com/jackc/pglogrepl"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
+	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/version"
 	"github.com/noctarius/timescaledb-event-streamer/spi/watermark"
+	"github.com/samber/lo"
 	"strings"
 	"time"
 )
@@ -45,10 +45,6 @@ const (
 	Truncate   Grant = "truncate"
 	References Grant = "references"
 	Trigger    Grant = "trigger"
-)
-
-type readReplicationSlotFunc = func(slotName string) (
-	pluginName, slotType string, restartLsn, confirmedFlushLsn pgtypes.LSN, err error,
 )
 
 const getSystemInformationQuery = `
@@ -532,7 +528,7 @@ func (sc *sideChannelImpl) SnapshotChunkTable(
 
 	var currentLSN pgtypes.LSN = 0
 
-	cursorName := supporting.RandomTextString(15)
+	cursorName := lo.RandomString(15, lo.LowerCaseLettersCharset)
 	cursorQuery := fmt.Sprintf(
 		"DECLARE %s SCROLL CURSOR FOR SELECT * FROM %s", cursorName, chunk.CanonicalName(),
 	)
@@ -596,7 +592,7 @@ func (sc *sideChannelImpl) FetchHypertableSnapshotBatch(
 				)
 			}
 
-			cursorName := supporting.RandomTextString(15)
+			cursorName := lo.RandomString(15, lo.LowerCaseLettersCharset)
 			cursorQuery := fmt.Sprintf(
 				`DECLARE %s SCROLL CURSOR FOR SELECT * FROM %s WHERE %s ORDER BY %s LIMIT %d`,
 				cursorName, hypertable.CanonicalName(), comparison,
@@ -604,7 +600,7 @@ func (sc *sideChannelImpl) FetchHypertableSnapshotBatch(
 			)
 
 			hook := func(lsn pgtypes.LSN, values map[string]any) error {
-				indexValues := supporting.FilterMap(values, func(key string, _ any) bool {
+				indexValues := lo.PickBy(values, func(key string, _ any) bool {
 					for _, column := range index.Columns() {
 						if column.Name() == key {
 							return true

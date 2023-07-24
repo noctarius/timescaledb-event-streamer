@@ -1,8 +1,8 @@
 package awskinesis
 
 import (
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -13,13 +13,13 @@ func IGNORE_Test_AWS_Kinesis_Config_Loading(t *testing.T) {
 			Type: "kinesis",
 			AwsKinesis: spiconfig.AwsKinesisConfig{
 				Stream: spiconfig.AwsKinesisStreamConfig{
-					Name:       supporting.AddrOf("stream_name"),
-					Create:     supporting.AddrOf(true),
-					ShardCount: supporting.AddrOf(int64(100)),
-					Mode:       supporting.AddrOf("stream_mode"),
+					Name:       lo.ToPtr("stream_name"),
+					Create:     lo.ToPtr(true),
+					ShardCount: lo.ToPtr(int64(100)),
+					Mode:       lo.ToPtr("stream_mode"),
 				},
 				Aws: spiconfig.AwsConnectionConfig{
-					Region:          supporting.AddrOf("aws_region"),
+					Region:          lo.ToPtr("aws_region"),
 					Endpoint:        "aws_endpoint",
 					AccessKeyId:     "aws_access_key_id",
 					SecretAccessKey: "aws_secret_access_key",

@@ -3,7 +3,7 @@ package integration
 import (
 	"encoding/json"
 	"github.com/Shopify/sarama"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
+	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	inttest "github.com/noctarius/timescaledb-event-streamer/testsupport"
 	"testing"
 )

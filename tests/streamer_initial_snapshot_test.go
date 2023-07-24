@@ -20,12 +20,13 @@ package tests
 import (
 	stdctx "context"
 	"fmt"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
+	"github.com/noctarius/timescaledb-event-streamer/internal/waiting"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	inttest "github.com/noctarius/timescaledb-event-streamer/testsupport"
 	"github.com/noctarius/timescaledb-event-streamer/testsupport/testrunner"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/suite"
 	"testing"
 	"time"
@@ -40,7 +41,7 @@ func TestIntegrationSnapshotTestSuite(t *testing.T) {
 }
 
 func (its *IntegrationSnapshotTestSuite) TestInitialSnapshot_Hypertable() {
-	waiter := supporting.NewWaiterWithTimeout(time.Second * 60)
+	waiter := waiting.NewWaiterWithTimeout(time.Second * 60)
 	testSink := inttest.NewEventCollectorSink(
 		inttest.WithFilter(
 			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
@@ -101,7 +102,7 @@ func (its *IntegrationSnapshotTestSuite) TestInitialSnapshot_Hypertable() {
 
 			context.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
 			context.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
-				config.PostgreSQL.Snapshot.Initial = supporting.AddrOf(spiconfig.InitialOnly)
+				config.PostgreSQL.Snapshot.Initial = lo.ToPtr(spiconfig.InitialOnly)
 				config.PostgreSQL.Snapshot.BatchSize = 100
 			})
 			return nil

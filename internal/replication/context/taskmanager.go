@@ -21,8 +21,9 @@ import (
 	stderrors "errors"
 	"fmt"
 	"github.com/go-errors/errors"
+	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
+	"github.com/noctarius/timescaledb-event-streamer/internal/waiting"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 )
@@ -54,7 +55,7 @@ type taskManager struct {
 	hypertableHandlers  []eventhandlers.HypertableReplicationEventHandler
 	logicalHandlers     []eventhandlers.LogicalReplicationEventHandler
 	snapshotHandlers    []eventhandlers.SnapshottingEventHandler
-	shutdownAwaiter     *supporting.ShutdownAwaiter
+	shutdownAwaiter     *waiting.ShutdownAwaiter
 	shutdownActive      bool
 }
 
@@ -75,7 +76,7 @@ func newTaskManager(config *spiconfig.Config) (*taskManager, error) {
 		hypertableHandlers:  make([]eventhandlers.HypertableReplicationEventHandler, 0),
 		logicalHandlers:     make([]eventhandlers.LogicalReplicationEventHandler, 0),
 		snapshotHandlers:    make([]eventhandlers.SnapshottingEventHandler, 0),
-		shutdownAwaiter:     supporting.NewShutdownAwaiter(),
+		shutdownAwaiter:     waiting.NewShutdownAwaiter(),
 	}
 	return d, nil
 }
@@ -232,7 +233,7 @@ func (d *taskManager) EnqueueTaskAndWait(task Task) error {
 	if d.shutdownActive {
 		return fmt.Errorf("shutdown active, draining only")
 	}
-	done := supporting.NewWaiter()
+	done := waiting.NewWaiter()
 	d.taskQueue.Write(func(notificator Notificator) {
 		task(notificator)
 		done.Signal()

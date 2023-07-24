@@ -20,9 +20,10 @@ package replicationchannel
 import (
 	"fmt"
 	"github.com/go-errors/errors"
+	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
+	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationconnection"
+	"github.com/noctarius/timescaledb-event-streamer/internal/waiting"
 	"github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
@@ -35,7 +36,7 @@ import (
 type ReplicationChannel struct {
 	replicationContext context.ReplicationContext
 	createdPublication bool
-	shutdownAwaiter    *supporting.ShutdownAwaiter
+	shutdownAwaiter    *waiting.ShutdownAwaiter
 	logger             *logging.Logger
 	shutdownRequested  atomic.Bool
 }
@@ -49,7 +50,7 @@ func NewReplicationChannel(replicationContext context.ReplicationContext) (*Repl
 
 	return &ReplicationChannel{
 		replicationContext: replicationContext,
-		shutdownAwaiter:    supporting.NewShutdownAwaiter(),
+		shutdownAwaiter:    waiting.NewShutdownAwaiter(),
 		logger:             logger,
 	}, nil
 }
@@ -75,7 +76,7 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 		return errors.Wrap(err, 0)
 	}
 
-	replicationConnection, err := replicationContext.NewReplicationConnection()
+	replicationConnection, err := replicationconnection.NewReplicationConnection(replicationContext)
 	if err != nil {
 		return errors.Wrap(err, 0)
 	}

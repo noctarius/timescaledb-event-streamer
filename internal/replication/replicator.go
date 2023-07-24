@@ -22,10 +22,10 @@ import (
 	stderrors "errors"
 	"fmt"
 	"github.com/go-errors/errors"
+	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	logrepresolver "github.com/noctarius/timescaledb-event-streamer/internal/replication/logicalreplicationresolver"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationchannel"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
 	intsystemcatalog "github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/snapshotting"
@@ -33,6 +33,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
+	"github.com/samber/lo"
 	"github.com/urfave/cli"
 )
 
@@ -221,9 +222,7 @@ func (r *Replicator) collectChunksForPublication(encodedState func(name string) 
 
 	r.logger.Debugf(
 		"All interesting chunks: %+v",
-		supporting.Map(allKnownTables, func(chunk systemcatalog.SystemEntity) string {
-			return chunk.TableName()
-		}),
+		lo.Map(allKnownTables, supporting.MappingTransformer(systemcatalog.SystemEntity.CanonicalName)),
 	)
 
 	// Filter published chunks to only add new chunks
@@ -231,27 +230,23 @@ func (r *Replicator) collectChunksForPublication(encodedState func(name string) 
 	if err != nil {
 		return nil, supporting.AdaptError(err, 250)
 	}
-	alreadyPublished = supporting.Filter(alreadyPublished, func(item systemcatalog.SystemEntity) bool {
+	alreadyPublished = lo.Filter(alreadyPublished, func(item systemcatalog.SystemEntity, _ int) bool {
 		return item.SchemaName() == "_timescaledb_internal"
 	})
 
 	r.logger.Debugf(
 		"Chunks already in publication: %+v",
-		supporting.Map(alreadyPublished, func(chunk systemcatalog.SystemEntity) string {
-			return chunk.TableName()
-		}),
+		lo.Map(alreadyPublished, supporting.MappingTransformer(systemcatalog.SystemEntity.CanonicalName)),
 	)
 
-	initialChunkTables := supporting.Filter(allKnownTables, func(item systemcatalog.SystemEntity) bool {
-		return !supporting.ContainsWithMatcher(alreadyPublished, func(other systemcatalog.SystemEntity) bool {
+	initialChunkTables := lo.Filter(allKnownTables, func(item systemcatalog.SystemEntity, _ int) bool {
+		return !lo.ContainsBy(alreadyPublished, func(other systemcatalog.SystemEntity) bool {
 			return item.CanonicalName() == other.CanonicalName()
 		})
 	})
 	r.logger.Debugf(
 		"Chunks to be added publication: %+v",
-		supporting.Map(initialChunkTables, func(chunk systemcatalog.SystemEntity) string {
-			return chunk.TableName()
-		}),
+		lo.Map(initialChunkTables, supporting.MappingTransformer(systemcatalog.SystemEntity.CanonicalName)),
 	)
 	return initialChunkTables, nil
 }
@@ -267,10 +262,10 @@ func getKnownChunks(encodedState func(name string) ([]byte, bool),
 		}
 
 		// Filter potentially deleted chunks
-		return supporting.Filter(candidates, func(item systemcatalog.SystemEntity) bool {
-			return supporting.IndexOfWithMatcher(allChunks, func(other systemcatalog.SystemEntity) bool {
+		return lo.Filter(candidates, func(item systemcatalog.SystemEntity, index int) bool {
+			return lo.ContainsBy(allChunks, func(other systemcatalog.SystemEntity) bool {
 				return item.CanonicalName() == other.CanonicalName()
-			}) > -1
+			})
 		}), nil
 	}
 

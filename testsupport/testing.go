@@ -21,7 +21,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
+	"github.com/samber/lo"
 	"os"
 	"strings"
 	"time"
@@ -77,7 +77,7 @@ func CreateHypertable(pool *pgxpool.Pool, timeDimension string,
 }
 
 func randomTableName() string {
-	return supporting.RandomTextString(20)
+	return lo.RandomString(20, lo.LowerCaseLettersCharset)
 }
 
 func toDefinition(column Column) string {

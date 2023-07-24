@@ -23,14 +23,14 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/noctarius/timescaledb-event-streamer/internal"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting/logging"
+	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/version"
 	inttest "github.com/noctarius/timescaledb-event-streamer/testsupport"
 	"github.com/noctarius/timescaledb-event-streamer/testsupport/containers"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/suite"
 	"github.com/testcontainers/testcontainers-go"
 	"time"
@@ -241,7 +241,7 @@ func (tr *TestRunner) SetupSuite() {
 			Level: "debug",
 			Outputs: spiconfig.LoggerOutputConfig{
 				Console: spiconfig.LoggerConsoleConfig{
-					Enabled: supporting.AddrOf(true),
+					Enabled: lo.ToPtr(true),
 				},
 			},
 		},
@@ -323,7 +323,7 @@ func (tr *TestRunner) RunTest(testFn func(context Context) error, configurators 
 	replConfig := &spiconfig.Config{
 		PostgreSQL: spiconfig.PostgreSQLConfig{
 			Publication: spiconfig.PublicationConfig{
-				Name: supporting.RandomTextString(10),
+				Name: lo.RandomString(10, lo.LowerCaseLettersCharset),
 			},
 		},
 		TimescaleDB: spiconfig.TimescaleDBConfig{
