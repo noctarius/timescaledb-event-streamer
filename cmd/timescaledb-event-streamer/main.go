@@ -20,8 +20,8 @@ package main
 import (
 	"fmt"
 	"github.com/noctarius/timescaledb-event-streamer/internal"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
+	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
 	"github.com/noctarius/timescaledb-event-streamer/internal/waiting"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
