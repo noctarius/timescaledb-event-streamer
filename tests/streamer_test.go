@@ -18,7 +18,7 @@
 package tests
 
 import (
-	stdctx "context"
+	"context"
 	"fmt"
 	"github.com/jackc/pglogrepl"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
@@ -62,11 +62,11 @@ func (its *IntegrationTestSuite) TestInitialSnapshot_Single_Chunk() {
 	)
 
 	its.RunTest(
-		func(context testrunner.Context) error {
-			if _, err := context.Exec(stdctx.Background(),
+		func(ctx testrunner.Context) error {
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 23:59:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
-					testrunner.GetAttribute[string](context, "tableName"),
+					testrunner.GetAttribute[string](ctx, "tableName"),
 				),
 			); err != nil {
 				return err
@@ -88,17 +88,17 @@ func (its *IntegrationTestSuite) TestInitialSnapshot_Single_Chunk() {
 			return nil
 		},
 
-		testrunner.WithSetup(func(context testrunner.SetupContext) error {
-			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
+		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
+			_, tn, err := ctx.CreateHypertable("ts", time.Hour*24,
 				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
 			}
-			testrunner.Attribute(context, "tableName", tn)
+			testrunner.Attribute(ctx, "tableName", tn)
 
-			context.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
+			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
 			return nil
 		}),
 	)
@@ -120,11 +120,11 @@ func (its *IntegrationTestSuite) TestInitialSnapshot_Multi_Chunk() {
 	)
 
 	its.RunTest(
-		func(context testrunner.Context) error {
-			if _, err := context.Exec(stdctx.Background(),
+		func(ctx testrunner.Context) error {
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-26 23:59:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
-					testrunner.GetAttribute[string](context, "tableName"),
+					testrunner.GetAttribute[string](ctx, "tableName"),
 				),
 			); err != nil {
 				return err
@@ -146,17 +146,17 @@ func (its *IntegrationTestSuite) TestInitialSnapshot_Multi_Chunk() {
 			return nil
 		},
 
-		testrunner.WithSetup(func(context testrunner.SetupContext) error {
-			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
+		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
+			_, tn, err := ctx.CreateHypertable("ts", time.Hour*24,
 				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
 			}
-			testrunner.Attribute(context, "tableName", tn)
+			testrunner.Attribute(ctx, "tableName", tn)
 
-			context.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
+			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
 			return nil
 		}),
 	)
@@ -178,11 +178,11 @@ func (its *IntegrationTestSuite) TestCreateEvents() {
 	)
 
 	its.RunTest(
-		func(context testrunner.Context) error {
-			if _, err := context.Exec(stdctx.Background(),
+		func(ctx testrunner.Context) error {
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:09:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
-					testrunner.GetAttribute[string](context, "tableName"),
+					testrunner.GetAttribute[string](ctx, "tableName"),
 				),
 			); err != nil {
 				return err
@@ -193,10 +193,10 @@ func (its *IntegrationTestSuite) TestCreateEvents() {
 			}
 			waiter.Reset()
 
-			if _, err := context.Exec(stdctx.Background(),
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:10:00'::TIMESTAMPTZ, '2023-03-25 00:19:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
-					testrunner.GetAttribute[string](context, "tableName"),
+					testrunner.GetAttribute[string](ctx, "tableName"),
 				),
 			); err != nil {
 				return err
@@ -239,17 +239,17 @@ func (its *IntegrationTestSuite) TestCreateEvents() {
 			return nil
 		},
 
-		testrunner.WithSetup(func(context testrunner.SetupContext) error {
-			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
+		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
+			_, tn, err := ctx.CreateHypertable("ts", time.Hour*24,
 				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
 			}
-			testrunner.Attribute(context, "tableName", tn)
+			testrunner.Attribute(ctx, "tableName", tn)
 
-			context.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
+			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
 			return nil
 		}),
 	)
@@ -271,11 +271,11 @@ func (its *IntegrationTestSuite) TestUpdateEvents() {
 	)
 
 	its.RunTest(
-		func(context testrunner.Context) error {
-			if _, err := context.Exec(stdctx.Background(),
+		func(ctx testrunner.Context) error {
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:09:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
-					testrunner.GetAttribute[string](context, "tableName"),
+					testrunner.GetAttribute[string](ctx, "tableName"),
 				),
 			); err != nil {
 				return err
@@ -286,10 +286,10 @@ func (its *IntegrationTestSuite) TestUpdateEvents() {
 			}
 			waiter.Reset()
 
-			if _, err := context.Exec(stdctx.Background(),
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"UPDATE \"%s\" SET val = val + 10",
-					testrunner.GetAttribute[string](context, "tableName"),
+					testrunner.GetAttribute[string](ctx, "tableName"),
 				),
 			); err != nil {
 				return err
@@ -332,17 +332,17 @@ func (its *IntegrationTestSuite) TestUpdateEvents() {
 			return nil
 		},
 
-		testrunner.WithSetup(func(context testrunner.SetupContext) error {
-			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
+		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
+			_, tn, err := ctx.CreateHypertable("ts", time.Hour*24,
 				testsupport.NewColumn("ts", "timestamptz", false, true, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
 			}
-			testrunner.Attribute(context, "tableName", tn)
+			testrunner.Attribute(ctx, "tableName", tn)
 
-			context.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
+			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
 			return nil
 		}),
 	)
@@ -364,11 +364,11 @@ func (its *IntegrationTestSuite) TestDeleteEvents() {
 	)
 
 	its.RunTest(
-		func(context testrunner.Context) error {
-			if _, err := context.Exec(stdctx.Background(),
+		func(ctx testrunner.Context) error {
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:09:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
-					testrunner.GetAttribute[string](context, "tableName"),
+					testrunner.GetAttribute[string](ctx, "tableName"),
 				),
 			); err != nil {
 				return err
@@ -379,10 +379,10 @@ func (its *IntegrationTestSuite) TestDeleteEvents() {
 			}
 			waiter.Reset()
 
-			if _, err := context.Exec(stdctx.Background(),
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"DELETE FROM \"%s\"",
-					testrunner.GetAttribute[string](context, "tableName"),
+					testrunner.GetAttribute[string](ctx, "tableName"),
 				),
 			); err != nil {
 				return err
@@ -419,17 +419,17 @@ func (its *IntegrationTestSuite) TestDeleteEvents() {
 			return nil
 		},
 
-		testrunner.WithSetup(func(context testrunner.SetupContext) error {
-			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
+		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
+			_, tn, err := ctx.CreateHypertable("ts", time.Hour*24,
 				testsupport.NewColumn("ts", "timestamptz", false, true, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
 			}
-			testrunner.Attribute(context, "tableName", tn)
+			testrunner.Attribute(ctx, "tableName", tn)
 
-			context.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
+			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
 			return nil
 		}),
 	)
@@ -454,11 +454,11 @@ func (its *IntegrationTestSuite) TestTruncateEvents() {
 	)
 
 	its.RunTest(
-		func(context testrunner.Context) error {
-			if _, err := context.Exec(stdctx.Background(),
+		func(ctx testrunner.Context) error {
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:09:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
-					testrunner.GetAttribute[string](context, "tableName"),
+					testrunner.GetAttribute[string](ctx, "tableName"),
 				),
 			); err != nil {
 				return err
@@ -469,10 +469,10 @@ func (its *IntegrationTestSuite) TestTruncateEvents() {
 			}
 			waiter.Reset()
 
-			if _, err := context.Exec(stdctx.Background(),
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"TRUNCATE %s",
-					testrunner.GetAttribute[string](context, "tableName"),
+					testrunner.GetAttribute[string](ctx, "tableName"),
 				),
 			); err != nil {
 				return err
@@ -507,17 +507,17 @@ func (its *IntegrationTestSuite) TestTruncateEvents() {
 			return nil
 		},
 
-		testrunner.WithSetup(func(context testrunner.SetupContext) error {
-			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
+		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
+			_, tn, err := ctx.CreateHypertable("ts", time.Hour*24,
 				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
 			}
-			testrunner.Attribute(context, "tableName", tn)
+			testrunner.Attribute(ctx, "tableName", tn)
 
-			context.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
+			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
 			return nil
 		}),
 	)
@@ -542,11 +542,11 @@ func (its *IntegrationTestSuite) TestCompressionEvents() {
 	)
 
 	its.RunTest(
-		func(context testrunner.Context) error {
-			if _, err := context.Exec(stdctx.Background(),
+		func(ctx testrunner.Context) error {
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:09:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
-					testrunner.GetAttribute[string](context, "tableName"),
+					testrunner.GetAttribute[string](ctx, "tableName"),
 				),
 			); err != nil {
 				return err
@@ -557,18 +557,18 @@ func (its *IntegrationTestSuite) TestCompressionEvents() {
 			}
 			waiter.Reset()
 
-			if _, err := context.Exec(stdctx.Background(),
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"ALTER TABLE \"%s\" SET (timescaledb.compress)",
-					testrunner.GetAttribute[string](context, "tableName"),
+					testrunner.GetAttribute[string](ctx, "tableName"),
 				),
 			); err != nil {
 				return err
 			}
-			if _, err := context.Exec(stdctx.Background(),
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"SELECT compress_chunk((t.chunk_schema || '.' || t.chunk_name)::regclass, true) FROM (SELECT * FROM timescaledb_information.chunks WHERE hypertable_name = '%s') t",
-					testrunner.GetAttribute[string](context, "tableName"),
+					testrunner.GetAttribute[string](ctx, "tableName"),
 				),
 			); err != nil {
 				return err
@@ -607,18 +607,18 @@ func (its *IntegrationTestSuite) TestCompressionEvents() {
 			return nil
 		},
 
-		testrunner.WithSetup(func(context testrunner.SetupContext) error {
-			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
+		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
+			_, tn, err := ctx.CreateHypertable("ts", time.Hour*24,
 				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
 			}
-			testrunner.Attribute(context, "tableName", tn)
+			testrunner.Attribute(ctx, "tableName", tn)
 
-			context.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
-			context.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
+			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
+			ctx.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
 				config.TimescaleDB.Events.Compression = true
 			})
 			return nil
@@ -647,11 +647,11 @@ func (its *IntegrationTestSuite) TestCompressionPartialInsertEvents() {
 	)
 
 	its.RunTest(
-		func(context testrunner.Context) error {
-			if _, err := context.Exec(stdctx.Background(),
+		func(ctx testrunner.Context) error {
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:09:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
-					testrunner.GetAttribute[string](context, "tableName"),
+					testrunner.GetAttribute[string](ctx, "tableName"),
 				),
 			); err != nil {
 				return err
@@ -662,34 +662,34 @@ func (its *IntegrationTestSuite) TestCompressionPartialInsertEvents() {
 			}
 			waiter.Reset()
 
-			if _, err := context.Exec(stdctx.Background(),
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"ALTER TABLE \"%s\" SET (timescaledb.compress)",
-					testrunner.GetAttribute[string](context, "tableName"),
+					testrunner.GetAttribute[string](ctx, "tableName"),
 				),
 			); err != nil {
 				return err
 			}
-			if _, err := context.Exec(stdctx.Background(),
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"SELECT compress_chunk((t.chunk_schema || '.' || t.chunk_name)::regclass, true) FROM (SELECT * FROM timescaledb_information.chunks WHERE hypertable_name = '%s') t",
-					testrunner.GetAttribute[string](context, "tableName"),
+					testrunner.GetAttribute[string](ctx, "tableName"),
 				),
 			); err != nil {
 				return err
 			}
-			if _, err := context.Exec(stdctx.Background(),
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"INSERT INTO \"%s\" VALUES ('2023-03-25 00:10:59', 5555)",
-					testrunner.GetAttribute[string](context, "tableName"),
+					testrunner.GetAttribute[string](ctx, "tableName"),
 				),
 			); err != nil {
 				return err
 			}
-			if _, err := context.Exec(stdctx.Background(),
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"SELECT decompress_chunk((t.chunk_schema || '.' || t.chunk_name)::regclass, true) FROM (SELECT * FROM timescaledb_information.chunks WHERE hypertable_name = '%s' AND is_compressed) t",
-					testrunner.GetAttribute[string](context, "tableName"),
+					testrunner.GetAttribute[string](ctx, "tableName"),
 				),
 			); err != nil {
 				return err
@@ -728,18 +728,18 @@ func (its *IntegrationTestSuite) TestCompressionPartialInsertEvents() {
 			return nil
 		},
 
-		testrunner.WithSetup(func(context testrunner.SetupContext) error {
-			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
+		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
+			_, tn, err := ctx.CreateHypertable("ts", time.Hour*24,
 				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
 			}
-			testrunner.Attribute(context, "tableName", tn)
+			testrunner.Attribute(ctx, "tableName", tn)
 
-			context.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
-			context.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
+			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
+			ctx.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
 				config.TimescaleDB.Events.Compression = true
 				config.TimescaleDB.Events.Decompression = true
 			})
@@ -773,11 +773,11 @@ func (its *IntegrationTestSuite) TestDecompressionEvents() {
 	)
 
 	its.RunTest(
-		func(context testrunner.Context) error {
-			if _, err := context.Exec(stdctx.Background(),
+		func(ctx testrunner.Context) error {
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:09:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
-					testrunner.GetAttribute[string](context, "tableName"),
+					testrunner.GetAttribute[string](ctx, "tableName"),
 				),
 			); err != nil {
 				return err
@@ -788,18 +788,18 @@ func (its *IntegrationTestSuite) TestDecompressionEvents() {
 			}
 			waiter.Reset()
 
-			if _, err := context.Exec(stdctx.Background(),
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"ALTER TABLE \"%s\" SET (timescaledb.compress)",
-					testrunner.GetAttribute[string](context, "tableName"),
+					testrunner.GetAttribute[string](ctx, "tableName"),
 				),
 			); err != nil {
 				return err
 			}
-			if _, err := context.Exec(stdctx.Background(),
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"SELECT compress_chunk((t.chunk_schema || '.' || t.chunk_name)::regclass, true) FROM (SELECT * FROM timescaledb_information.chunks WHERE hypertable_name = '%s') t",
-					testrunner.GetAttribute[string](context, "tableName"),
+					testrunner.GetAttribute[string](ctx, "tableName"),
 				),
 			); err != nil {
 				return err
@@ -810,10 +810,10 @@ func (its *IntegrationTestSuite) TestDecompressionEvents() {
 			}
 			waiter.Reset()
 
-			if _, err := context.Exec(stdctx.Background(),
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"SELECT decompress_chunk((t.chunk_schema || '.' || t.chunk_name)::regclass, true) FROM (SELECT * FROM timescaledb_information.chunks WHERE hypertable_name = '%s' AND is_compressed) t",
-					testrunner.GetAttribute[string](context, "tableName"),
+					testrunner.GetAttribute[string](ctx, "tableName"),
 				),
 			); err != nil {
 				return err
@@ -852,18 +852,18 @@ func (its *IntegrationTestSuite) TestDecompressionEvents() {
 			return nil
 		},
 
-		testrunner.WithSetup(func(context testrunner.SetupContext) error {
-			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
+		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
+			_, tn, err := ctx.CreateHypertable("ts", time.Hour*24,
 				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
 			}
-			testrunner.Attribute(context, "tableName", tn)
+			testrunner.Attribute(ctx, "tableName", tn)
 
-			context.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
-			context.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
+			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
+			ctx.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
 				config.TimescaleDB.Events.Compression = true
 				config.TimescaleDB.Events.Decompression = true
 			})
@@ -896,11 +896,11 @@ func (its *IntegrationTestSuite) TestCompression_Decompression_SingleTransaction
 	)
 
 	its.RunTest(
-		func(context testrunner.Context) error {
-			if _, err := context.Exec(stdctx.Background(),
+		func(ctx testrunner.Context) error {
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:09:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
-					testrunner.GetAttribute[string](context, "tableName"),
+					testrunner.GetAttribute[string](ctx, "tableName"),
 				),
 			); err != nil {
 				return err
@@ -911,35 +911,35 @@ func (its *IntegrationTestSuite) TestCompression_Decompression_SingleTransaction
 			}
 			waiter.Reset()
 
-			tx, err := context.Begin(stdctx.Background())
+			tx, err := ctx.Begin(context.Background())
 			if err != nil {
 				return err
 			}
-			if _, err := tx.Exec(stdctx.Background(),
+			if _, err := tx.Exec(context.Background(),
 				fmt.Sprintf(
 					"ALTER TABLE \"%s\" SET (timescaledb.compress)",
-					testrunner.GetAttribute[string](context, "tableName"),
+					testrunner.GetAttribute[string](ctx, "tableName"),
 				),
 			); err != nil {
 				return err
 			}
-			if _, err := tx.Exec(stdctx.Background(),
+			if _, err := tx.Exec(context.Background(),
 				fmt.Sprintf(
 					"SELECT compress_chunk((t.chunk_schema || '.' || t.chunk_name)::regclass, true) FROM (SELECT * FROM timescaledb_information.chunks WHERE hypertable_name = '%s') t",
-					testrunner.GetAttribute[string](context, "tableName"),
+					testrunner.GetAttribute[string](ctx, "tableName"),
 				),
 			); err != nil {
 				return err
 			}
-			if _, err := tx.Exec(stdctx.Background(),
+			if _, err := tx.Exec(context.Background(),
 				fmt.Sprintf(
 					"SELECT decompress_chunk((t.chunk_schema || '.' || t.chunk_name)::regclass, true) FROM (SELECT * FROM timescaledb_information.chunks WHERE hypertable_name = '%s' AND is_compressed) t",
-					testrunner.GetAttribute[string](context, "tableName"),
+					testrunner.GetAttribute[string](ctx, "tableName"),
 				),
 			); err != nil {
 				return err
 			}
-			if err := tx.Commit(stdctx.Background()); err != nil {
+			if err := tx.Commit(context.Background()); err != nil {
 				return err
 			}
 
@@ -976,18 +976,18 @@ func (its *IntegrationTestSuite) TestCompression_Decompression_SingleTransaction
 			return nil
 		},
 
-		testrunner.WithSetup(func(context testrunner.SetupContext) error {
-			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
+		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
+			_, tn, err := ctx.CreateHypertable("ts", time.Hour*24,
 				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
 			}
-			testrunner.Attribute(context, "tableName", tn)
+			testrunner.Attribute(ctx, "tableName", tn)
 
-			context.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
-			context.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
+			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
+			ctx.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
 				config.TimescaleDB.Events.Compression = true
 				config.TimescaleDB.Events.Decompression = true
 			})
@@ -1012,20 +1012,20 @@ func (its *IntegrationTestSuite) TestContinuousAggregateCreateEvents() {
 	)
 
 	its.RunTest(
-		func(context testrunner.Context) error {
-			if _, err := context.Exec(stdctx.Background(),
+		func(ctx testrunner.Context) error {
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:19:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
-					testrunner.GetAttribute[string](context, "tableName"),
+					testrunner.GetAttribute[string](ctx, "tableName"),
 				),
 			); err != nil {
 				return err
 			}
 
-			if _, err := context.Exec(stdctx.Background(),
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"CALL refresh_continuous_aggregate('%s', '2023-03-25','2023-03-26')",
-					testrunner.GetAttribute[string](context, "aggregateName"),
+					testrunner.GetAttribute[string](ctx, "aggregateName"),
 				),
 			); err != nil {
 				return err
@@ -1052,20 +1052,20 @@ func (its *IntegrationTestSuite) TestContinuousAggregateCreateEvents() {
 			return nil
 		},
 
-		testrunner.WithSetup(func(context testrunner.SetupContext) error {
-			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
+		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
+			_, tn, err := ctx.CreateHypertable("ts", time.Hour*24,
 				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
 			}
-			testrunner.Attribute(context, "tableName", tn)
+			testrunner.Attribute(ctx, "tableName", tn)
 
 			aggregateName := lo.RandomString(10, lo.LowerCaseLettersCharset)
-			testrunner.Attribute(context, "aggregateName", aggregateName)
+			testrunner.Attribute(ctx, "aggregateName", aggregateName)
 
-			if _, err := context.Exec(stdctx.Background(),
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"CREATE MATERIALIZED VIEW %s WITH (timescaledb.continuous) AS SELECT time_bucket('1 min', t.ts) bucket, max(val) val FROM %s t GROUP BY 1",
 					aggregateName, tn,
@@ -1074,8 +1074,8 @@ func (its *IntegrationTestSuite) TestContinuousAggregateCreateEvents() {
 				return err
 			}
 
-			context.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
-			context.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
+			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
+			ctx.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
 				config.TimescaleDB.Hypertables.Includes = []string{
 					systemcatalog.MakeRelationKey(testsupport.DatabaseSchema, aggregateName),
 				}
@@ -1101,16 +1101,16 @@ func (its *IntegrationTestSuite) TestContinuousAggregate_Scheduled_Refresh_Creat
 	)
 
 	its.RunTest(
-		func(context testrunner.Context) error {
+		func(ctx testrunner.Context) error {
 			logger, err := logging.NewLogger("CAGG_REFRESH_TEST")
 			if err != nil {
 				return err
 			}
 
-			if _, err := context.Exec(stdctx.Background(),
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:19:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
-					testrunner.GetAttribute[string](context, "tableName"),
+					testrunner.GetAttribute[string](ctx, "tableName"),
 				),
 			); err != nil {
 				return err
@@ -1118,14 +1118,14 @@ func (its *IntegrationTestSuite) TestContinuousAggregate_Scheduled_Refresh_Creat
 
 			waiter.Reset()
 			logger.Warnln("Scheduling continuous aggregate refresh")
-			if err := context.PrivilegedContext(func(ctx testrunner.PrivilegedContext) error {
-				_, err := ctx.Exec(stdctx.Background(), `
+			if err := ctx.PrivilegedContext(func(pctx testrunner.PrivilegedContext) error {
+				_, err := pctx.Exec(context.Background(), `
 					SELECT alter_job(j.id, next_start => now() + interval '5 seconds')
 					FROM _timescaledb_config.bgw_job j
 					LEFT JOIN _timescaledb_catalog.hypertable h ON h.id = j.hypertable_id
 					LEFT JOIN _timescaledb_catalog.continuous_agg c ON c.mat_hypertable_id = j.hypertable_id
 					WHERE c.user_view_name = $1`,
-					testrunner.GetAttribute[string](context, "aggregateName"),
+					testrunner.GetAttribute[string](ctx, "aggregateName"),
 				)
 				return err
 			}); err != nil {
@@ -1153,20 +1153,20 @@ func (its *IntegrationTestSuite) TestContinuousAggregate_Scheduled_Refresh_Creat
 			return nil
 		},
 
-		testrunner.WithSetup(func(context testrunner.SetupContext) error {
-			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
+		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
+			_, tn, err := ctx.CreateHypertable("ts", time.Hour*24,
 				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
 			}
-			testrunner.Attribute(context, "tableName", tn)
+			testrunner.Attribute(ctx, "tableName", tn)
 
 			aggregateName := lo.RandomString(10, lo.LowerCaseLettersCharset)
-			testrunner.Attribute(context, "aggregateName", aggregateName)
+			testrunner.Attribute(ctx, "aggregateName", aggregateName)
 
-			if _, err := context.Exec(stdctx.Background(),
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"CREATE MATERIALIZED VIEW %s WITH (timescaledb.continuous) AS SELECT time_bucket('1 min', t.ts) bucket, max(val) val FROM %s t GROUP BY 1 WITH NO DATA",
 					aggregateName, tn,
@@ -1174,7 +1174,7 @@ func (its *IntegrationTestSuite) TestContinuousAggregate_Scheduled_Refresh_Creat
 			); err != nil {
 				return err
 			}
-			if _, err := context.Exec(stdctx.Background(),
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"SELECT add_continuous_aggregate_policy('%s', NULL, NULL, schedule_interval => interval '1 day')",
 					aggregateName,
@@ -1183,8 +1183,8 @@ func (its *IntegrationTestSuite) TestContinuousAggregate_Scheduled_Refresh_Creat
 				return err
 			}
 
-			context.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
-			context.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
+			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
+			ctx.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
 				config.TimescaleDB.Hypertables.Includes = []string{
 					systemcatalog.MakeRelationKey(testsupport.DatabaseSchema, aggregateName),
 				}
@@ -1210,17 +1210,17 @@ func (its *IntegrationTestSuite) Ignore_TestRollbackEvents() {
 	)
 
 	its.RunTest(
-		func(context testrunner.Context) error {
-			tx, err := context.Begin(stdctx.Background())
+		func(ctx testrunner.Context) error {
+			tx, err := ctx.Begin(context.Background())
 			if err != nil {
 				return err
 			}
-			if _, err := tx.Exec(stdctx.Background(),
+			if _, err := tx.Exec(context.Background(),
 				"SELECT pg_logical_emit_message(true, 'test-prefix', 'this is a replication message')",
 			); err != nil {
 				return err
 			}
-			if err := tx.Commit(stdctx.Background()); err != nil {
+			if err := tx.Commit(context.Background()); err != nil {
 				return err
 			}
 
@@ -1245,20 +1245,20 @@ func (its *IntegrationTestSuite) Ignore_TestRollbackEvents() {
 			return nil
 		},
 
-		testrunner.WithSetup(func(context testrunner.SetupContext) error {
-			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
+		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
+			_, tn, err := ctx.CreateHypertable("ts", time.Hour*24,
 				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
 			}
-			testrunner.Attribute(context, "tableName", tn)
+			testrunner.Attribute(ctx, "tableName", tn)
 
 			aggregateName := lo.RandomString(10, lo.LowerCaseLettersCharset)
-			testrunner.Attribute(context, "aggregateName", aggregateName)
+			testrunner.Attribute(ctx, "aggregateName", aggregateName)
 
-			if _, err := context.Exec(stdctx.Background(),
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"CREATE MATERIALIZED VIEW %s WITH (timescaledb.continuous) AS SELECT time_bucket('1 min', t.ts) bucket, max(val) val FROM %s t GROUP BY 1",
 					aggregateName, tn,
@@ -1267,8 +1267,8 @@ func (its *IntegrationTestSuite) Ignore_TestRollbackEvents() {
 				return err
 			}
 
-			context.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
-			context.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
+			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
+			ctx.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
 				config.TimescaleDB.Hypertables.Includes = []string{
 					systemcatalog.MakeRelationKey(testsupport.DatabaseSchema, aggregateName),
 				}
@@ -1295,17 +1295,17 @@ func (its *IntegrationTestSuite) Test_Acknowledge_To_PG_With_Only_Begin_Commit()
 
 	replicationSlotName := lo.RandomString(20, lo.LowerCaseLettersCharset)
 	its.RunTest(
-		func(context testrunner.Context) error {
-			pgVersion := context.PostgresqlVersion()
+		func(ctx testrunner.Context) error {
+			pgVersion := ctx.PostgresqlVersion()
 			if pgVersion >= version.PG_15_VERSION {
 				fmt.Printf("Skipped test, because of PostgreSQL version <15.0 (%s)", pgVersion)
 				return nil
 			}
 
-			tableName := testrunner.GetAttribute[string](context, "tableName")
+			tableName := testrunner.GetAttribute[string](ctx, "tableName")
 
 			var lsn1 pglogrepl.LSN
-			if err := context.QueryRow(stdctx.Background(),
+			if err := ctx.QueryRow(context.Background(),
 				"SELECT confirmed_flush_lsn FROM pg_catalog.pg_replication_slots WHERE slot_name=$1",
 				replicationSlotName,
 			).Scan(&lsn1); err != nil {
@@ -1313,7 +1313,7 @@ func (its *IntegrationTestSuite) Test_Acknowledge_To_PG_With_Only_Begin_Commit()
 			}
 
 			for i := 0; i < 100; i++ {
-				if _, err := context.Exec(stdctx.Background(), "INSERT INTO tsdb.foo VALUES($1)", i); err != nil {
+				if _, err := ctx.Exec(context.Background(), "INSERT INTO tsdb.foo VALUES($1)", i); err != nil {
 					return err
 				}
 				time.Sleep(time.Millisecond * 5)
@@ -1323,14 +1323,14 @@ func (its *IntegrationTestSuite) Test_Acknowledge_To_PG_With_Only_Begin_Commit()
 			time.Sleep(time.Second * 6)
 
 			var lsn2 pglogrepl.LSN
-			if err := context.QueryRow(stdctx.Background(),
+			if err := ctx.QueryRow(context.Background(),
 				"SELECT confirmed_flush_lsn FROM pg_catalog.pg_replication_slots WHERE slot_name=$1",
 				replicationSlotName,
 			).Scan(&lsn2); err != nil {
 				return err
 			}
 
-			if _, err := context.Exec(stdctx.Background(),
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"INSERT INTO \"%s\" VALUES('2023-03-25 00:00:01', 654)",
 					tableName,
@@ -1352,21 +1352,21 @@ func (its *IntegrationTestSuite) Test_Acknowledge_To_PG_With_Only_Begin_Commit()
 			return nil
 		},
 
-		testrunner.WithSetup(func(context testrunner.SetupContext) error {
-			_, tn, err := context.CreateHypertable("ts", time.Hour*6,
+		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
+			_, tn, err := ctx.CreateHypertable("ts", time.Hour*6,
 				testsupport.NewColumn("ts", "timestamptz", false, true, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
 			}
-			testrunner.Attribute(context, "tableName", tn)
+			testrunner.Attribute(ctx, "tableName", tn)
 
-			if _, err := context.Exec(stdctx.Background(), "CREATE TABLE tsdb.foo (val int)"); err != nil {
+			if _, err := ctx.Exec(context.Background(), "CREATE TABLE tsdb.foo (val int)"); err != nil {
 				return err
 			}
 
-			if _, err := context.Exec(stdctx.Background(),
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 23:59:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
 					tn,
@@ -1375,8 +1375,8 @@ func (its *IntegrationTestSuite) Test_Acknowledge_To_PG_With_Only_Begin_Commit()
 				return err
 			}
 
-			context.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
-			context.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
+			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
+			ctx.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
 				config.PostgreSQL.ReplicationSlot.Name = replicationSlotName
 			})
 			return nil

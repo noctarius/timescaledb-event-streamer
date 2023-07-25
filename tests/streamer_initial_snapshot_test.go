@@ -18,7 +18,7 @@
 package tests
 
 import (
-	stdctx "context"
+	"context"
 	"fmt"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
 	"github.com/noctarius/timescaledb-event-streamer/internal/waiting"
@@ -60,7 +60,7 @@ func (its *IntegrationSnapshotTestSuite) TestInitialSnapshot_Hypertable() {
 	)
 
 	its.RunTest(
-		func(context testrunner.Context) error {
+		func(ctx testrunner.Context) error {
 			if err := waiter.Await(); err != nil {
 				its.T().Logf("Expected 8640 events but only received %d", len(testSink.Events()))
 				return err
@@ -84,27 +84,27 @@ func (its *IntegrationSnapshotTestSuite) TestInitialSnapshot_Hypertable() {
 			return nil
 		},
 
-		testrunner.WithSetup(func(context testrunner.SetupContext) error {
-			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
+		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
+			_, tn, err := ctx.CreateHypertable("ts", time.Hour*24,
 				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
 			}
-			testrunner.Attribute(context, "tableName", tn)
+			testrunner.Attribute(ctx, "tableName", tn)
 
-			if _, err := context.Exec(stdctx.Background(),
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-30 23:59:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
-					testrunner.GetAttribute[string](context, "tableName"),
+					testrunner.GetAttribute[string](ctx, "tableName"),
 				),
 			); err != nil {
 				return err
 			}
 
-			context.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
-			context.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
+			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
+			ctx.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
 				config.PostgreSQL.Snapshot.Initial = lo.ToPtr(spiconfig.InitialOnly)
 				config.PostgreSQL.Snapshot.BatchSize = 100
 			})

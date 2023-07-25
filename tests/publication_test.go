@@ -18,7 +18,7 @@
 package tests
 
 import (
-	stdctx "context"
+	"context"
 	"fmt"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
 	"github.com/noctarius/timescaledb-event-streamer/internal/waiting"
@@ -70,8 +70,8 @@ func (pts *PublicationTestSuite) Test_Preexisting_Chunks_Added_To_Publication() 
 
 	var tableName string
 	pts.RunTest(
-		func(context testrunner.Context) error {
-			existingChunks, publishedChunks, err := readAllAndPublishedChunks(context, tableName, publicationName)
+		func(ctx testrunner.Context) error {
+			existingChunks, publishedChunks, err := readAllAndPublishedChunks(ctx, tableName, publicationName)
 			if err != nil {
 				return err
 			}
@@ -93,8 +93,8 @@ func (pts *PublicationTestSuite) Test_Preexisting_Chunks_Added_To_Publication() 
 			return nil
 		},
 
-		testrunner.WithSetup(func(context testrunner.SetupContext) error {
-			_, tn, err := context.CreateHypertable("ts", time.Hour,
+		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
+			_, tn, err := ctx.CreateHypertable("ts", time.Hour,
 				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
@@ -103,7 +103,7 @@ func (pts *PublicationTestSuite) Test_Preexisting_Chunks_Added_To_Publication() 
 			}
 			tableName = tn
 
-			if _, err := context.Exec(stdctx.Background(),
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 23:59:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
 					tableName,
@@ -112,8 +112,8 @@ func (pts *PublicationTestSuite) Test_Preexisting_Chunks_Added_To_Publication() 
 				return err
 			}
 
-			context.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
-			context.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
+			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
+			ctx.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
 				config.PostgreSQL.Publication.Name = publicationName
 			})
 			return nil
@@ -140,8 +140,8 @@ func (pts *PublicationTestSuite) Test_Reloading_From_Known_Chunks() {
 
 	var tableName string
 	pts.RunTest(
-		func(context testrunner.Context) error {
-			existingChunks, publishedChunks, err := readAllAndPublishedChunks(context, tableName, publicationName)
+		func(ctx testrunner.Context) error {
+			existingChunks, publishedChunks, err := readAllAndPublishedChunks(ctx, tableName, publicationName)
 			if err != nil {
 				return err
 			}
@@ -160,12 +160,12 @@ func (pts *PublicationTestSuite) Test_Reloading_From_Known_Chunks() {
 				}
 			}
 
-			if err := context.PauseReplicator(); err != nil {
+			if err := ctx.PauseReplicator(); err != nil {
 				return err
 			}
 
 			// Create a new chunk
-			if _, err := context.Exec(stdctx.Background(),
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-26 00:00:00'::TIMESTAMPTZ, '2023-03-26 00:00:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
 					tableName,
@@ -178,7 +178,7 @@ func (pts *PublicationTestSuite) Test_Reloading_From_Known_Chunks() {
 			testSink.Clear()
 			waiter.Reset()
 
-			if err := context.ResumeReplicator(); err != nil {
+			if err := ctx.ResumeReplicator(); err != nil {
 				return err
 			}
 
@@ -186,7 +186,7 @@ func (pts *PublicationTestSuite) Test_Reloading_From_Known_Chunks() {
 				return err
 			}
 
-			existingChunks, publishedChunks, err = readAllAndPublishedChunks(context, tableName, publicationName)
+			existingChunks, publishedChunks, err = readAllAndPublishedChunks(ctx, tableName, publicationName)
 			if err != nil {
 				return err
 			}
@@ -208,8 +208,8 @@ func (pts *PublicationTestSuite) Test_Reloading_From_Known_Chunks() {
 			return nil
 		},
 
-		testrunner.WithSetup(func(context testrunner.SetupContext) error {
-			_, tn, err := context.CreateHypertable("ts", time.Hour,
+		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
+			_, tn, err := ctx.CreateHypertable("ts", time.Hour,
 				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
@@ -218,7 +218,7 @@ func (pts *PublicationTestSuite) Test_Reloading_From_Known_Chunks() {
 			}
 			tableName = tn
 
-			if _, err := context.Exec(stdctx.Background(),
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 23:59:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
 					tableName,
@@ -227,8 +227,8 @@ func (pts *PublicationTestSuite) Test_Reloading_From_Known_Chunks() {
 				return err
 			}
 
-			context.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
-			context.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
+			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
+			ctx.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
 				config.PostgreSQL.Publication.Name = publicationName
 				config.PostgreSQL.Publication.AutoDrop = lo.ToPtr(false)
 
@@ -243,7 +243,7 @@ func (pts *PublicationTestSuite) Test_Reloading_From_Known_Chunks() {
 			return nil
 		}),
 
-		testrunner.WithTearDown(func(context testrunner.Context) error {
+		testrunner.WithTearDown(func(ctx testrunner.Context) error {
 			// If error happens, we don't care
 			os.Remove(stateStorageFile)
 			return nil
@@ -270,8 +270,8 @@ func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_With_State_Stor
 
 	var tableName string
 	pts.RunTest(
-		func(context testrunner.Context) error {
-			existingChunks, publishedChunks, err := readAllAndPublishedChunks(context, tableName, publicationName)
+		func(ctx testrunner.Context) error {
+			existingChunks, publishedChunks, err := readAllAndPublishedChunks(ctx, tableName, publicationName)
 			if err != nil {
 				return err
 			}
@@ -290,7 +290,7 @@ func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_With_State_Stor
 				}
 			}
 
-			if err := context.PauseReplicator(); err != nil {
+			if err := ctx.PauseReplicator(); err != nil {
 				return err
 			}
 
@@ -312,8 +312,8 @@ func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_With_State_Stor
 				chunksToDrop = append(chunksToDrop, publishedChunkList[idx])
 			}
 
-			if err := context.PrivilegedContext(func(context testrunner.PrivilegedContext) error {
-				_, err := context.Exec(stdctx.Background(),
+			if err := ctx.PrivilegedContext(func(ctx testrunner.PrivilegedContext) error {
+				_, err := ctx.Exec(context.Background(),
 					fmt.Sprintf(
 						sqlDropChunksFromPublication, publicationName, strings.Join(chunksToDrop, ","),
 					),
@@ -324,7 +324,7 @@ func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_With_State_Stor
 			}
 
 			// Create a new chunk
-			if _, err := context.Exec(stdctx.Background(),
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-26 00:00:00'::TIMESTAMPTZ, '2023-03-26 00:00:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
 					tableName,
@@ -337,7 +337,7 @@ func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_With_State_Stor
 			testSink.Clear()
 			waiter.Reset()
 
-			if err := context.ResumeReplicator(); err != nil {
+			if err := ctx.ResumeReplicator(); err != nil {
 				return err
 			}
 
@@ -345,7 +345,7 @@ func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_With_State_Stor
 				return err
 			}
 
-			existingChunks, publishedChunks, err = readAllAndPublishedChunks(context, tableName, publicationName)
+			existingChunks, publishedChunks, err = readAllAndPublishedChunks(ctx, tableName, publicationName)
 			if err != nil {
 				return err
 			}
@@ -367,8 +367,8 @@ func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_With_State_Stor
 			return nil
 		},
 
-		testrunner.WithSetup(func(context testrunner.SetupContext) error {
-			_, tn, err := context.CreateHypertable("ts", time.Hour,
+		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
+			_, tn, err := ctx.CreateHypertable("ts", time.Hour,
 				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
@@ -377,7 +377,7 @@ func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_With_State_Stor
 			}
 			tableName = tn
 
-			if _, err := context.Exec(stdctx.Background(),
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 23:59:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
 					tableName,
@@ -386,8 +386,8 @@ func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_With_State_Stor
 				return err
 			}
 
-			context.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
-			context.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
+			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
+			ctx.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
 				config.PostgreSQL.Publication.Name = publicationName
 				config.PostgreSQL.Publication.AutoDrop = lo.ToPtr(false)
 
@@ -402,7 +402,7 @@ func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_With_State_Stor
 			return nil
 		}),
 
-		testrunner.WithTearDown(func(context testrunner.Context) error {
+		testrunner.WithTearDown(func(ctx testrunner.Context) error {
 			// If error happens, we don't care
 			os.Remove(stateStorageFile)
 			return nil
@@ -429,8 +429,8 @@ func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_Without_State_S
 
 	var tableName string
 	pts.RunTest(
-		func(context testrunner.Context) error {
-			existingChunks, publishedChunks, err := readAllAndPublishedChunks(context, tableName, publicationName)
+		func(ctx testrunner.Context) error {
+			existingChunks, publishedChunks, err := readAllAndPublishedChunks(ctx, tableName, publicationName)
 			if err != nil {
 				return err
 			}
@@ -449,7 +449,7 @@ func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_Without_State_S
 				}
 			}
 
-			if err := context.PauseReplicator(); err != nil {
+			if err := ctx.PauseReplicator(); err != nil {
 				return err
 			}
 
@@ -471,8 +471,8 @@ func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_Without_State_S
 				chunksToDrop = append(chunksToDrop, publishedChunkList[idx])
 			}
 
-			if err := context.PrivilegedContext(func(context testrunner.PrivilegedContext) error {
-				_, err := context.Exec(stdctx.Background(),
+			if err := ctx.PrivilegedContext(func(ctx testrunner.PrivilegedContext) error {
+				_, err := ctx.Exec(context.Background(),
 					fmt.Sprintf(
 						sqlDropChunksFromPublication, publicationName, strings.Join(chunksToDrop, ","),
 					),
@@ -483,7 +483,7 @@ func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_Without_State_S
 			}
 
 			// Create a new chunk
-			if _, err := context.Exec(stdctx.Background(),
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-26 00:00:00'::TIMESTAMPTZ, '2023-03-26 00:00:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
 					tableName,
@@ -496,7 +496,7 @@ func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_Without_State_S
 			testSink.Clear()
 			waiter.Reset()
 
-			if err := context.ResumeReplicator(); err != nil {
+			if err := ctx.ResumeReplicator(); err != nil {
 				return err
 			}
 
@@ -504,7 +504,7 @@ func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_Without_State_S
 				return err
 			}
 
-			existingChunks, publishedChunks, err = readAllAndPublishedChunks(context, tableName, publicationName)
+			existingChunks, publishedChunks, err = readAllAndPublishedChunks(ctx, tableName, publicationName)
 			if err != nil {
 				return err
 			}
@@ -526,8 +526,8 @@ func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_Without_State_S
 			return nil
 		},
 
-		testrunner.WithSetup(func(context testrunner.SetupContext) error {
-			_, tn, err := context.CreateHypertable("ts", time.Hour,
+		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
+			_, tn, err := ctx.CreateHypertable("ts", time.Hour,
 				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
@@ -536,7 +536,7 @@ func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_Without_State_S
 			}
 			tableName = tn
 
-			if _, err := context.Exec(stdctx.Background(),
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 23:59:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
 					tableName,
@@ -545,8 +545,8 @@ func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_Without_State_S
 				return err
 			}
 
-			context.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
-			context.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
+			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
+			ctx.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
 				config.PostgreSQL.Publication.Name = publicationName
 				config.PostgreSQL.Publication.AutoDrop = lo.ToPtr(false)
 
@@ -556,7 +556,7 @@ func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_Without_State_S
 			return nil
 		}),
 
-		testrunner.WithTearDown(func(context testrunner.Context) error {
+		testrunner.WithTearDown(func(ctx testrunner.Context) error {
 			// If error happens, we don't care
 			os.Remove(stateStorageFile)
 			return nil
@@ -565,7 +565,7 @@ func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_Without_State_S
 }
 
 func readAllAndPublishedChunks(
-	context testrunner.Context, tableName, publicationName string,
+	ctx testrunner.Context, tableName, publicationName string,
 ) (
 	existingChunks map[string]systemcatalog.SystemEntity,
 	publishedChunks map[string]systemcatalog.SystemEntity,
@@ -575,8 +575,8 @@ func readAllAndPublishedChunks(
 	existingChunks = make(map[string]systemcatalog.SystemEntity)
 	publishedChunks = make(map[string]systemcatalog.SystemEntity)
 
-	if rows, err := context.Query(
-		stdctx.Background(), sqlReadAllChunksForHypertable, tableName,
+	if rows, err := ctx.Query(
+		context.Background(), sqlReadAllChunksForHypertable, tableName,
 	); err != nil {
 		return nil, nil, err
 	} else {
@@ -590,8 +590,8 @@ func readAllAndPublishedChunks(
 		}
 	}
 
-	if rows, err := context.Query(
-		stdctx.Background(), sqlReadPublishedChunks, publicationName,
+	if rows, err := ctx.Query(
+		context.Background(), sqlReadPublishedChunks, publicationName,
 	); err != nil {
 		return nil, nil, err
 	} else {

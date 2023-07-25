@@ -244,17 +244,17 @@ func (t *testContext) getAttribute(key string) any {
 	return t.attributes[key]
 }
 
-type testConfigurator func(context *testContext)
+type testConfigurator func(ctx *testContext)
 
-func WithSetup(fn func(setupContext SetupContext) error) testConfigurator {
-	return func(context *testContext) {
-		context.setupFunctions = append(context.setupFunctions, fn)
+func WithSetup(fn func(ctx SetupContext) error) testConfigurator {
+	return func(ctx *testContext) {
+		ctx.setupFunctions = append(ctx.setupFunctions, fn)
 	}
 }
 
-func WithTearDown(fn func(context Context) error) testConfigurator {
-	return func(context *testContext) {
-		context.tearDownFunction = append(context.tearDownFunction, fn)
+func WithTearDown(fn func(ctx Context) error) testConfigurator {
+	return func(ctx *testContext) {
+		ctx.tearDownFunction = append(ctx.tearDownFunction, fn)
 	}
 }
 

@@ -18,11 +18,11 @@
 package replicationconnection
 
 import (
-	stdcontext "context"
 	"github.com/jackc/pglogrepl"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
+	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationcontext"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/sidechannel"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
@@ -30,6 +30,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/version"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/net/context"
 	"testing"
 	"time"
 )
@@ -340,14 +341,14 @@ func (t testReplicationContext) StopReplicationContext() error {
 }
 
 func (t testReplicationContext) NewSideChannelConnection(
-	ctx stdcontext.Context,
+	ctx context.Context,
 ) (*pgx.Conn, error) {
 
 	return nil, nil
 }
 
 func (t testReplicationContext) NewReplicationChannelConnection(
-	ctx stdcontext.Context,
+	ctx context.Context,
 ) (*pgconn.PgConn, error) {
 
 	return nil, nil

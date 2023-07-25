@@ -18,7 +18,7 @@
 package tests
 
 import (
-	stdctx "context"
+	"context"
 	"fmt"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
 	"github.com/noctarius/timescaledb-event-streamer/internal/waiting"
@@ -63,11 +63,11 @@ func (irts *IntegrationRestartTestSuite) Test_Restart_Streamer() {
 	)
 
 	irts.RunTest(
-		func(context testrunner.Context) error {
-			if _, err := context.Exec(stdctx.Background(),
+		func(ctx testrunner.Context) error {
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"INSERT INTO \"%s\" (ts, val) VALUES ('2023-02-25 00:00:00', 1)",
-					testrunner.GetAttribute[string](context, "tableName"),
+					testrunner.GetAttribute[string](ctx, "tableName"),
 				),
 			); err != nil {
 				return err
@@ -77,21 +77,21 @@ func (irts *IntegrationRestartTestSuite) Test_Restart_Streamer() {
 				return err
 			}
 
-			if err := context.PauseReplicator(); err != nil {
+			if err := ctx.PauseReplicator(); err != nil {
 				return err
 			}
 			waiter.Reset()
 
-			if _, err := context.Exec(stdctx.Background(),
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) + 1 AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:19:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
-					testrunner.GetAttribute[string](context, "tableName"),
+					testrunner.GetAttribute[string](ctx, "tableName"),
 				),
 			); err != nil {
 				return err
 			}
 
-			if err := context.ResumeReplicator(); err != nil {
+			if err := ctx.ResumeReplicator(); err != nil {
 				return err
 			}
 
@@ -111,24 +111,24 @@ func (irts *IntegrationRestartTestSuite) Test_Restart_Streamer() {
 			return nil
 		},
 
-		testrunner.WithSetup(func(context testrunner.SetupContext) error {
-			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
+		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
+			_, tn, err := ctx.CreateHypertable("ts", time.Hour*24,
 				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
 			}
-			testrunner.Attribute(context, "tableName", tn)
+			testrunner.Attribute(ctx, "tableName", tn)
 
 			tempFile, err := testsupport.CreateTempFile("restart-replicator")
 			if err != nil {
 				return err
 			}
-			testrunner.Attribute(context, "tempFile", tempFile)
+			testrunner.Attribute(ctx, "tempFile", tempFile)
 
-			context.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
-			context.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
+			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
+			ctx.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
 				config.Config.PostgreSQL.ReplicationSlot.Name = lo.RandomString(20, lo.LowerCaseLettersCharset)
 				config.Config.PostgreSQL.ReplicationSlot.Create = lo.ToPtr(true)
 				config.Config.PostgreSQL.ReplicationSlot.AutoDrop = lo.ToPtr(false)
@@ -141,8 +141,8 @@ func (irts *IntegrationRestartTestSuite) Test_Restart_Streamer() {
 			return nil
 		}),
 
-		testrunner.WithTearDown(func(context testrunner.Context) error {
-			tempFile := testrunner.GetAttribute[string](context, "tempFile")
+		testrunner.WithTearDown(func(ctx testrunner.Context) error {
+			tempFile := testrunner.GetAttribute[string](ctx, "tempFile")
 			os.Remove(tempFile)
 			return nil
 		}),
@@ -170,19 +170,19 @@ func (irts *IntegrationRestartTestSuite) Test_Restart_Streamer_After_Backend_Kil
 	replicationSlotName := lo.RandomString(20, lo.LowerCaseLettersCharset)
 
 	irts.RunTest(
-		func(context testrunner.Context) error {
-			if _, err := context.Exec(stdctx.Background(),
+		func(ctx testrunner.Context) error {
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"INSERT INTO \"%s\" (ts, val) VALUES ('2023-02-25 00:00:00', 1)",
-					testrunner.GetAttribute[string](context, "tableName"),
+					testrunner.GetAttribute[string](ctx, "tableName"),
 				),
 			); err != nil {
 				return err
 			}
 
-			if err := context.PrivilegedContext(func(context testrunner.PrivilegedContext) error {
-				_, err := context.Query(
-					stdctx.Background(),
+			if err := ctx.PrivilegedContext(func(ctx testrunner.PrivilegedContext) error {
+				_, err := ctx.Query(
+					context.Background(),
 					"SELECT pg_terminate_backend(rs.active_pid) FROM pg_catalog.pg_replication_slots rs WHERE rs.slot_name = $1",
 					replicationSlotName,
 				)
@@ -195,21 +195,21 @@ func (irts *IntegrationRestartTestSuite) Test_Restart_Streamer_After_Backend_Kil
 				return err
 			}
 
-			if err := context.PauseReplicator(); err != nil {
+			if err := ctx.PauseReplicator(); err != nil {
 				return err
 			}
 			waiter.Reset()
 
-			if _, err := context.Exec(stdctx.Background(),
+			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) + 1 AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:19:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
-					testrunner.GetAttribute[string](context, "tableName"),
+					testrunner.GetAttribute[string](ctx, "tableName"),
 				),
 			); err != nil {
 				return err
 			}
 
-			if err := context.ResumeReplicator(); err != nil {
+			if err := ctx.ResumeReplicator(); err != nil {
 				return err
 			}
 
@@ -229,24 +229,24 @@ func (irts *IntegrationRestartTestSuite) Test_Restart_Streamer_After_Backend_Kil
 			return nil
 		},
 
-		testrunner.WithSetup(func(context testrunner.SetupContext) error {
-			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
+		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
+			_, tn, err := ctx.CreateHypertable("ts", time.Hour*24,
 				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
 			}
-			testrunner.Attribute(context, "tableName", tn)
+			testrunner.Attribute(ctx, "tableName", tn)
 
 			tempFile, err := testsupport.CreateTempFile("restart-replicator")
 			if err != nil {
 				return err
 			}
-			testrunner.Attribute(context, "tempFile", tempFile)
+			testrunner.Attribute(ctx, "tempFile", tempFile)
 
-			context.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
-			context.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
+			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
+			ctx.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
 				config.Config.PostgreSQL.ReplicationSlot.Name = replicationSlotName
 				config.Config.PostgreSQL.ReplicationSlot.Create = lo.ToPtr(true)
 				config.Config.PostgreSQL.ReplicationSlot.AutoDrop = lo.ToPtr(false)
@@ -259,8 +259,8 @@ func (irts *IntegrationRestartTestSuite) Test_Restart_Streamer_After_Backend_Kil
 			return nil
 		}),
 
-		testrunner.WithTearDown(func(context testrunner.Context) error {
-			tempFile := testrunner.GetAttribute[string](context, "tempFile")
+		testrunner.WithTearDown(func(ctx testrunner.Context) error {
+			tempFile := testrunner.GetAttribute[string](ctx, "tempFile")
 			os.Remove(tempFile)
 			return nil
 		}),

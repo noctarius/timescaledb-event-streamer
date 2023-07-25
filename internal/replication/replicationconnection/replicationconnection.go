@@ -18,7 +18,7 @@
 package replicationconnection
 
 import (
-	stdcontext "context"
+	"context"
 	"fmt"
 	"github.com/go-errors/errors"
 	"github.com/jackc/pgerrcode"
@@ -76,7 +76,7 @@ func (rc *ReplicationConnection) ReceiveMessage(
 	deadline time.Time,
 ) (pgproto3.BackendMessage, error) {
 
-	ctx, cancel := stdcontext.WithDeadline(stdcontext.Background(), deadline)
+	ctx, cancel := context.WithDeadline(context.Background(), deadline)
 	defer cancel()
 
 	msg, err := rc.conn.ReceiveMessage(ctx)
@@ -91,7 +91,7 @@ func (rc *ReplicationConnection) ReceiveMessage(
 
 func (rc *ReplicationConnection) SendStatusUpdate() error {
 	processedLSN := rc.replicationContext.LastProcessedLSN()
-	if err := pglogrepl.SendStandbyStatusUpdate(stdcontext.Background(), rc.conn,
+	if err := pglogrepl.SendStandbyStatusUpdate(context.Background(), rc.conn,
 		pglogrepl.StandbyStatusUpdate{
 			WALWritePosition: pglogrepl.LSN(processedLSN) + 1,
 			WALApplyPosition: pglogrepl.LSN(processedLSN) + 1,
@@ -115,7 +115,7 @@ func (rc *ReplicationConnection) StartReplication(
 	// we don't want to send LSN 0 to the server
 	rc.replicationContext.SetPositionLSNs(restartLSN, restartLSN)
 
-	if err := pglogrepl.StartReplication(stdcontext.Background(), rc.conn,
+	if err := pglogrepl.StartReplication(context.Background(), rc.conn,
 		rc.replicationContext.ReplicationSlotName(), pglogrepl.LSN(restartLSN),
 		pglogrepl.StartReplicationOptions{
 			PluginArgs: pluginArguments,
@@ -125,7 +125,7 @@ func (rc *ReplicationConnection) StartReplication(
 			return 0, errors.Wrap(err, 0)
 		}
 
-		return restartLSN, pglogrepl.StartReplication(stdcontext.Background(), rc.conn,
+		return restartLSN, pglogrepl.StartReplication(context.Background(), rc.conn,
 			rc.replicationContext.ReplicationSlotName(), pglogrepl.LSN(restartLSN),
 			pglogrepl.StartReplicationOptions{
 				PluginArgs: pluginArguments,
@@ -136,7 +136,7 @@ func (rc *ReplicationConnection) StartReplication(
 }
 
 func (rc *ReplicationConnection) StopReplication() error {
-	_, err := pglogrepl.SendStandbyCopyDone(stdcontext.Background(), rc.conn)
+	_, err := pglogrepl.SendStandbyCopyDone(context.Background(), rc.conn)
 	if e, ok := err.(*pgconn.PgError); ok {
 		if e.Code == pgerrcode.InternalError {
 			return nil
@@ -163,7 +163,7 @@ func (rc *ReplicationConnection) CreateReplicationSlot() (slotName, snapshotName
 		return replicationSlotName, "", false, nil
 	}
 
-	slot, err := pglogrepl.CreateReplicationSlot(stdcontext.Background(), rc.conn, replicationSlotName, outputPlugin,
+	slot, err := pglogrepl.CreateReplicationSlot(context.Background(), rc.conn, replicationSlotName, outputPlugin,
 		pglogrepl.CreateReplicationSlotOptions{
 			SnapshotAction: "EXPORT_SNAPSHOT",
 		},
@@ -180,7 +180,7 @@ func (rc *ReplicationConnection) DropReplicationSlot() error {
 	if !rc.replicationSlotCreated || !rc.replicationContext.ReplicationSlotAutoDrop() {
 		return nil
 	}
-	if err := pglogrepl.DropReplicationSlot(stdcontext.Background(), rc.conn, rc.replicationContext.ReplicationSlotName(),
+	if err := pglogrepl.DropReplicationSlot(context.Background(), rc.conn, rc.replicationContext.ReplicationSlotName(),
 		pglogrepl.DropReplicationSlotOptions{
 			Wait: true,
 		},
@@ -192,11 +192,11 @@ func (rc *ReplicationConnection) DropReplicationSlot() error {
 }
 
 func (rc *ReplicationConnection) Close() error {
-	return rc.conn.Close(stdcontext.Background())
+	return rc.conn.Close(context.Background())
 }
 
 func (rc *ReplicationConnection) reconnect() error {
-	conn, err := rc.replicationContext.NewReplicationChannelConnection(stdcontext.Background())
+	conn, err := rc.replicationContext.NewReplicationChannelConnection(context.Background())
 	if err != nil {
 		return errors.Wrap(err, 0)
 	}
@@ -205,7 +205,7 @@ func (rc *ReplicationConnection) reconnect() error {
 }
 
 func (rc *ReplicationConnection) identifySystem() (pglogrepl.IdentifySystemResult, error) {
-	return pglogrepl.IdentifySystem(stdcontext.Background(), rc.conn)
+	return pglogrepl.IdentifySystem(context.Background(), rc.conn)
 }
 
 func (rc *ReplicationConnection) locateRestartLSN() (pgtypes.LSN, error) {

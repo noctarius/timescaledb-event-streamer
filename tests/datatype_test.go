@@ -18,7 +18,7 @@
 package tests
 
 import (
-	stdctx "context"
+	"context"
 	"fmt"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/noctarius/timescaledb-event-streamer/internal/waiting"
@@ -972,7 +972,7 @@ func (dtt *DataTypeTestSuite) runDynamicDataTypeTest(
 
 	dtt.runDataTypeTest(testCase, func(setupContext testrunner.SetupContext) error {
 		if err := setupContext.QueryRow(
-			stdctx.Background(), lookupTypeOidQuery, typeName,
+			context.Background(), lookupTypeOidQuery, typeName,
 		).Scan(&testCase.oid); err != nil {
 			return err
 		}
@@ -1002,10 +1002,10 @@ func (dtt *DataTypeTestSuite) runDataTypeTest(
 
 	var tableName string
 	dtt.RunTest(
-		func(context testrunner.Context) error {
+		func(ctx testrunner.Context) error {
 			insert := func(t time.Time) error {
 				if testCase.insertPlain {
-					if _, err := context.Exec(stdctx.Background(),
+					if _, err := ctx.Exec(context.Background(),
 						fmt.Sprintf(
 							"INSERT INTO \"%s\" VALUES ($1, %s)",
 							tableName, testCase.value,
@@ -1014,7 +1014,7 @@ func (dtt *DataTypeTestSuite) runDataTypeTest(
 						return err
 					}
 				} else {
-					if _, err := context.Exec(stdctx.Background(),
+					if _, err := ctx.Exec(context.Background(),
 						fmt.Sprintf("INSERT INTO \"%s\" VALUES ($1, $2)", tableName),
 						t, testCase.value,
 					); err != nil {
