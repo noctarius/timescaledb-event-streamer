@@ -226,7 +226,7 @@ func (d *taskManager) UnregisterReplicationEventHandler(
 
 func (d *taskManager) StartDispatcher() {
 	go func() {
-		notificator := &notificatorImpl{dispatcher: d}
+		notificator := &notificator{dispatcher: d}
 		for {
 			select {
 			case <-d.shutdownAwaiter.AwaitShutdownChan():
@@ -280,7 +280,7 @@ func (d *taskManager) RunTask(
 	task Task,
 ) error {
 
-	notificator := &immediateNotificatorImpl{dispatcher: d}
+	notificator := &immediateNotificator{dispatcher: d}
 	task(notificator)
 	if notificator.errors == nil || len(notificator.errors) == 0 {
 		return nil
@@ -288,11 +288,11 @@ func (d *taskManager) RunTask(
 	return stderrors.Join(notificator.errors...)
 }
 
-type notificatorImpl struct {
+type notificator struct {
 	dispatcher *taskManager
 }
 
-func (n *notificatorImpl) NotifyBaseReplicationEventHandler(
+func (n *notificator) NotifyBaseReplicationEventHandler(
 	fn func(handler eventhandlers.BaseReplicationEventHandler) error,
 ) {
 
@@ -303,7 +303,7 @@ func (n *notificatorImpl) NotifyBaseReplicationEventHandler(
 	}
 }
 
-func (n *notificatorImpl) NotifySystemCatalogReplicationEventHandler(
+func (n *notificator) NotifySystemCatalogReplicationEventHandler(
 	fn func(handler eventhandlers.SystemCatalogReplicationEventHandler) error,
 ) {
 
@@ -314,7 +314,7 @@ func (n *notificatorImpl) NotifySystemCatalogReplicationEventHandler(
 	}
 }
 
-func (n *notificatorImpl) NotifyCompressionReplicationEventHandler(
+func (n *notificator) NotifyCompressionReplicationEventHandler(
 	fn func(handler eventhandlers.CompressionReplicationEventHandler) error,
 ) {
 
@@ -325,7 +325,7 @@ func (n *notificatorImpl) NotifyCompressionReplicationEventHandler(
 	}
 }
 
-func (n *notificatorImpl) NotifyHypertableReplicationEventHandler(
+func (n *notificator) NotifyHypertableReplicationEventHandler(
 	fn func(handler eventhandlers.HypertableReplicationEventHandler) error,
 ) {
 
@@ -336,7 +336,7 @@ func (n *notificatorImpl) NotifyHypertableReplicationEventHandler(
 	}
 }
 
-func (n *notificatorImpl) NotifyLogicalReplicationEventHandler(
+func (n *notificator) NotifyLogicalReplicationEventHandler(
 	fn func(handler eventhandlers.LogicalReplicationEventHandler) error,
 ) {
 
@@ -347,7 +347,7 @@ func (n *notificatorImpl) NotifyLogicalReplicationEventHandler(
 	}
 }
 
-func (n *notificatorImpl) NotifySnapshottingEventHandler(
+func (n *notificator) NotifySnapshottingEventHandler(
 	fn func(handler eventhandlers.SnapshottingEventHandler) error,
 ) {
 
@@ -358,7 +358,7 @@ func (n *notificatorImpl) NotifySnapshottingEventHandler(
 	}
 }
 
-func (n *notificatorImpl) handleError(
+func (n *notificator) handleError(
 	err error,
 ) {
 
@@ -370,12 +370,12 @@ func (n *notificatorImpl) handleError(
 	n.dispatcher.logger.Warnf("Error while dispatching event: %s\n", errMsg)
 }
 
-type immediateNotificatorImpl struct {
+type immediateNotificator struct {
 	dispatcher *taskManager
 	errors     []error
 }
 
-func (n *immediateNotificatorImpl) NotifyBaseReplicationEventHandler(
+func (n *immediateNotificator) NotifyBaseReplicationEventHandler(
 	fn func(handler eventhandlers.BaseReplicationEventHandler) error,
 ) {
 
@@ -386,7 +386,7 @@ func (n *immediateNotificatorImpl) NotifyBaseReplicationEventHandler(
 	}
 }
 
-func (n *immediateNotificatorImpl) NotifySystemCatalogReplicationEventHandler(
+func (n *immediateNotificator) NotifySystemCatalogReplicationEventHandler(
 	fn func(handler eventhandlers.SystemCatalogReplicationEventHandler) error,
 ) {
 
@@ -397,7 +397,7 @@ func (n *immediateNotificatorImpl) NotifySystemCatalogReplicationEventHandler(
 	}
 }
 
-func (n *immediateNotificatorImpl) NotifyCompressionReplicationEventHandler(fn func(
+func (n *immediateNotificator) NotifyCompressionReplicationEventHandler(fn func(
 	handler eventhandlers.CompressionReplicationEventHandler) error,
 ) {
 
@@ -408,7 +408,7 @@ func (n *immediateNotificatorImpl) NotifyCompressionReplicationEventHandler(fn f
 	}
 }
 
-func (n *immediateNotificatorImpl) NotifyHypertableReplicationEventHandler(
+func (n *immediateNotificator) NotifyHypertableReplicationEventHandler(
 	fn func(handler eventhandlers.HypertableReplicationEventHandler) error,
 ) {
 
@@ -419,7 +419,7 @@ func (n *immediateNotificatorImpl) NotifyHypertableReplicationEventHandler(
 	}
 }
 
-func (n *immediateNotificatorImpl) NotifyLogicalReplicationEventHandler(
+func (n *immediateNotificator) NotifyLogicalReplicationEventHandler(
 	fn func(handler eventhandlers.LogicalReplicationEventHandler) error,
 ) {
 
@@ -430,7 +430,7 @@ func (n *immediateNotificatorImpl) NotifyLogicalReplicationEventHandler(
 	}
 }
 
-func (n *immediateNotificatorImpl) NotifySnapshottingEventHandler(
+func (n *immediateNotificator) NotifySnapshottingEventHandler(
 	fn func(handler eventhandlers.SnapshottingEventHandler) error,
 ) {
 
@@ -441,7 +441,7 @@ func (n *immediateNotificatorImpl) NotifySnapshottingEventHandler(
 	}
 }
 
-func (n *immediateNotificatorImpl) handleError(
+func (n *immediateNotificator) handleError(
 	err error,
 ) {
 
