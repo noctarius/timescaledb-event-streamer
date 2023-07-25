@@ -216,8 +216,6 @@ const walLevelQuery = `SHOW WAL_LEVEL`
 
 const checkTablePrivilegeByUserQuery = `SELECT HAS_TABLE_PRIVILEGE($1, $2, $3)`
 
-type SideChannelProvider func(stateStorageManager statestorage.Manager, pgxConfig *pgx.ConnConfig) (SideChannel, error)
-
 type HypertableSchemaCallback = func(
 	hypertable *systemcatalog.Hypertable, columns []systemcatalog.Column,
 ) bool

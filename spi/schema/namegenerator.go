@@ -17,7 +17,9 @@
 
 package schema
 
-import "github.com/noctarius/timescaledb-event-streamer/spi/namingstrategy"
+import (
+	"github.com/noctarius/timescaledb-event-streamer/spi/namingstrategy"
+)
 
 // NameGenerator wraps a namingstrategy.NamingStrategy to
 // simplify its usage with the topic prefix being predefined

@@ -39,6 +39,7 @@ type transactionTracker struct {
 	maxSize                      uint
 	relations                    map[uint32]*pgtypes.RelationMessage
 	resolver                     *logicalReplicationResolver
+	replicationContext           context.ReplicationContext
 	systemCatalog                *systemcatalog.SystemCatalog
 	currentTransaction           *transaction
 	logger                       *logging.Logger
@@ -59,11 +60,16 @@ func newTransactionTracker(
 		timeout:                      timeout,
 		maxSize:                      maxSize,
 		systemCatalog:                systemCatalog,
+		replicationContext:           replicationContext,
 		relations:                    make(map[uint32]*pgtypes.RelationMessage),
 		logger:                       logger,
 		resolver:                     resolver,
 		supportsDecompressionMarkers: replicationContext.IsTSDB212GE(),
 	}, nil
+}
+func (tt *transactionTracker) PostConstruct() error {
+	tt.replicationContext.TaskManager().RegisterReplicationEventHandler(tt)
+	return nil
 }
 
 func (tt *transactionTracker) OnHypertableSnapshotStartedEvent(

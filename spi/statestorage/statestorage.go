@@ -22,9 +22,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/config"
 )
 
-type Factory = func(config *config.Config) (Storage, error)
-
-type Provider = func(config *config.Config) (Manager, error)
+type StorageProvider = func(config *config.Config) (Storage, error)
 
 type StateEncoderFunc func() (data []byte, err error)
 

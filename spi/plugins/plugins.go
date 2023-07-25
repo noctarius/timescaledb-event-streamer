@@ -29,10 +29,10 @@ import (
 
 type ExtensionPoints interface {
 	RegisterNamingStrategy(
-		name string, provider namingstrategy.Provider,
+		name string, factory namingstrategy.Factory,
 	) bool
 	RegisterStateStorage(
-		name string, factory statestorage.Factory,
+		name string, factory statestorage.StorageProvider,
 	) bool
 	RegisterSink(
 		name string, factory sink.Factory,
@@ -67,14 +67,14 @@ type extensionPoints struct {
 }
 
 func (*extensionPoints) RegisterNamingStrategy(
-	name string, provider namingstrategy.Provider,
+	name string, factory namingstrategy.Factory,
 ) bool {
 
-	return namingstrategy.RegisterNamingStrategy(config.NamingStrategyType(name), provider)
+	return namingstrategy.RegisterNamingStrategy(config.NamingStrategyType(name), factory)
 }
 
 func (*extensionPoints) RegisterStateStorage(
-	name string, factory statestorage.Factory,
+	name string, factory statestorage.StorageProvider,
 ) bool {
 
 	return statestorage.RegisterStateStorage(config.StateStorageType(name), factory)

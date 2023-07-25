@@ -28,10 +28,6 @@ const (
 	messageStreamName = "::internal::message::stream::"
 )
 
-type Provider = func(
-	nameGenerator schema.NameGenerator, typeManager pgtypes.TypeManager, sinkManager sink.Manager,
-) (Manager, error)
-
 type Manager interface {
 	Start() error
 	Stop() error

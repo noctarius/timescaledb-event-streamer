@@ -22,17 +22,20 @@ import (
 	stderrors "errors"
 	"fmt"
 	"github.com/go-errors/errors"
+	"github.com/jackc/pgx/v5"
+	"github.com/noctarius/timescaledb-event-streamer/internal/eventing/eventemitting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
-	logrepresolver "github.com/noctarius/timescaledb-event-streamer/internal/replication/logicalreplicationresolver"
+	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationchannel"
 	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
 	intsystemcatalog "github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/snapshotting"
+	"github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/encoding"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
-	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
+	"github.com/noctarius/timescaledb-event-streamer/spi/wiring"
 	"github.com/samber/lo"
 	"github.com/urfave/cli"
 )
@@ -66,109 +69,82 @@ func NewReplicator(
 
 // StartReplication initiates the actual replication process
 func (r *Replicator) StartReplication() *cli.ExitError {
-	namingStrategy, err := r.config.NamingStrategyProvider(r.config.Config)
+	logger, err := logging.NewLogger("Replicator")
 	if err != nil {
-		return supporting.AdaptErrorWithMessage(err, "failed to instantiate naming strategy", 21)
-	}
-	nameGenerator := schema.NewNameGenerator(r.config.Topic.Prefix, namingStrategy)
-
-	stateStorageManager, err := r.config.StateStorageManagerProvider(r.config.Config)
-	if err != nil {
-		return supporting.AdaptErrorWithMessage(err, "failed to instantiate state storage", 23)
+		return supporting.AdaptError(err, 1)
 	}
 
-	// Instantiate the actual side channel implementation
-	// which handles queries against the database
-	sideChannel, err := r.config.SideChannelProvider(stateStorageManager, r.config.PgxConfig)
-	if err != nil {
-		return supporting.AdaptErrorWithMessage(err, "failed to instantiate side channel", 26)
-	}
+	container, err := wiring.NewContainer(
+		EventingModule,
+		LogicalReplicationResolverModule,
+		SchemaModule,
+		NamingStrategyModule,
+		ReplicationChannelModule,
+		ReplicationContextModule,
+		SideChannelModule,
+		SinkManagerModule,
+		StateStorageModule,
+		StreamManagerModule,
+		SystemCatalogModule,
+		TypeManagerModule,
+		SnapshotterModule,
+		wiring.DefineModule("Config", func(module wiring.Module) {
+			module.Provide(func() *config.Config {
+				return r.config.Config
+			})
+			module.Provide(func() *pgx.ConnConfig {
+				return r.config.PgxConfig
+			})
+			module.Invoke(func(replicationContext context.ReplicationContext, typeManager pgtypes.TypeManager) error {
+				// Check version information
+				if !replicationContext.IsMinimumPostgresVersion() {
+					return cli.NewExitError("timescaledb-event-streamer requires PostgreSQL 13 or later", 11)
+				}
+				if !replicationContext.IsMinimumTimescaleVersion() {
+					return cli.NewExitError("timescaledb-event-streamer requires TimescaleDB 2.10 or later", 12)
+				}
 
-	// Create the side channels and replication context
-	replicationContext, err := r.config.ReplicationContextProvider(
-		r.config.Config, r.config.PgxConfig, stateStorageManager, sideChannel,
+				// Check WAL replication level
+				if !replicationContext.IsLogicalReplicationEnabled() {
+					return cli.NewExitError("timescaledb-event-streamer requires wal_level set to 'logical'", 16)
+				}
+
+				// Log system information
+				logger.Infof("Discovered System Information:")
+				logger.Infof("  * PostgreSQL version %s", replicationContext.PostgresVersion())
+				logger.Infof("  * TimescaleDB version %s", replicationContext.TimescaleVersion())
+				logger.Infof("  * PostgreSQL System Identity %s", replicationContext.SystemId())
+				logger.Infof("  * PostgreSQL Timeline %d", replicationContext.Timeline())
+				logger.Infof("  * PostgreSQL DatabaseName %s", replicationContext.DatabaseName())
+				logger.Infof("  * PostgreSQL Types loaded %d", typeManager.NumKnownTypes())
+				return nil
+			})
+		}),
+		wiring.DefineModule("Overrides", func(module wiring.Module) {
+			module.MayProvide(r.config.EventEmitterProvider)
+			module.MayProvide(r.config.LogicalReplicationResolverProvider)
+			module.MayProvide(r.config.NameGeneratorProvider)
+			module.MayProvide(r.config.NamingStrategyProvider)
+			module.MayProvide(r.config.ReplicationChannelProvider)
+			module.MayProvide(r.config.ReplicationContextProvider)
+			module.MayProvide(r.config.SideChannelProvider)
+			module.MayProvide(r.config.SinkManagerProvider)
+			module.MayProvide(r.config.SnapshotterProvider)
+			module.MayProvide(r.config.StateStorageManagerProvider)
+			module.MayProvide(r.config.StateStorageProvider)
+			module.MayProvide(r.config.StreamManagerProvider)
+			module.MayProvide(r.config.SystemCatalogProvider)
+			module.MayProvide(r.config.TypeManagerProvider)
+		}),
 	)
 	if err != nil {
-		return supporting.AdaptErrorWithMessage(err, "failed to initialize replication context", 17)
+		return supporting.AdaptError(err, 1)
 	}
 
-	// Check version information
-	if !replicationContext.IsMinimumPostgresVersion() {
-		return cli.NewExitError("timescaledb-event-streamer requires PostgreSQL 13 or later", 11)
+	var replicationContext context.ReplicationContext
+	if err := container.Service(&replicationContext); err != nil {
+		return supporting.AdaptError(err, 1)
 	}
-	if !replicationContext.IsMinimumTimescaleVersion() {
-		return cli.NewExitError("timescaledb-event-streamer requires TimescaleDB 2.10 or later", 12)
-	}
-
-	// Check WAL replication level
-	if !replicationContext.IsLogicalReplicationEnabled() {
-		return cli.NewExitError("timescaledb-event-streamer requires wal_level set to 'logical'", 16)
-	}
-
-	// Instantiate the type manager
-	typeManager, err := pgtypes.NewTypeManager(replicationContext.TypeResolver())
-	if err != nil {
-		return supporting.AdaptErrorWithMessage(err, "failed to instantiate type manager", 26)
-	}
-
-	// Log system information
-	r.logger.Infof("Discovered System Information:")
-	r.logger.Infof("  * PostgreSQL version %s", replicationContext.PostgresVersion())
-	r.logger.Infof("  * TimescaleDB version %s", replicationContext.TimescaleVersion())
-	r.logger.Infof("  * PostgreSQL System Identity %s", replicationContext.SystemId())
-	r.logger.Infof("  * PostgreSQL Timeline %d", replicationContext.Timeline())
-	r.logger.Infof("  * PostgreSQL DatabaseName %s", replicationContext.DatabaseName())
-	r.logger.Infof("  * PostgreSQL Types loaded %d", typeManager.NumKnownTypes())
-
-	// Create replication channel and internal replication handler
-	replicationChannel, err := replicationchannel.NewReplicationChannel(replicationContext)
-	if err != nil {
-		return supporting.AdaptError(err, 18)
-	}
-
-	// Instantiate the snapshotter
-	snapshotter, err := snapshotting.NewSnapshotter(5, replicationContext)
-	if err != nil {
-		return supporting.AdaptError(err, 19)
-	}
-
-	// Instantiate the sink manager
-	sinkManager, err := r.config.SinkManagerProvider(r.config.Config, stateStorageManager)
-	if err != nil {
-		return supporting.AdaptErrorWithMessage(err, "failed to instantiate sink manager", 22)
-	}
-
-	// Instantiate the stream manager
-	streamManager, err := r.config.StreamManagerProvider(nameGenerator, typeManager, sinkManager)
-	if err != nil {
-		return supporting.AdaptErrorWithMessage(err, "failed to instantiate stream manager", 25)
-	}
-
-	// Instantiate the change event emitter
-	eventEmitter, err := r.config.EventEmitterProvider(r.config.Config, replicationContext, streamManager, typeManager)
-	if err != nil {
-		return supporting.AdaptError(err, 14)
-	}
-
-	// Set up the system catalog (replicating the TimescaleDB internal representation)
-	systemCatalog, err := intsystemcatalog.NewSystemCatalog(
-		r.config.Config, replicationContext, typeManager.DataType, snapshotter,
-	)
-	if err != nil {
-		return supporting.AdaptError(err, 15)
-	}
-
-	// Set up the internal transaction tracking and logical replication resolving
-	transactionResolver, err := logrepresolver.NewResolver(r.config.Config, replicationContext, systemCatalog)
-	if err != nil {
-		return supporting.AdaptError(err, 20)
-	}
-
-	// Register event handlers
-	taskManager := replicationContext.TaskManager()
-	taskManager.RegisterReplicationEventHandler(transactionResolver)
-	taskManager.RegisterReplicationEventHandler(systemCatalog.NewEventHandler())
-	taskManager.RegisterReplicationEventHandler(eventEmitter.NewEventHandler())
 
 	// Start internal dispatching
 	if err := replicationContext.StartReplicationContext(); err != nil {
@@ -176,14 +152,27 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 	}
 
 	// Start event emitter
+	var eventEmitter *eventemitting.EventEmitter
+	if err := container.Service(&eventEmitter); err != nil {
+		return supporting.AdaptError(err, 1)
+	}
+
 	if err := eventEmitter.Start(); err != nil {
 		return supporting.AdaptErrorWithMessage(err, "failed to start event emitter", 24)
 	}
 
 	// Start the snapshotter
+	var snapshotter *snapshotting.Snapshotter
+	if err := container.Service(&snapshotter); err != nil {
+		return supporting.AdaptError(err, 1)
+	}
 	snapshotter.StartSnapshotter()
 
 	// Get initial list of chunks to add to
+	var systemCatalog *intsystemcatalog.SystemCatalog
+	if err := container.Service(&systemCatalog); err != nil {
+		return supporting.AdaptError(err, 1)
+	}
 	initialChunkTables, err := r.collectChunksForPublication(
 		replicationContext.StateStorageManager().EncodedState, systemCatalog.GetAllChunks,
 		replicationContext.PublicationManager().ReadPublishedTables,
@@ -192,6 +181,10 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 		return supporting.AdaptErrorWithMessage(err, "failed to read known chunks", 25)
 	}
 
+	var replicationChannel *replicationchannel.ReplicationChannel
+	if err := container.Service(&replicationChannel); err != nil {
+		return supporting.AdaptError(err, 1)
+	}
 	if err := replicationChannel.StartReplicationChannel(replicationContext, initialChunkTables); err != nil {
 		return supporting.AdaptError(err, 16)
 	}

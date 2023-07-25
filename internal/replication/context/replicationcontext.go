@@ -34,11 +34,6 @@ import (
 	"sync"
 )
 
-type ReplicationContextProvider func(
-	config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
-	stateStorageManager statestorage.Manager, sideChannel sidechannel.SideChannel,
-) (ReplicationContext, error)
-
 type ReplicationContext interface {
 	StartReplicationContext() error
 	StopReplicationContext() error

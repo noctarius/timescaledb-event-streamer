@@ -20,9 +20,10 @@ package sink
 import (
 	"github.com/go-errors/errors"
 	"github.com/noctarius/timescaledb-event-streamer/spi/config"
-	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
 	"sync"
 )
+
+type Factory = func(config *config.Config) (Sink, error)
 
 var sinkRegistry = &registry{
 	mutex:     sync.Mutex{},
@@ -33,10 +34,6 @@ type registry struct {
 	mutex     sync.Mutex
 	factories map[config.SinkType]Factory
 }
-
-type Factory = func(config *config.Config) (Sink, error)
-
-type Provider = func(config *config.Config, stateStorageManager statestorage.Manager) (Manager, error)
 
 // RegisterSink registers a config.SinkType to a Factory
 // implementation which creates the Sink when requested

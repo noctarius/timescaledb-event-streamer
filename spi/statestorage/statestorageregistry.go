@@ -25,25 +25,25 @@ import (
 
 var stateStorageRegistry = &registry{
 	mutex:     sync.Mutex{},
-	factories: make(map[config.StateStorageType]Factory),
+	factories: make(map[config.StateStorageType]StorageProvider),
 }
 
 type registry struct {
 	mutex     sync.Mutex
-	factories map[config.StateStorageType]Factory
+	factories map[config.StateStorageType]StorageProvider
 }
 
 // RegisterStateStorage registers a config.StateStorageType to a
 // Provider implementation which creates the Storage
 // when requested
 func RegisterStateStorage(
-	name config.StateStorageType, factory Factory,
+	name config.StateStorageType, storageProvider StorageProvider,
 ) bool {
 
 	stateStorageRegistry.mutex.Lock()
 	defer stateStorageRegistry.mutex.Unlock()
 	if _, present := stateStorageRegistry.factories[name]; !present {
-		stateStorageRegistry.factories[name] = factory
+		stateStorageRegistry.factories[name] = storageProvider
 		return true
 	}
 	return false

@@ -18,11 +18,8 @@
 package namingstrategy
 
 import (
-	"github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"strings"
 )
-
-type Provider = func(config *config.Config) (NamingStrategy, error)
 
 // NamingStrategy represents a strategy to generate
 // topic names for event topics, schema topics, as

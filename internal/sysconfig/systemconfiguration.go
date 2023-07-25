@@ -19,27 +19,31 @@ package sysconfig
 
 import (
 	"github.com/jackc/pgx/v5"
-	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
-	"github.com/noctarius/timescaledb-event-streamer/internal/replication/sidechannel"
-	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig/defaultproviders"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/namingstrategy"
 	"github.com/noctarius/timescaledb-event-streamer/spi/sink"
 	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
-	"github.com/noctarius/timescaledb-event-streamer/spi/stream"
 )
 
 type SystemConfig struct {
 	*spiconfig.Config
 
-	PgxConfig                   *pgx.ConnConfig
-	SinkManagerProvider         sink.Provider
-	StreamManagerProvider       stream.Provider
-	EventEmitterProvider        defaultproviders.EventEmitterProvider
-	NamingStrategyProvider      namingstrategy.Provider
-	StateStorageManagerProvider statestorage.Provider
-	ReplicationContextProvider  context.ReplicationContextProvider
-	SideChannelProvider         sidechannel.SideChannelProvider
+	PgxConfig                          *pgx.ConnConfig
+	EventEmitterProvider               EventEmitterProvider
+	LogicalReplicationResolverProvider LogicalReplicationResolverProvider
+	NameGeneratorProvider              NameGeneratorProvider
+	NamingStrategyProvider             namingstrategy.Factory
+	ReplicationChannelProvider         ReplicationChannelProvider
+	ReplicationContextProvider         ReplicationContextProvider
+	SideChannelProvider                SideChannelProvider
+	SinkFactory                        sink.Factory
+	SinkManagerProvider                SinkManagerProvider
+	SnapshotterProvider                SnapshotterProvider
+	StateStorageProvider               statestorage.StorageProvider
+	StateStorageManagerProvider        StateStorageManagerProvider
+	StreamManagerProvider              StreamManagerProvider
+	SystemCatalogProvider              SystemCatalogProvider
+	TypeManagerProvider                TypeManagerProvider
 }
 
 func NewSystemConfig(
@@ -49,12 +53,5 @@ func NewSystemConfig(
 	sc := &SystemConfig{
 		Config: config,
 	}
-	sc.SideChannelProvider = defaultproviders.DefaultSideChannelProvider
-	sc.StreamManagerProvider = defaultproviders.DefaultStreamManagerProvider
-	sc.SinkManagerProvider = defaultproviders.DefaultSinkManagerProvider
-	sc.EventEmitterProvider = defaultproviders.DefaultEventEmitterProvider
-	sc.NamingStrategyProvider = defaultproviders.DefaultNamingStrategyProvider
-	sc.StateStorageManagerProvider = defaultproviders.DefaultStateStorageManagerProvider
-	sc.ReplicationContextProvider = defaultproviders.DefaultReplicationContextProvider
 	return sc
 }

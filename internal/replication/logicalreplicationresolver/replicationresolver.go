@@ -79,6 +79,11 @@ func newLogicalReplicationResolver(
 	}, nil
 }
 
+func (l *logicalReplicationResolver) PostConstruct() error {
+	l.replicationContext.TaskManager().RegisterReplicationEventHandler(l)
+	return nil
+}
+
 func (l *logicalReplicationResolver) OnHypertableSnapshotStartedEvent(
 	_ string, _ *spicatalog.Hypertable,
 ) error {

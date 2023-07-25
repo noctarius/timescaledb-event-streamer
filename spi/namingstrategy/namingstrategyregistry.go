@@ -23,27 +23,29 @@ import (
 	"sync"
 )
 
+type Factory func(config *config.Config) (NamingStrategy, error)
+
 var namingStrategyRegistry = &registry{
 	mutex:     sync.Mutex{},
-	providers: make(map[config.NamingStrategyType]Provider),
+	factories: make(map[config.NamingStrategyType]Factory),
 }
 
 type registry struct {
 	mutex     sync.Mutex
-	providers map[config.NamingStrategyType]Provider
+	factories map[config.NamingStrategyType]Factory
 }
 
 // RegisterNamingStrategy registers a NamingRegistryType to a
 // Provider implementation which creates the NamingStrategy
 // when requested
 func RegisterNamingStrategy(
-	name config.NamingStrategyType, provider Provider,
+	name config.NamingStrategyType, factory Factory,
 ) bool {
 
 	namingStrategyRegistry.mutex.Lock()
 	defer namingStrategyRegistry.mutex.Unlock()
-	if _, present := namingStrategyRegistry.providers[name]; !present {
-		namingStrategyRegistry.providers[name] = provider
+	if _, present := namingStrategyRegistry.factories[name]; !present {
+		namingStrategyRegistry.factories[name] = factory
 		return true
 	}
 	return false
@@ -57,7 +59,7 @@ func NewNamingStrategy(
 
 	namingStrategyRegistry.mutex.Lock()
 	defer namingStrategyRegistry.mutex.Unlock()
-	if p, present := namingStrategyRegistry.providers[name]; present {
+	if p, present := namingStrategyRegistry.factories[name]; present {
 		return p(config)
 	}
 	return nil, errors.Errorf("NamingStrategyType '%s' doesn't exist", name)

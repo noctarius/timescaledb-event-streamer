@@ -78,7 +78,7 @@ func NewSystemCatalog(
 		return nil, errors.Wrap(err, 0)
 	}
 
-	return initializeSystemCatalog(&SystemCatalog{
+	return &SystemCatalog{
 		hypertables:           make(map[int32]*systemcatalog.Hypertable),
 		chunks:                make(map[int32]*systemcatalog.Chunk),
 		hypertableNameIndex:   make(map[string]int32),
@@ -93,7 +93,15 @@ func NewSystemCatalog(
 		replicationFilter:  replicationFilter,
 		snapshotter:        snapshotter,
 		logger:             logger,
-	})
+	}, nil
+}
+
+func (sc *SystemCatalog) PostConstruct() error {
+	if _, err := initializeSystemCatalog(sc); err != nil {
+		return err
+	}
+	sc.replicationContext.TaskManager().RegisterReplicationEventHandler(sc.NewEventHandler())
+	return nil
 }
 
 func (sc *SystemCatalog) FindHypertableById(

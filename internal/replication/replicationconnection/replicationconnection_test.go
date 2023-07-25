@@ -24,6 +24,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
+	"github.com/noctarius/timescaledb-event-streamer/internal/replication/sidechannel"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
@@ -500,7 +501,7 @@ func (t testReplicationContext) IsLogicalReplicationEnabled() bool {
 }
 
 func (t testReplicationContext) HasTablePrivilege(
-	entity systemcatalog.SystemEntity, grant context.Grant,
+	entity systemcatalog.SystemEntity, grant sidechannel.Grant,
 ) (access bool, err error) {
 
 	return false, err
@@ -521,7 +522,7 @@ func (t testReplicationContext) LoadChunks(
 }
 
 func (t testReplicationContext) ReadHypertableSchema(
-	cb context.HypertableSchemaCallback,
+	cb sidechannel.HypertableSchemaCallback,
 	pgTypeResolver func(oid uint32) (pgtypes.PgType, error), hypertables ...*systemcatalog.Hypertable,
 ) error {
 
@@ -529,14 +530,14 @@ func (t testReplicationContext) ReadHypertableSchema(
 }
 
 func (t testReplicationContext) SnapshotChunkTable(
-	chunk *systemcatalog.Chunk, cb context.SnapshotRowCallback,
+	chunk *systemcatalog.Chunk, cb sidechannel.SnapshotRowCallback,
 ) (pgtypes.LSN, error) {
 
 	return 0, nil
 }
 
 func (t testReplicationContext) FetchHypertableSnapshotBatch(
-	hypertable *systemcatalog.Hypertable, snapshotName string, cb context.SnapshotRowCallback,
+	hypertable *systemcatalog.Hypertable, snapshotName string, cb sidechannel.SnapshotRowCallback,
 ) error {
 
 	return nil

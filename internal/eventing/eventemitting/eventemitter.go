@@ -35,14 +35,6 @@ import (
 	"time"
 )
 
-type keyFactoryFn func(
-	stream stream.Stream,
-) (schema.Struct, error)
-
-type payloadFactoryFn func(
-	source schema.Struct, stream stream.Stream,
-) (schema.Struct, error)
-
 type EventEmitter struct {
 	replicationContext context.ReplicationContext
 	filter             eventfiltering.EventFilter
@@ -51,6 +43,14 @@ type EventEmitter struct {
 	backOff            backoff.BackOff
 	logger             *logging.Logger
 }
+
+type keyFactoryFn func(
+	stream stream.Stream,
+) (schema.Struct, error)
+
+type payloadFactoryFn func(
+	source schema.Struct, stream stream.Stream,
+) (schema.Struct, error)
 
 func NewEventEmitter(
 	replicationContext context.ReplicationContext, streamManager stream.Manager,
@@ -70,6 +70,11 @@ func NewEventEmitter(
 		logger:             logger,
 		backOff:            backoff.WithMaxRetries(backoff.NewExponentialBackOff(), 8),
 	}, nil
+}
+
+func (ee *EventEmitter) PostConstruct() error {
+	ee.replicationContext.TaskManager().RegisterReplicationEventHandler(ee.NewEventHandler())
+	return nil
 }
 
 func (ee *EventEmitter) Start() error {
