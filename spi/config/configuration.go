@@ -75,11 +75,16 @@ type PostgreSQLConfig struct {
 }
 
 type InternalConfig struct {
-	Dispatcher DispatcherConfig `toml:"dispatcher" yaml:"dispatcher"`
+	Dispatcher  DispatcherConfig  `toml:"dispatcher" yaml:"dispatcher"`
+	Snapshotter SnapshotterConfig `toml:"snapshotter" yaml:"snapshotter"`
 }
 
 type DispatcherConfig struct {
 	MaxQueueSize uint `toml:"maxqueuesize" yaml:"maxQueueSize"`
+}
+
+type SnapshotterConfig struct {
+	Parallelism uint8 `toml:"parallelism" yaml:"parallelism"`
 }
 
 type SnapshotConfig struct {

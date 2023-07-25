@@ -156,8 +156,8 @@ var SnapshotterModule = wiring.DefineModule(
 	"Snapshotter", func(module wiring.Module) {
 		module.Provide(
 			func(c *config.Config, replicationContext context.ReplicationContext) (*snapshotting.Snapshotter, error) {
-				// TODO make partition count configurable
-				return snapshotting.NewSnapshotter(5, replicationContext)
+				parallelism := config.GetOrDefault(c, config.PropertySnapshotterParallelism, uint8(5))
+				return snapshotting.NewSnapshotter(parallelism, replicationContext)
 			},
 		)
 	},

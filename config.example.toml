@@ -16,6 +16,7 @@ statestorage.type = 'file'
 statestorage.file.path = '/tmp/statestorage.dat'
 
 #internal.dispatcher.maxqueuesize = 4096
+#internal.snapshotter.parallelsim = 5
 
 sink.tombstone = false
 
