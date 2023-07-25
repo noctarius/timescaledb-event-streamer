@@ -25,7 +25,7 @@ import (
 	"github.com/gookit/slog/handler"
 	"github.com/gookit/slog/rotatefile"
 	"github.com/inhies/go-bytesize"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
+	"github.com/noctarius/timescaledb-event-streamer/internal/erroring"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"os"
 	"strings"
@@ -84,7 +84,7 @@ func InitializeLogging(
 		loggingConfig.Outputs.Console.Enabled == nil || *loggingConfig.Outputs.Console.Enabled
 
 	if _, fileHandler, err := newFileHandler(loggingConfig.Outputs.File); err != nil {
-		return supporting.AdaptError(err, 1)
+		return erroring.AdaptError(err, 1)
 	} else {
 		defaultFileHandler = fileHandler
 	}

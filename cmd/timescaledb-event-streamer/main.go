@@ -20,8 +20,8 @@ package main
 import (
 	"fmt"
 	"github.com/noctarius/timescaledb-event-streamer/internal"
+	"github.com/noctarius/timescaledb-event-streamer/internal/erroring"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
 	"github.com/noctarius/timescaledb-event-streamer/internal/waiting"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
@@ -175,7 +175,7 @@ func start(
 	}
 
 	if err := done.Await(); err != nil {
-		return supporting.AdaptError(err, 10)
+		return erroring.AdaptError(err, 10)
 	}
 
 	return nil

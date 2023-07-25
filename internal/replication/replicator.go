@@ -20,9 +20,9 @@ package replication
 import (
 	"bytes"
 	stderrors "errors"
-	"fmt"
 	"github.com/go-errors/errors"
 	"github.com/jackc/pgx/v5"
+	"github.com/noctarius/timescaledb-event-streamer/internal/erroring"
 	"github.com/noctarius/timescaledb-event-streamer/internal/eventing/eventemitting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
@@ -71,7 +71,7 @@ func NewReplicator(
 func (r *Replicator) StartReplication() *cli.ExitError {
 	logger, err := logging.NewLogger("Replicator")
 	if err != nil {
-		return supporting.AdaptError(err, 1)
+		return erroring.AdaptError(err, 1)
 	}
 
 	container, err := wiring.NewContainer(
@@ -138,55 +138,55 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 		}),
 	)
 	if err != nil {
-		return supporting.AdaptError(err, 1)
+		return erroring.AdaptError(err, 1)
 	}
 
 	var replicationContext context.ReplicationContext
 	if err := container.Service(&replicationContext); err != nil {
-		return supporting.AdaptError(err, 1)
+		return erroring.AdaptError(err, 1)
 	}
 
 	// Start internal dispatching
 	if err := replicationContext.StartReplicationContext(); err != nil {
-		return cli.NewExitError(fmt.Sprintf("failed to start replication context: %s", err.Error()), 18)
+		return erroring.AdaptErrorWithMessage(err, "failed to start replication context", 18)
 	}
 
 	// Start event emitter
 	var eventEmitter *eventemitting.EventEmitter
 	if err := container.Service(&eventEmitter); err != nil {
-		return supporting.AdaptError(err, 1)
+		return erroring.AdaptError(err, 1)
 	}
 
 	if err := eventEmitter.Start(); err != nil {
-		return supporting.AdaptErrorWithMessage(err, "failed to start event emitter", 24)
+		return erroring.AdaptErrorWithMessage(err, "failed to start event emitter", 24)
 	}
 
 	// Start the snapshotter
 	var snapshotter *snapshotting.Snapshotter
 	if err := container.Service(&snapshotter); err != nil {
-		return supporting.AdaptError(err, 1)
+		return erroring.AdaptError(err, 1)
 	}
 	snapshotter.StartSnapshotter()
 
 	// Get initial list of chunks to add to
 	var systemCatalog *intsystemcatalog.SystemCatalog
 	if err := container.Service(&systemCatalog); err != nil {
-		return supporting.AdaptError(err, 1)
+		return erroring.AdaptError(err, 1)
 	}
 	initialChunkTables, err := r.collectChunksForPublication(
 		replicationContext.StateStorageManager().EncodedState, systemCatalog.GetAllChunks,
 		replicationContext.PublicationManager().ReadPublishedTables,
 	)
 	if err != nil {
-		return supporting.AdaptErrorWithMessage(err, "failed to read known chunks", 25)
+		return erroring.AdaptErrorWithMessage(err, "failed to read known chunks", 25)
 	}
 
 	var replicationChannel *replicationchannel.ReplicationChannel
 	if err := container.Service(&replicationChannel); err != nil {
-		return supporting.AdaptError(err, 1)
+		return erroring.AdaptError(err, 1)
 	}
 	if err := replicationChannel.StartReplicationChannel(replicationContext, initialChunkTables); err != nil {
-		return supporting.AdaptError(err, 16)
+		return erroring.AdaptError(err, 16)
 	}
 
 	r.shutdownTask = func() error {
@@ -208,7 +208,7 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 // call blocks until the shutdown process has finished.
 func (r *Replicator) StopReplication() *cli.ExitError {
 	if r.shutdownTask != nil {
-		return supporting.AdaptError(r.shutdownTask(), 250)
+		return erroring.AdaptError(r.shutdownTask(), 250)
 	}
 	return nil
 }
@@ -222,7 +222,7 @@ func (r *Replicator) collectChunksForPublication(
 	// Get initial list of chunks to add to publication
 	allKnownTables, err := getKnownChunks(encodedState, getAllChunks)
 	if err != nil {
-		return nil, supporting.AdaptErrorWithMessage(err, "failed to read known chunks", 25)
+		return nil, erroring.AdaptErrorWithMessage(err, "failed to read known chunks", 25)
 	}
 
 	r.logger.Debugf(
@@ -233,7 +233,7 @@ func (r *Replicator) collectChunksForPublication(
 	// Filter published chunks to only add new chunks
 	alreadyPublished, err := readPublishedTables()
 	if err != nil {
-		return nil, supporting.AdaptError(err, 250)
+		return nil, erroring.AdaptError(err, 250)
 	}
 	alreadyPublished = lo.Filter(alreadyPublished, func(item systemcatalog.SystemEntity, _ int) bool {
 		return item.SchemaName() == "_timescaledb_internal"

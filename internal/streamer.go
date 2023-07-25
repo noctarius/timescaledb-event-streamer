@@ -20,8 +20,8 @@ package internal
 import (
 	"fmt"
 	"github.com/jackc/pgx/v5"
+	"github.com/noctarius/timescaledb-event-streamer/internal/erroring"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/plugins"
@@ -84,12 +84,12 @@ func NewStreamer(
 	// Start all potential plugins, to make sure they're registered
 	// before we try to access any of the interface implementations
 	if err := plugins.LoadPlugins(config.Config); err != nil {
-		return nil, supporting.AdaptError(err, 50)
+		return nil, erroring.AdaptError(err, 50)
 	}
 
 	replicator, err := replication.NewReplicator(config)
 	if err != nil {
-		return nil, supporting.AdaptError(err, 21)
+		return nil, erroring.AdaptError(err, 21)
 	}
 
 	return &Streamer{
