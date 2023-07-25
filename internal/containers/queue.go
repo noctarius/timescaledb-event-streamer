@@ -15,56 +15,53 @@
  * limitations under the License.
  */
 
-package supporting
+package containers
 
 import (
-	"container/list"
-	"sync"
+	"sync/atomic"
 )
 
 type Queue[E any] struct {
-	queue  *list.List
-	mutex  sync.Mutex
-	locked bool
+	queueChan chan E
+	locked    atomic.Bool
 }
 
-func NewQueue[E any]() *Queue[E] {
+func NewQueue[E any](maxSize int) *Queue[E] {
 	return &Queue[E]{
-		queue: list.New(),
-		mutex: sync.Mutex{},
+		queueChan: make(chan E, maxSize),
+		locked:    atomic.Bool{},
 	}
 }
 
 func (rq *Queue[E]) Push(
-	fn E,
+	v E,
 ) bool {
 
-	rq.mutex.Lock()
-	defer rq.mutex.Unlock()
-
-	if rq.locked {
+	if rq.locked.Load() {
 		return false
 	}
 
-	rq.queue.PushBack(fn)
+	rq.queueChan <- v
 	return true
 }
 
 func (rq *Queue[E]) Pop() E {
-	rq.mutex.Lock()
-	defer rq.mutex.Unlock()
-
-	e := rq.queue.Front()
-	if e == nil {
-		return *new(E)
+	select {
+	case v := <-rq.queueChan:
+		return v
+	default:
+		return zero[E]()
 	}
-	rq.queue.Remove(e)
-	return e.Value.(E)
+}
+
+func (rq *Queue[E]) Close() {
+	close(rq.queueChan)
 }
 
 func (rq *Queue[E]) Lock() {
-	rq.mutex.Lock()
-	defer rq.mutex.Unlock()
+	rq.locked.CompareAndSwap(false, true)
+}
 
-	rq.locked = true
+func zero[T any]() (t T) {
+	return
 }

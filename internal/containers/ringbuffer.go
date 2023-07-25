@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package supporting
+package containers
 
 import (
 	"runtime"

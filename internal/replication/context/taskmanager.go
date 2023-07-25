@@ -21,8 +21,8 @@ import (
 	stderrors "errors"
 	"fmt"
 	"github.com/go-errors/errors"
+	"github.com/noctarius/timescaledb-event-streamer/internal/containers"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/waiting"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
@@ -68,7 +68,7 @@ type TaskManager interface {
 
 type taskManager struct {
 	logger              *logging.Logger
-	taskQueue           *supporting.Channel[Task]
+	taskQueue           *containers.Channel[Task]
 	baseHandlers        []eventhandlers.BaseReplicationEventHandler
 	catalogHandlers     []eventhandlers.SystemCatalogReplicationEventHandler
 	compressionHandlers []eventhandlers.CompressionReplicationEventHandler
@@ -92,7 +92,7 @@ func newTaskManager(
 
 	d := &taskManager{
 		logger:              logger,
-		taskQueue:           supporting.NewChannel[Task](maxQueueSize),
+		taskQueue:           containers.NewChannel[Task](maxQueueSize),
 		baseHandlers:        make([]eventhandlers.BaseReplicationEventHandler, 0),
 		catalogHandlers:     make([]eventhandlers.SystemCatalogReplicationEventHandler, 0),
 		compressionHandlers: make([]eventhandlers.CompressionReplicationEventHandler, 0),

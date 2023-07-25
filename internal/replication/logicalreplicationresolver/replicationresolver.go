@@ -20,9 +20,9 @@ package logicalreplicationresolver
 import (
 	"github.com/go-errors/errors"
 	"github.com/jackc/pglogrepl"
+	"github.com/noctarius/timescaledb-event-streamer/internal/containers"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
@@ -31,12 +31,14 @@ import (
 	"github.com/samber/lo"
 )
 
+type snapshotCallback func(snapshot pgtypes.LSN) error
+
 type logicalReplicationResolver struct {
 	replicationContext context.ReplicationContext
 	systemCatalog      *systemcatalog.SystemCatalog
 	taskManager        context.TaskManager
 	relations          map[uint32]*pgtypes.RelationMessage
-	eventQueues        map[string]*supporting.Queue[func(snapshot pgtypes.LSN) error]
+	eventQueues        map[string]*containers.Queue[snapshotCallback]
 	logger             *logging.Logger
 
 	genDeleteTombstone    bool
@@ -63,8 +65,8 @@ func newLogicalReplicationResolver(
 		replicationContext: replicationContext,
 		systemCatalog:      systemCatalog,
 		taskManager:        replicationContext.TaskManager(),
-		relations:          make(map[uint32]*pgtypes.RelationMessage, 0),
-		eventQueues:        make(map[string]*supporting.Queue[func(snapshot pgtypes.LSN) error], 0),
+		relations:          make(map[uint32]*pgtypes.RelationMessage),
+		eventQueues:        make(map[string]*containers.Queue[snapshotCallback]),
 		logger:             logger,
 
 		genDeleteTombstone:    spiconfig.GetOrDefault(config, spiconfig.PropertySinkTombstone, false),
@@ -114,7 +116,7 @@ func (l *logicalReplicationResolver) OnChunkSnapshotStartedEvent(
 	_ *spicatalog.Hypertable, chunk *spicatalog.Chunk,
 ) error {
 
-	l.eventQueues[chunk.CanonicalName()] = supporting.NewQueue[func(snapshot pgtypes.LSN) error]()
+	l.eventQueues[chunk.CanonicalName()] = containers.NewQueue[snapshotCallback](1_000_000)
 	l.logger.Infof("Snapshot of %s started", chunk.CanonicalName())
 	return nil
 }
@@ -126,7 +128,7 @@ func (l *logicalReplicationResolver) OnChunkSnapshotFinishedEvent(
 	queue := l.eventQueues[chunk.CanonicalName()]
 	for {
 		fn := queue.Pop()
-		// Initial queue empty, remove it now, to prevent additional messages being enqueued.
+		// If queue empty, remove it now, to prevent additional messages being enqueued.
 		if fn == nil {
 			delete(l.eventQueues, chunk.CanonicalName())
 			queue.Lock()
@@ -142,6 +144,7 @@ func (l *logicalReplicationResolver) OnChunkSnapshotFinishedEvent(
 	for {
 		fn := queue.Pop()
 		if fn == nil {
+			queue.Close()
 			break
 		}
 

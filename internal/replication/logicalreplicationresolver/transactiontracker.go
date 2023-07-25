@@ -19,9 +19,9 @@ package logicalreplicationresolver
 
 import (
 	"github.com/jackc/pglogrepl"
+	"github.com/noctarius/timescaledb-event-streamer/internal/containers"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
@@ -420,7 +420,7 @@ func (tt *transactionTracker) newTransaction(
 		xid:                xid,
 		commitTime:         commitTime,
 		finalLSN:           finalLSN,
-		queue:              supporting.NewQueue[*transactionEntry](),
+		queue:              containers.NewQueue[*transactionEntry](int(tt.maxSize + 1)),
 		maxSize:            tt.maxSize,
 		deadline:           time.Now().Add(tt.timeout),
 	}
@@ -433,7 +433,7 @@ type transaction struct {
 	xid                  uint32
 	commitTime           time.Time
 	finalLSN             pgtypes.LSN
-	queue                *supporting.Queue[*transactionEntry]
+	queue                *containers.Queue[*transactionEntry]
 	queueLength          uint
 	compressionUpdate    *transactionEntry
 	decompressionUpdate  *transactionEntry
@@ -472,6 +472,7 @@ func (t *transaction) drain() error {
 	for {
 		entry := t.queue.Pop()
 		if entry == nil {
+			t.queue.Close()
 			break
 		}
 
