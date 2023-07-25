@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/samber/lo"
+	"math/rand"
 	"os"
 	"strings"
 	"time"
@@ -78,6 +79,10 @@ func CreateHypertable(
 
 	tx.Commit(context.Background())
 	return DatabaseSchema, tableName, nil
+}
+
+func RandomNumber(min, max int) int {
+	return min + rand.Intn(max-min)
 }
 
 func randomTableName() string {

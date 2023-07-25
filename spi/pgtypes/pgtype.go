@@ -19,7 +19,7 @@ package pgtypes
 
 import (
 	"fmt"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
+	"github.com/noctarius/timescaledb-event-streamer/internal/functional"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 )
 
@@ -266,5 +266,5 @@ func (t *pgType) Equal(
 		t.modifiers == other.Modifiers() &&
 		t.delimiter == other.Delimiter() &&
 		t.schemaType == other.SchemaType() &&
-		supporting.ArrayEqual(t.enumValues, other.EnumValues())
+		functional.ArrayEqual(t.enumValues, other.EnumValues())
 }

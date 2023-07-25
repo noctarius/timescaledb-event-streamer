@@ -24,7 +24,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/waiting"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
-	inttest "github.com/noctarius/timescaledb-event-streamer/testsupport"
+	"github.com/noctarius/timescaledb-event-streamer/testsupport"
 	"github.com/noctarius/timescaledb-event-streamer/testsupport/testrunner"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -987,13 +987,13 @@ func (dtt *DataTypeTestSuite) runDataTypeTest(
 	columnName := makeColumnName(testCase)
 
 	waiter := waiting.NewWaiterWithTimeout(time.Second * 10)
-	testSink := inttest.NewEventCollectorSink(
-		inttest.WithFilter(
-			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
+	testSink := testsupport.NewEventCollectorSink(
+		testsupport.WithFilter(
+			func(_ time.Time, _ string, envelope testsupport.Envelope) bool {
 				return envelope.Payload.Op == schema.OP_CREATE
 			},
 		),
-		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink) {
 			if sink.NumOfEvents() < 3 {
 				waiter.Signal()
 			}
@@ -1044,10 +1044,10 @@ func (dtt *DataTypeTestSuite) runDataTypeTest(
 
 			for _, event := range events {
 				// Check column schema
-				schema, present := inttest.GetField("after", event.Envelope.Schema.Fields)
+				schema, present := testsupport.GetField("after", event.Envelope.Schema.Fields)
 				assert.True(dtt.T(), present)
 				assert.NotNil(dtt.T(), schema)
-				columnSchema, present := inttest.GetField(columnName, schema.Fields)
+				columnSchema, present := testsupport.GetField(columnName, schema.Fields)
 				assert.True(dtt.T(), present)
 				assert.NotNil(dtt.T(), columnSchema)
 				assert.Equal(dtt.T(), testCase.schemaType, columnSchema.Type)
@@ -1068,8 +1068,8 @@ func (dtt *DataTypeTestSuite) runDataTypeTest(
 			}
 
 			_, tn, err := setupContext.CreateHypertable("ts", time.Hour*24,
-				inttest.NewColumn("ts", "timestamptz", false, false, nil),
-				inttest.NewColumn(columnName, testCase.pgTypeName, false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn(columnName, testCase.pgTypeName, false, false, nil),
 			)
 			if err != nil {
 				return err

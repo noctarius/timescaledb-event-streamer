@@ -20,13 +20,12 @@ package tests
 import (
 	stdctx "context"
 	"fmt"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
 	"github.com/noctarius/timescaledb-event-streamer/internal/waiting"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
-	inttest "github.com/noctarius/timescaledb-event-streamer/testsupport"
+	"github.com/noctarius/timescaledb-event-streamer/testsupport"
 	"github.com/noctarius/timescaledb-event-streamer/testsupport/testrunner"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/suite"
@@ -66,7 +65,7 @@ func TestPublicationTestSuite(
 }
 
 func (pts *PublicationTestSuite) Test_Preexisting_Chunks_Added_To_Publication() {
-	testSink := inttest.NewEventCollectorSink()
+	testSink := testsupport.NewEventCollectorSink()
 	publicationName := lo.RandomString(10, lo.LowerCaseLettersCharset)
 
 	var tableName string
@@ -96,8 +95,8 @@ func (pts *PublicationTestSuite) Test_Preexisting_Chunks_Added_To_Publication() 
 
 		testrunner.WithSetup(func(context testrunner.SetupContext) error {
 			_, tn, err := context.CreateHypertable("ts", time.Hour,
-				inttest.NewColumn("ts", "timestamptz", false, false, nil),
-				inttest.NewColumn("val", "integer", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
@@ -124,13 +123,13 @@ func (pts *PublicationTestSuite) Test_Preexisting_Chunks_Added_To_Publication() 
 
 func (pts *PublicationTestSuite) Test_Reloading_From_Known_Chunks() {
 	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
-	testSink := inttest.NewEventCollectorSink(
-		inttest.WithFilter(
-			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
+	testSink := testsupport.NewEventCollectorSink(
+		testsupport.WithFilter(
+			func(_ time.Time, _ string, envelope testsupport.Envelope) bool {
 				return envelope.Payload.Op == schema.OP_CREATE
 			},
 		),
-		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink) {
 			waiter.Signal()
 		}),
 	)
@@ -211,8 +210,8 @@ func (pts *PublicationTestSuite) Test_Reloading_From_Known_Chunks() {
 
 		testrunner.WithSetup(func(context testrunner.SetupContext) error {
 			_, tn, err := context.CreateHypertable("ts", time.Hour,
-				inttest.NewColumn("ts", "timestamptz", false, false, nil),
-				inttest.NewColumn("val", "integer", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
@@ -254,13 +253,13 @@ func (pts *PublicationTestSuite) Test_Reloading_From_Known_Chunks() {
 
 func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_With_State_Storage() {
 	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
-	testSink := inttest.NewEventCollectorSink(
-		inttest.WithFilter(
-			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
+	testSink := testsupport.NewEventCollectorSink(
+		testsupport.WithFilter(
+			func(_ time.Time, _ string, envelope testsupport.Envelope) bool {
 				return envelope.Payload.Op == schema.OP_CREATE
 			},
 		),
-		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink) {
 			waiter.Signal()
 		}),
 	)
@@ -309,7 +308,7 @@ func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_With_State_Stor
 			})
 
 			for i := 0; i < 10; i++ {
-				idx := supporting.RandomNumber(0, len(publishedChunkList))
+				idx := testsupport.RandomNumber(0, len(publishedChunkList))
 				chunksToDrop = append(chunksToDrop, publishedChunkList[idx])
 			}
 
@@ -370,8 +369,8 @@ func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_With_State_Stor
 
 		testrunner.WithSetup(func(context testrunner.SetupContext) error {
 			_, tn, err := context.CreateHypertable("ts", time.Hour,
-				inttest.NewColumn("ts", "timestamptz", false, false, nil),
-				inttest.NewColumn("val", "integer", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
@@ -413,13 +412,13 @@ func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_With_State_Stor
 
 func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_Without_State_Storage() {
 	waiter := waiting.NewWaiterWithTimeout(time.Second * 60)
-	testSink := inttest.NewEventCollectorSink(
-		inttest.WithFilter(
-			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
+	testSink := testsupport.NewEventCollectorSink(
+		testsupport.WithFilter(
+			func(_ time.Time, _ string, envelope testsupport.Envelope) bool {
 				return envelope.Payload.Op == schema.OP_CREATE
 			},
 		),
-		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink) {
 			waiter.Signal()
 		}),
 	)
@@ -468,7 +467,7 @@ func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_Without_State_S
 			})
 
 			for i := 0; i < 10; i++ {
-				idx := supporting.RandomNumber(0, len(publishedChunkList))
+				idx := testsupport.RandomNumber(0, len(publishedChunkList))
 				chunksToDrop = append(chunksToDrop, publishedChunkList[idx])
 			}
 
@@ -529,8 +528,8 @@ func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_Without_State_S
 
 		testrunner.WithSetup(func(context testrunner.SetupContext) error {
 			_, tn, err := context.CreateHypertable("ts", time.Hour,
-				inttest.NewColumn("ts", "timestamptz", false, false, nil),
-				inttest.NewColumn("val", "integer", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err

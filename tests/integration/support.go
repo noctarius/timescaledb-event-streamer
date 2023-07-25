@@ -21,7 +21,7 @@ import (
 	"encoding/json"
 	"github.com/Shopify/sarama"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
-	inttest "github.com/noctarius/timescaledb-event-streamer/testsupport"
+	"github.com/noctarius/timescaledb-event-streamer/testsupport"
 	"testing"
 )
 
@@ -29,7 +29,7 @@ type kafkaConsumer struct {
 	t         *testing.T
 	ready     chan bool
 	collected chan bool
-	envelopes []inttest.Envelope
+	envelopes []testsupport.Envelope
 }
 
 func NewKafkaConsumer(
@@ -40,12 +40,12 @@ func NewKafkaConsumer(
 		t:         t,
 		ready:     make(chan bool, 1),
 		collected: make(chan bool, 1),
-		envelopes: make([]inttest.Envelope, 0),
+		envelopes: make([]testsupport.Envelope, 0),
 	}
 	return kc, kc.ready
 }
 
-func (k *kafkaConsumer) Envelopes() []inttest.Envelope {
+func (k *kafkaConsumer) Envelopes() []testsupport.Envelope {
 	return k.envelopes
 }
 
@@ -80,7 +80,7 @@ func (k *kafkaConsumer) ConsumeClaim(
 	for {
 		select {
 		case message := <-claim.Messages():
-			envelope := inttest.Envelope{}
+			envelope := testsupport.Envelope{}
 			if err := json.Unmarshal(message.Value, &envelope); err != nil {
 				k.t.Error(err)
 			}

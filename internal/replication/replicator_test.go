@@ -20,8 +20,8 @@ package replication
 import (
 	"fmt"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
+	"github.com/noctarius/timescaledb-event-streamer/testsupport"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -101,7 +101,7 @@ func Test_Replicator_Select_Missing_Tables_Random_Selection(
 	publishedChunkTables := make([]systemcatalog.SystemEntity, 0, 200)
 	for i := 0; i < 200; i++ {
 	retry:
-		index := supporting.RandomNumber(0, 1000)
+		index := testsupport.RandomNumber(0, 1000)
 		chunk := knownTables[index]
 
 		if lo.ContainsBy(publishedChunkTables, func(other systemcatalog.SystemEntity) bool {

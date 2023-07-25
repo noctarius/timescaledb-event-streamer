@@ -24,7 +24,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/waiting"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
-	inttest "github.com/noctarius/timescaledb-event-streamer/testsupport"
+	"github.com/noctarius/timescaledb-event-streamer/testsupport"
 	"github.com/noctarius/timescaledb-event-streamer/testsupport/testrunner"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/suite"
@@ -45,14 +45,14 @@ func TestIntegrationSnapshotTestSuite(
 
 func (its *IntegrationSnapshotTestSuite) TestInitialSnapshot_Hypertable() {
 	waiter := waiting.NewWaiterWithTimeout(time.Second * 60)
-	testSink := inttest.NewEventCollectorSink(
-		inttest.WithFilter(
-			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
+	testSink := testsupport.NewEventCollectorSink(
+		testsupport.WithFilter(
+			func(_ time.Time, _ string, envelope testsupport.Envelope) bool {
 				time.Sleep(time.Millisecond)
 				return envelope.Payload.Op == schema.OP_READ
 			},
 		),
-		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink) {
 			if sink.NumOfEvents() == 8640 {
 				waiter.Signal()
 			}
@@ -86,8 +86,8 @@ func (its *IntegrationSnapshotTestSuite) TestInitialSnapshot_Hypertable() {
 
 		testrunner.WithSetup(func(context testrunner.SetupContext) error {
 			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
-				inttest.NewColumn("ts", "timestamptz", false, false, nil),
-				inttest.NewColumn("val", "integer", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err

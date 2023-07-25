@@ -26,7 +26,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
-	inttest "github.com/noctarius/timescaledb-event-streamer/testsupport"
+	"github.com/noctarius/timescaledb-event-streamer/testsupport"
 	"github.com/noctarius/timescaledb-event-streamer/testsupport/containers"
 	"github.com/noctarius/timescaledb-event-streamer/testsupport/testrunner"
 	"github.com/samber/lo"
@@ -79,7 +79,7 @@ func (rits *RedisIntegrationTestSuite) Test_Redis_Sink() {
 			}
 
 			collected := make(chan bool, 1)
-			envelopes := make([]inttest.Envelope, 0)
+			envelopes := make([]testsupport.Envelope, 0)
 			go func() {
 				for {
 					results, err := client.XReadGroup(&redis.XReadGroupArgs{
@@ -97,7 +97,7 @@ func (rits *RedisIntegrationTestSuite) Test_Redis_Sink() {
 					}
 
 					for _, message := range results[0].Messages {
-						envelope := inttest.Envelope{}
+						envelope := testsupport.Envelope{}
 						if err := json.Unmarshal([]byte(message.Values["envelope"].(string)), &envelope); err != nil {
 							rits.T().Error(err)
 						}
@@ -133,8 +133,8 @@ func (rits *RedisIntegrationTestSuite) Test_Redis_Sink() {
 
 		testrunner.WithSetup(func(setupContext testrunner.SetupContext) error {
 			sn, tn, err := setupContext.CreateHypertable("ts", time.Hour*24,
-				inttest.NewColumn("ts", "timestamptz", false, false, nil),
-				inttest.NewColumn("val", "integer", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err

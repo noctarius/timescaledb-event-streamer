@@ -24,10 +24,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/noctarius/timescaledb-event-streamer/internal/erroring"
 	"github.com/noctarius/timescaledb-event-streamer/internal/eventing/eventemitting"
+	"github.com/noctarius/timescaledb-event-streamer/internal/functional"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationchannel"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
 	intsystemcatalog "github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/snapshotting"
@@ -227,7 +227,7 @@ func (r *Replicator) collectChunksForPublication(
 
 	r.logger.Debugf(
 		"All interesting chunks: %+v",
-		lo.Map(allKnownTables, supporting.MappingTransformer(systemcatalog.SystemEntity.CanonicalName)),
+		lo.Map(allKnownTables, functional.MappingTransformer(systemcatalog.SystemEntity.CanonicalName)),
 	)
 
 	// Filter published chunks to only add new chunks
@@ -241,7 +241,7 @@ func (r *Replicator) collectChunksForPublication(
 
 	r.logger.Debugf(
 		"Chunks already in publication: %+v",
-		lo.Map(alreadyPublished, supporting.MappingTransformer(systemcatalog.SystemEntity.CanonicalName)),
+		lo.Map(alreadyPublished, functional.MappingTransformer(systemcatalog.SystemEntity.CanonicalName)),
 	)
 
 	initialChunkTables := lo.Filter(allKnownTables, func(item systemcatalog.SystemEntity, _ int) bool {
@@ -251,7 +251,7 @@ func (r *Replicator) collectChunksForPublication(
 	})
 	r.logger.Debugf(
 		"Chunks to be added publication: %+v",
-		lo.Map(initialChunkTables, supporting.MappingTransformer(systemcatalog.SystemEntity.CanonicalName)),
+		lo.Map(initialChunkTables, functional.MappingTransformer(systemcatalog.SystemEntity.CanonicalName)),
 	)
 	return initialChunkTables, nil
 }

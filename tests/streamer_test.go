@@ -27,7 +27,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/version"
-	inttest "github.com/noctarius/timescaledb-event-streamer/testsupport"
+	"github.com/noctarius/timescaledb-event-streamer/testsupport"
 	"github.com/noctarius/timescaledb-event-streamer/testsupport/testrunner"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/suite"
@@ -48,13 +48,13 @@ func TestIntegrationTestSuite(
 
 func (its *IntegrationTestSuite) TestInitialSnapshot_Single_Chunk() {
 	waiter := waiting.NewWaiterWithTimeout(time.Second * 30)
-	testSink := inttest.NewEventCollectorSink(
-		inttest.WithFilter(
-			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
+	testSink := testsupport.NewEventCollectorSink(
+		testsupport.WithFilter(
+			func(_ time.Time, _ string, envelope testsupport.Envelope) bool {
 				return envelope.Payload.Op == schema.OP_CREATE
 			},
 		),
-		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink) {
 			if sink.NumOfEvents() == 1440 {
 				waiter.Signal()
 			}
@@ -90,8 +90,8 @@ func (its *IntegrationTestSuite) TestInitialSnapshot_Single_Chunk() {
 
 		testrunner.WithSetup(func(context testrunner.SetupContext) error {
 			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
-				inttest.NewColumn("ts", "timestamptz", false, false, nil),
-				inttest.NewColumn("val", "integer", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
@@ -106,13 +106,13 @@ func (its *IntegrationTestSuite) TestInitialSnapshot_Single_Chunk() {
 
 func (its *IntegrationTestSuite) TestInitialSnapshot_Multi_Chunk() {
 	waiter := waiting.NewWaiterWithTimeout(time.Second * 60)
-	testSink := inttest.NewEventCollectorSink(
-		inttest.WithFilter(
-			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
+	testSink := testsupport.NewEventCollectorSink(
+		testsupport.WithFilter(
+			func(_ time.Time, _ string, envelope testsupport.Envelope) bool {
 				return envelope.Payload.Op == schema.OP_CREATE
 			},
 		),
-		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink) {
 			if sink.NumOfEvents() == 2880 {
 				waiter.Signal()
 			}
@@ -148,8 +148,8 @@ func (its *IntegrationTestSuite) TestInitialSnapshot_Multi_Chunk() {
 
 		testrunner.WithSetup(func(context testrunner.SetupContext) error {
 			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
-				inttest.NewColumn("ts", "timestamptz", false, false, nil),
-				inttest.NewColumn("val", "integer", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
@@ -164,13 +164,13 @@ func (its *IntegrationTestSuite) TestInitialSnapshot_Multi_Chunk() {
 
 func (its *IntegrationTestSuite) TestCreateEvents() {
 	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
-	testSink := inttest.NewEventCollectorSink(
-		inttest.WithFilter(
-			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
+	testSink := testsupport.NewEventCollectorSink(
+		testsupport.WithFilter(
+			func(_ time.Time, _ string, envelope testsupport.Envelope) bool {
 				return envelope.Payload.Op == schema.OP_CREATE
 			},
 		),
-		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink) {
 			if sink.NumOfEvents()%10 == 0 {
 				waiter.Signal()
 			}
@@ -241,8 +241,8 @@ func (its *IntegrationTestSuite) TestCreateEvents() {
 
 		testrunner.WithSetup(func(context testrunner.SetupContext) error {
 			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
-				inttest.NewColumn("ts", "timestamptz", false, false, nil),
-				inttest.NewColumn("val", "integer", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
@@ -257,13 +257,13 @@ func (its *IntegrationTestSuite) TestCreateEvents() {
 
 func (its *IntegrationTestSuite) TestUpdateEvents() {
 	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
-	testSink := inttest.NewEventCollectorSink(
-		inttest.WithFilter(
-			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
+	testSink := testsupport.NewEventCollectorSink(
+		testsupport.WithFilter(
+			func(_ time.Time, _ string, envelope testsupport.Envelope) bool {
 				return envelope.Payload.Op == schema.OP_CREATE || envelope.Payload.Op == schema.OP_UPDATE
 			},
 		),
-		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink) {
 			if sink.NumOfEvents()%10 == 0 {
 				waiter.Signal()
 			}
@@ -334,8 +334,8 @@ func (its *IntegrationTestSuite) TestUpdateEvents() {
 
 		testrunner.WithSetup(func(context testrunner.SetupContext) error {
 			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
-				inttest.NewColumn("ts", "timestamptz", false, true, nil),
-				inttest.NewColumn("val", "integer", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, true, nil),
+				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
@@ -350,13 +350,13 @@ func (its *IntegrationTestSuite) TestUpdateEvents() {
 
 func (its *IntegrationTestSuite) TestDeleteEvents() {
 	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
-	testSink := inttest.NewEventCollectorSink(
-		inttest.WithFilter(
-			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
+	testSink := testsupport.NewEventCollectorSink(
+		testsupport.WithFilter(
+			func(_ time.Time, _ string, envelope testsupport.Envelope) bool {
 				return envelope.Payload.Op == schema.OP_CREATE || envelope.Payload.Op == schema.OP_DELETE
 			},
 		),
-		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink) {
 			if sink.NumOfEvents()%10 == 0 {
 				waiter.Signal()
 			}
@@ -421,8 +421,8 @@ func (its *IntegrationTestSuite) TestDeleteEvents() {
 
 		testrunner.WithSetup(func(context testrunner.SetupContext) error {
 			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
-				inttest.NewColumn("ts", "timestamptz", false, true, nil),
-				inttest.NewColumn("val", "integer", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, true, nil),
+				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
@@ -437,13 +437,13 @@ func (its *IntegrationTestSuite) TestDeleteEvents() {
 
 func (its *IntegrationTestSuite) TestTruncateEvents() {
 	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
-	testSink := inttest.NewEventCollectorSink(
-		inttest.WithFilter(
-			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
+	testSink := testsupport.NewEventCollectorSink(
+		testsupport.WithFilter(
+			func(_ time.Time, _ string, envelope testsupport.Envelope) bool {
 				return envelope.Payload.Op == schema.OP_CREATE || envelope.Payload.Op == schema.OP_TRUNCATE
 			},
 		),
-		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink) {
 			if sink.NumOfEvents()%10 == 0 {
 				waiter.Signal()
 			}
@@ -509,8 +509,8 @@ func (its *IntegrationTestSuite) TestTruncateEvents() {
 
 		testrunner.WithSetup(func(context testrunner.SetupContext) error {
 			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
-				inttest.NewColumn("ts", "timestamptz", false, false, nil),
-				inttest.NewColumn("val", "integer", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
@@ -525,13 +525,13 @@ func (its *IntegrationTestSuite) TestTruncateEvents() {
 
 func (its *IntegrationTestSuite) TestCompressionEvents() {
 	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
-	testSink := inttest.NewEventCollectorSink(
-		inttest.WithFilter(
-			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
+	testSink := testsupport.NewEventCollectorSink(
+		testsupport.WithFilter(
+			func(_ time.Time, _ string, envelope testsupport.Envelope) bool {
 				return envelope.Payload.Op == schema.OP_CREATE || envelope.Payload.Op == schema.OP_TIMESCALE
 			},
 		),
-		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink) {
 			if sink.NumOfEvents()%10 == 0 {
 				waiter.Signal()
 			}
@@ -609,8 +609,8 @@ func (its *IntegrationTestSuite) TestCompressionEvents() {
 
 		testrunner.WithSetup(func(context testrunner.SetupContext) error {
 			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
-				inttest.NewColumn("ts", "timestamptz", false, false, nil),
-				inttest.NewColumn("val", "integer", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
@@ -628,15 +628,15 @@ func (its *IntegrationTestSuite) TestCompressionEvents() {
 
 func (its *IntegrationTestSuite) TestCompressionPartialInsertEvents() {
 	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
-	testSink := inttest.NewEventCollectorSink(
-		inttest.WithFilter(
-			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
+	testSink := testsupport.NewEventCollectorSink(
+		testsupport.WithFilter(
+			func(_ time.Time, _ string, envelope testsupport.Envelope) bool {
 				return envelope.Payload.Op == schema.OP_READ ||
 					envelope.Payload.Op == schema.OP_CREATE ||
 					envelope.Payload.Op == schema.OP_TIMESCALE
 			},
 		),
-		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink) {
 			if sink.NumOfEvents()%10 == 0 {
 				waiter.Signal()
 			}
@@ -730,8 +730,8 @@ func (its *IntegrationTestSuite) TestCompressionPartialInsertEvents() {
 
 		testrunner.WithSetup(func(context testrunner.SetupContext) error {
 			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
-				inttest.NewColumn("ts", "timestamptz", false, false, nil),
-				inttest.NewColumn("val", "integer", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
@@ -750,13 +750,13 @@ func (its *IntegrationTestSuite) TestCompressionPartialInsertEvents() {
 
 func (its *IntegrationTestSuite) TestDecompressionEvents() {
 	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
-	testSink := inttest.NewEventCollectorSink(
-		inttest.WithFilter(
-			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
+	testSink := testsupport.NewEventCollectorSink(
+		testsupport.WithFilter(
+			func(_ time.Time, _ string, envelope testsupport.Envelope) bool {
 				return envelope.Payload.Op == schema.OP_CREATE || envelope.Payload.Op == schema.OP_TIMESCALE
 			},
 		),
-		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink) {
 			if sink.NumOfEvents()%10 == 0 {
 				waiter.Signal()
 			}
@@ -854,8 +854,8 @@ func (its *IntegrationTestSuite) TestDecompressionEvents() {
 
 		testrunner.WithSetup(func(context testrunner.SetupContext) error {
 			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
-				inttest.NewColumn("ts", "timestamptz", false, false, nil),
-				inttest.NewColumn("val", "integer", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
@@ -874,13 +874,13 @@ func (its *IntegrationTestSuite) TestDecompressionEvents() {
 
 func (its *IntegrationTestSuite) TestCompression_Decompression_SingleTransaction_Events() {
 	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
-	testSink := inttest.NewEventCollectorSink(
-		inttest.WithFilter(
-			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
+	testSink := testsupport.NewEventCollectorSink(
+		testsupport.WithFilter(
+			func(_ time.Time, _ string, envelope testsupport.Envelope) bool {
 				return envelope.Payload.Op == schema.OP_CREATE || envelope.Payload.Op == schema.OP_TIMESCALE
 			},
 		),
-		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink) {
 			if sink.NumOfEvents()%10 == 0 {
 				waiter.Signal()
 			}
@@ -978,8 +978,8 @@ func (its *IntegrationTestSuite) TestCompression_Decompression_SingleTransaction
 
 		testrunner.WithSetup(func(context testrunner.SetupContext) error {
 			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
-				inttest.NewColumn("ts", "timestamptz", false, false, nil),
-				inttest.NewColumn("val", "integer", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
@@ -998,13 +998,13 @@ func (its *IntegrationTestSuite) TestCompression_Decompression_SingleTransaction
 
 func (its *IntegrationTestSuite) TestContinuousAggregateCreateEvents() {
 	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
-	testSink := inttest.NewEventCollectorSink(
-		inttest.WithFilter(
-			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
+	testSink := testsupport.NewEventCollectorSink(
+		testsupport.WithFilter(
+			func(_ time.Time, _ string, envelope testsupport.Envelope) bool {
 				return envelope.Payload.Op == schema.OP_CREATE
 			},
 		),
-		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink) {
 			if sink.NumOfEvents()%20 == 0 {
 				waiter.Signal()
 			}
@@ -1054,8 +1054,8 @@ func (its *IntegrationTestSuite) TestContinuousAggregateCreateEvents() {
 
 		testrunner.WithSetup(func(context testrunner.SetupContext) error {
 			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
-				inttest.NewColumn("ts", "timestamptz", false, false, nil),
-				inttest.NewColumn("val", "integer", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
@@ -1077,7 +1077,7 @@ func (its *IntegrationTestSuite) TestContinuousAggregateCreateEvents() {
 			context.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
 			context.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
 				config.TimescaleDB.Hypertables.Includes = []string{
-					systemcatalog.MakeRelationKey(inttest.DatabaseSchema, aggregateName),
+					systemcatalog.MakeRelationKey(testsupport.DatabaseSchema, aggregateName),
 				}
 			})
 			return nil
@@ -1087,13 +1087,13 @@ func (its *IntegrationTestSuite) TestContinuousAggregateCreateEvents() {
 
 func (its *IntegrationTestSuite) TestContinuousAggregate_Scheduled_Refresh_CreateEvents() {
 	waiter := waiting.NewWaiterWithTimeout(time.Second * 30)
-	testSink := inttest.NewEventCollectorSink(
-		inttest.WithFilter(
-			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
+	testSink := testsupport.NewEventCollectorSink(
+		testsupport.WithFilter(
+			func(_ time.Time, _ string, envelope testsupport.Envelope) bool {
 				return envelope.Payload.Op == schema.OP_CREATE
 			},
 		),
-		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink) {
 			if sink.NumOfEvents()%20 == 0 {
 				waiter.Signal()
 			}
@@ -1155,8 +1155,8 @@ func (its *IntegrationTestSuite) TestContinuousAggregate_Scheduled_Refresh_Creat
 
 		testrunner.WithSetup(func(context testrunner.SetupContext) error {
 			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
-				inttest.NewColumn("ts", "timestamptz", false, false, nil),
-				inttest.NewColumn("val", "integer", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
@@ -1186,7 +1186,7 @@ func (its *IntegrationTestSuite) TestContinuousAggregate_Scheduled_Refresh_Creat
 			context.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
 			context.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
 				config.TimescaleDB.Hypertables.Includes = []string{
-					systemcatalog.MakeRelationKey(inttest.DatabaseSchema, aggregateName),
+					systemcatalog.MakeRelationKey(testsupport.DatabaseSchema, aggregateName),
 				}
 			})
 			return nil
@@ -1196,13 +1196,13 @@ func (its *IntegrationTestSuite) TestContinuousAggregate_Scheduled_Refresh_Creat
 
 func (its *IntegrationTestSuite) Ignore_TestRollbackEvents() {
 	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
-	testSink := inttest.NewEventCollectorSink(
-		inttest.WithFilter(
-			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
+	testSink := testsupport.NewEventCollectorSink(
+		testsupport.WithFilter(
+			func(_ time.Time, _ string, envelope testsupport.Envelope) bool {
 				return envelope.Payload.Op == schema.OP_READ || envelope.Payload.Op == schema.OP_CREATE
 			},
 		),
-		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink) {
 			if sink.NumOfEvents()%1000 == 0 {
 				waiter.Signal()
 			}
@@ -1247,8 +1247,8 @@ func (its *IntegrationTestSuite) Ignore_TestRollbackEvents() {
 
 		testrunner.WithSetup(func(context testrunner.SetupContext) error {
 			_, tn, err := context.CreateHypertable("ts", time.Hour*24,
-				inttest.NewColumn("ts", "timestamptz", false, false, nil),
-				inttest.NewColumn("val", "integer", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
@@ -1270,7 +1270,7 @@ func (its *IntegrationTestSuite) Ignore_TestRollbackEvents() {
 			context.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
 			context.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
 				config.TimescaleDB.Hypertables.Includes = []string{
-					systemcatalog.MakeRelationKey(inttest.DatabaseSchema, aggregateName),
+					systemcatalog.MakeRelationKey(testsupport.DatabaseSchema, aggregateName),
 				}
 			})
 			return nil
@@ -1280,13 +1280,13 @@ func (its *IntegrationTestSuite) Ignore_TestRollbackEvents() {
 
 func (its *IntegrationTestSuite) Test_Acknowledge_To_PG_With_Only_Begin_Commit() {
 	waiter := waiting.NewWaiterWithTimeout(time.Second * 60)
-	testSink := inttest.NewEventCollectorSink(
-		inttest.WithFilter(
-			func(_ time.Time, _ string, envelope inttest.Envelope) bool {
+	testSink := testsupport.NewEventCollectorSink(
+		testsupport.WithFilter(
+			func(_ time.Time, _ string, envelope testsupport.Envelope) bool {
 				return envelope.Payload.Op == schema.OP_READ || envelope.Payload.Op == schema.OP_CREATE
 			},
 		),
-		inttest.WithPostHook(func(sink *inttest.EventCollectorSink) {
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink) {
 			if sink.NumOfEvents() == 1 {
 				waiter.Signal()
 			}
@@ -1354,8 +1354,8 @@ func (its *IntegrationTestSuite) Test_Acknowledge_To_PG_With_Only_Begin_Commit()
 
 		testrunner.WithSetup(func(context testrunner.SetupContext) error {
 			_, tn, err := context.CreateHypertable("ts", time.Hour*6,
-				inttest.NewColumn("ts", "timestamptz", false, true, nil),
-				inttest.NewColumn("val", "integer", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, true, nil),
+				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err

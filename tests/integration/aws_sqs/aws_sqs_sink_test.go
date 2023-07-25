@@ -29,7 +29,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
-	inttest "github.com/noctarius/timescaledb-event-streamer/testsupport"
+	"github.com/noctarius/timescaledb-event-streamer/testsupport"
 	"github.com/noctarius/timescaledb-event-streamer/testsupport/containers"
 	"github.com/noctarius/timescaledb-event-streamer/testsupport/testrunner"
 	"github.com/samber/lo"
@@ -88,7 +88,7 @@ func (asits *AwsSqsIntegrationTestSuite) Test_Aws_Sqs_Sink() {
 			}
 
 			collected := make(chan bool, 1)
-			envelopes := make([]inttest.Envelope, 0)
+			envelopes := make([]testsupport.Envelope, 0)
 			go func() {
 				for {
 					msgResult, err := awsSqs.ReceiveMessage(&sqs.ReceiveMessageInput{
@@ -109,7 +109,7 @@ func (asits *AwsSqsIntegrationTestSuite) Test_Aws_Sqs_Sink() {
 					}
 
 					for _, message := range msgResult.Messages {
-						envelope := inttest.Envelope{}
+						envelope := testsupport.Envelope{}
 						if message.Body == nil {
 							continue
 						}
@@ -147,8 +147,8 @@ func (asits *AwsSqsIntegrationTestSuite) Test_Aws_Sqs_Sink() {
 
 		testrunner.WithSetup(func(setupContext testrunner.SetupContext) error {
 			sn, tn, err := setupContext.CreateHypertable("ts", time.Hour*24,
-				inttest.NewColumn("ts", "timestamptz", false, false, nil),
-				inttest.NewColumn("val", "integer", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err

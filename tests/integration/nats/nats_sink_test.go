@@ -27,7 +27,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
 	"github.com/noctarius/timescaledb-event-streamer/internal/waiting"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
-	inttest "github.com/noctarius/timescaledb-event-streamer/testsupport"
+	"github.com/noctarius/timescaledb-event-streamer/testsupport"
 	"github.com/noctarius/timescaledb-event-streamer/testsupport/containers"
 	"github.com/noctarius/timescaledb-event-streamer/testsupport/testrunner"
 	"github.com/samber/lo"
@@ -95,9 +95,9 @@ func (nits *NatsIntegrationTestSuite) Test_Nats_Sink() {
 			}
 
 			waiter := waiting.NewWaiterWithTimeout(time.Minute)
-			envelopes := make([]inttest.Envelope, 0)
+			envelopes := make([]testsupport.Envelope, 0)
 			_, err = js.QueueSubscribe(subjectName, groupName, func(msg *nats.Msg) {
-				envelope := inttest.Envelope{}
+				envelope := testsupport.Envelope{}
 				if err := json.Unmarshal(msg.Data, &envelope); err != nil {
 					msg.Nak()
 					nits.T().Error(err)
@@ -134,8 +134,8 @@ func (nits *NatsIntegrationTestSuite) Test_Nats_Sink() {
 
 		testrunner.WithSetup(func(setupContext testrunner.SetupContext) error {
 			sn, tn, err := setupContext.CreateHypertable("ts", time.Hour*24,
-				inttest.NewColumn("ts", "timestamptz", false, false, nil),
-				inttest.NewColumn("val", "integer", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err

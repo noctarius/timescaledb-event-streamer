@@ -20,7 +20,7 @@ package systemcatalog
 import (
 	"fmt"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/noctarius/timescaledb-event-streamer/internal/supporting"
+	"github.com/noctarius/timescaledb-event-streamer/internal/functional"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/samber/lo"
@@ -43,7 +43,7 @@ func (c Columns) SnapshotIndex() (index *Index, present bool) {
 		return item.IsDimension()
 	})
 
-	supporting.Sort(dimensionColumns, func(this, other Column) bool {
+	functional.Sort(dimensionColumns, func(this, other Column) bool {
 		return *this.dimSeq < *other.dimSeq
 	})
 
@@ -73,7 +73,7 @@ func (c Columns) PrimaryKeyIndex() (index *Index, present bool) {
 		return item.IsPrimaryKey()
 	})
 
-	supporting.Sort(primaryKeyColumns, func(this, other Column) bool {
+	functional.Sort(primaryKeyColumns, func(this, other Column) bool {
 		return *this.keySeq < *other.keySeq
 	})
 
@@ -104,7 +104,7 @@ func (c Columns) ReplicaIdentityIndex() (index *Index, present bool) {
 		return item.IsReplicaIdent()
 	})
 
-	supporting.Sort(replicaIdentityColumns, func(this, other Column) bool {
+	functional.Sort(replicaIdentityColumns, func(this, other Column) bool {
 		return *this.keySeq < *other.keySeq
 	})
 
