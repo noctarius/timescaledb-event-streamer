@@ -26,7 +26,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgproto3"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
-	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
+	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationcontext"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"time"
 )
@@ -35,7 +35,7 @@ const outputPlugin = "pgoutput"
 
 type ReplicationConnection struct {
 	logger             *logging.Logger
-	replicationContext context.ReplicationContext
+	replicationContext replicationcontext.ReplicationContext
 
 	conn                   *pgconn.PgConn
 	identification         pglogrepl.IdentifySystemResult
@@ -43,7 +43,7 @@ type ReplicationConnection struct {
 }
 
 func NewReplicationConnection(
-	replicationContext context.ReplicationContext,
+	replicationContext replicationcontext.ReplicationContext,
 ) (*ReplicationConnection, error) {
 
 	logger, err := logging.NewLogger("ReplicationConnection")

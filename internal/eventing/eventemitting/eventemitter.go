@@ -25,7 +25,7 @@ import (
 	"github.com/jackc/pglogrepl"
 	"github.com/noctarius/timescaledb-event-streamer/internal/eventing/eventfiltering"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
-	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
+	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationcontext"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
@@ -36,7 +36,7 @@ import (
 )
 
 type EventEmitter struct {
-	replicationContext context.ReplicationContext
+	replicationContext replicationcontext.ReplicationContext
 	filter             eventfiltering.EventFilter
 	typeManager        pgtypes.TypeManager
 	streamManager      stream.Manager
@@ -53,7 +53,7 @@ type payloadFactoryFn func(
 ) (schema.Struct, error)
 
 func NewEventEmitter(
-	replicationContext context.ReplicationContext, streamManager stream.Manager,
+	replicationContext replicationcontext.ReplicationContext, streamManager stream.Manager,
 	typeManager pgtypes.TypeManager, filter eventfiltering.EventFilter,
 ) (*EventEmitter, error) {
 

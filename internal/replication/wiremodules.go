@@ -4,9 +4,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/noctarius/timescaledb-event-streamer/internal/eventing/eventemitting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/eventing/eventfiltering"
-	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/logicalreplicationresolver"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationchannel"
+	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationcontext"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/sidechannel"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/snapshotting"
@@ -24,7 +24,7 @@ import (
 var EventingModule = wiring.DefineModule(
 	"Eventing", func(module wiring.Module) {
 		module.Provide(func(
-			c *config.Config, replicationContext context.ReplicationContext,
+			c *config.Config, replicationContext replicationcontext.ReplicationContext,
 			streamManager stream.Manager, typeManager pgtypes.TypeManager,
 		) (*eventemitting.EventEmitter, error) {
 
@@ -77,9 +77,9 @@ var ReplicationContextModule = wiring.DefineModule(
 			c *config.Config, pgc *pgx.ConnConfig,
 			stateStorageManager statestorage.Manager,
 			sideChannel sidechannel.SideChannel,
-		) (context.ReplicationContext, error) {
+		) (replicationcontext.ReplicationContext, error) {
 
-			return context.NewReplicationContext(c, pgc, stateStorageManager, sideChannel)
+			return replicationcontext.NewReplicationContext(c, pgc, stateStorageManager, sideChannel)
 		})
 
 	},
@@ -88,7 +88,7 @@ var ReplicationContextModule = wiring.DefineModule(
 var LogicalReplicationResolverModule = wiring.DefineModule(
 	"LogicalReplicationResolver", func(module wiring.Module) {
 		module.Provide(func(
-			c *config.Config, replicationContext context.ReplicationContext, systemCatalog *systemcatalog.SystemCatalog,
+			c *config.Config, replicationContext replicationcontext.ReplicationContext, systemCatalog *systemcatalog.SystemCatalog,
 		) (eventhandlers.BaseReplicationEventHandler, error) {
 
 			return logicalreplicationresolver.NewResolver(c, replicationContext, systemCatalog)
@@ -116,7 +116,10 @@ var NamingStrategyModule = wiring.DefineModule(
 var ReplicationChannelModule = wiring.DefineModule(
 	"ReplicationChannel", func(module wiring.Module) {
 		module.Provide(
-			func(replicationContext context.ReplicationContext) (*replicationchannel.ReplicationChannel, error) {
+			func(
+				replicationContext replicationcontext.ReplicationContext,
+			) (*replicationchannel.ReplicationChannel, error) {
+
 				return replicationchannel.NewReplicationChannel(replicationContext)
 			},
 		)
@@ -143,7 +146,7 @@ var StreamManagerModule = wiring.DefineModule(
 var SystemCatalogModule = wiring.DefineModule(
 	"SystemCatalog", func(module wiring.Module) {
 		module.Provide(func(
-			c *config.Config, replicationContext context.ReplicationContext,
+			c *config.Config, replicationContext replicationcontext.ReplicationContext,
 			typeManager pgtypes.TypeManager, snapshotter *snapshotting.Snapshotter,
 		) (*systemcatalog.SystemCatalog, error) {
 
@@ -155,7 +158,10 @@ var SystemCatalogModule = wiring.DefineModule(
 var SnapshotterModule = wiring.DefineModule(
 	"Snapshotter", func(module wiring.Module) {
 		module.Provide(
-			func(c *config.Config, replicationContext context.ReplicationContext) (*snapshotting.Snapshotter, error) {
+			func(
+				c *config.Config, replicationContext replicationcontext.ReplicationContext,
+			) (*snapshotting.Snapshotter, error) {
+
 				parallelism := config.GetOrDefault(c, config.PropertySnapshotterParallelism, uint8(5))
 				return snapshotting.NewSnapshotter(parallelism, replicationContext)
 			},

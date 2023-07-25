@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package context
+package replicationcontext
 
 import "github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 

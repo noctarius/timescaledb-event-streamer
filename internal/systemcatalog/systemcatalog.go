@@ -20,7 +20,7 @@ package systemcatalog
 import (
 	"github.com/go-errors/errors"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
-	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
+	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationcontext"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/sidechannel"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/snapshotting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/tablefiltering"
@@ -44,7 +44,7 @@ type SystemCatalog struct {
 	compressed2hypertable map[int32]int32
 
 	pgTypeResolver     func(oid uint32) (pgtypes.PgType, error)
-	replicationContext context.ReplicationContext
+	replicationContext replicationcontext.ReplicationContext
 	replicationFilter  *tablefiltering.TableFilter
 	snapshotter        *snapshotting.Snapshotter
 	logger             *logging.Logger
@@ -52,7 +52,7 @@ type SystemCatalog struct {
 }
 
 func NewSystemCatalog(
-	config *config.Config, replicationContext context.ReplicationContext,
+	config *config.Config, replicationContext replicationcontext.ReplicationContext,
 	pgTypeResolver func(oid uint32) (pgtypes.PgType, error), snapshotter *snapshotting.Snapshotter,
 ) (*SystemCatalog, error) {
 
@@ -414,7 +414,7 @@ func initializeSystemCatalog(
 
 type snapshottingEventHandler struct {
 	systemCatalog      *SystemCatalog
-	taskManager        context.TaskManager
+	taskManager        replicationcontext.TaskManager
 	handledHypertables map[string]bool
 }
 
@@ -513,7 +513,7 @@ func (s *snapshottingEventHandler) OnSnapshottingStartedEvent(
 
 	// No hypertables? Just start the replicator
 	if len(s.systemCatalog.hypertables) == 0 {
-		return s.taskManager.EnqueueTask(func(notificator context.Notificator) {
+		return s.taskManager.EnqueueTask(func(notificator replicationcontext.Notificator) {
 			notificator.NotifySnapshottingEventHandler(func(handler eventhandlers.SnapshottingEventHandler) error {
 				return handler.OnSnapshottingFinishedEvent()
 			})
@@ -528,7 +528,7 @@ func (s *snapshottingEventHandler) OnSnapshottingStartedEvent(
 		break
 	}
 
-	return s.taskManager.EnqueueTask(func(notificator context.Notificator) {
+	return s.taskManager.EnqueueTask(func(notificator replicationcontext.Notificator) {
 		notificator.NotifySnapshottingEventHandler(func(handler eventhandlers.SnapshottingEventHandler) error {
 			return handler.OnHypertableSnapshotStartedEvent(snapshotName, hypertable)
 		})
@@ -556,7 +556,7 @@ func (s *snapshottingEventHandler) scheduleNextSnapshotHypertableOrFinish(
 ) error {
 
 	if nextHypertable := s.nextSnapshotHypertable(); nextHypertable != nil {
-		return s.taskManager.EnqueueTask(func(notificator context.Notificator) {
+		return s.taskManager.EnqueueTask(func(notificator replicationcontext.Notificator) {
 			notificator.NotifySnapshottingEventHandler(func(handler eventhandlers.SnapshottingEventHandler) error {
 				return handler.OnHypertableSnapshotStartedEvent(snapshotName, nextHypertable)
 			})
@@ -564,7 +564,7 @@ func (s *snapshottingEventHandler) scheduleNextSnapshotHypertableOrFinish(
 	}
 
 	// Seems like all hypertables are handles successfully, let's finish up and start the replicator
-	return s.taskManager.EnqueueTask(func(notificator context.Notificator) {
+	return s.taskManager.EnqueueTask(func(notificator replicationcontext.Notificator) {
 		notificator.NotifySnapshottingEventHandler(func(handler eventhandlers.SnapshottingEventHandler) error {
 			return handler.OnSnapshottingFinishedEvent()
 		})

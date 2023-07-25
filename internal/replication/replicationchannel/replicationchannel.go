@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"github.com/go-errors/errors"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
-	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationconnection"
+	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationcontext"
 	"github.com/noctarius/timescaledb-event-streamer/internal/waiting"
 	"github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
@@ -34,7 +34,7 @@ import (
 // ReplicationChannel represents the database connection and handler loop
 // for the logical replication decoding subscriber.
 type ReplicationChannel struct {
-	replicationContext context.ReplicationContext
+	replicationContext replicationcontext.ReplicationContext
 	createdPublication bool
 	shutdownAwaiter    *waiting.ShutdownAwaiter
 	logger             *logging.Logger
@@ -43,7 +43,7 @@ type ReplicationChannel struct {
 
 // NewReplicationChannel instantiates a new instance of the ReplicationChannel.
 func NewReplicationChannel(
-	replicationContext context.ReplicationContext,
+	replicationContext replicationcontext.ReplicationContext,
 ) (*ReplicationChannel, error) {
 
 	logger, err := logging.NewLogger("ReplicationChannel")
@@ -70,7 +70,7 @@ func (rc *ReplicationChannel) StopReplicationChannel() error {
 // StartReplicationChannel starts the replication channel, as well as initializes
 // and starts the logical replication handler loop.
 func (rc *ReplicationChannel) StartReplicationChannel(
-	replicationContext context.ReplicationContext, initialTables []systemcatalog.SystemEntity,
+	replicationContext replicationcontext.ReplicationContext, initialTables []systemcatalog.SystemEntity,
 ) error {
 
 	publicationManager := replicationContext.PublicationManager()
@@ -220,7 +220,7 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 		)
 
 		// Kick of the actual snapshotting
-		if err := taskManager.EnqueueTask(func(notificator context.Notificator) {
+		if err := taskManager.EnqueueTask(func(notificator replicationcontext.Notificator) {
 			notificator.NotifySnapshottingEventHandler(func(handler eventhandlers.SnapshottingEventHandler) error {
 				return handler.OnSnapshottingStartedEvent(snapshotName)
 			})

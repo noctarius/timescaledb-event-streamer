@@ -18,7 +18,7 @@
 package logicalreplicationresolver
 
 import (
-	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
+	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationcontext"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
@@ -26,7 +26,8 @@ import (
 )
 
 func NewResolver(
-	config *spiconfig.Config, replicationContext context.ReplicationContext, systemCatalog *systemcatalog.SystemCatalog,
+	config *spiconfig.Config, replicationContext replicationcontext.ReplicationContext,
+	systemCatalog *systemcatalog.SystemCatalog,
 ) (eventhandlers.BaseReplicationEventHandler, error) {
 
 	enabled := spiconfig.GetOrDefault(

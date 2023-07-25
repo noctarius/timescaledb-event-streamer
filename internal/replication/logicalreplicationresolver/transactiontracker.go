@@ -21,7 +21,7 @@ import (
 	"github.com/jackc/pglogrepl"
 	"github.com/noctarius/timescaledb-event-streamer/internal/containers"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
-	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
+	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationcontext"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
@@ -39,7 +39,7 @@ type transactionTracker struct {
 	maxSize                      uint
 	relations                    map[uint32]*pgtypes.RelationMessage
 	resolver                     *logicalReplicationResolver
-	replicationContext           context.ReplicationContext
+	replicationContext           replicationcontext.ReplicationContext
 	systemCatalog                *systemcatalog.SystemCatalog
 	currentTransaction           *transaction
 	logger                       *logging.Logger
@@ -47,7 +47,7 @@ type transactionTracker struct {
 }
 
 func newTransactionTracker(
-	timeout time.Duration, maxSize uint, replicationContext context.ReplicationContext,
+	timeout time.Duration, maxSize uint, replicationContext replicationcontext.ReplicationContext,
 	systemCatalog *systemcatalog.SystemCatalog, resolver *logicalReplicationResolver,
 ) (eventhandlers.LogicalReplicationEventHandler, error) {
 

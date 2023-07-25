@@ -3,8 +3,8 @@ package sysconfig
 import (
 	"github.com/jackc/pgx/v5"
 	"github.com/noctarius/timescaledb-event-streamer/internal/eventing/eventemitting"
-	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationchannel"
+	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationcontext"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/sidechannel"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/snapshotting"
@@ -23,11 +23,11 @@ type TypeManagerProvider = func(sideChannel sidechannel.SideChannel) (pgtypes.Ty
 type SinkManagerProvider = func(config *config.Config, stateStorageManager statestorage.Manager) (sink.Manager, error)
 
 type SnapshotterProvider = func(
-	partitionCount int, replicationContext context.ReplicationContext,
+	partitionCount int, replicationContext replicationcontext.ReplicationContext,
 ) (*snapshotting.Snapshotter, error)
 
 type ReplicationChannelProvider = func(
-	replicationContext context.ReplicationContext,
+	replicationContext replicationcontext.ReplicationContext,
 ) (*replicationchannel.ReplicationChannel, error)
 
 type NameGeneratorProvider = func(
@@ -43,10 +43,11 @@ type StateStorageManagerProvider = func(config *config.Config) (statestorage.Man
 type ReplicationContextProvider func(
 	config *config.Config, pgxConfig *pgx.ConnConfig,
 	stateStorageManager statestorage.Manager, sideChannel sidechannel.SideChannel,
-) (context.ReplicationContext, error)
+) (replicationcontext.ReplicationContext, error)
 
 type LogicalReplicationResolverProvider = func(
-	c *config.Config, replicationContext context.ReplicationContext, systemCatalog *systemcatalog.SystemCatalog,
+	c *config.Config, replicationContext replicationcontext.ReplicationContext,
+	systemCatalog *systemcatalog.SystemCatalog,
 ) (eventhandlers.BaseReplicationEventHandler, error)
 
 type StreamManagerProvider = func(
@@ -54,11 +55,11 @@ type StreamManagerProvider = func(
 ) (stream.Manager, error)
 
 type SystemCatalogProvider = func(
-	config *config.Config, replicationContext context.ReplicationContext,
+	config *config.Config, replicationContext replicationcontext.ReplicationContext,
 	pgTypeResolver func(oid uint32) (pgtypes.PgType, error), snapshotter *snapshotting.Snapshotter,
 ) (*systemcatalog.SystemCatalog, error)
 
 type EventEmitterProvider = func(
-	config *config.Config, replicationContext context.ReplicationContext,
+	config *config.Config, replicationContext replicationcontext.ReplicationContext,
 	streamManager stream.Manager, typeManager pgtypes.TypeManager,
 ) (*eventemitting.EventEmitter, error)

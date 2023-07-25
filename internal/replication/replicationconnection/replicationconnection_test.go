@@ -23,7 +23,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
-	"github.com/noctarius/timescaledb-event-streamer/internal/replication/context"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/sidechannel"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
@@ -354,7 +353,7 @@ func (t testReplicationContext) NewReplicationChannelConnection(
 	return nil, nil
 }
 
-func (t testReplicationContext) PublicationManager() context.PublicationManager {
+func (t testReplicationContext) PublicationManager() replicationcontext.PublicationManager {
 	return nil
 }
 
@@ -362,7 +361,7 @@ func (t testReplicationContext) StateStorageManager() statestorage.Manager {
 	return t.stateStorageManager
 }
 
-func (t testReplicationContext) TaskManager() context.TaskManager {
+func (t testReplicationContext) TaskManager() replicationcontext.TaskManager {
 	return nil
 }
 
