@@ -432,7 +432,7 @@ type typeManager struct {
 	typeResolver        TypeResolver
 	typeCache           map[uint32]PgType
 	typeNameCache       map[string]uint32
-	typeCacheMutex      sync.Mutex
+	typeCacheMutex      sync.RWMutex
 	optimizedTypes      map[uint32]PgType
 	optimizedConverters map[uint32]typeRegistration
 	cachedDecoderPlans  *containers.ConcurrentMap[uint32, TupleDecoderPlan]
@@ -452,7 +452,7 @@ func NewTypeManager(
 		typeResolver:        typeResolver,
 		typeCache:           make(map[uint32]PgType),
 		typeNameCache:       make(map[string]uint32),
-		typeCacheMutex:      sync.Mutex{},
+		typeCacheMutex:      sync.RWMutex{},
 		optimizedTypes:      make(map[uint32]PgType),
 		optimizedConverters: make(map[uint32]typeRegistration),
 		cachedDecoderPlans:  containers.NewConcurrentMap[uint32, TupleDecoderPlan](),
@@ -542,27 +542,55 @@ func (tm *typeManager) ResolveDataType(
 	oid uint32,
 ) (PgType, error) {
 
-	tm.typeCacheMutex.Lock()
-	defer tm.typeCacheMutex.Unlock()
+	get := func() (PgType, bool) {
+		tm.typeCacheMutex.RLock()
+		defer tm.typeCacheMutex.RUnlock()
+
+		dataType, present := tm.typeCache[oid]
+		if present {
+			return dataType, true
+		}
+		return nil, false
+	}
+
+	resolve := func() (bool, error) {
+		tm.typeCacheMutex.Lock()
+		defer tm.typeCacheMutex.Unlock()
+
+		t, found, err := tm.typeResolver.ReadPgType(oid, tm.typeFactory)
+		if err != nil {
+			return false, err
+		}
+
+		if !found {
+			return false, nil
+		}
+
+		tm.typeCache[oid] = t
+		tm.typeNameCache[t.Name()] = oid
+		return true, nil
+	}
 
 	// Is it already available / cached?
-	dataType, present := tm.typeCache[oid]
+	t, present := get()
 	if present {
-		return dataType, nil
+		return t, nil
 	}
 
-	dataType, found, err := tm.typeResolver.ReadPgType(oid, tm.typeFactory)
+	// Not yet available, needs to be resolved
+	found, err := resolve()
 	if err != nil {
 		return nil, err
-	}
-
-	if !found {
+	} else if !found {
 		return nil, errors.Errorf("illegal oid: %d", oid)
 	}
 
-	tm.typeCache[oid] = dataType
-	tm.typeNameCache[dataType.Name()] = oid
-	return dataType, nil
+	t, present = get()
+	if !present {
+		panic("illegal state, PgType not available after successful resolve")
+	}
+
+	return t, nil
 }
 
 func (tm *typeManager) ResolveTypeConverter(
@@ -579,8 +607,8 @@ func (tm *typeManager) ResolveTypeConverter(
 }
 
 func (tm *typeManager) NumKnownTypes() int {
-	tm.typeCacheMutex.Lock()
-	defer tm.typeCacheMutex.Unlock()
+	tm.typeCacheMutex.RLock()
+	defer tm.typeCacheMutex.RUnlock()
 	return len(tm.typeCache)
 }
 
@@ -588,8 +616,8 @@ func (tm *typeManager) OidByName(
 	name string,
 ) uint32 {
 
-	tm.typeCacheMutex.Lock()
-	defer tm.typeCacheMutex.Unlock()
+	tm.typeCacheMutex.RLock()
+	defer tm.typeCacheMutex.RUnlock()
 	oid, present := tm.typeNameCache[name]
 	if !present {
 		panic(fmt.Sprintf("Type %s isn't registered", name))
