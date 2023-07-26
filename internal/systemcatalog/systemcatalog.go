@@ -270,8 +270,8 @@ func (sc *SystemCatalog) UnregisterChunk(
 
 	hypertable, present := sc.FindHypertableByChunkId(chunk.Id())
 
-	sc.rwLock.RLock()
-	defer sc.rwLock.RUnlock()
+	sc.rwLock.Lock()
+	defer sc.rwLock.Unlock()
 	if present {
 		index := lo.IndexOf(sc.hypertable2chunks[hypertable.Id()], chunk.Id())
 		// Erase element (zero value) to prevent memory leak
