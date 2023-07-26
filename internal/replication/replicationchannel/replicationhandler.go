@@ -156,6 +156,7 @@ func (rh *replicationHandler) startReplicationHandler(
 			// Skip all entries that were already replicated before the streamer was shut down
 			msgType := pglogrepl.MessageType(xld.WALData[0])
 			if msgType != pglogrepl.MessageTypeRelation && restartLSN > pgtypes.LSN(xld.WALStart) {
+				rh.logger.Debugf("Skipped message, LSN lower than restartLSN: %s < %s", xld.WALStart, restartLSN)
 				continue
 			}
 

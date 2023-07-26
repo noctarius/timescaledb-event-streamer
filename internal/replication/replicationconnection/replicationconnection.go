@@ -132,6 +132,7 @@ func (rc *ReplicationConnection) StartReplication(
 			},
 		)
 	}
+	rc.logger.Debugln("Started replication connection")
 	return restartLSN, nil
 }
 
@@ -216,9 +217,22 @@ func (rc *ReplicationConnection) locateRestartLSN() (pgtypes.LSN, error) {
 		return 0, errors.Wrap(err, 0)
 	}
 
-	pluginName, slotType, _, confirmedFlushLSN, err := rc.replicationContext.ReadReplicationSlot(replicationSlotName)
+	pluginName, slotType, pgRestartLSN, confirmedFlushLSN, err :=
+		rc.replicationContext.ReadReplicationSlot(replicationSlotName)
 	if err != nil {
 		return 0, errors.Wrap(err, 0)
+	}
+
+	if rc.logger.DebugEnabled() {
+		restartPoints := []string{
+			fmt.Sprintf("confirmedFlushLSN: %s", confirmedFlushLSN),
+			fmt.Sprintf("restartLSN: %s", pgRestartLSN),
+			fmt.Sprintf("xLogPos: %s", rc.identification.XLogPos),
+		}
+		if offset != nil {
+			restartPoints = append(restartPoints, fmt.Sprintf("offset: %s", offset.LSN))
+		}
+		rc.logger.Debugf("Available restart points %+v", restartPoints)
 	}
 
 	restartLSN := confirmedFlushLSN
