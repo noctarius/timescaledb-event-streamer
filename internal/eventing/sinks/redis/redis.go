@@ -19,81 +19,83 @@ package redis
 
 import (
 	"crypto/tls"
-	"encoding/json"
 	"github.com/go-redis/redis"
-	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
+	config "github.com/noctarius/timescaledb-event-streamer/spi/config"
+	"github.com/noctarius/timescaledb-event-streamer/spi/encoding"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/sink"
 	"time"
 )
 
 func init() {
-	sink.RegisterSink(spiconfig.Redis, newRedisSink)
+	sink.RegisterSink(config.Redis, newRedisSink)
 }
 
 type redisSink struct {
-	client *redis.Client
+	client  *redis.Client
+	encoder *encoding.JsonEncoder
 }
 
 func newRedisSink(
-	config *spiconfig.Config,
+	c *config.Config,
 ) (sink.Sink, error) {
 
 	options := &redis.Options{
-		Network: spiconfig.GetOrDefault(
-			config, spiconfig.PropertyRedisNetwork, "tcp",
+		Network: config.GetOrDefault(
+			c, config.PropertyRedisNetwork, "tcp",
 		),
-		Addr: spiconfig.GetOrDefault(
-			config, spiconfig.PropertyRedisAddress, "localhost:6379",
+		Addr: config.GetOrDefault(
+			c, config.PropertyRedisAddress, "localhost:6379",
 		),
-		Password: spiconfig.GetOrDefault(
-			config, spiconfig.PropertyRedisPassword, "",
+		Password: config.GetOrDefault(
+			c, config.PropertyRedisPassword, "",
 		),
-		DB: spiconfig.GetOrDefault(
-			config, spiconfig.PropertyRedisDatabase, 0,
+		DB: config.GetOrDefault(
+			c, config.PropertyRedisDatabase, 0,
 		),
-		MaxRetries: spiconfig.GetOrDefault(
-			config, spiconfig.PropertyRedisRetriesMax, 0,
+		MaxRetries: config.GetOrDefault(
+			c, config.PropertyRedisRetriesMax, 0,
 		),
-		MinRetryBackoff: spiconfig.GetOrDefault(
-			config, spiconfig.PropertyRedisRetriesBackoffMin, time.Duration(8),
+		MinRetryBackoff: config.GetOrDefault(
+			c, config.PropertyRedisRetriesBackoffMin, time.Duration(8),
 		) * time.Microsecond,
-		MaxRetryBackoff: spiconfig.GetOrDefault(
-			config, spiconfig.PropertyRedisRetriesBackoffMax, time.Duration(512),
+		MaxRetryBackoff: config.GetOrDefault(
+			c, config.PropertyRedisRetriesBackoffMax, time.Duration(512),
 		) * time.Microsecond,
-		DialTimeout: spiconfig.GetOrDefault(
-			config, spiconfig.PropertyRedisTimeoutDial, time.Duration(0),
+		DialTimeout: config.GetOrDefault(
+			c, config.PropertyRedisTimeoutDial, time.Duration(0),
 		),
-		ReadTimeout: spiconfig.GetOrDefault(
-			config, spiconfig.PropertyRedisTimeoutRead, time.Duration(0),
+		ReadTimeout: config.GetOrDefault(
+			c, config.PropertyRedisTimeoutRead, time.Duration(0),
 		) * time.Second,
-		WriteTimeout: spiconfig.GetOrDefault(
-			config, spiconfig.PropertyRedisTimeoutWrite, time.Duration(0),
+		WriteTimeout: config.GetOrDefault(
+			c, config.PropertyRedisTimeoutWrite, time.Duration(0),
 		) * time.Second,
-		PoolSize: spiconfig.GetOrDefault(
-			config, spiconfig.PropertyRedisPoolsize, 0,
+		PoolSize: config.GetOrDefault(
+			c, config.PropertyRedisPoolsize, 0,
 		),
-		PoolTimeout: spiconfig.GetOrDefault(
-			config, spiconfig.PropertyRedisTimeoutPool, time.Duration(0),
+		PoolTimeout: config.GetOrDefault(
+			c, config.PropertyRedisTimeoutPool, time.Duration(0),
 		) * time.Second,
-		IdleTimeout: spiconfig.GetOrDefault(
-			config, spiconfig.PropertyRedisTimeoutIdle, time.Duration(0),
+		IdleTimeout: config.GetOrDefault(
+			c, config.PropertyRedisTimeoutIdle, time.Duration(0),
 		) * time.Minute,
 	}
 
-	if config.Sink.Redis.TLS.Enabled {
+	if c.Sink.Redis.TLS.Enabled {
 		options.TLSConfig = &tls.Config{
-			InsecureSkipVerify: spiconfig.GetOrDefault(
-				config, spiconfig.PropertyRedisTlsSkipVerify, false,
+			InsecureSkipVerify: config.GetOrDefault(
+				c, config.PropertyRedisTlsSkipVerify, false,
 			),
-			ClientAuth: spiconfig.GetOrDefault(
-				config, spiconfig.PropertyRedisTlsClientAuth, tls.NoClientCert,
+			ClientAuth: config.GetOrDefault(
+				c, config.PropertyRedisTlsClientAuth, tls.NoClientCert,
 			),
 		}
 	}
 
 	return &redisSink{
-		client: redis.NewClient(options),
+		client:  redis.NewClient(options),
+		encoder: encoding.NewJsonEncoderWithConfig(c),
 	}, nil
 }
 
@@ -109,11 +111,11 @@ func (r *redisSink) Emit(
 	_ sink.Context, _ time.Time, topicName string, key, envelope schema.Struct,
 ) error {
 
-	keyData, err := json.Marshal(key)
+	keyData, err := r.encoder.Marshal(key)
 	if err != nil {
 		return err
 	}
-	envelopeData, err := json.Marshal(envelope)
+	envelopeData, err := r.encoder.Marshal(envelope)
 	if err != nil {
 		return err
 	}

@@ -19,42 +19,43 @@ package awssqs
 
 import (
 	"crypto/sha256"
-	"encoding/json"
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/go-errors/errors"
-	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
+	config "github.com/noctarius/timescaledb-event-streamer/spi/config"
+	"github.com/noctarius/timescaledb-event-streamer/spi/encoding"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/sink"
 	"time"
 )
 
 func init() {
-	sink.RegisterSink(spiconfig.AwsSQS, newAwsSqsSink)
+	sink.RegisterSink(config.AwsSQS, newAwsSqsSink)
 }
 
 type awsSqsSink struct {
 	queueUrl *string
 	awsSqs   *sqs.SQS
+	encoder  *encoding.JsonEncoder
 }
 
 func newAwsSqsSink(
-	config *spiconfig.Config,
+	c *config.Config,
 ) (sink.Sink, error) {
 
-	queueUrl := spiconfig.GetOrDefault[*string](config, spiconfig.PropertySqsQueueUrl, nil)
+	queueUrl := config.GetOrDefault[*string](c, config.PropertySqsQueueUrl, nil)
 	if queueUrl == nil {
 		return nil, errors.Errorf("AWS SQS sink needs the queue url to be configured")
 	}
 
-	awsRegion := spiconfig.GetOrDefault[*string](config, spiconfig.PropertySqsAwsRegion, nil)
-	endpoint := spiconfig.GetOrDefault(config, spiconfig.PropertySqsAwsEndpoint, "")
-	accessKeyId := spiconfig.GetOrDefault[*string](config, spiconfig.PropertySqsAwsAccessKeyId, nil)
-	secretAccessKey := spiconfig.GetOrDefault[*string](config, spiconfig.PropertySqsAwsSecretAccessKey, nil)
-	sessionToken := spiconfig.GetOrDefault[*string](config, spiconfig.PropertySqsAwsSessionToken, nil)
+	awsRegion := config.GetOrDefault[*string](c, config.PropertySqsAwsRegion, nil)
+	endpoint := config.GetOrDefault(c, config.PropertySqsAwsEndpoint, "")
+	accessKeyId := config.GetOrDefault[*string](c, config.PropertySqsAwsAccessKeyId, nil)
+	secretAccessKey := config.GetOrDefault[*string](c, config.PropertySqsAwsSecretAccessKey, nil)
+	sessionToken := config.GetOrDefault[*string](c, config.PropertySqsAwsSessionToken, nil)
 
 	awsConfig := aws.NewConfig().WithEndpoint(endpoint)
 	if accessKeyId != nil && secretAccessKey != nil && sessionToken != nil {
@@ -75,6 +76,7 @@ func newAwsSqsSink(
 	return &awsSqsSink{
 		queueUrl: queueUrl,
 		awsSqs:   sqs.New(awsSession),
+		encoder:  encoding.NewJsonEncoderWithConfig(c),
 	}, nil
 }
 
@@ -90,7 +92,7 @@ func (a *awsSqsSink) Emit(
 	_ sink.Context, _ time.Time, topicName string, _, envelope schema.Struct,
 ) error {
 
-	envelopeData, err := json.Marshal(envelope)
+	envelopeData, err := a.encoder.Marshal(envelope)
 	if err != nil {
 		return err
 	}

@@ -77,6 +77,7 @@ type PostgreSQLConfig struct {
 type InternalConfig struct {
 	Dispatcher  DispatcherConfig  `toml:"dispatcher" yaml:"dispatcher"`
 	Snapshotter SnapshotterConfig `toml:"snapshotter" yaml:"snapshotter"`
+	Encoding    EncodingConfig    `toml:"encoding" yaml:"encoding"`
 }
 
 type DispatcherConfig struct {
@@ -85,6 +86,10 @@ type DispatcherConfig struct {
 
 type SnapshotterConfig struct {
 	Parallelism uint8 `toml:"parallelism" yaml:"parallelism"`
+}
+
+type EncodingConfig struct {
+	CustomReflection *bool `toml:"customreflection" yaml:"customReflection"`
 }
 
 type SnapshotConfig struct {

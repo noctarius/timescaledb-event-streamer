@@ -18,9 +18,9 @@
 package testsupport
 
 import (
-	"encoding/json"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
+	"github.com/noctarius/timescaledb-event-streamer/spi/encoding"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/sink"
 	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
@@ -55,7 +55,9 @@ type CollectedEvent struct {
 }
 
 type EventCollectorSink struct {
-	mutex sync.Mutex
+	mutex   sync.Mutex
+	encoder *encoding.JsonEncoder
+	decoder *encoding.JsonDecoder
 
 	keys   []schema.Struct
 	events []CollectedEvent
@@ -107,9 +109,11 @@ func NewEventCollectorSink(
 ) *EventCollectorSink {
 
 	eventCollectorSink := &EventCollectorSink{
-		keys:   make([]schema.Struct, 0),
-		events: make([]CollectedEvent, 0),
-		mutex:  sync.Mutex{},
+		keys:    make([]schema.Struct, 0),
+		events:  make([]CollectedEvent, 0),
+		mutex:   sync.Mutex{},
+		encoder: encoding.NewJsonEncoder(true),
+		decoder: encoding.NewJsonDecoder(true),
 	}
 	for _, option := range options {
 		option(eventCollectorSink)
@@ -155,12 +159,12 @@ func (t *EventCollectorSink) Emit(
 	if t.preHook != nil {
 		t.preHook(t)
 	}
-	d, err := json.Marshal(envelope)
+	d, err := t.encoder.Marshal(envelope)
 	if err != nil {
 		return err
 	}
 	var eventEnvelope Envelope
-	if err := json.Unmarshal(d, &eventEnvelope); err != nil {
+	if err := t.decoder.Unmarshal(d, &eventEnvelope); err != nil {
 		return err
 	}
 	if t.filter != nil {

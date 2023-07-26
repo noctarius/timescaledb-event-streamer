@@ -40,6 +40,7 @@ const (
 
 	PropertyDispatcherInitialQueueCapacity = "internal.dispatcher.initialqueuecapacity"
 	PropertySnapshotterParallelism         = "internal.snapshotter.parallelism"
+	PropertyEncodingCustomReflection       = "internal.encoding.customreflection"
 
 	PropertyEventsRead          = "timescaledb.events.read"
 	PropertyEventsInsert        = "timescaledb.events.insert"

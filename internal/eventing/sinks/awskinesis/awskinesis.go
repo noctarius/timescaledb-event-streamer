@@ -18,13 +18,13 @@
 package awskinesis
 
 import (
-	"encoding/json"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/kinesis"
 	"github.com/go-errors/errors"
-	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
+	config "github.com/noctarius/timescaledb-event-streamer/spi/config"
+	"github.com/noctarius/timescaledb-event-streamer/spi/encoding"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/sink"
 	"log"
@@ -32,32 +32,33 @@ import (
 )
 
 func init() {
-	sink.RegisterSink(spiconfig.AwsKinesis, newAwsKinesisSink)
+	sink.RegisterSink(config.AwsKinesis, newAwsKinesisSink)
 }
 
 type awsKinesisSink struct {
 	streamName *string
 	awsKinesis *kinesis.Kinesis
+	encoder    *encoding.JsonEncoder
 }
 
 func newAwsKinesisSink(
-	config *spiconfig.Config,
+	c *config.Config,
 ) (sink.Sink, error) {
 
-	streamName := spiconfig.GetOrDefault[*string](config, spiconfig.PropertyKinesisStreamName, nil)
+	streamName := config.GetOrDefault[*string](c, config.PropertyKinesisStreamName, nil)
 	if streamName == nil {
 		return nil, errors.Errorf("AWS Kinesis sink needs the stream name to be configured")
 	}
 
-	shardCount := spiconfig.GetOrDefault[*int64](config, spiconfig.PropertyKinesisStreamShardCount, nil)
-	streamMode := spiconfig.GetOrDefault[*string](config, spiconfig.PropertyKinesisStreamMode, nil)
-	streamCreate := spiconfig.GetOrDefault(config, spiconfig.PropertyKinesisStreamCreate, true)
+	shardCount := config.GetOrDefault[*int64](c, config.PropertyKinesisStreamShardCount, nil)
+	streamMode := config.GetOrDefault[*string](c, config.PropertyKinesisStreamMode, nil)
+	streamCreate := config.GetOrDefault(c, config.PropertyKinesisStreamCreate, true)
 
-	awsRegion := spiconfig.GetOrDefault[*string](config, spiconfig.PropertyKinesisRegion, nil)
-	endpoint := spiconfig.GetOrDefault(config, spiconfig.PropertyKinesisAwsEndpoint, "")
-	accessKeyId := spiconfig.GetOrDefault[*string](config, spiconfig.PropertyKinesisAwsAccessKeyId, nil)
-	secretAccessKey := spiconfig.GetOrDefault[*string](config, spiconfig.PropertyKinesisAwsSecretAccessKey, nil)
-	sessionToken := spiconfig.GetOrDefault[*string](config, spiconfig.PropertyKinesisAwsSessionToken, nil)
+	awsRegion := config.GetOrDefault[*string](c, config.PropertyKinesisRegion, nil)
+	endpoint := config.GetOrDefault(c, config.PropertyKinesisAwsEndpoint, "")
+	accessKeyId := config.GetOrDefault[*string](c, config.PropertyKinesisAwsAccessKeyId, nil)
+	secretAccessKey := config.GetOrDefault[*string](c, config.PropertyKinesisAwsSecretAccessKey, nil)
+	sessionToken := config.GetOrDefault[*string](c, config.PropertyKinesisAwsSessionToken, nil)
 
 	awsConfig := aws.NewConfig().WithEndpoint(endpoint)
 	if accessKeyId != nil && secretAccessKey != nil && sessionToken != nil {
@@ -115,6 +116,7 @@ func newAwsKinesisSink(
 	return &awsKinesisSink{
 		streamName: streamName,
 		awsKinesis: awsKinesis,
+		encoder:    encoding.NewJsonEncoderWithConfig(c),
 	}, nil
 }
 
@@ -130,7 +132,7 @@ func (a *awsKinesisSink) Emit(
 	_ sink.Context, _ time.Time, topicName string, _, envelope schema.Struct,
 ) error {
 
-	envelopeData, err := json.Marshal(envelope)
+	envelopeData, err := a.encoder.Marshal(envelope)
 	if err != nil {
 		return err
 	}

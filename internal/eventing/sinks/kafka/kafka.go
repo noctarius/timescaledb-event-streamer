@@ -19,62 +19,63 @@ package kafka
 
 import (
 	"crypto/tls"
-	"encoding/json"
 	"github.com/Shopify/sarama"
-	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
+	config "github.com/noctarius/timescaledb-event-streamer/spi/config"
+	"github.com/noctarius/timescaledb-event-streamer/spi/encoding"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/sink"
 	"time"
 )
 
 func init() {
-	sink.RegisterSink(spiconfig.Kafka, newKafkaSink)
+	sink.RegisterSink(config.Kafka, newKafkaSink)
 }
 
 type kafkaSink struct {
 	producer sarama.SyncProducer
+	encoder  *encoding.JsonEncoder
 }
 
 func newKafkaSink(
-	config *spiconfig.Config,
+	c *config.Config,
 ) (sink.Sink, error) {
 
-	c := sarama.NewConfig()
-	c.ClientID = "event-stream-prototype"
-	c.Producer.Idempotent = spiconfig.GetOrDefault(
-		config, "sink.kafka.idempotent", false,
+	kafkaConfig := sarama.NewConfig()
+	kafkaConfig.ClientID = "event-stream-prototype"
+	kafkaConfig.Producer.Idempotent = config.GetOrDefault(
+		c, "sink.kafka.idempotent", false,
 	)
-	c.Producer.Return.Successes = true
-	c.Producer.RequiredAcks = sarama.WaitForLocal
-	c.Producer.Retry.Max = 10
+	kafkaConfig.Producer.Return.Successes = true
+	kafkaConfig.Producer.RequiredAcks = sarama.WaitForLocal
+	kafkaConfig.Producer.Retry.Max = 10
 
-	if spiconfig.GetOrDefault(config, spiconfig.PropertyKafkaSaslEnabled, false) {
-		c.Net.SASL.Enable = true
-		c.Net.SASL.User = spiconfig.GetOrDefault(
-			config, spiconfig.PropertyKafkaSaslUser, "",
+	if config.GetOrDefault(c, config.PropertyKafkaSaslEnabled, false) {
+		kafkaConfig.Net.SASL.Enable = true
+		kafkaConfig.Net.SASL.User = config.GetOrDefault(
+			c, config.PropertyKafkaSaslUser, "",
 		)
-		c.Net.SASL.Password = spiconfig.GetOrDefault(
-			config, spiconfig.PropertyKafkaSaslPassword, "",
+		kafkaConfig.Net.SASL.Password = config.GetOrDefault(
+			c, config.PropertyKafkaSaslPassword, "",
 		)
-		c.Net.SASL.Mechanism = spiconfig.GetOrDefault[sarama.SASLMechanism](
-			config, spiconfig.PropertyKafkaSaslMechanism, sarama.SASLTypePlaintext,
+		kafkaConfig.Net.SASL.Mechanism = config.GetOrDefault[sarama.SASLMechanism](
+			c, config.PropertyKafkaSaslMechanism, sarama.SASLTypePlaintext,
 		)
 	}
 
-	if spiconfig.GetOrDefault(config, spiconfig.PropertyKafkaTlsEnabled, false) {
-		c.Net.TLS.Enable = true
-		c.Net.TLS.Config = &tls.Config{
-			InsecureSkipVerify: spiconfig.GetOrDefault(
-				config, spiconfig.PropertyKafkaTlsSkipVerify, false,
+	if config.GetOrDefault(c, config.PropertyKafkaTlsEnabled, false) {
+		kafkaConfig.Net.TLS.Enable = true
+		kafkaConfig.Net.TLS.Config = &tls.Config{
+			InsecureSkipVerify: config.GetOrDefault(
+				c, config.PropertyKafkaTlsSkipVerify, false,
 			),
-			ClientAuth: spiconfig.GetOrDefault(
-				config, spiconfig.PropertyKafkaTlsClientAuth, tls.NoClientCert,
+			ClientAuth: config.GetOrDefault(
+				c, config.PropertyKafkaTlsClientAuth, tls.NoClientCert,
 			),
 		}
 	}
 
 	producer, err := sarama.NewSyncProducer(
-		spiconfig.GetOrDefault(config, spiconfig.PropertyKafkaBrokers, []string{"localhost:9092"}), c,
+		config.GetOrDefault(c, config.PropertyKafkaBrokers, []string{"localhost:9092"}), kafkaConfig,
 	)
 	if err != nil {
 		return nil, err
@@ -82,6 +83,7 @@ func newKafkaSink(
 
 	return &kafkaSink{
 		producer: producer,
+		encoder:  encoding.NewJsonEncoderWithConfig(c),
 	}, nil
 }
 
@@ -97,11 +99,11 @@ func (k *kafkaSink) Emit(
 	_ sink.Context, timestamp time.Time, topicName string, key, envelope schema.Struct,
 ) error {
 
-	keyData, err := json.Marshal(key)
+	keyData, err := k.encoder.Marshal(key)
 	if err != nil {
 		return err
 	}
-	envelopeData, err := json.Marshal(envelope)
+	envelopeData, err := k.encoder.Marshal(envelope)
 	if err != nil {
 		return err
 	}

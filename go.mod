@@ -11,6 +11,7 @@ require (
 	github.com/docker/docker v24.0.4+incompatible
 	github.com/go-errors/errors v1.4.2
 	github.com/go-redis/redis v6.15.9+incompatible
+	github.com/goccy/go-json v0.10.2
 	github.com/gookit/color v1.5.3
 	github.com/gookit/slog v0.5.2
 	github.com/hashicorp/go-uuid v1.0.3
@@ -27,6 +28,7 @@ require (
 	github.com/testcontainers/testcontainers-go/modules/localstack v0.21.0
 	github.com/testcontainers/testcontainers-go/modules/redis v0.21.0
 	github.com/urfave/cli v1.22.14
+	golang.org/x/net v0.12.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -87,7 +89,6 @@ require (
 	golang.org/x/crypto v0.11.0 // indirect
 	golang.org/x/exp v0.0.0-20230713183714-613f0c0eb8a1 // indirect
 	golang.org/x/mod v0.12.0 // indirect
-	golang.org/x/net v0.12.0 // indirect
 	golang.org/x/sync v0.3.0 // indirect
 	golang.org/x/sys v0.10.0 // indirect
 	golang.org/x/text v0.11.0 // indirect
