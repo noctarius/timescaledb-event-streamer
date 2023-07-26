@@ -63,7 +63,7 @@ type ReplicationContextProvider func(
 
 type LogicalReplicationResolverProvider = func(
 	c *config.Config, replicationContext replicationcontext.ReplicationContext,
-	systemCatalog *systemcatalog.SystemCatalog,
+	systemCatalog *systemcatalog.SystemCatalog, typeManager pgtypes.TypeManager,
 ) (eventhandlers.BaseReplicationEventHandler, error)
 
 type StreamManagerProvider = func(

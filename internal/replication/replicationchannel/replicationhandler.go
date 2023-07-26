@@ -36,6 +36,7 @@ import (
 type replicationHandler struct {
 	replicationContext replicationcontext.ReplicationContext
 	taskManager        replicationcontext.TaskManager
+	typeManager        pgtypes.TypeManager
 	clientXLogPos      pglogrepl.LSN
 	relations          map[uint32]*pgtypes.RelationMessage
 	shutdownAwaiter    *waiting.ShutdownAwaiter
@@ -45,7 +46,7 @@ type replicationHandler struct {
 }
 
 func newReplicationHandler(
-	replicationContext replicationcontext.ReplicationContext,
+	replicationContext replicationcontext.ReplicationContext, typeManager pgtypes.TypeManager,
 ) (*replicationHandler, error) {
 
 	logger, err := logging.NewLogger("ReplicationHandler")
@@ -56,6 +57,7 @@ func newReplicationHandler(
 	return &replicationHandler{
 		replicationContext: replicationContext,
 		taskManager:        replicationContext.TaskManager(),
+		typeManager:        typeManager,
 		relations:          make(map[uint32]*pgtypes.RelationMessage),
 		shutdownAwaiter:    waiting.NewShutdownAwaiter(),
 		logger:             logger,
@@ -294,7 +296,7 @@ func (rh *replicationHandler) handleDeleteMessage(
 	}
 
 	// Decode tuples
-	oldValues, err := pgtypes.DecodeTuples(rel, msg.OldTuple)
+	oldValues, err := rh.typeManager.DecodeTuples(rel, msg.OldTuple)
 	if err != nil {
 		return err
 	}
@@ -328,11 +330,11 @@ func (rh *replicationHandler) handleUpdateMessage(
 	}
 
 	// Decode tuples
-	oldValues, err := pgtypes.DecodeTuples(rel, msg.OldTuple)
+	oldValues, err := rh.typeManager.DecodeTuples(rel, msg.OldTuple)
 	if err != nil {
 		return err
 	}
-	newValues, err := pgtypes.DecodeTuples(rel, msg.NewTuple)
+	newValues, err := rh.typeManager.DecodeTuples(rel, msg.NewTuple)
 	if err != nil {
 		return err
 	}
@@ -368,7 +370,7 @@ func (rh *replicationHandler) handleInsertMessage(
 	}
 
 	// Decode tuples
-	newValues, err := pgtypes.DecodeTuples(rel, msg.Tuple)
+	newValues, err := rh.typeManager.DecodeTuples(rel, msg.Tuple)
 	if err != nil {
 		return err
 	}

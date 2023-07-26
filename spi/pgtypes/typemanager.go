@@ -20,6 +20,7 @@ package pgtypes
 import (
 	"fmt"
 	"github.com/go-errors/errors"
+	"github.com/jackc/pglogrepl"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
@@ -54,9 +55,9 @@ type typeRegistration struct {
 	schemaType    schema.Type
 	schemaBuilder schema.Builder
 	isArray       bool
-	oidElement uint32
-	converter  TypeConverter
-	codec      pgtype.Codec
+	oidElement    uint32
+	converter     TypeConverter
+	codec         pgtype.Codec
 }
 
 var coreTypes = map[uint32]typeRegistration{
@@ -419,16 +420,22 @@ type TypeManager interface {
 		oid uint32,
 	) (TypeConverter, error)
 	NumKnownTypes() int
+	DecodeTuples(
+		relation *RelationMessage, tupleData *pglogrepl.TupleData,
+	) (map[string]any, error)
+	GetOrPlanTupleDecoder(relation *RelationMessage) (TupleDecoderPlan, error)
 }
 
 type typeManager struct {
-	logger              *logging.Logger
-	typeResolver        TypeResolver
-	typeCache           map[uint32]PgType
-	typeNameCache       map[string]uint32
-	typeCacheMutex      sync.Mutex
-	optimizedTypes      map[uint32]PgType
-	optimizedConverters map[uint32]typeRegistration
+	logger                  *logging.Logger
+	typeResolver            TypeResolver
+	typeCache               map[uint32]PgType
+	typeNameCache           map[string]uint32
+	typeCacheMutex          sync.Mutex
+	optimizedTypes          map[uint32]PgType
+	optimizedConverters     map[uint32]typeRegistration
+	cachedDecoderPlans      map[uint32]TupleDecoderPlan
+	cachedDecoderPlansMutex sync.Mutex
 }
 
 func NewTypeManager(
@@ -441,13 +448,15 @@ func NewTypeManager(
 	}
 
 	typeManager := &typeManager{
-		logger:              logger,
-		typeResolver:        typeResolver,
-		typeCache:           make(map[uint32]PgType),
-		typeNameCache:       make(map[string]uint32),
-		typeCacheMutex:      sync.Mutex{},
-		optimizedTypes:      make(map[uint32]PgType),
-		optimizedConverters: make(map[uint32]typeRegistration),
+		logger:                  logger,
+		typeResolver:            typeResolver,
+		typeCache:               make(map[uint32]PgType),
+		typeNameCache:           make(map[string]uint32),
+		typeCacheMutex:          sync.Mutex{},
+		optimizedTypes:          make(map[uint32]PgType),
+		optimizedConverters:     make(map[uint32]typeRegistration),
+		cachedDecoderPlans:      make(map[uint32]TupleDecoderPlan),
+		cachedDecoderPlansMutex: sync.Mutex{},
 	}
 
 	if err := typeManager.initialize(); err != nil {
@@ -588,6 +597,35 @@ func (tm *typeManager) OidByName(
 	return oid
 }
 
+func (tm *typeManager) DecodeTuples(
+	relation *RelationMessage, tupleData *pglogrepl.TupleData,
+) (map[string]any, error) {
+
+	plan, err := tm.GetOrPlanTupleDecoder(relation)
+	if err != nil {
+		return nil, err
+	}
+	return plan.Decode(tupleData)
+}
+
+func (tm *typeManager) GetOrPlanTupleDecoder(
+	relation *RelationMessage,
+) (plan TupleDecoderPlan, err error) {
+
+	tm.cachedDecoderPlansMutex.Lock()
+	defer tm.cachedDecoderPlansMutex.Unlock()
+
+	plan, ok := tm.cachedDecoderPlans[relation.RelationID]
+	if !ok {
+		plan, err = PlanTupleDecoder(relation)
+		if err != nil {
+			return nil, err
+		}
+		tm.cachedDecoderPlans[relation.RelationID] = plan
+	}
+	return plan, nil
+}
+
 func (tm *typeManager) getSchemaType(
 	oid uint32, arrayType bool, kind PgKind,
 ) schema.Type {
@@ -674,8 +712,8 @@ func (tm *typeManager) resolveSchemaBuilder(
 
 type lazyArrayConverter struct {
 	typeManager *typeManager
-	oidElement uint32
-	converter  TypeConverter
+	oidElement  uint32
+	converter   TypeConverter
 }
 
 func (lac *lazyArrayConverter) convert(

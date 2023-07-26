@@ -77,7 +77,7 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 
 	publicationManager := rc.replicationContext.PublicationManager()
 
-	handler, err := newReplicationHandler(rc.replicationContext)
+	handler, err := newReplicationHandler(rc.replicationContext, rc.typeManager)
 	if err != nil {
 		return errors.Wrap(err, 0)
 	}

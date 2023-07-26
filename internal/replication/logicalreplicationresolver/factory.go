@@ -22,12 +22,13 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
+	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"time"
 )
 
 func NewResolver(
 	config *spiconfig.Config, replicationContext replicationcontext.ReplicationContext,
-	systemCatalog *systemcatalog.SystemCatalog,
+	systemCatalog *systemcatalog.SystemCatalog, typeManager pgtypes.TypeManager,
 ) (eventhandlers.BaseReplicationEventHandler, error) {
 
 	enabled := spiconfig.GetOrDefault(
@@ -40,7 +41,7 @@ func NewResolver(
 		config, spiconfig.PropertyPostgresqlTxwindowMaxsize, uint(10000),
 	)
 
-	resolver, err := newLogicalReplicationResolver(config, replicationContext, systemCatalog)
+	resolver, err := newLogicalReplicationResolver(config, replicationContext, systemCatalog, typeManager)
 	if err != nil {
 		return nil, err
 	}

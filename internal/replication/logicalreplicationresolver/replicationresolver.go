@@ -37,9 +37,11 @@ type logicalReplicationResolver struct {
 	replicationContext replicationcontext.ReplicationContext
 	systemCatalog      *systemcatalog.SystemCatalog
 	taskManager        replicationcontext.TaskManager
-	relations          map[uint32]*pgtypes.RelationMessage
-	eventQueues        map[string]*containers.Queue[snapshotCallback]
+	typeManager        pgtypes.TypeManager
 	logger             *logging.Logger
+
+	relations   map[uint32]*pgtypes.RelationMessage
+	eventQueues map[string]*containers.Queue[snapshotCallback]
 
 	genDeleteTombstone    bool
 	genReadEvent          bool
@@ -54,7 +56,7 @@ type logicalReplicationResolver struct {
 
 func newLogicalReplicationResolver(
 	config *spiconfig.Config, replicationContext replicationcontext.ReplicationContext,
-	systemCatalog *systemcatalog.SystemCatalog,
+	systemCatalog *systemcatalog.SystemCatalog, typeManager pgtypes.TypeManager,
 ) (*logicalReplicationResolver, error) {
 
 	logger, err := logging.NewLogger("LogicalReplicationResolver")
@@ -66,9 +68,11 @@ func newLogicalReplicationResolver(
 		replicationContext: replicationContext,
 		systemCatalog:      systemCatalog,
 		taskManager:        replicationContext.TaskManager(),
-		relations:          make(map[uint32]*pgtypes.RelationMessage),
-		eventQueues:        make(map[string]*containers.Queue[snapshotCallback]),
+		typeManager:        typeManager,
 		logger:             logger,
+
+		relations:   make(map[uint32]*pgtypes.RelationMessage),
+		eventQueues: make(map[string]*containers.Queue[snapshotCallback]),
 
 		genDeleteTombstone:    spiconfig.GetOrDefault(config, spiconfig.PropertySinkTombstone, false),
 		genReadEvent:          spiconfig.GetOrDefault(config, spiconfig.PropertyEventsRead, true),
@@ -163,6 +167,9 @@ func (l *logicalReplicationResolver) OnRelationEvent(
 ) error {
 
 	l.relations[msg.RelationID] = msg
+	if _, err := l.typeManager.GetOrPlanTupleDecoder(msg); err != nil {
+		return err
+	}
 	return nil
 }
 
