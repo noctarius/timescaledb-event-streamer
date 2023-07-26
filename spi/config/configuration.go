@@ -80,7 +80,7 @@ type InternalConfig struct {
 }
 
 type DispatcherConfig struct {
-	MaxQueueSize uint `toml:"maxqueuesize" yaml:"maxQueueSize"`
+	InitialQueueCapacity uint `toml:"initialqueuecapacity" yaml:"initialQueueCapacity"`
 }
 
 type SnapshotterConfig struct {

@@ -88,11 +88,13 @@ func newTaskManager(
 		return nil, errors.Wrap(err, 0)
 	}
 
-	initialCapacity := spiconfig.GetOrDefault[int](config, spiconfig.PropertyDispatcherMaxQueueSize, 4096)
+	initialQueueCapacity := spiconfig.GetOrDefault[int](
+		config, spiconfig.PropertyDispatcherInitialQueueCapacity, 16384,
+	)
 
 	d := &taskManager{
 		logger:              logger,
-		taskQueue:           containers.MakeUnboundedChannel[Task](initialCapacity),
+		taskQueue:           containers.MakeUnboundedChannel[Task](initialQueueCapacity),
 		baseHandlers:        make([]eventhandlers.BaseReplicationEventHandler, 0),
 		catalogHandlers:     make([]eventhandlers.SystemCatalogReplicationEventHandler, 0),
 		compressionHandlers: make([]eventhandlers.CompressionReplicationEventHandler, 0),

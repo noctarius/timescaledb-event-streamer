@@ -25,7 +25,7 @@ stateStorage:
 
 #internal:
 #  dispatcher:
-#    maxQueueSize: 4096
+#    initialQueueCapacity: 16384
 #  snapshotter:
 #    parallelsim: 5
 
