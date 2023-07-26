@@ -18,6 +18,7 @@
 package containers
 
 import (
+	"github.com/noctarius/timescaledb-event-streamer/internal/functional"
 	"sync/atomic"
 )
 
@@ -50,7 +51,7 @@ func (rq *Queue[E]) Pop() E {
 	case v := <-rq.queueChan:
 		return v
 	default:
-		return zero[E]()
+		return functional.Zero[E]()
 	}
 }
 
@@ -60,8 +61,4 @@ func (rq *Queue[E]) Close() {
 
 func (rq *Queue[E]) Lock() {
 	rq.locked.CompareAndSwap(false, true)
-}
-
-func zero[T any]() (t T) {
-	return
 }

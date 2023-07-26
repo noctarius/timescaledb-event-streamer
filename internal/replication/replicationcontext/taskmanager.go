@@ -68,7 +68,7 @@ type TaskManager interface {
 
 type taskManager struct {
 	logger              *logging.Logger
-	taskQueue           *containers.Channel[Task]
+	taskQueue           *containers.UnboundedChannel[Task]
 	baseHandlers        []eventhandlers.BaseReplicationEventHandler
 	catalogHandlers     []eventhandlers.SystemCatalogReplicationEventHandler
 	compressionHandlers []eventhandlers.CompressionReplicationEventHandler
@@ -88,11 +88,11 @@ func newTaskManager(
 		return nil, errors.Wrap(err, 0)
 	}
 
-	maxQueueSize := spiconfig.GetOrDefault[int](config, spiconfig.PropertyDispatcherMaxQueueSize, 4096)
+	initialCapacity := spiconfig.GetOrDefault[int](config, spiconfig.PropertyDispatcherMaxQueueSize, 4096)
 
 	d := &taskManager{
 		logger:              logger,
-		taskQueue:           containers.NewChannel[Task](maxQueueSize),
+		taskQueue:           containers.MakeUnboundedChannel[Task](initialCapacity),
 		baseHandlers:        make([]eventhandlers.BaseReplicationEventHandler, 0),
 		catalogHandlers:     make([]eventhandlers.SystemCatalogReplicationEventHandler, 0),
 		compressionHandlers: make([]eventhandlers.CompressionReplicationEventHandler, 0),
@@ -230,8 +230,9 @@ func (d *taskManager) StartDispatcher() {
 		for {
 			select {
 			case <-d.shutdownAwaiter.AwaitShutdownChan():
+				d.logger.Infof("TaskManager shutting down")
 				goto finish
-			case task := <-d.taskQueue.ReadChannel():
+			case task := <-d.taskQueue.ReceiveChannel():
 				if task != nil {
 					task(notificator)
 				}
@@ -257,7 +258,7 @@ func (d *taskManager) EnqueueTask(
 	if d.shutdownActive {
 		return fmt.Errorf("shutdown active, draining only")
 	}
-	d.taskQueue.Write(task)
+	d.taskQueue.Send(task)
 	return nil
 }
 
@@ -269,7 +270,7 @@ func (d *taskManager) EnqueueTaskAndWait(
 		return fmt.Errorf("shutdown active, draining only")
 	}
 	done := waiting.NewWaiter()
-	d.taskQueue.Write(func(notificator Notificator) {
+	d.taskQueue.Send(func(notificator Notificator) {
 		task(notificator)
 		done.Signal()
 	})

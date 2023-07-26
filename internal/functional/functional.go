@@ -2,6 +2,10 @@ package functional
 
 import "sort"
 
+func Zero[T any]() (t T) {
+	return
+}
+
 func MappingTransformer[T, V any](
 	transformer func(T) V,
 ) func(T, int) V {

@@ -55,18 +55,18 @@ func (c *Channel[T]) run() {
 	close(c.output)
 }
 
-func (c *Channel[T]) Write(
+func (c *Channel[T]) Send(
 	value T,
 ) {
 
 	c.input <- value
 }
 
-func (c *Channel[T]) Read() T {
+func (c *Channel[T]) Receive() T {
 	return <-c.output
 }
 
-func (c *Channel[T]) ReadChannel() <-chan T {
+func (c *Channel[T]) ReceiveChannel() <-chan T {
 	return c.output
 }
 
