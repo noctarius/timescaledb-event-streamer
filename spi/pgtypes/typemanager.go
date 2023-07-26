@@ -22,6 +22,7 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/jackc/pglogrepl"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/noctarius/timescaledb-event-streamer/internal/containers"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/samber/lo"
@@ -427,15 +428,14 @@ type TypeManager interface {
 }
 
 type typeManager struct {
-	logger                  *logging.Logger
-	typeResolver            TypeResolver
-	typeCache               map[uint32]PgType
-	typeNameCache           map[string]uint32
-	typeCacheMutex          sync.Mutex
-	optimizedTypes          map[uint32]PgType
-	optimizedConverters     map[uint32]typeRegistration
-	cachedDecoderPlans      map[uint32]TupleDecoderPlan
-	cachedDecoderPlansMutex sync.Mutex
+	logger              *logging.Logger
+	typeResolver        TypeResolver
+	typeCache           map[uint32]PgType
+	typeNameCache       map[string]uint32
+	typeCacheMutex      sync.Mutex
+	optimizedTypes      map[uint32]PgType
+	optimizedConverters map[uint32]typeRegistration
+	cachedDecoderPlans  *containers.ConcurrentMap[uint32, TupleDecoderPlan]
 }
 
 func NewTypeManager(
@@ -448,15 +448,14 @@ func NewTypeManager(
 	}
 
 	typeManager := &typeManager{
-		logger:                  logger,
-		typeResolver:            typeResolver,
-		typeCache:               make(map[uint32]PgType),
-		typeNameCache:           make(map[string]uint32),
-		typeCacheMutex:          sync.Mutex{},
-		optimizedTypes:          make(map[uint32]PgType),
-		optimizedConverters:     make(map[uint32]typeRegistration),
-		cachedDecoderPlans:      make(map[uint32]TupleDecoderPlan),
-		cachedDecoderPlansMutex: sync.Mutex{},
+		logger:              logger,
+		typeResolver:        typeResolver,
+		typeCache:           make(map[uint32]PgType),
+		typeNameCache:       make(map[string]uint32),
+		typeCacheMutex:      sync.Mutex{},
+		optimizedTypes:      make(map[uint32]PgType),
+		optimizedConverters: make(map[uint32]typeRegistration),
+		cachedDecoderPlans:  containers.NewConcurrentMap[uint32, TupleDecoderPlan](),
 	}
 
 	if err := typeManager.initialize(); err != nil {
@@ -562,6 +561,7 @@ func (tm *typeManager) ResolveDataType(
 	}
 
 	tm.typeCache[oid] = dataType
+	tm.typeNameCache[dataType.Name()] = oid
 	return dataType, nil
 }
 
@@ -612,16 +612,13 @@ func (tm *typeManager) GetOrPlanTupleDecoder(
 	relation *RelationMessage,
 ) (plan TupleDecoderPlan, err error) {
 
-	tm.cachedDecoderPlansMutex.Lock()
-	defer tm.cachedDecoderPlansMutex.Unlock()
-
-	plan, ok := tm.cachedDecoderPlans[relation.RelationID]
+	plan, ok := tm.cachedDecoderPlans.Load(relation.RelationID)
 	if !ok {
 		plan, err = PlanTupleDecoder(relation)
 		if err != nil {
 			return nil, err
 		}
-		tm.cachedDecoderPlans[relation.RelationID] = plan
+		tm.cachedDecoderPlans.Store(relation.RelationID, plan)
 	}
 	return plan, nil
 }
