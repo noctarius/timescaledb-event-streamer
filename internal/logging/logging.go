@@ -36,6 +36,8 @@ import (
 var WithVerbose = false
 var WithCaller = false
 
+type Level = slog.Level
+
 const (
 	VerboseLevel slog.Level        = 650
 	fiveMegabyte bytesize.ByteSize = 5242880
@@ -191,6 +193,38 @@ func NewLogger(
 	}, nil
 }
 
+func (l *Logger) Level() Level {
+	return l.level
+}
+
+func (l *Logger) TraceEnabled() bool {
+	return l.levelEnabled(slog.TraceLevel)
+}
+
+func (l *Logger) DebugEnabled() bool {
+	return l.levelEnabled(slog.DebugLevel)
+}
+
+func (l *Logger) VerboseEnabled() bool {
+	return l.levelEnabled(VerboseLevel)
+}
+
+func (l *Logger) InfoEnabled() bool {
+	return l.levelEnabled(slog.InfoLevel)
+}
+
+func (l *Logger) WarnEnabled() bool {
+	return l.levelEnabled(slog.WarnLevel)
+}
+
+func (l *Logger) ErrorEnabled() bool {
+	return l.levelEnabled(slog.ErrorLevel)
+}
+
+func (l *Logger) FatalEnabled() bool {
+	return l.levelEnabled(slog.FatalLevel)
+}
+
 func (l *Logger) Tracef(
 	format string, args ...interface{},
 ) {
@@ -307,7 +341,7 @@ func (l *Logger) logf(
 	level slog.Level, format string, args []any,
 ) {
 
-	if l.level >= level || (level == VerboseLevel && WithVerbose) {
+	if l.levelEnabled(level) {
 		format = strings.TrimSuffix(format, "\n")
 		l.slogger.Logf(level, fmt.Sprintf("[%s] %s", l.name, format), args...)
 	}
@@ -317,10 +351,17 @@ func (l *Logger) log(
 	level slog.Level, args []any,
 ) {
 
-	if l.level >= level || (level == VerboseLevel && WithVerbose) {
+	if l.levelEnabled(level) {
 		args = append([]any{fmt.Sprintf("[%s]", l.name)}, args...)
 		l.slogger.Log(level, args...)
 	}
+}
+
+func (l *Logger) levelEnabled(level slog.Level) bool {
+	if l.level >= level || (level == VerboseLevel && WithVerbose) {
+		return true
+	}
+	return false
 }
 
 func Name2Level(
