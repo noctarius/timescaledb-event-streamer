@@ -54,9 +54,9 @@ type typeRegistration struct {
 	schemaType    schema.Type
 	schemaBuilder schema.Builder
 	isArray       bool
-	oidElement    uint32
-	converter     Converter
-	codec         pgtype.Codec
+	oidElement uint32
+	converter  TypeConverter
+	codec      pgtype.Codec
 }
 
 var coreTypes = map[uint32]typeRegistration{
@@ -412,12 +412,12 @@ var optimizedTypes = map[string]typeRegistration{
 var ErrIllegalValue = fmt.Errorf("illegal value for data type conversion")
 
 type TypeManager interface {
-	DataType(
+	ResolveDataType(
 		oid uint32,
 	) (PgType, error)
-	Converter(
+	ResolveTypeConverter(
 		oid uint32,
-	) (Converter, error)
+	) (TypeConverter, error)
 	NumKnownTypes() int
 }
 
@@ -478,7 +478,7 @@ func (tm *typeManager) initialize() error {
 
 			tm.optimizedTypes[typ.Oid()] = typ
 
-			var converter Converter
+			var converter TypeConverter
 			if registration.isArray {
 				lazyConverter := &lazyArrayConverter{
 					typeManager: tm,
@@ -530,7 +530,7 @@ func (tm *typeManager) typeFactory(
 		oidArray, oidElement, oidParent, modifiers, enumValues, delimiter)
 }
 
-func (tm *typeManager) DataType(
+func (tm *typeManager) ResolveDataType(
 	oid uint32,
 ) (PgType, error) {
 
@@ -556,9 +556,9 @@ func (tm *typeManager) DataType(
 	return dataType, nil
 }
 
-func (tm *typeManager) Converter(
+func (tm *typeManager) ResolveTypeConverter(
 	oid uint32,
-) (Converter, error) {
+) (TypeConverter, error) {
 
 	if registration, present := coreTypes[oid]; present {
 		return registration.converter, nil
@@ -674,8 +674,8 @@ func (tm *typeManager) resolveSchemaBuilder(
 
 type lazyArrayConverter struct {
 	typeManager *typeManager
-	oidElement  uint32
-	converter   Converter
+	oidElement uint32
+	converter  TypeConverter
 }
 
 func (lac *lazyArrayConverter) convert(
@@ -683,12 +683,12 @@ func (lac *lazyArrayConverter) convert(
 ) (any, error) {
 
 	if lac.converter == nil {
-		elementType, err := lac.typeManager.DataType(lac.oidElement)
+		elementType, err := lac.typeManager.ResolveDataType(lac.oidElement)
 		if err != nil {
 			return nil, err
 		}
 
-		elementConverter, err := lac.typeManager.Converter(lac.oidElement)
+		elementConverter, err := lac.typeManager.ResolveTypeConverter(lac.oidElement)
 		if err != nil {
 			return nil, err
 		}

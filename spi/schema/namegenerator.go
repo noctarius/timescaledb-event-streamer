@@ -18,6 +18,7 @@
 package schema
 
 import (
+	"github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/namingstrategy"
 )
 
@@ -34,6 +35,13 @@ type NameGenerator interface {
 	) string
 	// MessageTopicName generates a message topic name for a replication message
 	MessageTopicName() string
+}
+
+func NewNameGeneratorFromConfig(
+	c *config.Config, namingStrategy namingstrategy.NamingStrategy,
+) NameGenerator {
+
+	return NewNameGenerator(c.Topic.Prefix, namingStrategy)
 }
 
 func NewNameGenerator(

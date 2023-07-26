@@ -22,6 +22,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationcontext"
 	"github.com/noctarius/timescaledb-event-streamer/internal/waiting"
+	"github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
@@ -46,6 +47,14 @@ type Snapshotter struct {
 	snapshotQueues     []chan SnapshotTask
 	shutdownAwaiter    *waiting.MultiShutdownAwaiter
 	logger             *logging.Logger
+}
+
+func NewSnapshotterFromConfig(
+	c *config.Config, replicationContext replicationcontext.ReplicationContext,
+) (*Snapshotter, error) {
+
+	parallelism := config.GetOrDefault(c, config.PropertySnapshotterParallelism, uint8(5))
+	return NewSnapshotter(parallelism, replicationContext)
 }
 
 func NewSnapshotter(

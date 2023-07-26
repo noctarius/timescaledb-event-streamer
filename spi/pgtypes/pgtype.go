@@ -23,10 +23,10 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 )
 
-// Converter represents a conversion function to convert from
+// TypeConverter represents a conversion function to convert from
 // a PostgreSQL internal OID number and value to a value according
 // to the stream definition
-type Converter func(oid uint32, value any) (any, error)
+type TypeConverter func(oid uint32, value any) (any, error)
 
 type PgCategory string
 
@@ -171,7 +171,7 @@ func (t *pgType) IsRecord() bool {
 
 func (t *pgType) ArrayType() PgType {
 	if t.resolvedArrayType == nil {
-		arrayType, err := t.typeManager.DataType(t.oidArray)
+		arrayType, err := t.typeManager.ResolveDataType(t.oidArray)
 		if err != nil {
 			panic(err)
 		}
@@ -182,7 +182,7 @@ func (t *pgType) ArrayType() PgType {
 
 func (t *pgType) ElementType() PgType {
 	if t.resolvedElementType == nil {
-		elementType, err := t.typeManager.DataType(t.oidElement)
+		elementType, err := t.typeManager.ResolveDataType(t.oidElement)
 		if err != nil {
 			panic(err)
 		}
@@ -193,7 +193,7 @@ func (t *pgType) ElementType() PgType {
 
 func (t *pgType) ParentType() PgType {
 	if t.resolvedParentType == nil {
-		parentType, err := t.typeManager.DataType(t.oidParent)
+		parentType, err := t.typeManager.ResolveDataType(t.oidParent)
 		if err != nil {
 			panic(err)
 		}

@@ -75,19 +75,8 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 	}
 
 	container, err := wiring.NewContainer(
-		EventingModule,
-		LogicalReplicationResolverModule,
-		SchemaModule,
-		NamingStrategyModule,
-		ReplicationChannelModule,
-		ReplicationContextModule,
-		SideChannelModule,
-		SinkManagerModule,
-		StateStorageModule,
-		StreamManagerModule,
-		SystemCatalogModule,
-		TypeManagerModule,
-		SnapshotterModule,
+		StaticModule,
+		DynamicModule,
 		wiring.DefineModule("Config", func(module wiring.Module) {
 			module.Provide(func() *config.Config {
 				return r.config.Config
@@ -193,7 +182,7 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 	if err := container.Service(&replicationChannel); err != nil {
 		return erroring.AdaptError(err, 1)
 	}
-	if err := replicationChannel.StartReplicationChannel(replicationContext, initialChunkTables); err != nil {
+	if err := replicationChannel.StartReplicationChannel(initialChunkTables); err != nil {
 		return erroring.AdaptError(err, 16)
 	}
 

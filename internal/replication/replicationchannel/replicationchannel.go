@@ -35,6 +35,7 @@ import (
 // for the logical replication decoding subscriber.
 type ReplicationChannel struct {
 	replicationContext replicationcontext.ReplicationContext
+	typeManager        pgtypes.TypeManager
 	createdPublication bool
 	shutdownAwaiter    *waiting.ShutdownAwaiter
 	logger             *logging.Logger
@@ -43,7 +44,7 @@ type ReplicationChannel struct {
 
 // NewReplicationChannel instantiates a new instance of the ReplicationChannel.
 func NewReplicationChannel(
-	replicationContext replicationcontext.ReplicationContext,
+	replicationContext replicationcontext.ReplicationContext, typeManager pgtypes.TypeManager,
 ) (*ReplicationChannel, error) {
 
 	logger, err := logging.NewLogger("ReplicationChannel")
@@ -53,6 +54,7 @@ func NewReplicationChannel(
 
 	return &ReplicationChannel{
 		replicationContext: replicationContext,
+		typeManager:        typeManager,
 		shutdownAwaiter:    waiting.NewShutdownAwaiter(),
 		logger:             logger,
 	}, nil
@@ -70,17 +72,17 @@ func (rc *ReplicationChannel) StopReplicationChannel() error {
 // StartReplicationChannel starts the replication channel, as well as initializes
 // and starts the logical replication handler loop.
 func (rc *ReplicationChannel) StartReplicationChannel(
-	replicationContext replicationcontext.ReplicationContext, initialTables []systemcatalog.SystemEntity,
+	initialTables []systemcatalog.SystemEntity,
 ) error {
 
-	publicationManager := replicationContext.PublicationManager()
+	publicationManager := rc.replicationContext.PublicationManager()
 
-	replicationHandler, err := newReplicationHandler(replicationContext)
+	handler, err := newReplicationHandler(rc.replicationContext)
 	if err != nil {
 		return errors.Wrap(err, 0)
 	}
 
-	replicationConnection, err := replicationconnection.NewReplicationConnection(replicationContext)
+	replicationConnection, err := replicationconnection.NewReplicationConnection(rc.replicationContext)
 	if err != nil {
 		return errors.Wrap(err, 0)
 	}
@@ -102,7 +104,7 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 	pluginArguments := []string{
 		fmt.Sprintf("publication_names '%s'", publicationManager.PublicationName()),
 	}
-	if replicationContext.IsPG14GE() {
+	if rc.replicationContext.IsPG14GE() {
 		pluginArguments = append(
 			pluginArguments,
 			"proto_version '2'",
@@ -162,7 +164,7 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 		}
 
 		go func() {
-			err := replicationHandler.startReplicationHandler(replicationConnection, restartLSN)
+			err := handler.startReplicationHandler(replicationConnection, restartLSN)
 			if err != nil {
 				rc.logger.Fatalf("Issue handling WAL stream: %s", err)
 			}
@@ -170,7 +172,7 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 		}()
 
 		stopReplication = func() {
-			if err := replicationHandler.stopReplicationHandler(); err != nil {
+			if err := handler.stopReplicationHandler(); err != nil {
 				rc.logger.Errorf("shutdown failed (stop replication handler): %+v", err)
 			}
 			if err := replicationConnection.StopReplication(); err != nil {

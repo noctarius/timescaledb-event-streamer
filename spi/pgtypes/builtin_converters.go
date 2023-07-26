@@ -42,16 +42,16 @@ var timestampAsTextFormat = "2006-01-02T15:04:05.999999"
 type rangeValueTransformer = func(value any) (string, error)
 
 func arrayConverter[T any](
-	oidElement uint32, elementConverter Converter,
-) Converter {
+	oidElement uint32, elementConverter TypeConverter,
+) TypeConverter {
 
 	targetType := reflect.TypeOf(*new(T))
 	return reflectiveArrayConverter(oidElement, targetType, elementConverter)
 }
 
 func reflectiveArrayConverter(
-	oidElement uint32, targetType reflect.Type, elementConverter Converter,
-) Converter {
+	oidElement uint32, targetType reflect.Type, elementConverter TypeConverter,
+) TypeConverter {
 
 	if targetType.Kind() != reflect.Array && targetType.Kind() != reflect.Slice {
 		panic(fmt.Sprintf("arrayConverter needs array / slice type but got %s", targetType.String()))

@@ -182,7 +182,7 @@ func (rd *RowDecoder) DecodeMapAndSink(
 	if values, err := rd.Decode(rawRow); err != nil {
 		return errors.Wrap(err, 0)
 	} else {
-		resultSet := make(map[string]any, 0)
+		resultSet := make(map[string]any)
 		for i, field := range rd.fields {
 			resultSet[field.Name] = values[i]
 		}
@@ -219,7 +219,7 @@ func (rd *RowDecoder) compatible(
 			return false
 		}
 		// Can we reuse the same decoder for all chunks? 🤔
-		//if f.TableAttributeNumber != o.TableAttributeNumber { return false }
+		// if f.TableAttributeNumber != o.TableAttributeNumber { return false }
 		// if f.TableOID != o.TableOID { return false }
 	}
 	return true

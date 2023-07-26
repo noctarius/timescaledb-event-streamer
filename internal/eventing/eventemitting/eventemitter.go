@@ -26,6 +26,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/eventing/eventfiltering"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationcontext"
+	"github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
@@ -51,6 +52,19 @@ type keyFactoryFn func(
 type payloadFactoryFn func(
 	source schema.Struct, stream stream.Stream,
 ) (schema.Struct, error)
+
+func NewEventEmitterFromConfig(
+	c *config.Config, replicationContext replicationcontext.ReplicationContext,
+	streamManager stream.Manager, typeManager pgtypes.TypeManager,
+) (*EventEmitter, error) {
+
+	filters, err := eventfiltering.NewEventFilter(c.Sink.Filters)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewEventEmitter(replicationContext, streamManager, typeManager, filters)
+}
 
 func NewEventEmitter(
 	replicationContext replicationcontext.ReplicationContext, streamManager stream.Manager,
@@ -419,7 +433,7 @@ func (e *eventEmitterEventHandler) convertColumnValues(
 	result := make(map[string]any)
 	for _, column := range columns {
 		if v, present := values[column.Name()]; present {
-			converter, err := e.typeManager.Converter(column.DataType())
+			converter, err := e.typeManager.ResolveTypeConverter(column.DataType())
 			if err != nil {
 				return nil, err
 			}

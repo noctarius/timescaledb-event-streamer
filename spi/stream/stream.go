@@ -79,7 +79,7 @@ func (s *tableStreamImpl) Key(
 	result := make(map[string]any)
 	for _, column := range s.tableKeyColumns {
 		if v, present := values[column.Name()]; present {
-			converter, err := s.typeManager.Converter(column.DataType())
+			converter, err := s.typeManager.ResolveTypeConverter(column.DataType())
 			if err != nil {
 				return nil, err
 			}
