@@ -24,10 +24,11 @@ import (
 	"github.com/jackc/pgx/v5/pgproto3"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationconnection"
-	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationcontext"
 	"github.com/noctarius/timescaledb-event-streamer/internal/waiting"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
+	"github.com/noctarius/timescaledb-event-streamer/spi/replicationcontext"
+	"github.com/noctarius/timescaledb-event-streamer/spi/task"
 	"runtime"
 	"sync/atomic"
 	"time"
@@ -35,7 +36,7 @@ import (
 
 type replicationHandler struct {
 	replicationContext replicationcontext.ReplicationContext
-	taskManager        replicationcontext.TaskManager
+	taskManager        task.TaskManager
 	typeManager        pgtypes.TypeManager
 	clientXLogPos      pglogrepl.LSN
 	relations          map[uint32]*pgtypes.RelationMessage
@@ -46,7 +47,8 @@ type replicationHandler struct {
 }
 
 func newReplicationHandler(
-	replicationContext replicationcontext.ReplicationContext, typeManager pgtypes.TypeManager,
+	replicationContext replicationcontext.ReplicationContext,
+	typeManager pgtypes.TypeManager, taskManager task.TaskManager,
 ) (*replicationHandler, error) {
 
 	logger, err := logging.NewLogger("ReplicationHandler")
@@ -56,7 +58,7 @@ func newReplicationHandler(
 
 	return &replicationHandler{
 		replicationContext: replicationContext,
-		taskManager:        replicationContext.TaskManager(),
+		taskManager:        taskManager,
 		typeManager:        typeManager,
 		relations:          make(map[uint32]*pgtypes.RelationMessage),
 		shutdownAwaiter:    waiting.NewShutdownAwaiter(),
@@ -202,7 +204,7 @@ func (rh *replicationHandler) handleReplicationEvents(
 		intLogicalMsg := pgtypes.RelationMessage(*logicalMsg)
 		rh.logger.Debugf("EVENT: %s", intLogicalMsg)
 		rh.relations[logicalMsg.RelationID] = &intLogicalMsg
-		return rh.taskManager.EnqueueTask(func(notificator replicationcontext.Notificator) {
+		return rh.taskManager.EnqueueTask(func(notificator task.Notificator) {
 			notificator.NotifyBaseReplicationEventHandler(
 				func(handler eventhandlers.BaseReplicationEventHandler) error {
 					return handler.OnRelationEvent(xld, (*pgtypes.RelationMessage)(logicalMsg))
@@ -218,7 +220,7 @@ func (rh *replicationHandler) handleReplicationEvents(
 		// Indicates the beginning of a group of changes in a transaction. This is only
 		// sent for committed transactions. You won't get any events from rolled back
 		// transactions.
-		return rh.taskManager.EnqueueTask(func(notificator replicationcontext.Notificator) {
+		return rh.taskManager.EnqueueTask(func(notificator task.Notificator) {
 			notificator.NotifyLogicalReplicationEventHandler(
 				func(handler eventhandlers.LogicalReplicationEventHandler) error {
 					return handler.OnBeginEvent(xld, &intLogicalMsg)
@@ -229,7 +231,7 @@ func (rh *replicationHandler) handleReplicationEvents(
 		intLogicalMsg := pgtypes.CommitMessage(*logicalMsg)
 		rh.logger.Debugf("EVENT: %s", intLogicalMsg)
 		rh.lastTransactionId = nil
-		return rh.taskManager.EnqueueTask(func(notificator replicationcontext.Notificator) {
+		return rh.taskManager.EnqueueTask(func(notificator task.Notificator) {
 			notificator.NotifyLogicalReplicationEventHandler(
 				func(handler eventhandlers.LogicalReplicationEventHandler) error {
 					return handler.OnCommitEvent(xld, &intLogicalMsg)
@@ -245,7 +247,7 @@ func (rh *replicationHandler) handleReplicationEvents(
 	case *pglogrepl.TruncateMessage:
 		intLogicalMsg := pgtypes.TruncateMessage(*logicalMsg)
 		rh.logger.Debugf("EVENT: %s", intLogicalMsg)
-		return rh.taskManager.EnqueueTask(func(notificator replicationcontext.Notificator) {
+		return rh.taskManager.EnqueueTask(func(notificator task.Notificator) {
 			notificator.NotifyLogicalReplicationEventHandler(
 				func(handler eventhandlers.LogicalReplicationEventHandler) error {
 					return handler.OnTruncateEvent(xld, &intLogicalMsg)
@@ -255,7 +257,7 @@ func (rh *replicationHandler) handleReplicationEvents(
 	case *pglogrepl.TypeMessage:
 		intLogicalMsg := pgtypes.TypeMessage(*logicalMsg)
 		rh.logger.Debugf("EVENT: %s", intLogicalMsg)
-		return rh.taskManager.EnqueueTask(func(notificator replicationcontext.Notificator) {
+		return rh.taskManager.EnqueueTask(func(notificator task.Notificator) {
 			notificator.NotifyLogicalReplicationEventHandler(
 				func(handler eventhandlers.LogicalReplicationEventHandler) error {
 					return handler.OnTypeEvent(xld, &intLogicalMsg)
@@ -265,7 +267,7 @@ func (rh *replicationHandler) handleReplicationEvents(
 	case *pglogrepl.OriginMessage:
 		intLogicalMsg := pgtypes.OriginMessage(*logicalMsg)
 		rh.logger.Debugf("EVENT: %s", intLogicalMsg)
-		return rh.taskManager.EnqueueTask(func(notificator replicationcontext.Notificator) {
+		return rh.taskManager.EnqueueTask(func(notificator task.Notificator) {
 			notificator.NotifyLogicalReplicationEventHandler(
 				func(handler eventhandlers.LogicalReplicationEventHandler) error {
 					return handler.OnOriginEvent(xld, &intLogicalMsg)
@@ -274,7 +276,7 @@ func (rh *replicationHandler) handleReplicationEvents(
 		})
 	case *pgtypes.LogicalReplicationMessage:
 		rh.logger.Debugf("EVENT: %s", logicalMsg)
-		return rh.taskManager.EnqueueTask(func(notificator replicationcontext.Notificator) {
+		return rh.taskManager.EnqueueTask(func(notificator task.Notificator) {
 			notificator.NotifyLogicalReplicationEventHandler(
 				func(handler eventhandlers.LogicalReplicationEventHandler) error {
 					return handler.OnMessageEvent(xld, logicalMsg)
@@ -311,7 +313,7 @@ func (rh *replicationHandler) handleDeleteMessage(
 	}
 	rh.logger.Debugf("EVENT: %s", internalMsg)
 
-	return rh.taskManager.EnqueueTask(func(notificator replicationcontext.Notificator) {
+	return rh.taskManager.EnqueueTask(func(notificator task.Notificator) {
 		notificator.NotifyLogicalReplicationEventHandler(
 			func(handler eventhandlers.LogicalReplicationEventHandler) error {
 				return handler.OnDeleteEvent(xld, internalMsg)
@@ -351,7 +353,7 @@ func (rh *replicationHandler) handleUpdateMessage(
 	}
 	rh.logger.Debugf("EVENT: %s", internalMsg)
 
-	return rh.taskManager.EnqueueTask(func(notificator replicationcontext.Notificator) {
+	return rh.taskManager.EnqueueTask(func(notificator task.Notificator) {
 		notificator.NotifyLogicalReplicationEventHandler(
 			func(handler eventhandlers.LogicalReplicationEventHandler) error {
 				return handler.OnUpdateEvent(xld, internalMsg)
@@ -385,7 +387,7 @@ func (rh *replicationHandler) handleInsertMessage(
 	}
 	rh.logger.Debugf("EVENT: %s", internalMsg)
 
-	return rh.taskManager.EnqueueTask(func(notificator replicationcontext.Notificator) {
+	return rh.taskManager.EnqueueTask(func(notificator task.Notificator) {
 		notificator.NotifyLogicalReplicationEventHandler(
 			func(handler eventhandlers.LogicalReplicationEventHandler) error {
 				return handler.OnInsertEvent(xld, internalMsg)

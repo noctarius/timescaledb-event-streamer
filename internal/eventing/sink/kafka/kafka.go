@@ -20,6 +20,7 @@ package kafka
 import (
 	"crypto/tls"
 	"github.com/Shopify/sarama"
+	sinkimpl "github.com/noctarius/timescaledb-event-streamer/internal/eventing/sink"
 	config "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/encoding"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
@@ -28,7 +29,7 @@ import (
 )
 
 func init() {
-	sink.RegisterSink(config.Kafka, newKafkaSink)
+	sinkimpl.RegisterSink(config.Kafka, newKafkaSink)
 }
 
 type kafkaSink struct {

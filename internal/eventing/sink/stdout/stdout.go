@@ -19,6 +19,7 @@ package stdout
 
 import (
 	"fmt"
+	sinkimpl "github.com/noctarius/timescaledb-event-streamer/internal/eventing/sink"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/encoding"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
@@ -28,7 +29,7 @@ import (
 )
 
 func init() {
-	sink.RegisterSink(spiconfig.Stdout, newStdoutSink)
+	sinkimpl.RegisterSink(spiconfig.Stdout, newStdoutSink)
 }
 
 func newStdoutSink(

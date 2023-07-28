@@ -19,13 +19,14 @@ package replicationcontext
 
 import (
 	"context"
-	"github.com/go-errors/errors"
 	"github.com/jackc/pglogrepl"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/noctarius/timescaledb-event-streamer/internal/replication/sidechannel"
+	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
+	"github.com/noctarius/timescaledb-event-streamer/spi/replicationcontext"
+	"github.com/noctarius/timescaledb-event-streamer/spi/sidechannel"
 	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/version"
@@ -34,113 +35,15 @@ import (
 	"sync"
 )
 
-type ReplicationContext interface {
-	StartReplicationContext() error
-	StopReplicationContext() error
-	NewReplicationChannelConnection(
-		ctx context.Context,
-	) (*pgconn.PgConn, error)
-
-	PublicationManager() PublicationManager
-	StateStorageManager() statestorage.Manager
-	TaskManager() TaskManager
-	TypeResolver() pgtypes.TypeResolver
-
-	Offset() (*statestorage.Offset, error)
-	SetLastTransactionId(
-		xid uint32,
-	)
-	LastTransactionId() uint32
-	SetLastBeginLSN(
-		lsn pgtypes.LSN,
-	)
-	LastBeginLSN() pgtypes.LSN
-	SetLastCommitLSN(
-		lsn pgtypes.LSN,
-	)
-	LastCommitLSN() pgtypes.LSN
-	AcknowledgeReceived(
-		xld pgtypes.XLogData,
-	)
-	LastReceivedLSN() pgtypes.LSN
-	AcknowledgeProcessed(
-		xld pgtypes.XLogData, processedLSN *pgtypes.LSN,
-	) error
-	LastProcessedLSN() pgtypes.LSN
-	SetPositionLSNs(
-		receivedLSN, processedLSN pgtypes.LSN,
-	)
-
-	InitialSnapshotMode() spiconfig.InitialSnapshotMode
-	DatabaseUsername() string
-	ReplicationSlotName() string
-	ReplicationSlotCreate() bool
-	ReplicationSlotAutoDrop() bool
-	WALLevel() string
-	SystemId() string
-	Timeline() int32
-	DatabaseName() string
-
-	PostgresVersion() version.PostgresVersion
-	TimescaleVersion() version.TimescaleVersion
-	IsMinimumPostgresVersion() bool
-	IsPG14GE() bool
-	IsMinimumTimescaleVersion() bool
-	IsTSDB212GE() bool
-	IsLogicalReplicationEnabled() bool
-
-	HasTablePrivilege(
-		entity systemcatalog.SystemEntity, grant sidechannel.Grant,
-	) (access bool, err error)
-	LoadHypertables(
-		cb func(hypertable *systemcatalog.Hypertable) error,
-	) error
-	LoadChunks(
-		cb func(chunk *systemcatalog.Chunk) error,
-	) error
-	ReadHypertableSchema(
-		cb sidechannel.HypertableSchemaCallback,
-		pgTypeResolver func(oid uint32) (pgtypes.PgType, error),
-		hypertables ...*systemcatalog.Hypertable,
-	) error
-	SnapshotChunkTable(
-		chunk *systemcatalog.Chunk, cb sidechannel.SnapshotRowCallback,
-	) (pgtypes.LSN, error)
-	FetchHypertableSnapshotBatch(
-		hypertable *systemcatalog.Hypertable, snapshotName string, cb sidechannel.SnapshotRowCallback,
-	) error
-	ReadSnapshotHighWatermark(
-		hypertable *systemcatalog.Hypertable, snapshotName string,
-	) (map[string]any, error)
-	ReadReplicaIdentity(
-		entity systemcatalog.SystemEntity,
-	) (pgtypes.ReplicaIdentity, error)
-	ReadContinuousAggregate(
-		materializedHypertableId int32,
-	) (viewSchema, viewName string, found bool, err error)
-	ExistsReplicationSlot(
-		slotName string,
-	) (found bool, err error)
-	ReadReplicationSlot(
-		slotName string,
-	) (pluginName, slotType string, restartLsn, confirmedFlushLsn pgtypes.LSN, err error)
-}
-
 type replicationContext struct {
 	pgxConfig *pgx.ConnConfig
+	logger    *logging.Logger
 
-	sideChannel sidechannel.SideChannel
-
-	// internal manager classes
-	publicationManager  *publicationManager
+	sideChannel         sidechannel.SideChannel
 	stateStorageManager statestorage.Manager
-	taskManager         *taskManager
 
 	snapshotInitialMode     spiconfig.InitialSnapshotMode
 	snapshotBatchSize       int
-	publicationName         string
-	publicationCreate       bool
-	publicationAutoDrop     bool
 	replicationSlotName     string
 	replicationSlotCreate   bool
 	replicationSlotAutoDrop bool
@@ -161,19 +64,10 @@ type replicationContext struct {
 }
 
 func NewReplicationContext(
-	config *spiconfig.Config, pgxConfig *pgx.ConnConfig,
-	stateStorageManager statestorage.Manager, sideChannel sidechannel.SideChannel,
-) (ReplicationContext, error) {
+	config *spiconfig.Config, pgxConfig *pgx.ConnConfig, stateStorageManager statestorage.Manager,
+	sideChannel sidechannel.SideChannel,
+) (replicationcontext.ReplicationContext, error) {
 
-	publicationName := spiconfig.GetOrDefault(
-		config, spiconfig.PropertyPostgresqlPublicationName, "",
-	)
-	publicationCreate := spiconfig.GetOrDefault(
-		config, spiconfig.PropertyPostgresqlPublicationCreate, true,
-	)
-	publicationAutoDrop := spiconfig.GetOrDefault(
-		config, spiconfig.PropertyPostgresqlPublicationAutoDrop, true,
-	)
 	snapshotInitialMode := spiconfig.GetOrDefault(
 		config, spiconfig.PropertyPostgresqlSnapshotInitialMode, spiconfig.Never,
 	)
@@ -190,25 +84,22 @@ func NewReplicationContext(
 		config, spiconfig.PropertyPostgresqlReplicationSlotAutoDrop, true,
 	)
 
-	taskManager, err := newTaskManager(config)
+	logger, err := logging.NewLogger("ReplicationContext")
 	if err != nil {
-		return nil, errors.Wrap(err, 0)
+		return nil, err
 	}
 
 	// Build the replication context to be passed along in terms of
 	// potential interface implementations to break up internal dependencies
 	replicationContext := &replicationContext{
 		pgxConfig: pgxConfig,
+		logger:    logger,
 
-		taskManager:         taskManager,
 		sideChannel:         sideChannel,
 		stateStorageManager: stateStorageManager,
 
 		snapshotInitialMode:     snapshotInitialMode,
 		snapshotBatchSize:       snapshotBatchSize,
-		publicationName:         publicationName,
-		publicationCreate:       publicationCreate,
-		publicationAutoDrop:     publicationAutoDrop,
 		replicationSlotName:     replicationSlotName,
 		replicationSlotCreate:   replicationSlotCreate,
 		replicationSlotAutoDrop: replicationSlotAutoDrop,
@@ -243,38 +134,18 @@ func NewReplicationContext(
 	}
 	replicationContext.walLevel = walLevel
 
-	// Set up internal manager classes
-	replicationContext.publicationManager = &publicationManager{
-		replicationContext: replicationContext,
-	}
 	return replicationContext, nil
-}
-
-func (rc *replicationContext) PublicationManager() PublicationManager {
-	return rc.publicationManager
 }
 
 func (rc *replicationContext) StateStorageManager() statestorage.Manager {
 	return rc.stateStorageManager
 }
 
-func (rc *replicationContext) TaskManager() TaskManager {
-	return rc.taskManager
-}
-
-func (rc *replicationContext) TypeResolver() pgtypes.TypeResolver {
-	return rc.sideChannel
-}
-
 func (rc *replicationContext) StartReplicationContext() error {
-	rc.taskManager.StartDispatcher()
 	return rc.stateStorageManager.Start()
 }
 
 func (rc *replicationContext) StopReplicationContext() error {
-	if err := rc.taskManager.StopDispatcher(); err != nil {
-		return err
-	}
 	return rc.stateStorageManager.Stop()
 }
 
@@ -387,7 +258,7 @@ func (rc *replicationContext) AcknowledgeProcessed(
 
 	newLastProcessedLSN := pgtypes.LSN(xld.WALStart + pglogrepl.LSN(len(xld.WALData)))
 	if processedLSN != nil {
-		rc.taskManager.logger.Debugf("Acknowledge transaction end: %s", processedLSN)
+		rc.logger.Debugf("Acknowledge transaction end: %s", processedLSN)
 		newLastProcessedLSN = *processedLSN
 	}
 
@@ -477,7 +348,7 @@ func (rc *replicationContext) IsLogicalReplicationEnabled() bool {
 // ----> SideChannel functions
 
 func (rc *replicationContext) HasTablePrivilege(
-	entity systemcatalog.SystemEntity, grant sidechannel.Grant,
+	entity systemcatalog.SystemEntity, grant sidechannel.TableGrant,
 ) (access bool, err error) {
 
 	return rc.sideChannel.HasTablePrivilege(rc.pgxConfig.User, entity, grant)

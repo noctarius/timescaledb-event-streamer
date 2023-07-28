@@ -19,15 +19,20 @@ package replication
 
 import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/eventing/eventemitting"
+	namingstrategyimpl "github.com/noctarius/timescaledb-event-streamer/internal/eventing/namingstrategy"
+	sinkimpl "github.com/noctarius/timescaledb-event-streamer/internal/eventing/sink"
+	"github.com/noctarius/timescaledb-event-streamer/internal/publicationmanager"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/logicalreplicationresolver"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationchannel"
-	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationcontext"
-	"github.com/noctarius/timescaledb-event-streamer/internal/replication/sidechannel"
-	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog"
+	replicationcontextimpl "github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationcontext"
+	sidechannelimpl "github.com/noctarius/timescaledb-event-streamer/internal/replication/sidechannel"
+	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
+	systemcatalogimpl "github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/snapshotting"
+	taskmanagerimpl "github.com/noctarius/timescaledb-event-streamer/internal/taskmanager"
+	"github.com/noctarius/timescaledb-event-streamer/internal/typemanager"
 	"github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/namingstrategy"
-	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/sink"
 	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
@@ -39,28 +44,18 @@ var StaticModule = wiring.DefineModule(
 	"Static", func(module wiring.Module) {
 		module.Provide(eventemitting.NewEventEmitterFromConfig)
 		module.Provide(statestorage.NewStateStorageManager)
-		module.Provide(sidechannel.NewSideChannel)
-		module.Provide(replicationcontext.NewReplicationContext)
+		module.Provide(sidechannelimpl.NewSideChannel)
+		module.Provide(replicationcontextimpl.NewReplicationContext)
 		module.Provide(logicalreplicationresolver.NewResolver, wiring.ForceInitialization())
 		module.Provide(schema.NewNameGeneratorFromConfig)
 		module.Provide(replicationchannel.NewReplicationChannel)
-		module.Provide(sink.NewSinkManager)
+		module.Provide(sinkimpl.NewSinkManager)
 		module.Provide(stream.NewStreamManager)
 		module.Provide(snapshotting.NewSnapshotterFromConfig)
-
-		module.Provide(func(sideChannel sidechannel.SideChannel) (pgtypes.TypeManager, error) {
-			// Necessary since TypeManager is looking for TypeResolver,
-			// not SideChannel (which implements the interface)
-			return pgtypes.NewTypeManager(sideChannel)
-		})
-
-		module.Provide(func(
-			c *config.Config, replicationContext replicationcontext.ReplicationContext,
-			typeManager pgtypes.TypeManager, snapshotter *snapshotting.Snapshotter,
-		) (*systemcatalog.SystemCatalog, error) {
-
-			return systemcatalog.NewSystemCatalog(c, replicationContext, typeManager.ResolveDataType, snapshotter)
-		})
+		module.Provide(taskmanagerimpl.NewTaskManager)
+		module.Provide(publicationmanager.NewPublicationManager)
+		module.Provide(systemcatalogimpl.NewSystemCatalog)
+		module.Provide(typemanager.NewTypeManager)
 	},
 )
 
@@ -74,12 +69,33 @@ var DynamicModule = wiring.DefineModule(
 
 		module.Provide(func(c *config.Config) (namingstrategy.NamingStrategy, error) {
 			name := config.GetOrDefault(c, config.PropertyNamingStrategy, config.Debezium)
-			return namingstrategy.NewNamingStrategy(name, c)
+			return namingstrategyimpl.NewNamingStrategy(name, c)
 		})
 
 		module.Provide(func(c *config.Config) (sink.Sink, error) {
 			name := config.GetOrDefault(c, config.PropertySink, config.Stdout)
-			return sink.NewSink(name, c)
+			return sinkimpl.NewSink(name, c)
 		})
 	},
 )
+
+func OverridesModule(config *sysconfig.SystemConfig) wiring.Module {
+	return wiring.DefineModule("Overrides", func(module wiring.Module) {
+		module.MayProvide(config.EventEmitterProvider)
+		module.MayProvide(config.LogicalReplicationResolverProvider)
+		module.MayProvide(config.NameGeneratorProvider)
+		module.MayProvide(config.NamingStrategyProvider)
+		module.MayProvide(config.ReplicationChannelProvider)
+		module.MayProvide(config.ReplicationContextProvider)
+		module.MayProvide(config.SideChannelProvider)
+		module.MayProvide(config.SinkManagerProvider)
+		module.MayProvide(config.SnapshotterProvider)
+		module.MayProvide(config.StateStorageManagerProvider)
+		module.MayProvide(config.StateStorageProvider)
+		module.MayProvide(config.StreamManagerProvider)
+		module.MayProvide(config.SystemCatalogProvider)
+		module.MayProvide(config.TypeManagerProvider)
+		module.MayProvide(config.TaskManagerProvider)
+		module.MayProvide(config.PublicationManagerProvider)
+	})
+}

@@ -18,17 +18,19 @@
 package logicalreplicationresolver
 
 import (
-	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationcontext"
-	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
+	"github.com/noctarius/timescaledb-event-streamer/spi/replicationcontext"
+	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
+	"github.com/noctarius/timescaledb-event-streamer/spi/task"
 	"time"
 )
 
 func NewResolver(
 	config *spiconfig.Config, replicationContext replicationcontext.ReplicationContext,
-	systemCatalog *systemcatalog.SystemCatalog, typeManager pgtypes.TypeManager,
+	systemCatalog systemcatalog.SystemCatalog, typeManager pgtypes.TypeManager,
+	taskManager task.TaskManager,
 ) (eventhandlers.BaseReplicationEventHandler, error) {
 
 	enabled := spiconfig.GetOrDefault(
@@ -41,13 +43,13 @@ func NewResolver(
 		config, spiconfig.PropertyPostgresqlTxwindowMaxsize, uint(10000),
 	)
 
-	resolver, err := newLogicalReplicationResolver(config, replicationContext, systemCatalog, typeManager)
+	resolver, err := newLogicalReplicationResolver(config, replicationContext, systemCatalog, typeManager, taskManager)
 	if err != nil {
 		return nil, err
 	}
 
 	if enabled && maxSize > 0 {
-		return newTransactionTracker(timeout, maxSize, replicationContext, systemCatalog, resolver)
+		return newTransactionTracker(timeout, maxSize, replicationContext, systemCatalog, resolver, taskManager)
 	}
 	return resolver, nil
 }

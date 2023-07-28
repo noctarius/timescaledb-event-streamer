@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/nats-io/nats.go"
+	sinkimpl "github.com/noctarius/timescaledb-event-streamer/internal/eventing/sink"
 	config "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/encoding"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
@@ -29,7 +30,7 @@ import (
 )
 
 func init() {
-	sink.RegisterSink(config.NATS, newNatsSink)
+	sinkimpl.RegisterSink(config.NATS, newNatsSink)
 }
 
 type natsSink struct {

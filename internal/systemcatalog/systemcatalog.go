@@ -20,20 +20,22 @@ package systemcatalog
 import (
 	"github.com/go-errors/errors"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
-	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationcontext"
-	"github.com/noctarius/timescaledb-event-streamer/internal/replication/sidechannel"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/snapshotting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/tablefiltering"
 	"github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
+	"github.com/noctarius/timescaledb-event-streamer/spi/publication"
+	"github.com/noctarius/timescaledb-event-streamer/spi/replicationcontext"
+	"github.com/noctarius/timescaledb-event-streamer/spi/sidechannel"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
+	"github.com/noctarius/timescaledb-event-streamer/spi/task"
 	"github.com/noctarius/timescaledb-event-streamer/spi/watermark"
 	"github.com/samber/lo"
 	"sync"
 )
 
-type SystemCatalog struct {
+type systemCatalog struct {
 	hypertables           map[int32]*systemcatalog.Hypertable
 	chunks                map[int32]*systemcatalog.Chunk
 	hypertableNameIndex   map[string]int32
@@ -43,8 +45,10 @@ type SystemCatalog struct {
 	hypertable2compressed map[int32]int32
 	compressed2hypertable map[int32]int32
 
-	pgTypeResolver     func(oid uint32) (pgtypes.PgType, error)
 	replicationContext replicationcontext.ReplicationContext
+	publicationManager publication.PublicationManager
+	typeManager        pgtypes.TypeManager
+	taskManager        task.TaskManager
 	replicationFilter  *tablefiltering.TableFilter
 	snapshotter        *snapshotting.Snapshotter
 	logger             *logging.Logger
@@ -53,8 +57,9 @@ type SystemCatalog struct {
 
 func NewSystemCatalog(
 	config *config.Config, replicationContext replicationcontext.ReplicationContext,
-	pgTypeResolver func(oid uint32) (pgtypes.PgType, error), snapshotter *snapshotting.Snapshotter,
-) (*SystemCatalog, error) {
+	typeManager pgtypes.TypeManager, snapshotter *snapshotting.Snapshotter, taskManager task.TaskManager,
+	publicationManager publication.PublicationManager,
+) (systemcatalog.SystemCatalog, error) {
 
 	if config == nil {
 		return nil, errors.New("config must not be nil")
@@ -78,7 +83,7 @@ func NewSystemCatalog(
 		return nil, errors.Wrap(err, 0)
 	}
 
-	return &SystemCatalog{
+	return &systemCatalog{
 		hypertables:           make(map[int32]*systemcatalog.Hypertable),
 		chunks:                make(map[int32]*systemcatalog.Chunk),
 		hypertableNameIndex:   make(map[string]int32),
@@ -88,23 +93,25 @@ func NewSystemCatalog(
 		hypertable2compressed: make(map[int32]int32),
 		compressed2hypertable: make(map[int32]int32),
 
-		pgTypeResolver:     pgTypeResolver,
 		replicationContext: replicationContext,
 		replicationFilter:  replicationFilter,
+		publicationManager: publicationManager,
 		snapshotter:        snapshotter,
+		typeManager:        typeManager,
+		taskManager:        taskManager,
 		logger:             logger,
 	}, nil
 }
 
-func (sc *SystemCatalog) PostConstruct() error {
+func (sc *systemCatalog) PostConstruct() error {
 	if _, err := initializeSystemCatalog(sc); err != nil {
 		return err
 	}
-	sc.replicationContext.TaskManager().RegisterReplicationEventHandler(sc.NewEventHandler())
+	sc.taskManager.RegisterReplicationEventHandler(sc.newEventHandler())
 	return nil
 }
 
-func (sc *SystemCatalog) FindHypertableById(
+func (sc *systemCatalog) FindHypertableById(
 	hypertableId int32,
 ) (hypertable *systemcatalog.Hypertable, present bool) {
 
@@ -114,7 +121,7 @@ func (sc *SystemCatalog) FindHypertableById(
 	return
 }
 
-func (sc *SystemCatalog) FindHypertableByName(
+func (sc *systemCatalog) FindHypertableByName(
 	schema, name string,
 ) (hypertable *systemcatalog.Hypertable, present bool) {
 
@@ -126,7 +133,7 @@ func (sc *SystemCatalog) FindHypertableByName(
 	return
 }
 
-func (sc *SystemCatalog) FindHypertableByChunkId(
+func (sc *systemCatalog) FindHypertableByChunkId(
 	chunkId int32,
 ) (hypertable *systemcatalog.Hypertable, present bool) {
 
@@ -138,7 +145,7 @@ func (sc *SystemCatalog) FindHypertableByChunkId(
 	return
 }
 
-func (sc *SystemCatalog) FindHypertableByCompressedHypertableId(
+func (sc *systemCatalog) FindHypertableByCompressedHypertableId(
 	compressedHypertableId int32,
 ) (hypertable *systemcatalog.Hypertable, present bool) {
 
@@ -150,7 +157,7 @@ func (sc *SystemCatalog) FindHypertableByCompressedHypertableId(
 	return
 }
 
-func (sc *SystemCatalog) FindCompressedHypertableByHypertableId(
+func (sc *systemCatalog) FindCompressedHypertableByHypertableId(
 	hypertableId int32,
 ) (hypertable *systemcatalog.Hypertable, present bool) {
 
@@ -162,7 +169,7 @@ func (sc *SystemCatalog) FindCompressedHypertableByHypertableId(
 	return
 }
 
-func (sc *SystemCatalog) FindChunkById(
+func (sc *systemCatalog) FindChunkById(
 	id int32,
 ) (chunk *systemcatalog.Chunk, present bool) {
 
@@ -172,7 +179,7 @@ func (sc *SystemCatalog) FindChunkById(
 	return
 }
 
-func (sc *SystemCatalog) FindChunkByName(
+func (sc *systemCatalog) FindChunkByName(
 	schemaName, tableName string,
 ) (chunk *systemcatalog.Chunk, present bool) {
 
@@ -184,7 +191,7 @@ func (sc *SystemCatalog) FindChunkByName(
 	return
 }
 
-func (sc *SystemCatalog) ResolveOriginHypertable(
+func (sc *systemCatalog) ResolveOriginHypertable(
 	chunk *systemcatalog.Chunk,
 ) (hypertable *systemcatalog.Hypertable, present bool) {
 
@@ -192,7 +199,7 @@ func (sc *SystemCatalog) ResolveOriginHypertable(
 	return
 }
 
-func (sc *SystemCatalog) ResolveUncompressedHypertable(
+func (sc *systemCatalog) ResolveUncompressedHypertable(
 	hypertableId int32,
 ) (uncompressedHypertable, compressedHypertable *systemcatalog.Hypertable, present bool) {
 
@@ -208,7 +215,7 @@ func (sc *SystemCatalog) ResolveUncompressedHypertable(
 	return nil, nil, false
 }
 
-func (sc *SystemCatalog) IsHypertableSelectedForReplication(
+func (sc *systemCatalog) IsHypertableSelectedForReplication(
 	hypertableId int32,
 ) bool {
 
@@ -218,7 +225,7 @@ func (sc *SystemCatalog) IsHypertableSelectedForReplication(
 	return false
 }
 
-func (sc *SystemCatalog) RegisterHypertable(
+func (sc *systemCatalog) RegisterHypertable(
 	hypertable *systemcatalog.Hypertable,
 ) error {
 
@@ -234,7 +241,7 @@ func (sc *SystemCatalog) RegisterHypertable(
 	return nil
 }
 
-func (sc *SystemCatalog) UnregisterHypertable(
+func (sc *systemCatalog) UnregisterHypertable(
 	hypertable *systemcatalog.Hypertable,
 ) error {
 
@@ -249,7 +256,7 @@ func (sc *SystemCatalog) UnregisterHypertable(
 	return nil
 }
 
-func (sc *SystemCatalog) RegisterChunk(
+func (sc *systemCatalog) RegisterChunk(
 	chunk *systemcatalog.Chunk,
 ) error {
 
@@ -264,7 +271,7 @@ func (sc *SystemCatalog) RegisterChunk(
 	return nil
 }
 
-func (sc *SystemCatalog) UnregisterChunk(
+func (sc *systemCatalog) UnregisterChunk(
 	chunk *systemcatalog.Chunk,
 ) error {
 
@@ -289,11 +296,7 @@ func (sc *SystemCatalog) UnregisterChunk(
 	return nil
 }
 
-func (sc *SystemCatalog) NewEventHandler() eventhandlers.SystemCatalogReplicationEventHandler {
-	return &systemCatalogReplicationEventHandler{systemCatalog: sc}
-}
-
-func (sc *SystemCatalog) ApplySchemaUpdate(
+func (sc *systemCatalog) ApplySchemaUpdate(
 	hypertable *systemcatalog.Hypertable, columns []systemcatalog.Column,
 ) bool {
 
@@ -304,7 +307,7 @@ func (sc *SystemCatalog) ApplySchemaUpdate(
 	return false
 }
 
-func (sc *SystemCatalog) GetAllChunks() []systemcatalog.SystemEntity {
+func (sc *systemCatalog) GetAllChunks() []systemcatalog.SystemEntity {
 	chunkTables := make([]systemcatalog.SystemEntity, 0)
 	for _, chunk := range sc.chunks {
 		if sc.IsHypertableSelectedForReplication(chunk.HypertableId()) {
@@ -314,7 +317,7 @@ func (sc *SystemCatalog) GetAllChunks() []systemcatalog.SystemEntity {
 	return chunkTables
 }
 
-func (sc *SystemCatalog) snapshotChunkWithXld(
+func (sc *systemCatalog) snapshotChunkWithXld(
 	xld *pgtypes.XLogData, chunk *systemcatalog.Chunk,
 ) error {
 
@@ -328,7 +331,7 @@ func (sc *SystemCatalog) snapshotChunkWithXld(
 	return nil
 }
 
-func (sc *SystemCatalog) snapshotHypertable(
+func (sc *systemCatalog) snapshotHypertable(
 	snapshotName string, hypertable *systemcatalog.Hypertable,
 ) error {
 
@@ -338,9 +341,13 @@ func (sc *SystemCatalog) snapshotHypertable(
 	})
 }
 
+func (sc *systemCatalog) newEventHandler() eventhandlers.SystemCatalogReplicationEventHandler {
+	return &systemCatalogReplicationEventHandler{systemCatalog: sc}
+}
+
 func initializeSystemCatalog(
-	sc *SystemCatalog,
-) (*SystemCatalog, error) {
+	sc *systemCatalog,
+) (*systemCatalog, error) {
 
 	if err := sc.replicationContext.LoadHypertables(func(hypertable *systemcatalog.Hypertable) error {
 		// Check if we want to replicate that hypertable
@@ -388,7 +395,7 @@ func initializeSystemCatalog(
 	}
 
 	if err := sc.replicationContext.ReadHypertableSchema(
-		sc.ApplySchemaUpdate, sc.pgTypeResolver, hypertables...,
+		sc.ApplySchemaUpdate, sc.typeManager.ResolveDataType, hypertables...,
 	); err != nil {
 		return nil, errors.Wrap(err, 0)
 	}
@@ -407,24 +414,24 @@ func initializeSystemCatalog(
 	}
 
 	// Register the snapshot event handler
-	sc.replicationContext.TaskManager().RegisterReplicationEventHandler(newSnapshottingEventHandler(sc))
+	sc.taskManager.RegisterReplicationEventHandler(newSnapshottingEventHandler(sc))
 
 	return sc, nil
 }
 
 type snapshottingEventHandler struct {
-	systemCatalog      *SystemCatalog
-	taskManager        replicationcontext.TaskManager
+	systemCatalog      *systemCatalog
+	taskManager        task.TaskManager
 	handledHypertables map[string]bool
 }
 
 func newSnapshottingEventHandler(
-	systemCatalog *SystemCatalog,
+	systemCatalog *systemCatalog,
 ) *snapshottingEventHandler {
 
 	return &snapshottingEventHandler{
 		systemCatalog:      systemCatalog,
-		taskManager:        systemCatalog.replicationContext.TaskManager(),
+		taskManager:        systemCatalog.taskManager,
 		handledHypertables: make(map[string]bool),
 	}
 }
@@ -513,7 +520,7 @@ func (s *snapshottingEventHandler) OnSnapshottingStartedEvent(
 
 	// No hypertables? Just start the replicator
 	if len(s.systemCatalog.hypertables) == 0 {
-		return s.taskManager.EnqueueTask(func(notificator replicationcontext.Notificator) {
+		return s.taskManager.EnqueueTask(func(notificator task.Notificator) {
 			notificator.NotifySnapshottingEventHandler(func(handler eventhandlers.SnapshottingEventHandler) error {
 				return handler.OnSnapshottingFinishedEvent()
 			})
@@ -528,7 +535,7 @@ func (s *snapshottingEventHandler) OnSnapshottingStartedEvent(
 		break
 	}
 
-	return s.taskManager.EnqueueTask(func(notificator replicationcontext.Notificator) {
+	return s.taskManager.EnqueueTask(func(notificator task.Notificator) {
 		notificator.NotifySnapshottingEventHandler(func(handler eventhandlers.SnapshottingEventHandler) error {
 			return handler.OnHypertableSnapshotStartedEvent(snapshotName, hypertable)
 		})
@@ -556,7 +563,7 @@ func (s *snapshottingEventHandler) scheduleNextSnapshotHypertableOrFinish(
 ) error {
 
 	if nextHypertable := s.nextSnapshotHypertable(); nextHypertable != nil {
-		return s.taskManager.EnqueueTask(func(notificator replicationcontext.Notificator) {
+		return s.taskManager.EnqueueTask(func(notificator task.Notificator) {
 			notificator.NotifySnapshottingEventHandler(func(handler eventhandlers.SnapshottingEventHandler) error {
 				return handler.OnHypertableSnapshotStartedEvent(snapshotName, nextHypertable)
 			})
@@ -564,7 +571,7 @@ func (s *snapshottingEventHandler) scheduleNextSnapshotHypertableOrFinish(
 	}
 
 	// Seems like all hypertables are handles successfully, let's finish up and start the replicator
-	return s.taskManager.EnqueueTask(func(notificator replicationcontext.Notificator) {
+	return s.taskManager.EnqueueTask(func(notificator task.Notificator) {
 		notificator.NotifySnapshottingEventHandler(func(handler eventhandlers.SnapshottingEventHandler) error {
 			return handler.OnSnapshottingFinishedEvent()
 		})

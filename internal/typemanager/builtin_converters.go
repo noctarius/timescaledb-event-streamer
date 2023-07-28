@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package pgtypes
+package typemanager
 
 import (
 	"encoding/hex"
@@ -24,6 +24,7 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/hashicorp/go-uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/samber/lo"
 	"math"
 	"math/big"
@@ -34,24 +35,31 @@ import (
 	"time"
 )
 
-var unixEpoch = time.Unix(0, 0)
-var avgDaysPerMonth = 365.25 / 12
-var avgMicrosDaysPerMonth = avgDaysPerMonth * float64(microsPerDay)
-var timestampAsTextFormat = "2006-01-02T15:04:05.999999"
+var (
+	microsPerHour = time.Hour.Microseconds()
+	microsPerDay  = microsPerHour * 24
+
+	unixEpoch = time.Unix(0, 0)
+
+	avgDaysPerMonth       = 365.25 / 12
+	avgMicrosDaysPerMonth = avgDaysPerMonth * float64(microsPerDay)
+
+	timestampAsTextFormat = "2006-01-02T15:04:05.999999"
+)
 
 type rangeValueTransformer = func(value any) (string, error)
 
 func arrayConverter[T any](
-	oidElement uint32, elementConverter TypeConverter,
-) TypeConverter {
+	oidElement uint32, elementConverter pgtypes.TypeConverter,
+) pgtypes.TypeConverter {
 
 	targetType := reflect.TypeOf(*new(T))
 	return reflectiveArrayConverter(oidElement, targetType, elementConverter)
 }
 
 func reflectiveArrayConverter(
-	oidElement uint32, targetType reflect.Type, elementConverter TypeConverter,
-) TypeConverter {
+	oidElement uint32, targetType reflect.Type, elementConverter pgtypes.TypeConverter,
+) pgtypes.TypeConverter {
 
 	if targetType.Kind() != reflect.Array && targetType.Kind() != reflect.Slice {
 		panic(fmt.Sprintf("arrayConverter needs array / slice type but got %s", targetType.String()))
@@ -99,7 +107,7 @@ func float42float(
 	case float64:
 		return float32(v), nil
 	}
-	return nil, ErrIllegalValue
+	return nil, errIllegalValue
 }
 
 func float82float(
@@ -114,7 +122,7 @@ func float82float(
 	case float64:
 		return v, nil
 	}
-	return nil, ErrIllegalValue
+	return nil, errIllegalValue
 }
 
 func date2int32(
@@ -127,7 +135,7 @@ func date2int32(
 	if v, ok := value.(time.Time); ok {
 		return int32(int64(v.Sub(unixEpoch).Hours()) / 24), nil
 	}
-	return nil, ErrIllegalValue
+	return nil, errIllegalValue
 }
 
 func char2text(
@@ -137,7 +145,7 @@ func char2text(
 	if v, ok := value.(int32); ok {
 		return fmt.Sprintf("%c", v), nil
 	}
-	return nil, ErrIllegalValue
+	return nil, errIllegalValue
 }
 
 func timestamp2text(
@@ -154,7 +162,7 @@ func timestamp2text(
 			return v.In(time.UTC).Format(time.RFC3339Nano), nil
 		}
 	}
-	return nil, ErrIllegalValue
+	return nil, errIllegalValue
 }
 
 func time2text(
@@ -164,10 +172,10 @@ func time2text(
 	var micros int64
 	if v, ok := value.(pgtype.Time); ok {
 		micros = v.Microseconds
-	} else if v, ok := value.(Timetz); ok {
+	} else if v, ok := value.(pgtypes.Timetz); ok {
 		micros = v.Time.UnixMicro()
 	} else {
-		return nil, ErrIllegalValue
+		return nil, errIllegalValue
 	}
 
 	remaining := int64(time.Microsecond) * micros
@@ -190,7 +198,7 @@ func timestamp2int64(
 	if v, ok := value.(time.Time); ok {
 		return v.UnixMilli(), nil
 	}
-	return nil, ErrIllegalValue
+	return nil, errIllegalValue
 }
 
 func bits2string(
@@ -215,7 +223,7 @@ func bits2string(
 		}
 		return builder.String(), nil
 	}
-	return nil, ErrIllegalValue
+	return nil, errIllegalValue
 }
 
 func json2text(
@@ -229,7 +237,7 @@ func json2text(
 		}
 		return string(d), nil
 	}
-	return nil, ErrIllegalValue
+	return nil, errIllegalValue
 }
 
 func uuid2text(
@@ -249,7 +257,7 @@ func uuid2text(
 		}
 		return u, nil
 	}
-	return nil, ErrIllegalValue
+	return nil, errIllegalValue
 }
 
 func uint322int64(
@@ -259,7 +267,7 @@ func uint322int64(
 	if v, ok := value.(uint32); ok {
 		return int64(v), nil
 	}
-	return nil, ErrIllegalValue
+	return nil, errIllegalValue
 }
 
 func macaddr2text(
@@ -269,7 +277,7 @@ func macaddr2text(
 	if v, ok := value.(net.HardwareAddr); ok {
 		return strings.ToLower(v.String()), nil
 	}
-	return nil, ErrIllegalValue
+	return nil, errIllegalValue
 }
 
 func addr2text(
@@ -279,7 +287,7 @@ func addr2text(
 	if v, ok := value.(netip.Prefix); ok {
 		return v.String(), nil
 	}
-	return nil, ErrIllegalValue
+	return nil, errIllegalValue
 }
 
 func interval2int64(
@@ -291,7 +299,7 @@ func interval2int64(
 			(int64(v.Days) * microsPerDay) +
 			int64(math.Round(float64(v.Months)*avgMicrosDaysPerMonth)), nil
 	}
-	return nil, ErrIllegalValue
+	return nil, errIllegalValue
 }
 
 func numeric2float64(
@@ -305,7 +313,7 @@ func numeric2float64(
 		}
 		return f.Float64, nil
 	}
-	return nil, ErrIllegalValue
+	return nil, errIllegalValue
 }
 
 func bytes2hexstring(
@@ -315,20 +323,20 @@ func bytes2hexstring(
 	if v, ok := value.([]byte); ok {
 		return hex.EncodeToString(v), nil
 	}
-	return nil, ErrIllegalValue
+	return nil, errIllegalValue
 }
 
 func ltree2string(
 	_ uint32, value any,
 ) (any, error) {
 
-	if v, ok := value.(Ltree); ok {
+	if v, ok := value.(pgtypes.Ltree); ok {
 		if !v.Valid {
 			return nil, nil
 		}
 		return v.Path, nil
 	}
-	return nil, ErrIllegalValue
+	return nil, errIllegalValue
 }
 
 func numrange2string(
@@ -416,5 +424,5 @@ func range2string(
 
 		return fmt.Sprintf("%s%s,%s%s", lowerBound, lower, upper, upperBound), nil
 	}
-	return nil, ErrIllegalValue
+	return nil, errIllegalValue
 }

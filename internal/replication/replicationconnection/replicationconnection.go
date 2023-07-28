@@ -26,8 +26,8 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgproto3"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
-	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationcontext"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
+	"github.com/noctarius/timescaledb-event-streamer/spi/replicationcontext"
 	"time"
 )
 

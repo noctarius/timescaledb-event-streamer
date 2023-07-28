@@ -34,7 +34,7 @@ type chunkDecomposerCallback = func(id, hypertableId int32, schemaName,
 ) error
 
 type systemCatalogReplicationEventHandler struct {
-	systemCatalog *SystemCatalog
+	systemCatalog *systemCatalog
 }
 
 func (s *systemCatalogReplicationEventHandler) OnRelationEvent(
@@ -48,7 +48,7 @@ func (s *systemCatalogReplicationEventHandler) OnRelationEvent(
 			}
 
 			return s.systemCatalog.replicationContext.ReadHypertableSchema(
-				s.systemCatalog.ApplySchemaUpdate, s.systemCatalog.pgTypeResolver, hypertable,
+				s.systemCatalog.ApplySchemaUpdate, s.systemCatalog.typeManager.ResolveDataType, hypertable,
 			)
 		}
 	}
@@ -91,7 +91,7 @@ func (s *systemCatalogReplicationEventHandler) OnHypertableAddedEvent(
 			s.systemCatalog.logger.Verbosef("Entry Added: Hypertable %d => %s", h.Id(), h)
 
 			return s.systemCatalog.replicationContext.ReadHypertableSchema(
-				s.systemCatalog.ApplySchemaUpdate, s.systemCatalog.pgTypeResolver, h,
+				s.systemCatalog.ApplySchemaUpdate, s.systemCatalog.typeManager.ResolveDataType, h,
 			)
 		},
 	)
@@ -159,7 +159,7 @@ func (s *systemCatalogReplicationEventHandler) OnChunkAddedEvent(
 				if !c.IsCompressed() &&
 					s.systemCatalog.IsHypertableSelectedForReplication(hypertableId) {
 
-					publicationManager := s.systemCatalog.replicationContext.PublicationManager()
+					publicationManager := s.systemCatalog.publicationManager
 					if found, err := publicationManager.ExistsTableInPublication(c); err != nil {
 						return err
 					} else if found {

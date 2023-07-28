@@ -20,6 +20,7 @@ package redis
 import (
 	"crypto/tls"
 	"github.com/go-redis/redis"
+	sinkimpl "github.com/noctarius/timescaledb-event-streamer/internal/eventing/sink"
 	config "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/encoding"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
@@ -28,7 +29,7 @@ import (
 )
 
 func init() {
-	sink.RegisterSink(config.Redis, newRedisSink)
+	sinkimpl.RegisterSink(config.Redis, newRedisSink)
 }
 
 type redisSink struct {

@@ -25,25 +25,17 @@ import (
 	"github.com/jackc/pglogrepl"
 	"github.com/noctarius/timescaledb-event-streamer/internal/eventing/eventfiltering"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
-	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationcontext"
 	"github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
+	"github.com/noctarius/timescaledb-event-streamer/spi/replicationcontext"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/stream"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
+	"github.com/noctarius/timescaledb-event-streamer/spi/task"
 	"github.com/samber/lo"
 	"time"
 )
-
-type EventEmitter struct {
-	replicationContext replicationcontext.ReplicationContext
-	filter             eventfiltering.EventFilter
-	typeManager        pgtypes.TypeManager
-	streamManager      stream.Manager
-	backOff            backoff.BackOff
-	logger             *logging.Logger
-}
 
 type keyFactoryFn func(
 	stream stream.Stream,
@@ -53,9 +45,20 @@ type payloadFactoryFn func(
 	source schema.Struct, stream stream.Stream,
 ) (schema.Struct, error)
 
+type EventEmitter struct {
+	replicationContext replicationcontext.ReplicationContext
+	filter             eventfiltering.EventFilter
+	typeManager        pgtypes.TypeManager
+	taskManager        task.TaskManager
+	streamManager      stream.Manager
+	backOff            backoff.BackOff
+	logger             *logging.Logger
+}
+
 func NewEventEmitterFromConfig(
 	c *config.Config, replicationContext replicationcontext.ReplicationContext,
 	streamManager stream.Manager, typeManager pgtypes.TypeManager,
+	taskManager task.TaskManager,
 ) (*EventEmitter, error) {
 
 	filters, err := eventfiltering.NewEventFilter(c.Sink.Filters)
@@ -63,12 +66,12 @@ func NewEventEmitterFromConfig(
 		return nil, err
 	}
 
-	return NewEventEmitter(replicationContext, streamManager, typeManager, filters)
+	return NewEventEmitter(replicationContext, streamManager, typeManager, taskManager, filters)
 }
 
 func NewEventEmitter(
 	replicationContext replicationcontext.ReplicationContext, streamManager stream.Manager,
-	typeManager pgtypes.TypeManager, filter eventfiltering.EventFilter,
+	typeManager pgtypes.TypeManager, taskManager task.TaskManager, filter eventfiltering.EventFilter,
 ) (*EventEmitter, error) {
 
 	logger, err := logging.NewLogger("EventEmitter")
@@ -79,6 +82,7 @@ func NewEventEmitter(
 	return &EventEmitter{
 		replicationContext: replicationContext,
 		typeManager:        typeManager,
+		taskManager:        taskManager,
 		streamManager:      streamManager,
 		filter:             filter,
 		logger:             logger,
@@ -87,7 +91,7 @@ func NewEventEmitter(
 }
 
 func (ee *EventEmitter) PostConstruct() error {
-	ee.replicationContext.TaskManager().RegisterReplicationEventHandler(ee.NewEventHandler())
+	ee.taskManager.RegisterReplicationEventHandler(ee.NewEventHandler())
 	return nil
 }
 

@@ -18,9 +18,12 @@
 package sink
 
 import (
+	"github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"time"
 )
+
+type Factory = func(config *config.Config) (Sink, error)
 
 type Sink interface {
 	Start() error

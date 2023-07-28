@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package replicationcontext
+package taskmanager
 
 import (
 	stderrors "errors"
@@ -26,49 +26,12 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/waiting"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
+	"github.com/noctarius/timescaledb-event-streamer/spi/task"
 )
-
-type Task = func(notificator Notificator)
-
-type Notificator interface {
-	NotifyBaseReplicationEventHandler(
-		fn func(handler eventhandlers.BaseReplicationEventHandler) error,
-	)
-	NotifySystemCatalogReplicationEventHandler(
-		fn func(handler eventhandlers.SystemCatalogReplicationEventHandler) error,
-	)
-	NotifyCompressionReplicationEventHandler(
-		fn func(handler eventhandlers.CompressionReplicationEventHandler) error,
-	)
-	NotifyHypertableReplicationEventHandler(
-		fn func(handler eventhandlers.HypertableReplicationEventHandler) error,
-	)
-	NotifyLogicalReplicationEventHandler(
-		fn func(handler eventhandlers.LogicalReplicationEventHandler) error,
-	)
-	NotifySnapshottingEventHandler(
-		fn func(handler eventhandlers.SnapshottingEventHandler) error,
-	)
-}
-
-type TaskManager interface {
-	RegisterReplicationEventHandler(
-		handler eventhandlers.BaseReplicationEventHandler,
-	)
-	EnqueueTask(
-		task Task,
-	) error
-	RunTask(
-		task Task,
-	) error
-	EnqueueTaskAndWait(
-		task Task,
-	) error
-}
 
 type taskManager struct {
 	logger              *logging.Logger
-	taskQueue           *containers.UnboundedChannel[Task]
+	taskQueue           *containers.UnboundedChannel[task.Task]
 	baseHandlers        []eventhandlers.BaseReplicationEventHandler
 	catalogHandlers     []eventhandlers.SystemCatalogReplicationEventHandler
 	compressionHandlers []eventhandlers.CompressionReplicationEventHandler
@@ -79,9 +42,9 @@ type taskManager struct {
 	shutdownActive      bool
 }
 
-func newTaskManager(
+func NewTaskManager(
 	config *spiconfig.Config,
-) (*taskManager, error) {
+) (task.TaskManager, error) {
 
 	logger, err := logging.NewLogger("TaskDispatcher")
 	if err != nil {
@@ -94,7 +57,7 @@ func newTaskManager(
 
 	d := &taskManager{
 		logger:              logger,
-		taskQueue:           containers.MakeUnboundedChannel[Task](initialQueueCapacity),
+		taskQueue:           containers.MakeUnboundedChannel[task.Task](initialQueueCapacity),
 		baseHandlers:        make([]eventhandlers.BaseReplicationEventHandler, 0),
 		catalogHandlers:     make([]eventhandlers.SystemCatalogReplicationEventHandler, 0),
 		compressionHandlers: make([]eventhandlers.CompressionReplicationEventHandler, 0),
@@ -254,7 +217,7 @@ func (d *taskManager) StopDispatcher() error {
 }
 
 func (d *taskManager) EnqueueTask(
-	task Task,
+	task task.Task,
 ) error {
 
 	if d.shutdownActive {
@@ -265,22 +228,22 @@ func (d *taskManager) EnqueueTask(
 }
 
 func (d *taskManager) EnqueueTaskAndWait(
-	task Task,
+	t task.Task,
 ) error {
 
 	if d.shutdownActive {
 		return fmt.Errorf("shutdown active, draining only")
 	}
 	done := waiting.NewWaiter()
-	d.taskQueue.Send(func(notificator Notificator) {
-		task(notificator)
+	d.taskQueue.Send(func(notificator task.Notificator) {
+		t(notificator)
 		done.Signal()
 	})
 	return done.Await()
 }
 
 func (d *taskManager) RunTask(
-	task Task,
+	task task.Task,
 ) error {
 
 	notificator := &immediateNotificator{dispatcher: d}

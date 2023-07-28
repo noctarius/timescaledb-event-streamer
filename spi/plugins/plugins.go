@@ -20,6 +20,8 @@
 package plugins
 
 import (
+	namingstrategyimpl "github.com/noctarius/timescaledb-event-streamer/internal/eventing/namingstrategy"
+	sinkimpl "github.com/noctarius/timescaledb-event-streamer/internal/eventing/sink"
 	"github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/namingstrategy"
 	"github.com/noctarius/timescaledb-event-streamer/spi/sink"
@@ -70,7 +72,7 @@ func (*extensionPoints) RegisterNamingStrategy(
 	name string, factory namingstrategy.Factory,
 ) bool {
 
-	return namingstrategy.RegisterNamingStrategy(config.NamingStrategyType(name), factory)
+	return namingstrategyimpl.RegisterNamingStrategy(config.NamingStrategyType(name), factory)
 }
 
 func (*extensionPoints) RegisterStateStorage(
@@ -84,5 +86,5 @@ func (*extensionPoints) RegisterSink(
 	name string, factory sink.Factory,
 ) bool {
 
-	return sink.RegisterSink(config.SinkType(name), factory)
+	return sinkimpl.RegisterSink(config.SinkType(name), factory)
 }

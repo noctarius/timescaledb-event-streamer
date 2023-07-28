@@ -18,6 +18,7 @@
 package testsupport
 
 import (
+	sinkimpl "github.com/noctarius/timescaledb-event-streamer/internal/eventing/sink"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
 	"github.com/noctarius/timescaledb-event-streamer/spi/encoding"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
@@ -128,7 +129,7 @@ func (t *EventCollectorSink) SystemConfigConfigurator(
 		stateStorageManager statestorage.Manager, s sink.Sink,
 	) sink.Manager {
 
-		return sink.NewSinkManager(stateStorageManager, t)
+		return sinkimpl.NewSinkManager(stateStorageManager, t)
 	}
 }
 

@@ -27,14 +27,15 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/functional"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationchannel"
-	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationcontext"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
-	intsystemcatalog "github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/snapshotting"
 	"github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/encoding"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
+	"github.com/noctarius/timescaledb-event-streamer/spi/publication"
+	"github.com/noctarius/timescaledb-event-streamer/spi/replicationcontext"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
+	"github.com/noctarius/timescaledb-event-streamer/spi/task"
 	"github.com/noctarius/timescaledb-event-streamer/spi/wiring"
 	"github.com/samber/lo"
 	"github.com/urfave/cli"
@@ -69,11 +70,6 @@ func NewReplicator(
 
 // StartReplication initiates the actual replication process
 func (r *Replicator) StartReplication() *cli.ExitError {
-	logger, err := logging.NewLogger("Replicator")
-	if err != nil {
-		return erroring.AdaptError(err, 1)
-	}
-
 	container, err := wiring.NewContainer(
 		StaticModule,
 		DynamicModule,
@@ -84,66 +80,26 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 			module.Provide(func() *pgx.ConnConfig {
 				return r.config.PgxConfig
 			})
-			module.Invoke(
-				func(replicationContext replicationcontext.ReplicationContext, typeManager pgtypes.TypeManager) error {
-					// Check version information
-					if !replicationContext.IsMinimumPostgresVersion() {
-						return cli.NewExitError(
-							"timescaledb-event-streamer requires PostgreSQL 13 or later", 11,
-						)
-					}
-					if !replicationContext.IsMinimumTimescaleVersion() {
-						return cli.NewExitError(
-							"timescaledb-event-streamer requires TimescaleDB 2.10 or later", 12,
-						)
-					}
-
-					// Check WAL replication level
-					if !replicationContext.IsLogicalReplicationEnabled() {
-						return cli.NewExitError(
-							"timescaledb-event-streamer requires wal_level set to 'logical'", 16,
-						)
-					}
-
-					// Log system information
-					logger.Infof("Discovered System Information:")
-					logger.Infof("  * PostgreSQL version %s", replicationContext.PostgresVersion())
-					logger.Infof("  * TimescaleDB version %s", replicationContext.TimescaleVersion())
-					logger.Infof("  * PostgreSQL System Identity %s", replicationContext.SystemId())
-					logger.Infof("  * PostgreSQL Timeline %d", replicationContext.Timeline())
-					logger.Infof("  * PostgreSQL DatabaseName %s", replicationContext.DatabaseName())
-					logger.Infof("  * PostgreSQL Types loaded %d", typeManager.NumKnownTypes())
-					return nil
-				},
-			)
+			module.Invoke(r.containerInitializer)
 		}),
-		wiring.DefineModule("Overrides", func(module wiring.Module) {
-			module.MayProvide(r.config.EventEmitterProvider)
-			module.MayProvide(r.config.LogicalReplicationResolverProvider)
-			module.MayProvide(r.config.NameGeneratorProvider)
-			module.MayProvide(r.config.NamingStrategyProvider)
-			module.MayProvide(r.config.ReplicationChannelProvider)
-			module.MayProvide(r.config.ReplicationContextProvider)
-			module.MayProvide(r.config.SideChannelProvider)
-			module.MayProvide(r.config.SinkManagerProvider)
-			module.MayProvide(r.config.SnapshotterProvider)
-			module.MayProvide(r.config.StateStorageManagerProvider)
-			module.MayProvide(r.config.StateStorageProvider)
-			module.MayProvide(r.config.StreamManagerProvider)
-			module.MayProvide(r.config.SystemCatalogProvider)
-			module.MayProvide(r.config.TypeManagerProvider)
-		}),
+		OverridesModule(r.config),
 	)
 	if err != nil {
 		return erroring.AdaptError(err, 1)
 	}
 
+	// Start internal dispatching
+	var taskManager task.TaskManager
+	if err := container.Service(&taskManager); err != nil {
+		return erroring.AdaptError(err, 1)
+	}
+	taskManager.StartDispatcher()
+
+	// Start Replication context
 	var replicationContext replicationcontext.ReplicationContext
 	if err := container.Service(&replicationContext); err != nil {
 		return erroring.AdaptError(err, 1)
 	}
-
-	// Start internal dispatching
 	if err := replicationContext.StartReplicationContext(); err != nil {
 		return erroring.AdaptErrorWithMessage(err, "failed to start replication context", 18)
 	}
@@ -165,14 +121,19 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 	}
 	snapshotter.StartSnapshotter()
 
+	var publicationManager publication.PublicationManager
+	if err := container.Service(&publicationManager); err != nil {
+		return erroring.AdaptError(err, 1)
+	}
+
 	// Get initial list of chunks to add to
-	var systemCatalog *intsystemcatalog.SystemCatalog
+	var systemCatalog systemcatalog.SystemCatalog
 	if err := container.Service(&systemCatalog); err != nil {
 		return erroring.AdaptError(err, 1)
 	}
 	initialChunkTables, err := r.collectChunksForPublication(
 		replicationContext.StateStorageManager().EncodedState, systemCatalog.GetAllChunks,
-		replicationContext.PublicationManager().ReadPublishedTables,
+		publicationManager.ReadPublishedTables,
 	)
 	if err != nil {
 		return erroring.AdaptErrorWithMessage(err, "failed to read known chunks", 25)
@@ -194,8 +155,9 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 		if err3 == nil {
 			replicationContext.StateStorageManager().SetEncodedState(esPreviouslyKnownChunks, state)
 		}
-		err4 := replicationContext.StopReplicationContext()
-		return stderrors.Join(err1, err2, err3, err4)
+		err4 := taskManager.StopDispatcher()
+		err5 := replicationContext.StopReplicationContext()
+		return stderrors.Join(err1, err2, err3, err4, err5)
 	}
 
 	return nil
@@ -207,6 +169,45 @@ func (r *Replicator) StopReplication() *cli.ExitError {
 	if r.shutdownTask != nil {
 		return erroring.AdaptError(r.shutdownTask(), 250)
 	}
+	return nil
+}
+
+func (r *Replicator) containerInitializer(
+	replicationContext replicationcontext.ReplicationContext, typeManager pgtypes.TypeManager,
+) error {
+
+	logger, err := logging.NewLogger("Replicator")
+	if err != nil {
+		return erroring.AdaptError(err, 1)
+	}
+
+	// Check version information
+	if !replicationContext.IsMinimumPostgresVersion() {
+		return cli.NewExitError(
+			"timescaledb-event-streamer requires PostgreSQL 13 or later", 11,
+		)
+	}
+	if !replicationContext.IsMinimumTimescaleVersion() {
+		return cli.NewExitError(
+			"timescaledb-event-streamer requires TimescaleDB 2.10 or later", 12,
+		)
+	}
+
+	// Check WAL replication level
+	if !replicationContext.IsLogicalReplicationEnabled() {
+		return cli.NewExitError(
+			"timescaledb-event-streamer requires wal_level set to 'logical'", 16,
+		)
+	}
+
+	// Log system information
+	logger.Infof("Discovered System Information:")
+	logger.Infof("  * PostgreSQL version %s", replicationContext.PostgresVersion())
+	logger.Infof("  * TimescaleDB version %s", replicationContext.TimescaleVersion())
+	logger.Infof("  * PostgreSQL System Identity %s", replicationContext.SystemId())
+	logger.Infof("  * PostgreSQL Timeline %d", replicationContext.Timeline())
+	logger.Infof("  * PostgreSQL DatabaseName %s", replicationContext.DatabaseName())
+	logger.Infof("  * PostgreSQL Types loaded %d", typeManager.NumKnownTypes())
 	return nil
 }
 

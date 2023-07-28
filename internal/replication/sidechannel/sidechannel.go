@@ -27,6 +27,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
+	"github.com/noctarius/timescaledb-event-streamer/spi/sidechannel"
 	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/version"
@@ -36,92 +37,6 @@ import (
 	"time"
 )
 
-type Grant string
-
-const (
-	Select     Grant = "select"
-	Insert     Grant = "insert"
-	Update     Grant = "update"
-	Delete     Grant = "delete"
-	Truncate   Grant = "truncate"
-	References Grant = "references"
-	Trigger    Grant = "trigger"
-)
-
-type HypertableSchemaCallback = func(
-	hypertable *systemcatalog.Hypertable, columns []systemcatalog.Column,
-) bool
-
-type SnapshotRowCallback = func(
-	lsn pgtypes.LSN, values map[string]any,
-) error
-
-type SideChannel interface {
-	pgtypes.TypeResolver
-	HasTablePrivilege(
-		username string, entity systemcatalog.SystemEntity, grant Grant,
-	) (access bool, err error)
-	CreatePublication(
-		publicationName string,
-	) (success bool, err error)
-	ExistsPublication(
-		publicationName string,
-	) (found bool, err error)
-	DropPublication(
-		publicationName string,
-	) error
-	ExistsTableInPublication(
-		publicationName, schemaName, tableName string,
-	) (found bool, err error)
-	GetSystemInformation() (
-		databaseName, systemId string, timeline int32, err error,
-	)
-	GetWalLevel() (walLevel string, err error)
-	GetPostgresVersion() (pgVersion version.PostgresVersion, err error)
-	GetTimescaleDBVersion() (tsdbVersion version.TimescaleVersion, found bool, err error)
-	ReadHypertables(
-		cb func(hypertable *systemcatalog.Hypertable) error,
-	) error
-	ReadChunks(
-		cb func(chunk *systemcatalog.Chunk) error,
-	) error
-	ReadHypertableSchema(
-		cb HypertableSchemaCallback,
-		pgTypeResolver func(oid uint32) (pgtypes.PgType, error),
-		hypertables ...*systemcatalog.Hypertable,
-	) error
-	AttachTablesToPublication(
-		publicationName string, entities ...systemcatalog.SystemEntity,
-	) error
-	DetachTablesFromPublication(
-		publicationName string, entities ...systemcatalog.SystemEntity,
-	) error
-	SnapshotChunkTable(
-		chunk *systemcatalog.Chunk, snapshotBatchSize int, cb SnapshotRowCallback,
-	) (lsn pgtypes.LSN, err error)
-	FetchHypertableSnapshotBatch(
-		hypertable *systemcatalog.Hypertable, snapshotName string, snapshotBatchSize int, cb SnapshotRowCallback,
-	) error
-	ReadSnapshotHighWatermark(
-		hypertable *systemcatalog.Hypertable, snapshotName string,
-	) (values map[string]any, err error)
-	ReadReplicaIdentity(
-		schemaName, tableName string,
-	) (identity pgtypes.ReplicaIdentity, err error)
-	ReadContinuousAggregate(
-		materializedHypertableId int32,
-	) (viewSchema, viewName string, found bool, err error)
-	ReadPublishedTables(
-		publicationName string,
-	) (entities []systemcatalog.SystemEntity, err error)
-	ReadReplicationSlot(
-		slotName string,
-	) (pluginName, slotType string, restartLsn, confirmedFlushLsn pgtypes.LSN, err error)
-	ExistsReplicationSlot(
-		slotName string,
-	) (found bool, err error)
-}
-
 type sideChannel struct {
 	logger              *logging.Logger
 	pgxConfig           *pgx.ConnConfig
@@ -130,7 +45,7 @@ type sideChannel struct {
 
 func NewSideChannel(
 	stateStorageManager statestorage.Manager, pgxConfig *pgx.ConnConfig,
-) (SideChannel, error) {
+) (sidechannel.SideChannel, error) {
 
 	logger, err := logging.NewLogger("SideChannel")
 	if err != nil {
@@ -145,7 +60,7 @@ func NewSideChannel(
 }
 
 func (sc *sideChannel) HasTablePrivilege(
-	username string, entity systemcatalog.SystemEntity, grant Grant,
+	username string, entity systemcatalog.SystemEntity, grant sidechannel.TableGrant,
 ) (access bool, err error) {
 
 	err = sc.newSession(time.Second*10, func(session *session) error {
@@ -351,7 +266,7 @@ func (sc *sideChannel) ReadChunks(
 }
 
 func (sc *sideChannel) ReadHypertableSchema(
-	cb HypertableSchemaCallback, pgTypeResolver func(oid uint32) (pgtypes.PgType, error),
+	cb sidechannel.HypertableSchemaCallback, pgTypeResolver func(oid uint32) (pgtypes.PgType, error),
 	hypertables ...*systemcatalog.Hypertable,
 ) error {
 
@@ -413,7 +328,7 @@ func (sc *sideChannel) DetachTablesFromPublication(
 }
 
 func (sc *sideChannel) SnapshotChunkTable(
-	chunk *systemcatalog.Chunk, snapshotBatchSize int, cb SnapshotRowCallback,
+	chunk *systemcatalog.Chunk, snapshotBatchSize int, cb sidechannel.SnapshotRowCallback,
 ) (pgtypes.LSN, error) {
 
 	var currentLSN pgtypes.LSN = 0
@@ -439,7 +354,8 @@ func (sc *sideChannel) SnapshotChunkTable(
 }
 
 func (sc *sideChannel) FetchHypertableSnapshotBatch(
-	hypertable *systemcatalog.Hypertable, snapshotName string, snapshotBatchSize int, cb SnapshotRowCallback,
+	hypertable *systemcatalog.Hypertable, snapshotName string,
+	snapshotBatchSize int, cb sidechannel.SnapshotRowCallback,
 ) error {
 
 	index, present := hypertable.Columns().SnapshotIndex()
@@ -739,7 +655,8 @@ func (sc *sideChannel) entitiesToTableList(
 
 func (sc *sideChannel) readHypertableSchema0(
 	session *session, hypertable *systemcatalog.Hypertable,
-	pgTypeResolver func(oid uint32) (pgtypes.PgType, error), cb HypertableSchemaCallback,
+	pgTypeResolver func(oid uint32) (pgtypes.PgType, error),
+	cb sidechannel.HypertableSchemaCallback,
 ) error {
 
 	columns := make([]systemcatalog.Column, 0)
@@ -782,7 +699,8 @@ func (sc *sideChannel) readHypertableSchema0(
 }
 
 func (sc *sideChannel) snapshotTableWithCursor(
-	cursorQuery, cursorName string, snapshotName *string, snapshotBatchSize int, cb SnapshotRowCallback,
+	cursorQuery, cursorName string, snapshotName *string,
+	snapshotBatchSize int, cb sidechannel.SnapshotRowCallback,
 ) error {
 
 	return sc.newSession(time.Minute*60, func(session *session) error {

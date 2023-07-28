@@ -21,11 +21,12 @@ import (
 	"github.com/jackc/pglogrepl"
 	"github.com/noctarius/timescaledb-event-streamer/internal/containers"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
-	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationcontext"
-	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
+	"github.com/noctarius/timescaledb-event-streamer/spi/replicationcontext"
+	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	spicatalog "github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
+	"github.com/noctarius/timescaledb-event-streamer/spi/task"
 	"time"
 )
 
@@ -39,8 +40,8 @@ type transactionTracker struct {
 	maxSize                      uint
 	relations                    map[uint32]*pgtypes.RelationMessage
 	resolver                     *logicalReplicationResolver
-	replicationContext           replicationcontext.ReplicationContext
-	systemCatalog                *systemcatalog.SystemCatalog
+	taskManager                  task.TaskManager
+	systemCatalog                systemcatalog.SystemCatalog
 	currentTransaction           *transaction
 	logger                       *logging.Logger
 	supportsDecompressionMarkers bool
@@ -48,7 +49,8 @@ type transactionTracker struct {
 
 func newTransactionTracker(
 	timeout time.Duration, maxSize uint, replicationContext replicationcontext.ReplicationContext,
-	systemCatalog *systemcatalog.SystemCatalog, resolver *logicalReplicationResolver,
+	systemCatalog systemcatalog.SystemCatalog, resolver *logicalReplicationResolver,
+	taskManager task.TaskManager,
 ) (eventhandlers.LogicalReplicationEventHandler, error) {
 
 	logger, err := logging.NewLogger("TransactionTracker")
@@ -60,7 +62,7 @@ func newTransactionTracker(
 		timeout:                      timeout,
 		maxSize:                      maxSize,
 		systemCatalog:                systemCatalog,
-		replicationContext:           replicationContext,
+		taskManager:                  taskManager,
 		relations:                    make(map[uint32]*pgtypes.RelationMessage),
 		logger:                       logger,
 		resolver:                     resolver,
@@ -68,7 +70,7 @@ func newTransactionTracker(
 	}, nil
 }
 func (tt *transactionTracker) PostConstruct() error {
-	tt.replicationContext.TaskManager().RegisterReplicationEventHandler(tt)
+	tt.taskManager.RegisterReplicationEventHandler(tt)
 	return nil
 }
 

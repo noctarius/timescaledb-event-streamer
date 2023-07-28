@@ -22,12 +22,14 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationconnection"
-	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationcontext"
 	"github.com/noctarius/timescaledb-event-streamer/internal/waiting"
 	"github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
+	"github.com/noctarius/timescaledb-event-streamer/spi/publication"
+	"github.com/noctarius/timescaledb-event-streamer/spi/replicationcontext"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
+	"github.com/noctarius/timescaledb-event-streamer/spi/task"
 	"sync/atomic"
 )
 
@@ -35,7 +37,9 @@ import (
 // for the logical replication decoding subscriber.
 type ReplicationChannel struct {
 	replicationContext replicationcontext.ReplicationContext
+	publicationManager publication.PublicationManager
 	typeManager        pgtypes.TypeManager
+	taskManager        task.TaskManager
 	createdPublication bool
 	shutdownAwaiter    *waiting.ShutdownAwaiter
 	logger             *logging.Logger
@@ -45,6 +49,7 @@ type ReplicationChannel struct {
 // NewReplicationChannel instantiates a new instance of the ReplicationChannel.
 func NewReplicationChannel(
 	replicationContext replicationcontext.ReplicationContext, typeManager pgtypes.TypeManager,
+	taskManager task.TaskManager, publicationManager publication.PublicationManager,
 ) (*ReplicationChannel, error) {
 
 	logger, err := logging.NewLogger("ReplicationChannel")
@@ -54,7 +59,9 @@ func NewReplicationChannel(
 
 	return &ReplicationChannel{
 		replicationContext: replicationContext,
+		publicationManager: publicationManager,
 		typeManager:        typeManager,
+		taskManager:        taskManager,
 		shutdownAwaiter:    waiting.NewShutdownAwaiter(),
 		logger:             logger,
 	}, nil
@@ -75,9 +82,7 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 	initialTables []systemcatalog.SystemEntity,
 ) error {
 
-	publicationManager := rc.replicationContext.PublicationManager()
-
-	handler, err := newReplicationHandler(rc.replicationContext, rc.typeManager)
+	handler, err := newReplicationHandler(rc.replicationContext, rc.typeManager, rc.taskManager)
 	if err != nil {
 		return errors.Wrap(err, 0)
 	}
@@ -87,13 +92,13 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 		return errors.Wrap(err, 0)
 	}
 
-	if found, err := publicationManager.ExistsPublication(); err != nil {
+	if found, err := rc.publicationManager.ExistsPublication(); err != nil {
 		return errors.Wrap(err, 0)
 	} else if !found {
-		if !publicationManager.PublicationCreate() {
+		if !rc.publicationManager.PublicationCreate() {
 			return errors.Errorf("Publication missing but wasn't asked to create it either")
 		}
-		if created, err := publicationManager.CreatePublication(); created {
+		if created, err := rc.publicationManager.CreatePublication(); created {
 			rc.createdPublication = true
 		} else if err != nil {
 			return errors.Wrap(err, 0)
@@ -102,7 +107,7 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 
 	// Build output plugin parameters
 	pluginArguments := []string{
-		fmt.Sprintf("publication_names '%s'", publicationManager.PublicationName()),
+		fmt.Sprintf("publication_names '%s'", rc.publicationManager.PublicationName()),
 	}
 	if rc.replicationContext.IsPG14GE() {
 		pluginArguments = append(
@@ -133,7 +138,7 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 	// may include chunks whose creating may be included in the WAL log, but there's nothing we can
 	// do about it 🤷
 	if len(initialTables) > 0 {
-		if err := publicationManager.AttachTablesToPublication(initialTables...); err != nil {
+		if err := rc.publicationManager.AttachTablesToPublication(initialTables...); err != nil {
 			return errors.Wrap(err, 0)
 		}
 	}
@@ -214,15 +219,14 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 
 	// Start snapshotting
 	if snapshotName != "" {
-		taskManager := rc.replicationContext.TaskManager()
-		taskManager.RegisterReplicationEventHandler(
+		rc.taskManager.RegisterReplicationEventHandler(
 			&snapshottingEventHandler{
 				startReplication: startReplication,
 			},
 		)
 
 		// Kick of the actual snapshotting
-		if err := taskManager.EnqueueTask(func(notificator replicationcontext.Notificator) {
+		if err := rc.taskManager.EnqueueTask(func(notificator task.Notificator) {
 			notificator.NotifySnapshottingEventHandler(func(handler eventhandlers.SnapshottingEventHandler) error {
 				return handler.OnSnapshottingStartedEvent(snapshotName)
 			})
@@ -250,8 +254,8 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 		if err := replicationConnection.DropReplicationSlot(); err != nil {
 			rc.logger.Errorf("shutdown failed (drop replication slot): %+v", err)
 		}
-		if rc.createdPublication && publicationManager.PublicationAutoDrop() {
-			if err := publicationManager.DropPublication(); err != nil {
+		if rc.createdPublication && rc.publicationManager.PublicationAutoDrop() {
+			if err := rc.publicationManager.DropPublication(); err != nil {
 				rc.logger.Errorf("shutdown failed (drop publication): %+v", err)
 			}
 		}

@@ -15,52 +15,63 @@
  * limitations under the License.
  */
 
-package replicationcontext
+package publicationmanager
 
-import "github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
-
-type PublicationManager interface {
-	PublicationName() string
-	PublicationCreate() bool
-	PublicationAutoDrop() bool
-	CreatePublication() (bool, error)
-	ExistsPublication() (bool, error)
-	DropPublication() error
-	ReadPublishedTables() (
-		[]systemcatalog.SystemEntity, error,
-	)
-	ExistsTableInPublication(
-		entity systemcatalog.SystemEntity,
-	) (found bool, err error)
-	AttachTablesToPublication(
-		entities ...systemcatalog.SystemEntity,
-	) error
-	DetachTablesFromPublication(
-		entities ...systemcatalog.SystemEntity,
-	) error
-}
+import (
+	"github.com/noctarius/timescaledb-event-streamer/spi/config"
+	"github.com/noctarius/timescaledb-event-streamer/spi/publication"
+	"github.com/noctarius/timescaledb-event-streamer/spi/sidechannel"
+	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
+)
 
 type publicationManager struct {
-	replicationContext *replicationContext
+	sideChannel sidechannel.SideChannel
+
+	publicationName     string
+	publicationCreate   bool
+	publicationAutoDrop bool
+}
+
+func NewPublicationManager(
+	c *config.Config, sideChannel sidechannel.SideChannel,
+) publication.PublicationManager {
+
+	publicationName := config.GetOrDefault(
+		c, config.PropertyPostgresqlPublicationName, "",
+	)
+	publicationCreate := config.GetOrDefault(
+		c, config.PropertyPostgresqlPublicationCreate, true,
+	)
+	publicationAutoDrop := config.GetOrDefault(
+		c, config.PropertyPostgresqlPublicationAutoDrop, true,
+	)
+
+	return &publicationManager{
+		sideChannel: sideChannel,
+
+		publicationName:     publicationName,
+		publicationCreate:   publicationCreate,
+		publicationAutoDrop: publicationAutoDrop,
+	}
 }
 
 func (pm *publicationManager) PublicationName() string {
-	return pm.replicationContext.publicationName
+	return pm.publicationName
 }
 
 func (pm *publicationManager) PublicationCreate() bool {
-	return pm.replicationContext.publicationCreate
+	return pm.publicationCreate
 }
 
 func (pm *publicationManager) PublicationAutoDrop() bool {
-	return pm.replicationContext.publicationAutoDrop
+	return pm.publicationAutoDrop
 }
 
 func (pm *publicationManager) ExistsTableInPublication(
 	entity systemcatalog.SystemEntity,
 ) (found bool, err error) {
 
-	return pm.replicationContext.sideChannel.ExistsTableInPublication(
+	return pm.sideChannel.ExistsTableInPublication(
 		pm.PublicationName(), entity.SchemaName(), entity.TableName(),
 	)
 }
@@ -69,28 +80,28 @@ func (pm *publicationManager) AttachTablesToPublication(
 	entities ...systemcatalog.SystemEntity,
 ) error {
 
-	return pm.replicationContext.sideChannel.AttachTablesToPublication(pm.PublicationName(), entities...)
+	return pm.sideChannel.AttachTablesToPublication(pm.PublicationName(), entities...)
 }
 
 func (pm *publicationManager) DetachTablesFromPublication(
 	entities ...systemcatalog.SystemEntity,
 ) error {
 
-	return pm.replicationContext.sideChannel.DetachTablesFromPublication(pm.PublicationName(), entities...)
+	return pm.sideChannel.DetachTablesFromPublication(pm.PublicationName(), entities...)
 }
 
 func (pm *publicationManager) ReadPublishedTables() ([]systemcatalog.SystemEntity, error) {
-	return pm.replicationContext.sideChannel.ReadPublishedTables(pm.PublicationName())
+	return pm.sideChannel.ReadPublishedTables(pm.PublicationName())
 }
 
 func (pm *publicationManager) CreatePublication() (bool, error) {
-	return pm.replicationContext.sideChannel.CreatePublication(pm.PublicationName())
+	return pm.sideChannel.CreatePublication(pm.PublicationName())
 }
 
 func (pm *publicationManager) ExistsPublication() (bool, error) {
-	return pm.replicationContext.sideChannel.ExistsPublication(pm.PublicationName())
+	return pm.sideChannel.ExistsPublication(pm.PublicationName())
 }
 
 func (pm *publicationManager) DropPublication() error {
-	return pm.replicationContext.sideChannel.DropPublication(pm.PublicationName())
+	return pm.sideChannel.DropPublication(pm.PublicationName())
 }

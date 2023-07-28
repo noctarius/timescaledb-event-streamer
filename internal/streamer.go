@@ -35,12 +35,12 @@ import (
 	_ "github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
 
 	// Register built-in sinks
-	_ "github.com/noctarius/timescaledb-event-streamer/internal/eventing/sinks/awskinesis"
-	_ "github.com/noctarius/timescaledb-event-streamer/internal/eventing/sinks/awssqs"
-	_ "github.com/noctarius/timescaledb-event-streamer/internal/eventing/sinks/kafka"
-	_ "github.com/noctarius/timescaledb-event-streamer/internal/eventing/sinks/nats"
-	_ "github.com/noctarius/timescaledb-event-streamer/internal/eventing/sinks/redis"
-	_ "github.com/noctarius/timescaledb-event-streamer/internal/eventing/sinks/stdout"
+	_ "github.com/noctarius/timescaledb-event-streamer/internal/eventing/sink/awskinesis"
+	_ "github.com/noctarius/timescaledb-event-streamer/internal/eventing/sink/awssqs"
+	_ "github.com/noctarius/timescaledb-event-streamer/internal/eventing/sink/kafka"
+	_ "github.com/noctarius/timescaledb-event-streamer/internal/eventing/sink/nats"
+	_ "github.com/noctarius/timescaledb-event-streamer/internal/eventing/sink/redis"
+	_ "github.com/noctarius/timescaledb-event-streamer/internal/eventing/sink/stdout"
 )
 
 const publicationName = "pg_ts_streamer"

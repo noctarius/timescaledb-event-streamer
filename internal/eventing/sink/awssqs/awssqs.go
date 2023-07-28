@@ -25,6 +25,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/go-errors/errors"
+	sinkimpl "github.com/noctarius/timescaledb-event-streamer/internal/eventing/sink"
 	config "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/encoding"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
@@ -33,7 +34,7 @@ import (
 )
 
 func init() {
-	sink.RegisterSink(config.AwsSQS, newAwsSqsSink)
+	sinkimpl.RegisterSink(config.AwsSQS, newAwsSqsSink)
 }
 
 type awsSqsSink struct {

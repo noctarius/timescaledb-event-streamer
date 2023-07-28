@@ -20,79 +20,102 @@ package sysconfig
 import (
 	"github.com/jackc/pgx/v5"
 	"github.com/noctarius/timescaledb-event-streamer/internal/eventing/eventemitting"
+	sinkimpl "github.com/noctarius/timescaledb-event-streamer/internal/eventing/sink"
+	"github.com/noctarius/timescaledb-event-streamer/internal/publicationmanager"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/logicalreplicationresolver"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationchannel"
-	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationcontext"
-	"github.com/noctarius/timescaledb-event-streamer/internal/replication/sidechannel"
-	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog"
+	replicationcontextimpl "github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationcontext"
+	sidechannelimpl "github.com/noctarius/timescaledb-event-streamer/internal/replication/sidechannel"
+	systemcatalogimpl "github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/snapshotting"
+	taskmanagerimpl "github.com/noctarius/timescaledb-event-streamer/internal/taskmanager"
+	"github.com/noctarius/timescaledb-event-streamer/internal/typemanager"
 	"github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/namingstrategy"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
+	"github.com/noctarius/timescaledb-event-streamer/spi/publication"
+	"github.com/noctarius/timescaledb-event-streamer/spi/replicationcontext"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
+	"github.com/noctarius/timescaledb-event-streamer/spi/sidechannel"
 	"github.com/noctarius/timescaledb-event-streamer/spi/sink"
 	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
 	"github.com/noctarius/timescaledb-event-streamer/spi/stream"
+	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
+	"github.com/noctarius/timescaledb-event-streamer/spi/task"
 )
 
 var (
-	_ = TypeManagerProvider(pgtypes.NewTypeManager)
-	_ = SinkManagerProvider(sink.NewSinkManager)
+	_ = TypeManagerProvider(typemanager.NewTypeManager)
+	_ = SinkManagerProvider(sinkimpl.NewSinkManager)
 	_ = SnapshotterProvider(snapshotting.NewSnapshotterFromConfig)
 	_ = ReplicationChannelProvider(replicationchannel.NewReplicationChannel)
 	_ = NameGeneratorProvider(schema.NewNameGeneratorFromConfig)
-	_ = SideChannelProvider(sidechannel.NewSideChannel)
+	_ = SideChannelProvider(sidechannelimpl.NewSideChannel)
 	_ = StateStorageManagerProvider(statestorage.NewStateStorageManager)
-	_ = ReplicationContextProvider(replicationcontext.NewReplicationContext)
+	_ = ReplicationContextProvider(replicationcontextimpl.NewReplicationContext)
 	_ = LogicalReplicationResolverProvider(logicalreplicationresolver.NewResolver)
 	_ = StreamManagerProvider(stream.NewStreamManager)
-	_ = SystemCatalogProvider(systemcatalog.NewSystemCatalog)
+	_ = SystemCatalogProvider(systemcatalogimpl.NewSystemCatalog)
 	_ = EventEmitterProvider(eventemitting.NewEventEmitterFromConfig)
+	_ = TaskManagerProvider(taskmanagerimpl.NewTaskManager)
+	_ = PublicationManagerProvider(publicationmanager.NewPublicationManager)
 )
 
-type TypeManagerProvider = func(typeResolver pgtypes.TypeResolver) (pgtypes.TypeManager, error)
+type PublicationManagerProvider = func(
+	*config.Config, sidechannel.SideChannel,
+) publication.PublicationManager
 
-type SinkManagerProvider = func(stateStorageManager statestorage.Manager, sink sink.Sink) sink.Manager
+type TaskManagerProvider = func(
+	*config.Config,
+) (task.TaskManager, error)
+
+type TypeManagerProvider = func(
+	sidechannel.SideChannel,
+) (pgtypes.TypeManager, error)
+
+type SinkManagerProvider = func(
+	statestorage.Manager, sink.Sink,
+) sink.Manager
 
 type SnapshotterProvider = func(
-	c *config.Config, replicationContext replicationcontext.ReplicationContext,
+	*config.Config, replicationcontext.ReplicationContext, task.TaskManager, publication.PublicationManager,
 ) (*snapshotting.Snapshotter, error)
 
 type ReplicationChannelProvider = func(
-	replicationContext replicationcontext.ReplicationContext, typeManager pgtypes.TypeManager,
+	replicationcontext.ReplicationContext, pgtypes.TypeManager, task.TaskManager, publication.PublicationManager,
 ) (*replicationchannel.ReplicationChannel, error)
 
 type NameGeneratorProvider = func(
-	config *config.Config, namingStrategy namingstrategy.NamingStrategy,
+	*config.Config, namingstrategy.NamingStrategy,
 ) schema.NameGenerator
 
 type SideChannelProvider = func(
-	stateStorageManager statestorage.Manager, pgxConfig *pgx.ConnConfig,
+	statestorage.Manager, *pgx.ConnConfig,
 ) (sidechannel.SideChannel, error)
 
-type StateStorageManagerProvider = func(stateStorage statestorage.Storage) statestorage.Manager
+type StateStorageManagerProvider = func(
+	statestorage.Storage,
+) statestorage.Manager
 
 type ReplicationContextProvider func(
-	config *config.Config, pgxConfig *pgx.ConnConfig,
-	stateStorageManager statestorage.Manager, sideChannel sidechannel.SideChannel,
+	*config.Config, *pgx.ConnConfig, statestorage.Manager, sidechannel.SideChannel,
 ) (replicationcontext.ReplicationContext, error)
 
 type LogicalReplicationResolverProvider = func(
-	c *config.Config, replicationContext replicationcontext.ReplicationContext,
-	systemCatalog *systemcatalog.SystemCatalog, typeManager pgtypes.TypeManager,
+	*config.Config, replicationcontext.ReplicationContext,
+	systemcatalog.SystemCatalog, pgtypes.TypeManager, task.TaskManager,
 ) (eventhandlers.BaseReplicationEventHandler, error)
 
 type StreamManagerProvider = func(
-	nameGenerator schema.NameGenerator, typeManager pgtypes.TypeManager, sinkManager sink.Manager,
+	schema.NameGenerator, pgtypes.TypeManager, sink.Manager,
 ) (stream.Manager, error)
 
 type SystemCatalogProvider = func(
-	config *config.Config, replicationContext replicationcontext.ReplicationContext,
-	pgTypeResolver func(oid uint32) (pgtypes.PgType, error), snapshotter *snapshotting.Snapshotter,
-) (*systemcatalog.SystemCatalog, error)
+	*config.Config, replicationcontext.ReplicationContext, pgtypes.TypeManager,
+	*snapshotting.Snapshotter, task.TaskManager, publication.PublicationManager,
+) (systemcatalog.SystemCatalog, error)
 
 type EventEmitterProvider = func(
-	config *config.Config, replicationContext replicationcontext.ReplicationContext,
-	streamManager stream.Manager, typeManager pgtypes.TypeManager,
+	*config.Config, replicationcontext.ReplicationContext, stream.Manager, pgtypes.TypeManager, task.TaskManager,
 ) (*eventemitting.EventEmitter, error)

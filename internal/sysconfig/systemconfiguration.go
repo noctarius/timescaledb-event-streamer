@@ -44,6 +44,8 @@ type SystemConfig struct {
 	StreamManagerProvider              StreamManagerProvider
 	SystemCatalogProvider              SystemCatalogProvider
 	TypeManagerProvider                TypeManagerProvider
+	TaskManagerProvider                TaskManagerProvider
+	PublicationManagerProvider         PublicationManagerProvider
 }
 
 func NewSystemConfig(

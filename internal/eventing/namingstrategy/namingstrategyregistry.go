@@ -20,26 +20,25 @@ package namingstrategy
 import (
 	"github.com/go-errors/errors"
 	"github.com/noctarius/timescaledb-event-streamer/spi/config"
+	"github.com/noctarius/timescaledb-event-streamer/spi/namingstrategy"
 	"sync"
 )
 
-type Factory func(config *config.Config) (NamingStrategy, error)
-
 var namingStrategyRegistry = &registry{
 	mutex:     sync.Mutex{},
-	factories: make(map[config.NamingStrategyType]Factory),
+	factories: make(map[config.NamingStrategyType]namingstrategy.Factory),
 }
 
 type registry struct {
 	mutex     sync.Mutex
-	factories map[config.NamingStrategyType]Factory
+	factories map[config.NamingStrategyType]namingstrategy.Factory
 }
 
 // RegisterNamingStrategy registers a NamingRegistryType to a
 // Provider implementation which creates the NamingStrategy
 // when requested
 func RegisterNamingStrategy(
-	name config.NamingStrategyType, factory Factory,
+	name config.NamingStrategyType, factory namingstrategy.Factory,
 ) bool {
 
 	namingStrategyRegistry.mutex.Lock()
@@ -55,7 +54,7 @@ func RegisterNamingStrategy(
 // NamingStrategy when available, otherwise returns an error.
 func NewNamingStrategy(
 	name config.NamingStrategyType, config *config.Config,
-) (NamingStrategy, error) {
+) (namingstrategy.NamingStrategy, error) {
 
 	namingStrategyRegistry.mutex.Lock()
 	defer namingStrategyRegistry.mutex.Unlock()

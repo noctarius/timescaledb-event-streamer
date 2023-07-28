@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package pgtypes
+package typemanager
 
 import (
 	"encoding/json"
@@ -86,7 +86,7 @@ func BinaryMarshall(
 	if marshaller, found := marshallers[oid]; found {
 		return marshaller(buffer, oid, value)
 	}
-	return ErrIllegalValue
+	return errIllegalValue
 }
 
 func BinaryUnmarshall(
@@ -96,7 +96,7 @@ func BinaryUnmarshall(
 	if unmarshaller, found := unmarshallers[oid]; found {
 		return unmarshaller(buffer, oid)
 	}
-	return nil, ErrIllegalValue
+	return nil, errIllegalValue
 }
 
 func boolMarshaller(
@@ -109,7 +109,7 @@ func boolMarshaller(
 	case *bool:
 		return buffer.PutBool(*v)
 	default:
-		return ErrIllegalValue
+		return errIllegalValue
 	}
 
 }
@@ -128,7 +128,7 @@ func bitArrayMarshaller(
 	if data, ok := value.([]byte); ok {
 		return buffer.PutBytes(data)
 	}
-	return ErrIllegalValue
+	return errIllegalValue
 }
 
 func bitArrayUnmarshaller(
@@ -160,7 +160,7 @@ func intMarshaller(
 	case *int64:
 		return buffer.PutInt64(*v)
 	default:
-		return ErrIllegalValue
+		return errIllegalValue
 	}
 }
 
@@ -176,7 +176,7 @@ func intUnmarshaller(
 	case pgtype.Int8OID:
 		return buffer.ReadInt64()
 	default:
-		return 0, ErrIllegalValue
+		return 0, errIllegalValue
 	}
 }
 
@@ -194,7 +194,7 @@ func floatMarshaller(
 	case *float64:
 		return buffer.PutFloat64(*v)
 	default:
-		return ErrIllegalValue
+		return errIllegalValue
 	}
 }
 
@@ -208,7 +208,7 @@ func floatUnmarshaller(
 	case pgtype.Float8OID:
 		return buffer.ReadFloat64()
 	default:
-		return 0, ErrIllegalValue
+		return 0, errIllegalValue
 	}
 }
 
@@ -219,7 +219,7 @@ func stringMarshaller(
 	if s, ok := value.(string); ok {
 		return buffer.PutString(s)
 	}
-	return ErrIllegalValue
+	return errIllegalValue
 }
 
 func stringUnmarshaller(
@@ -240,7 +240,7 @@ func timestampMarshaller(
 			return errors.Wrap(err, 0)
 		}
 	}
-	return ErrIllegalValue
+	return errIllegalValue
 }
 
 func timestampUnmarshaller(
@@ -265,7 +265,7 @@ func intervalMarshaller(
 	if d, ok := value.(time.Duration); ok {
 		return buffer.PutInt64(int64(d))
 	}
-	return ErrIllegalValue
+	return errIllegalValue
 }
 
 func intervalUnmarshaller(
@@ -286,7 +286,7 @@ func byteArrayMarshaller(
 	if data, ok := value.([]byte); ok {
 		return buffer.PutBytes(data)
 	}
-	return ErrIllegalValue
+	return errIllegalValue
 }
 
 func byteArrayUnmarshaller(
@@ -307,7 +307,7 @@ func jsonMarshaller(
 		}
 		return buffer.PutBytes(d)
 	}
-	return ErrIllegalValue
+	return errIllegalValue
 }
 
 func jsonUnmarshaller(
@@ -335,7 +335,7 @@ func uuidMarshaller(
 		}
 		return nil
 	}
-	return ErrIllegalValue
+	return errIllegalValue
 }
 
 func uuidUnmarshaller(

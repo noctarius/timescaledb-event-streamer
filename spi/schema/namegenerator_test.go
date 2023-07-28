@@ -18,8 +18,8 @@
 package schema
 
 import (
+	namingstrategyimpl "github.com/noctarius/timescaledb-event-streamer/internal/eventing/namingstrategy"
 	"github.com/noctarius/timescaledb-event-streamer/spi/config"
-	"github.com/noctarius/timescaledb-event-streamer/spi/namingstrategy"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -30,7 +30,7 @@ func TestNameGenerator_EventTopicName(
 
 	topicPrefix := "foobar"
 
-	debeziumNamingStrategy, err := namingstrategy.NewNamingStrategy("debezium", &config.Config{})
+	debeziumNamingStrategy, err := namingstrategyimpl.NewNamingStrategy("debezium", &config.Config{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -46,7 +46,7 @@ func TestNameGenerator_SchemaTopicName(
 
 	topicPrefix := "foobar"
 
-	debeziumNamingStrategy, err := namingstrategy.NewNamingStrategy("debezium", &config.Config{})
+	debeziumNamingStrategy, err := namingstrategyimpl.NewNamingStrategy("debezium", &config.Config{})
 	if err != nil {
 		t.Error(err)
 	}

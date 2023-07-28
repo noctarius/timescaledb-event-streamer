@@ -20,25 +20,24 @@ package sink
 import (
 	"github.com/go-errors/errors"
 	"github.com/noctarius/timescaledb-event-streamer/spi/config"
+	"github.com/noctarius/timescaledb-event-streamer/spi/sink"
 	"sync"
 )
 
-type Factory = func(config *config.Config) (Sink, error)
-
 var sinkRegistry = &registry{
 	mutex:     sync.Mutex{},
-	factories: make(map[config.SinkType]Factory),
+	factories: make(map[config.SinkType]sink.Factory),
 }
 
 type registry struct {
 	mutex     sync.Mutex
-	factories map[config.SinkType]Factory
+	factories map[config.SinkType]sink.Factory
 }
 
 // RegisterSink registers a config.SinkType to a Factory
 // implementation which creates the Sink when requested
 func RegisterSink(
-	name config.SinkType, factory Factory,
+	name config.SinkType, factory sink.Factory,
 ) bool {
 
 	sinkRegistry.mutex.Lock()
@@ -54,7 +53,7 @@ func RegisterSink(
 // Sink when available, otherwise returns an error.
 func NewSink(
 	name config.SinkType, config *config.Config,
-) (Sink, error) {
+) (sink.Sink, error) {
 
 	sinkRegistry.mutex.Lock()
 	defer sinkRegistry.mutex.Unlock()

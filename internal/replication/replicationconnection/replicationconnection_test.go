@@ -22,12 +22,13 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
-	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationcontext"
-	"github.com/noctarius/timescaledb-event-streamer/internal/replication/sidechannel"
-	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
+	"github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
+	"github.com/noctarius/timescaledb-event-streamer/spi/publication"
+	"github.com/noctarius/timescaledb-event-streamer/spi/sidechannel"
 	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
+	"github.com/noctarius/timescaledb-event-streamer/spi/task"
 	"github.com/noctarius/timescaledb-event-streamer/spi/version"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
@@ -354,7 +355,7 @@ func (t testReplicationContext) NewReplicationChannelConnection(
 	return nil, nil
 }
 
-func (t testReplicationContext) PublicationManager() replicationcontext.PublicationManager {
+func (t testReplicationContext) PublicationManager() publication.PublicationManager {
 	return nil
 }
 
@@ -362,11 +363,7 @@ func (t testReplicationContext) StateStorageManager() statestorage.Manager {
 	return t.stateStorageManager
 }
 
-func (t testReplicationContext) TaskManager() replicationcontext.TaskManager {
-	return nil
-}
-
-func (t testReplicationContext) TypeResolver() pgtypes.TypeResolver {
+func (t testReplicationContext) TaskManager() task.TaskManager {
 	return nil
 }
 
@@ -436,7 +433,7 @@ func (t testReplicationContext) SetPositionLSNs(
 ) {
 }
 
-func (t testReplicationContext) InitialSnapshotMode() spiconfig.InitialSnapshotMode {
+func (t testReplicationContext) InitialSnapshotMode() config.InitialSnapshotMode {
 	return ""
 }
 
@@ -501,7 +498,7 @@ func (t testReplicationContext) IsLogicalReplicationEnabled() bool {
 }
 
 func (t testReplicationContext) HasTablePrivilege(
-	entity systemcatalog.SystemEntity, grant sidechannel.Grant,
+	entity systemcatalog.SystemEntity, grant sidechannel.TableGrant,
 ) (access bool, err error) {
 
 	return false, err

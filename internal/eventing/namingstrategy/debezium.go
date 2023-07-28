@@ -20,11 +20,12 @@ package namingstrategy
 import (
 	"fmt"
 	"github.com/noctarius/timescaledb-event-streamer/spi/config"
+	"github.com/noctarius/timescaledb-event-streamer/spi/namingstrategy"
 )
 
 func init() {
 	RegisterNamingStrategy(config.Debezium,
-		func(_ *config.Config) (NamingStrategy, error) {
+		func(_ *config.Config) (namingstrategy.NamingStrategy, error) {
 			return &debeziumNamingStrategy{}, nil
 		},
 	)
