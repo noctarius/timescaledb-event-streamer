@@ -48,174 +48,6 @@ const (
 	Trigger    Grant = "trigger"
 )
 
-const getSystemInformationQuery = `
-SELECT current_database(), pcs.system_identifier, pcc.timeline_id 
-FROM pg_control_system() pcs, pg_control_checkpoint() pcc`
-
-const addTableToPublicationQuery = "ALTER PUBLICATION %s ADD TABLE %s"
-
-const dropTableFromPublicationQuery = "ALTER PUBLICATION %s DROP TABLE %s"
-
-const readPgTypeQuery = `
-SELECT DISTINCT ON (t.typname) sp.nspname, t.typname, t.typinput='array_in'::REGPROC,
-                               t.typinput='record_in'::REGPROC,
-                               t.typtype, t.oid, t.typarray, t.typelem,
-                               t.typcategory, t.typbasetype, t.typtypmod,
-                               e.enum_values, t.typdelim
-FROM pg_catalog.pg_type t
-LEFT JOIN (
-    SELECT ns.oid AS nspoid, ns.nspname, r.rank
-    FROM pg_catalog.pg_namespace ns
-    JOIN (
-        SELECT row_number() OVER () AS rank, s.s AS nspname
-        FROM (
-            SELECT r.r AS s FROM unnest(current_schemas(TRUE)) r
-            UNION ALL
-            SELECT '_timescaledb_internal' AS s
-        ) s
-    ) r ON ns.nspname = r.nspname
-) sp ON sp.nspoid = t.typnamespace
-LEFT JOIN (
-    SELECT e.enumtypid AS id, array_agg(e.enumlabel) AS enum_values
-    FROM pg_catalog.pg_enum e
-    GROUP BY 1 
-) e ON e.id = t.oid 
-WHERE sp.rank IS NOT NULL
-  AND t.typtype != 'p'
-%s
-ORDER BY t.typname DESC, sp.rank, t.oid;`
-
-const initialHypertableQuery = `
-SELECT h1.id, h1.schema_name, h1.table_name, h1.associated_schema_name, h1.associated_table_prefix,
-	 h1.compression_state, h1.compressed_hypertable_id, coalesce(h2.is_distributed, false),
-	 ca.user_view_schema, ca.user_view_name, c.relreplident
-FROM _timescaledb_catalog.hypertable h1
-LEFT JOIN timescaledb_information.hypertables h2
-	 ON h2.hypertable_schema = h1.schema_name
-	AND h2.hypertable_name = h1.table_name
-LEFT JOIN _timescaledb_catalog.continuous_agg ca
-    ON h1.id = ca.mat_hypertable_id
-LEFT JOIN pg_catalog.pg_namespace n
-    ON n.nspname = h1.schema_name
-LEFT JOIN pg_catalog.pg_class c
-    ON c.relname = h1.table_name
-   AND c.relnamespace = n.oid;
-`
-
-const initialChunkQuery = `
-SELECT c1.id, c1.hypertable_id, c1.schema_name, c1.table_name, c1.compressed_chunk_id, c1.dropped, c1.status
-FROM _timescaledb_catalog.chunk c1
-LEFT JOIN timescaledb_information.chunks c2
-       ON c2.chunk_schema = c1.schema_name
-      AND c2.chunk_name = c1.table_name
-ORDER BY c1.hypertable_id, c1.compressed_chunk_id nulls first, c2.range_start`
-
-const initialTableSchemaQuery = `
-SELECT
-   c.column_name,
-   t.oid::int,
-   a.atttypmod,
-   CASE WHEN c.is_nullable = 'YES' THEN true ELSE false END AS nullable,
-   coalesce(p.indisprimary, false) AS is_primary_key,
-   p.key_seq,
-   c.column_default,
-   coalesce(p.indisreplident, false) AS is_replica_ident,
-   p.index_name,
-   CASE o.option & 1 WHEN 1 THEN 'DESC' ELSE 'ASC' END AS index_column_order,
-   CASE o.option & 2 WHEN 2 THEN 'NULLS FIRST' ELSE 'NULLS LAST' END AS index_nulls_order,
-   d.column_name IS NOT NULL AS is_dimension,
-   coalesce(d.aligned, false) AS dim_aligned,
-   CASE WHEN d.interval_length IS NULL THEN 'space' ELSE 'time' END AS dim_type,
-   CASE WHEN d.column_name IS NOT NULL THEN rank() over (order by d.id) END,
-   c.character_maximum_length
-FROM information_schema.columns c
-LEFT JOIN (
-    SELECT
-        cl.relname,
-        n.nspname,
-        a.attname,
-        (information_schema._pg_expandarray(i.indkey)).n AS key_seq,
-        (information_schema._pg_expandarray(i.indkey)) AS keys,
-        a.attnum,
-        i.indisreplident,
-        i.indisprimary,
-        cl2.relname AS index_name,
-        i.indoption
-    FROM pg_index i, pg_attribute a, pg_class cl, pg_namespace n, pg_class cl2
-    WHERE cl.relnamespace = n.oid
-      AND a.attrelid = cl.oid
-      AND i.indrelid = cl.oid
-      AND i.indexrelid = cl2.oid
-      AND i.indisprimary
-) p ON p.attname = c.column_name AND p.nspname = c.table_schema AND p.relname = c.table_name AND p.attnum = (p.keys).x
-LEFT JOIN pg_catalog.pg_namespace nt ON nt.nspname = c.udt_schema
-LEFT JOIN pg_catalog.pg_type t ON t.typnamespace = nt.oid AND t.typname = c.udt_name
-LEFT JOIN pg_catalog.pg_namespace nc ON nc.nspname = c.table_schema
-LEFT JOIN pg_catalog.pg_class cl ON cl.relname = c.table_name AND cl.relnamespace = nc.oid
-LEFT JOIN pg_catalog.pg_attribute a ON a.attrelid = cl.oid AND a.attnum = c.ordinal_position
-LEFT JOIN unnest (p.indoption) WITH ORDINALITY o (option, ordinality) ON p.attnum = o.ordinality
-LEFT JOIN _timescaledb_catalog.hypertable h ON h.schema_name = c.table_schema AND h.table_name = c.table_name
-LEFT JOIN _timescaledb_catalog.dimension d ON d.hypertable_id = h.id AND d.column_name = c.column_name
-WHERE c.table_schema = $1
-  AND c.table_name = $2
-ORDER BY c.ordinal_position`
-
-const snapshotHighWatermarkQuery = `
-SELECT %s
-FROM %s
-ORDER BY %s
-LIMIT 1`
-
-const replicaIdentityQuery = `
-SELECT c.relreplident::text
-FROM pg_catalog.pg_class c
-LEFT JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
-WHERE n.nspname=$1 and c.relname=$2`
-
-const hypertableContinuousAggregateQuery = `
-SELECT ca.user_view_schema, ca.user_view_name
-FROM _timescaledb_catalog.continuous_agg ca 
-WHERE ca.mat_hypertable_id = $1`
-
-const readReplicationSlotQuery = `
-SELECT plugin, slot_type, restart_lsn, confirmed_flush_lsn
-FROM pg_catalog.pg_replication_slots prs
-WHERE slot_name = $1`
-
-const checkExistingReplicationSlotQuery = `
-SELECT true
-FROM pg_catalog.pg_replication_slots prs
-WHERE slot_name = $1`
-
-const createPublicationQuery = "SELECT create_timescaledb_catalog_publication($1, $2)"
-
-const checkExistingPublicationQuery = "SELECT true FROM pg_publication WHERE pubname = $1"
-
-const dropPublicationQuery = "DROP PUBLICATION IF EXISTS %s"
-
-const checkExistingPublicationPublishedTablesQuery = `
-SELECT pt.schemaname, pt.tablename
-FROM pg_catalog.pg_publication_tables pt
-WHERE pt.pubname = $1`
-
-const checkExistingTableInPublicationQuery = `
-SELECT true
-FROM pg_catalog.pg_publication_tables pt
-WHERE pt.pubname = $1
-  AND pt.schemaname = $2
-  AND pt.tablename = $3`
-
-const timescaledbVersionQuery = `
-SELECT extversion
-FROM pg_catalog.pg_extension
-WHERE extname = 'timescaledb'`
-
-const postgresqlVersionQuery = `SHOW SERVER_VERSION`
-
-const walLevelQuery = `SHOW WAL_LEVEL`
-
-const checkTablePrivilegeByUserQuery = `SELECT HAS_TABLE_PRIVILEGE($1, $2, $3)`
-
 type HypertableSchemaCallback = func(
 	hypertable *systemcatalog.Hypertable, columns []systemcatalog.Column,
 ) bool
@@ -318,7 +150,7 @@ func (sc *sideChannel) HasTablePrivilege(
 
 	err = sc.newSession(time.Second*10, func(session *session) error {
 		return session.queryRow(
-			checkTablePrivilegeByUserQuery,
+			queryCheckUserTablePrivilege,
 			username,
 			entity.CanonicalName(),
 			string(grant),
@@ -333,7 +165,7 @@ func (sc *sideChannel) CreatePublication(
 
 	err = sc.newSession(time.Second*10, func(session *session) error {
 		err = session.queryRow(
-			createPublicationQuery,
+			queryCreatePublication,
 			publicationName,
 			sc.pgxConfig.User,
 		).Scan(&success)
@@ -354,7 +186,7 @@ func (sc *sideChannel) ExistsPublication(
 ) (found bool, err error) {
 
 	err = sc.newSession(time.Second*10, func(session *session) error {
-		return session.queryRow(checkExistingPublicationQuery, publicationName).Scan(&found)
+		return session.queryRow(queryCheckPublicationExists, publicationName).Scan(&found)
 	})
 	if err == pgx.ErrNoRows {
 		err = nil
@@ -370,7 +202,7 @@ func (sc *sideChannel) DropPublication(
 ) error {
 
 	return sc.newSession(time.Second*10, func(session *session) error {
-		_, err := session.exec(fmt.Sprintf(dropPublicationQuery, publicationName))
+		_, err := session.exec(fmt.Sprintf(queryTemplateDropPublication, publicationName))
 		if e, ok := err.(*pgconn.PgError); ok {
 			if e.Code == pgerrcode.UndefinedObject {
 				return nil
@@ -391,7 +223,7 @@ func (sc *sideChannel) ExistsTableInPublication(
 ) (found bool, err error) {
 
 	err = sc.newSession(time.Second*10, func(session *session) error {
-		return session.queryRow(checkExistingTableInPublicationQuery, publicationName, schemaName, tableName).Scan(&found)
+		return session.queryRow(queryCheckTableExistsInPublication, publicationName, schemaName, tableName).Scan(&found)
 	})
 	if err == pgx.ErrNoRows {
 		err = nil
@@ -404,7 +236,7 @@ func (sc *sideChannel) ExistsTableInPublication(
 
 func (sc *sideChannel) GetSystemInformation() (databaseName, systemId string, timeline int32, err error) {
 	if err := sc.newSession(time.Second*10, func(session *session) error {
-		return session.queryRow(getSystemInformationQuery).Scan(&databaseName, &systemId, &timeline)
+		return session.queryRow(queryReadSystemInformation).Scan(&databaseName, &systemId, &timeline)
 	}); err != nil {
 		return databaseName, systemId, timeline, errors.Wrap(err, 0)
 	}
@@ -414,7 +246,7 @@ func (sc *sideChannel) GetSystemInformation() (databaseName, systemId string, ti
 func (sc *sideChannel) GetWalLevel() (walLevel string, err error) {
 	walLevel = "unknown"
 	err = sc.newSession(time.Second*10, func(session *session) error {
-		return session.queryRow(walLevelQuery).Scan(&walLevel)
+		return session.queryRow(queryConfiguredWalLevel).Scan(&walLevel)
 	})
 	if err != nil {
 		err = errors.Wrap(err, 0)
@@ -425,7 +257,7 @@ func (sc *sideChannel) GetWalLevel() (walLevel string, err error) {
 func (sc *sideChannel) GetPostgresVersion() (pgVersion version.PostgresVersion, err error) {
 	if err = sc.newSession(time.Second*10, func(session *session) error {
 		var v string
-		if err := session.queryRow(postgresqlVersionQuery).Scan(&v); err != nil {
+		if err := session.queryRow(queryPostgreSqlVersion).Scan(&v); err != nil {
 			return err
 		}
 		pgVersion, err = version.ParsePostgresVersion(v)
@@ -442,7 +274,7 @@ func (sc *sideChannel) GetPostgresVersion() (pgVersion version.PostgresVersion, 
 func (sc *sideChannel) GetTimescaleDBVersion() (tsdbVersion version.TimescaleVersion, found bool, err error) {
 	if err = sc.newSession(time.Second*10, func(session *session) error {
 		var v string
-		if err := session.queryRow(timescaledbVersionQuery).Scan(&v); err != nil {
+		if err := session.queryRow(queryTimescaleDbVersion).Scan(&v); err != nil {
 			return err
 		}
 		tsdbVersion, err = version.ParseTimescaleVersion(v)
@@ -490,7 +322,7 @@ func (sc *sideChannel) ReadHypertables(
 			)
 
 			return cb(hypertable)
-		}, initialHypertableQuery)
+		}, queryReadHypertables)
 	})
 }
 
@@ -514,7 +346,7 @@ func (sc *sideChannel) ReadChunks(
 			return cb(
 				systemcatalog.NewChunk(id, hypertableId, schemaName, tableName, dropped, status, compressedChunkId),
 			)
-		}, initialChunkQuery)
+		}, queryReadChunks)
 	})
 }
 
@@ -547,7 +379,7 @@ func (sc *sideChannel) AttachTablesToPublication(
 	}
 
 	entityTableList := sc.entitiesToTableList(entities)
-	attachingQuery := fmt.Sprintf(addTableToPublicationQuery, publicationName, entityTableList)
+	attachingQuery := fmt.Sprintf(queryTemplateAddTableToPublication, publicationName, entityTableList)
 	return sc.newSession(time.Second*20, func(session *session) error {
 		if _, err := session.exec(attachingQuery); err != nil {
 			return errors.Wrap(err, 0)
@@ -568,7 +400,7 @@ func (sc *sideChannel) DetachTablesFromPublication(
 	}
 
 	entityTableList := sc.entitiesToTableList(entities)
-	detachingQuery := fmt.Sprintf(dropTableFromPublicationQuery, publicationName, entityTableList)
+	detachingQuery := fmt.Sprintf(queryTemplateDropTableFromPublication, publicationName, entityTableList)
 	return sc.newSession(time.Second*20, func(session *session) error {
 		if _, err := session.exec(detachingQuery); err != nil {
 			return errors.Wrap(err, 0)
@@ -688,7 +520,8 @@ func (sc *sideChannel) ReadSnapshotHighWatermark(
 	}
 
 	query := fmt.Sprintf(
-		snapshotHighWatermarkQuery, index.AsSqlTuple(), hypertable.CanonicalName(), index.AsSqlOrderBy(true),
+		queryTemplateSnapshotHighWatermark, index.AsSqlTuple(),
+		hypertable.CanonicalName(), index.AsSqlOrderBy(true),
 	)
 	if err := sc.newSession(time.Second*10, func(session *session) error {
 		if _, err := session.exec("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ"); err != nil {
@@ -725,7 +558,7 @@ func (sc *sideChannel) ReadReplicaIdentity(
 
 	var replicaIdentity pgtypes.ReplicaIdentity
 	if err := sc.newSession(time.Second*10, func(session *session) error {
-		row := session.queryRow(replicaIdentityQuery, schemaName, tableName)
+		row := session.queryRow(queryReadReplicaIdentity, schemaName, tableName)
 
 		var val string
 		if err := row.Scan(&val); err != nil {
@@ -744,7 +577,7 @@ func (sc *sideChannel) ReadContinuousAggregate(
 ) (viewSchema, viewName string, found bool, err error) {
 
 	if err := sc.newSession(time.Second*10, func(session *session) error {
-		row := session.queryRow(hypertableContinuousAggregateQuery, materializedHypertableId)
+		row := session.queryRow(queryReadContinuousAggregateInformation, materializedHypertableId)
 		if err := row.Scan(&viewSchema, &viewName); err != nil {
 			if err != pgx.ErrNoRows {
 				return errors.Wrap(err, 0)
@@ -772,7 +605,7 @@ func (sc *sideChannel) ReadPublishedTables(
 			}
 			systemEntities = append(systemEntities, systemcatalog.NewSystemEntity(schemaName, tableName))
 			return nil
-		}, checkExistingPublicationPublishedTablesQuery, publicationName)
+		}, queryReadExistingAlreadyPublishedTables, publicationName)
 	}); err != nil {
 		return nil, err
 	}
@@ -785,7 +618,7 @@ func (sc *sideChannel) ReadReplicationSlot(
 
 	err = sc.newSession(time.Second*10, func(session *session) error {
 		var restart, confirmed string
-		if err := session.queryRow(readReplicationSlotQuery, slotName).Scan(
+		if err := session.queryRow(queryReadReplicationSlot, slotName).Scan(
 			&pluginName, &slotType, &restart, &confirmed,
 		); err != nil {
 			return err
@@ -816,7 +649,7 @@ func (sc *sideChannel) ExistsReplicationSlot(
 ) (found bool, err error) {
 
 	err = sc.newSession(time.Second*10, func(session *session) error {
-		return session.queryRow(checkExistingReplicationSlotQuery, slotName).Scan(&found)
+		return session.queryRow(queryCheckReplicationSlotExists, slotName).Scan(&found)
 	})
 	if err == pgx.ErrNoRows {
 		err = nil
@@ -828,8 +661,18 @@ func (sc *sideChannel) ExistsReplicationSlot(
 }
 
 func (sc *sideChannel) ReadPgTypes(
-	factory pgtypes.TypeFactory, cb func(pgType pgtypes.PgType) error,
+	factory pgtypes.TypeFactory, cb func(pgType pgtypes.PgType) error, oids ...uint32,
 ) error {
+
+	query := fmt.Sprintf(queryTemplateReadPostgreSqlTypes, "")
+	arguments := make([]any, 0)
+	if len(oids) == 1 {
+		query = fmt.Sprintf(queryTemplateReadPostgreSqlTypes, "AND t.oid = $1")
+		arguments = append(arguments, oids[0])
+	} else if len(oids) > 1 {
+		query = fmt.Sprintf(queryTemplateReadPostgreSqlTypes, "AND t.oid = ANY($1)")
+		arguments = append(arguments, oids)
+	}
 
 	return sc.newSession(time.Second*30, func(session *session) error {
 		return session.queryFunc(func(row pgx.Row) error {
@@ -848,36 +691,8 @@ func (sc *sideChannel) ReadPgTypes(
 			}
 
 			return cb(typ)
-		}, fmt.Sprintf(readPgTypeQuery, "") /* no limitation*/)
+		}, query, arguments...)
 	})
-}
-
-func (sc *sideChannel) ReadPgType(
-	oid uint32, factory pgtypes.TypeFactory,
-) (typ pgtypes.PgType, found bool, err error) {
-
-	if err := sc.newSession(time.Second*30, func(session *session) error {
-		return session.queryFunc(func(row pgx.Row) error {
-			typ, found, err = sc.scanPgType(row, factory)
-			if err != nil {
-				return err
-			}
-			return nil
-		}, fmt.Sprintf(readPgTypeQuery, "AND t.oid = $1"), oid)
-	}); err != nil {
-		return nil, false, errors.Wrap(err, 0)
-	}
-
-	if !found {
-		return nil, false, nil
-	}
-
-	// Record types aren't supported at the moment, so we can simply skip them
-	if typ.IsRecord() {
-		return nil, false, nil
-	}
-
-	return typ, true, nil
 }
 
 func (sc *sideChannel) scanPgType(
@@ -955,7 +770,7 @@ func (sc *sideChannel) readHypertableSchema0(
 		)
 		columns = append(columns, column)
 		return nil
-	}, initialTableSchemaQuery, hypertable.SchemaName(), hypertable.TableName()); err != nil {
+	}, queryReadHypertableSchema, hypertable.SchemaName(), hypertable.TableName()); err != nil {
 		return err
 	}
 

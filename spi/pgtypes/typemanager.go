@@ -48,8 +48,7 @@ type TypeFactory func(namespace, name string, kind PgKind, oid uint32, category 
 	modifiers int, enumValues []string, delimiter string) PgType
 
 type TypeResolver interface {
-	ReadPgTypes(factory TypeFactory, callback func(PgType) error) error
-	ReadPgType(oid uint32, factory TypeFactory) (PgType, bool, error)
+	ReadPgTypes(factory TypeFactory, callback func(PgType) error, oids ...uint32) error
 }
 
 type typeRegistration struct {
@@ -557,17 +556,22 @@ func (tm *typeManager) ResolveDataType(
 		tm.typeCacheMutex.Lock()
 		defer tm.typeCacheMutex.Unlock()
 
-		t, found, err := tm.typeResolver.ReadPgType(oid, tm.typeFactory)
+		var pt PgType
+		err := tm.typeResolver.ReadPgTypes(tm.typeFactory, func(p PgType) error {
+			pt = p
+			return nil
+		}, oid)
+
 		if err != nil {
 			return false, err
 		}
 
-		if !found {
+		if pt == nil {
 			return false, nil
 		}
 
-		tm.typeCache[oid] = t
-		tm.typeNameCache[t.Name()] = oid
+		tm.typeCache[oid] = pt
+		tm.typeNameCache[pt.Name()] = oid
 		return true, nil
 	}
 
