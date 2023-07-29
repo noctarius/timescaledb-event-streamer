@@ -210,7 +210,7 @@ func SetupTimescaleContainer() (testcontainers.Container, *ConfigProvider, error
 	}
 	timescaledbLogger.Verbosef("Set default schema for default user")
 	if err := exec(
-		fmt.Sprintf("ALTER ROLE %s SET search_path TO %s, public", tsdbUser, databaseSchema),
+		fmt.Sprintf("ALTER USER %s SET search_path TO %s,public", tsdbUser, databaseSchema),
 	); err != nil {
 		return nil, nil, err
 	}
@@ -228,16 +228,30 @@ func SetupTimescaleContainer() (testcontainers.Container, *ConfigProvider, error
 	); err != nil {
 		return nil, nil, err
 	}
+	timescaledbLogger.Verbosef("Set default schema for replication user")
+	if err := exec(
+		fmt.Sprintf("ALTER USER %s SET search_path TO %s,public", replUser, databaseSchema),
+	); err != nil {
+		return nil, nil, err
+	}
+
+	// Create extensions
 	timescaledbLogger.Verbosef("Create timescaledb extension")
-	if err := exec("CREATE EXTENSION IF NOT EXISTS timescaledb"); err != nil {
+	if err := exec(
+		fmt.Sprintf("CREATE EXTENSION IF NOT EXISTS timescaledb WITH SCHEMA %s", databaseSchema),
+	); err != nil {
 		return nil, nil, err
 	}
 	timescaledbLogger.Verbosef("Create ltree extension")
-	if err := exec("CREATE EXTENSION IF NOT EXISTS ltree"); err != nil {
+	if err := exec(
+		fmt.Sprintf("CREATE EXTENSION IF NOT EXISTS ltree WITH SCHEMA %s", databaseSchema),
+	); err != nil {
 		return nil, nil, err
 	}
 	timescaledbLogger.Verbosef("Create PostGIS extension")
-	if err := exec("CREATE EXTENSION IF NOT EXISTS postgis"); err != nil {
+	if err := exec(
+		fmt.Sprintf("CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA %s", databaseSchema),
+	); err != nil {
 		return nil, nil, err
 	}
 	timescaledbLogger.Verbosef("Drop existing publication")
