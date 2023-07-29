@@ -93,10 +93,15 @@ func main() {
 }
 
 func start(
-	*cli.Context,
+	ctx *cli.Context,
 ) error {
 
-	fmt.Printf("%s version %s (git revision %s; branch %s)\n",
+	log := os.Stdout
+	if logToStdErr {
+		log = os.Stderr
+	}
+	fmt.Fprintln(log, ctx.App.Usage)
+	fmt.Fprintf(log, "%s version %s (git revision %s; branch %s)\n",
 		version.BinName, version.Version, version.CommitHash, version.Branch,
 	)
 
@@ -107,7 +112,7 @@ func start(
 	if profiling {
 		go func() {
 			if err := http.ListenAndServe("localhost:8080", nil); err != nil {
-				fmt.Fprintf(os.Stderr, "Failed to initialize the profiler. %+v\n", err)
+				fmt.Fprintf(log, "Failed to initialize the profiler. %+v\n", err)
 			}
 		}()
 	}
@@ -120,13 +125,13 @@ func start(
 	// No configuration file set? Try env variable!
 	if configurationFile == "" {
 		if cf, present := os.LookupEnv("TIMESCALEDB_EVENT_STREAMER_CONFIG"); present {
-			fmt.Fprintf(os.Stderr, "Using configuration file from environment variable\n")
+			fmt.Fprintln(log, "Using configuration file from environment variable")
 			configurationFile = cf
 		}
 	}
 
 	if configurationFile != "" {
-		fmt.Fprintf(os.Stderr, "Loading configuration file: %s\n", configurationFile)
+		fmt.Fprintf(log, "Loading configuration file: %s\n", configurationFile)
 		f, err := os.Open(configurationFile)
 		if err != nil {
 			return cli.NewExitError(fmt.Sprintf("Configuration file couldn't be opened: %v\n", err), 3)
@@ -164,7 +169,7 @@ func start(
 	go func() {
 		<-signals
 		if err := streamer.Stop(); err != nil {
-			fmt.Fprintf(os.Stderr, "Hard error when stopping replication: %v\n", err)
+			fmt.Fprintf(log, "Hard error when stopping replication: %v\n", err)
 			os.Exit(1)
 		}
 		done.Signal()
