@@ -527,21 +527,22 @@ func (t testReplicationContext) ReadHypertableSchema(
 }
 
 func (t testReplicationContext) SnapshotChunkTable(
-	chunk *systemcatalog.Chunk, cb sidechannel.SnapshotRowCallback,
+	rowDecoderFactory pgtypes.RowDecoderFactory, chunk *systemcatalog.Chunk, cb sidechannel.SnapshotRowCallback,
 ) (pgtypes.LSN, error) {
 
 	return 0, nil
 }
 
 func (t testReplicationContext) FetchHypertableSnapshotBatch(
-	hypertable *systemcatalog.Hypertable, snapshotName string, cb sidechannel.SnapshotRowCallback,
+	rowDecoderFactory pgtypes.RowDecoderFactory, hypertable *systemcatalog.Hypertable,
+	snapshotName string, cb sidechannel.SnapshotRowCallback,
 ) error {
 
 	return nil
 }
 
 func (t testReplicationContext) ReadSnapshotHighWatermark(
-	hypertable *systemcatalog.Hypertable, snapshotName string,
+	rowDecoderFactory pgtypes.RowDecoderFactory, hypertable *systemcatalog.Hypertable, snapshotName string,
 ) (map[string]any, error) {
 
 	return nil, nil

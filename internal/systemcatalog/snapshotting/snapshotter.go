@@ -45,6 +45,7 @@ type Snapshotter struct {
 	partitionCount     uint64
 	replicationContext replicationcontext.ReplicationContext
 	taskManager        task.TaskManager
+	typeManager        pgtypes.TypeManager
 	publicationManager publication.PublicationManager
 	snapshotQueues     []chan SnapshotTask
 	shutdownAwaiter    *waiting.MultiShutdownAwaiter
@@ -54,15 +55,17 @@ type Snapshotter struct {
 func NewSnapshotterFromConfig(
 	c *config.Config, replicationContext replicationcontext.ReplicationContext,
 	taskManager task.TaskManager, publicationManager publication.PublicationManager,
+	typeManager pgtypes.TypeManager,
 ) (*Snapshotter, error) {
 
 	parallelism := config.GetOrDefault(c, config.PropertySnapshotterParallelism, uint8(5))
-	return NewSnapshotter(parallelism, replicationContext, taskManager, publicationManager)
+	return NewSnapshotter(parallelism, replicationContext, taskManager, publicationManager, typeManager)
 }
 
 func NewSnapshotter(
 	partitionCount uint8, replicationContext replicationcontext.ReplicationContext,
 	taskManager task.TaskManager, publicationManager publication.PublicationManager,
+	typeManager pgtypes.TypeManager,
 ) (*Snapshotter, error) {
 
 	snapshotQueues := make([]chan SnapshotTask, partitionCount)
@@ -79,6 +82,7 @@ func NewSnapshotter(
 		partitionCount:     uint64(partitionCount),
 		replicationContext: replicationContext,
 		taskManager:        taskManager,
+		typeManager:        typeManager,
 		publicationManager: publicationManager,
 		snapshotQueues:     snapshotQueues,
 		logger:             logger,
@@ -179,7 +183,8 @@ func (s *Snapshotter) snapshotChunk(
 	}
 
 	lsn, err := s.replicationContext.SnapshotChunkTable(
-		t.Chunk, func(lsn pgtypes.LSN, values map[string]any) error {
+		s.typeManager.GetOrPlanRowDecoder, t.Chunk,
+		func(lsn pgtypes.LSN, values map[string]any) error {
 			return s.taskManager.EnqueueTask(func(notificator task.Notificator) {
 				callback := func(handler eventhandlers.HypertableReplicationEventHandler) error {
 					return handler.OnReadEvent(lsn, t.Hypertable, t.Chunk, values)
@@ -218,7 +223,9 @@ func (s *Snapshotter) snapshotHypertable(
 
 			// Initialize the watermark or update the high watermark after a restart
 			if created || t.nextSnapshotFetch {
-				highWatermark, err := s.replicationContext.ReadSnapshotHighWatermark(t.Hypertable, *t.SnapshotName)
+				highWatermark, err := s.replicationContext.ReadSnapshotHighWatermark(
+					s.typeManager.GetOrPlanRowDecoder, t.Hypertable, *t.SnapshotName,
+				)
 				if err != nil {
 					return errors.Wrap(err, 0)
 				}
@@ -269,7 +276,7 @@ func (s *Snapshotter) runSnapshotFetchBatch(
 ) error {
 
 	return s.replicationContext.FetchHypertableSnapshotBatch(
-		t.Hypertable, *t.SnapshotName,
+		s.typeManager.GetOrPlanRowDecoder, t.Hypertable, *t.SnapshotName,
 		func(lsn pgtypes.LSN, values map[string]any) error {
 			return s.taskManager.EnqueueTask(func(notificator task.Notificator) {
 				notificator.NotifyHypertableReplicationEventHandler(

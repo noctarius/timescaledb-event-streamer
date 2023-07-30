@@ -66,13 +66,15 @@ type SideChannel interface {
 		publicationName string, entities ...systemcatalog.SystemEntity,
 	) error
 	SnapshotChunkTable(
-		chunk *systemcatalog.Chunk, snapshotBatchSize int, cb SnapshotRowCallback,
+		rowDecoderFactory pgtypes.RowDecoderFactory, chunk *systemcatalog.Chunk,
+		snapshotBatchSize int, cb SnapshotRowCallback,
 	) (lsn pgtypes.LSN, err error)
 	FetchHypertableSnapshotBatch(
-		hypertable *systemcatalog.Hypertable, snapshotName string, snapshotBatchSize int, cb SnapshotRowCallback,
+		rowDecoderFactory pgtypes.RowDecoderFactory, hypertable *systemcatalog.Hypertable,
+		snapshotName string, snapshotBatchSize int, cb SnapshotRowCallback,
 	) error
 	ReadSnapshotHighWatermark(
-		hypertable *systemcatalog.Hypertable, snapshotName string,
+		rowDecoderFactory pgtypes.RowDecoderFactory, hypertable *systemcatalog.Hypertable, snapshotName string,
 	) (values map[string]any, err error)
 	ReadReplicaIdentity(
 		schemaName, tableName string,

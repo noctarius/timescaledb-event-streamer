@@ -201,6 +201,9 @@ var coreTypes = map[uint32]typeRegistration{
 	pgtypes.MacAddr8OID: {
 		schemaType: schema.STRING,
 		converter:  macaddr2text,
+		typeMapTypeFactory: func(_ *pgtype.Map, typ pgtypes.PgType) *pgtype.Type {
+			return &pgtype.Type{Name: "macaddr8", OID: pgtypes.MacAddr8OID, Codec: pgtype.MacaddrCodec{}}
+		},
 	},
 	pgtypes.MacAddrArray8OID: {
 		schemaType: schema.ARRAY,
@@ -318,6 +321,9 @@ var coreTypes = map[uint32]typeRegistration{
 	pgtypes.TimeTZOID: {
 		schemaType: schema.STRING,
 		converter:  time2text,
+		typeMapTypeFactory: func(_ *pgtype.Map, typ pgtypes.PgType) *pgtype.Type {
+			return &pgtype.Type{Name: "timetz", OID: pgtypes.TimeTZOID, Codec: &pgtypes.TimetzCodec{}}
+		},
 	},
 	pgtypes.TimeTZArrayOID: {
 		schemaType: schema.ARRAY,
@@ -326,6 +332,9 @@ var coreTypes = map[uint32]typeRegistration{
 	},
 	pgtypes.XmlOID: {
 		schemaType: schema.STRING,
+		typeMapTypeFactory: func(_ *pgtype.Map, typ pgtypes.PgType) *pgtype.Type {
+			return &pgtype.Type{Name: "xml", OID: pgtypes.XmlOID, Codec: pgtypes.XmlCodec{}}
+		},
 	},
 	pgtypes.XmlArrayOID: {
 		schemaType: schema.ARRAY,

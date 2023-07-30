@@ -328,7 +328,8 @@ func (sc *sideChannel) DetachTablesFromPublication(
 }
 
 func (sc *sideChannel) SnapshotChunkTable(
-	chunk *systemcatalog.Chunk, snapshotBatchSize int, cb sidechannel.SnapshotRowCallback,
+	rowDecoderFactory pgtypes.RowDecoderFactory, chunk *systemcatalog.Chunk,
+	snapshotBatchSize int, cb sidechannel.SnapshotRowCallback,
 ) (pgtypes.LSN, error) {
 
 	var currentLSN pgtypes.LSN = 0
@@ -338,14 +339,15 @@ func (sc *sideChannel) SnapshotChunkTable(
 		"DECLARE %s SCROLL CURSOR FOR SELECT * FROM %s", cursorName, chunk.CanonicalName(),
 	)
 
+	callback := func(lsn pgtypes.LSN, values map[string]any) error {
+		if currentLSN == 0 {
+			currentLSN = lsn
+		}
+		return cb(lsn, values)
+	}
+
 	if err := sc.snapshotTableWithCursor(
-		cursorQuery, cursorName, nil, snapshotBatchSize,
-		func(lsn pgtypes.LSN, values map[string]any) error {
-			if currentLSN == 0 {
-				currentLSN = lsn
-			}
-			return cb(lsn, values)
-		},
+		rowDecoderFactory, cursorQuery, cursorName, nil, snapshotBatchSize, callback,
 	); err != nil {
 		return 0, errors.Wrap(err, 0)
 	}
@@ -354,8 +356,8 @@ func (sc *sideChannel) SnapshotChunkTable(
 }
 
 func (sc *sideChannel) FetchHypertableSnapshotBatch(
-	hypertable *systemcatalog.Hypertable, snapshotName string,
-	snapshotBatchSize int, cb sidechannel.SnapshotRowCallback,
+	rowDecoderFactory pgtypes.RowDecoderFactory, hypertable *systemcatalog.Hypertable,
+	snapshotName string, snapshotBatchSize int, cb sidechannel.SnapshotRowCallback,
 ) error {
 
 	index, present := hypertable.Columns().SnapshotIndex()
@@ -419,13 +421,15 @@ func (sc *sideChannel) FetchHypertableSnapshotBatch(
 				return cb(lsn, values)
 			}
 
-			return sc.snapshotTableWithCursor(cursorQuery, cursorName, &snapshotName, snapshotBatchSize, hook)
+			return sc.snapshotTableWithCursor(
+				rowDecoderFactory, cursorQuery, cursorName, &snapshotName, snapshotBatchSize, hook,
+			)
 		},
 	)
 }
 
 func (sc *sideChannel) ReadSnapshotHighWatermark(
-	hypertable *systemcatalog.Hypertable, snapshotName string,
+	rowDecoderFactory pgtypes.RowDecoderFactory, hypertable *systemcatalog.Hypertable, snapshotName string,
 ) (values map[string]any, err error) {
 
 	index, present := hypertable.Columns().SnapshotIndex()
@@ -451,7 +455,7 @@ func (sc *sideChannel) ReadSnapshotHighWatermark(
 		return session.queryFunc(func(row pgx.Row) error {
 			rows := row.(pgx.Rows)
 
-			rowDecoder, err := pgtypes.NewRowDecoder(rows.FieldDescriptions())
+			rowDecoder, err := rowDecoderFactory(rows.FieldDescriptions())
 			if err != nil {
 				return errors.Wrap(err, 0)
 			}
@@ -699,8 +703,8 @@ func (sc *sideChannel) readHypertableSchema0(
 }
 
 func (sc *sideChannel) snapshotTableWithCursor(
-	cursorQuery, cursorName string, snapshotName *string,
-	snapshotBatchSize int, cb sidechannel.SnapshotRowCallback,
+	rowDecoderFactory pgtypes.RowDecoderFactory, cursorQuery, cursorName string,
+	snapshotName *string, snapshotBatchSize int, cb sidechannel.SnapshotRowCallback,
 ) error {
 
 	return sc.newSession(time.Minute*60, func(session *session) error {
@@ -726,7 +730,7 @@ func (sc *sideChannel) snapshotTableWithCursor(
 			return errors.Wrap(err, 0)
 		}
 
-		var rowDecoder *pgtypes.RowDecoder
+		var rowDecoder pgtypes.RowDecoder
 		for {
 			count := 0
 			if err := session.queryFunc(func(row pgx.Row) error {
@@ -734,7 +738,7 @@ func (sc *sideChannel) snapshotTableWithCursor(
 
 				if rowDecoder == nil {
 					// Initialize the row decoder based on the returned field descriptions
-					rd, err := pgtypes.NewRowDecoder(rows.FieldDescriptions())
+					rd, err := rowDecoderFactory(rows.FieldDescriptions())
 					if err != nil {
 						return errors.Wrap(err, 0)
 					}

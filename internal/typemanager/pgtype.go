@@ -160,7 +160,7 @@ func (t *pgType) EnumValues() []string {
 	if t.enumValues == nil {
 		return []string{}
 	}
-	enumValues := make([]string, 0, len(t.enumValues))
+	enumValues := make([]string, len(t.enumValues))
 	copy(enumValues, t.enumValues)
 	return enumValues
 }

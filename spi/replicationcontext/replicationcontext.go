@@ -78,13 +78,14 @@ type ReplicationContext interface {
 		hypertables ...*systemcatalog.Hypertable,
 	) error
 	SnapshotChunkTable(
-		chunk *systemcatalog.Chunk, cb sidechannel.SnapshotRowCallback,
+		rowDecoderFactory pgtypes.RowDecoderFactory, chunk *systemcatalog.Chunk, cb sidechannel.SnapshotRowCallback,
 	) (pgtypes.LSN, error)
 	FetchHypertableSnapshotBatch(
-		hypertable *systemcatalog.Hypertable, snapshotName string, cb sidechannel.SnapshotRowCallback,
+		rowDecoderFactory pgtypes.RowDecoderFactory, hypertable *systemcatalog.Hypertable,
+		snapshotName string, cb sidechannel.SnapshotRowCallback,
 	) error
 	ReadSnapshotHighWatermark(
-		hypertable *systemcatalog.Hypertable, snapshotName string,
+		rowDecoderFactory pgtypes.RowDecoderFactory, hypertable *systemcatalog.Hypertable, snapshotName string,
 	) (map[string]any, error)
 	ReadReplicaIdentity(
 		entity systemcatalog.SystemEntity,

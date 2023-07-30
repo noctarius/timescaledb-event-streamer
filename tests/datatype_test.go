@@ -930,6 +930,14 @@ var dataTypeTable = []DataTypeTest{
 		expectedValueOverride: []string{"<test><simple>foo</simple></test>", "<teeeeest></teeeeest>"},
 		expected:              quickCheckValue[[]string],
 	},
+	{
+		name:                 "Enum Type",
+		pgTypeName:           "myenum",
+		customTypeDefinition: "CREATE TYPE tsdb.myenum AS ENUM ('Foo', 'Bar')",
+		schemaType:           schema.STRING,
+		value:                "Foo",
+		expected:             quickCheckValue[string],
+	},
 }
 
 const lookupTypeOidQuery = "SELECT oid FROM pg_catalog.pg_type where typname = $1"
@@ -1067,6 +1075,12 @@ func (dtt *DataTypeTestSuite) runDataTypeTest(
 				}
 			}
 
+			if testCase.customTypeDefinition != "" {
+				if _, err := setupContext.Exec(context.Background(), testCase.customTypeDefinition); err != nil {
+					return err
+				}
+			}
+
 			_, tn, err := setupContext.CreateHypertable("ts", time.Hour*24,
 				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
 				testsupport.NewColumn(columnName, testCase.pgTypeName, false, false, nil),
@@ -1087,6 +1101,7 @@ type DataTypeTest struct {
 	oid                   uint32
 	pgTypeName            string
 	columnNameOverride    string
+	customTypeDefinition  string
 	schemaType            schema.Type
 	elementSchemaType     schema.Type
 	value                 any

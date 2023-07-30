@@ -377,24 +377,30 @@ func (rc *replicationContext) ReadHypertableSchema(
 }
 
 func (rc *replicationContext) SnapshotChunkTable(
-	chunk *systemcatalog.Chunk, cb sidechannel.SnapshotRowCallback,
+	rowDecoderFactory pgtypes.RowDecoderFactory, chunk *systemcatalog.Chunk, cb sidechannel.SnapshotRowCallback,
 ) (pgtypes.LSN, error) {
 
-	return rc.sideChannel.SnapshotChunkTable(chunk, rc.snapshotBatchSize, cb)
+	// FIXME: remove the intermediate function?
+	return rc.sideChannel.SnapshotChunkTable(rowDecoderFactory, chunk, rc.snapshotBatchSize, cb)
 }
 
 func (rc *replicationContext) FetchHypertableSnapshotBatch(
-	hypertable *systemcatalog.Hypertable, snapshotName string, cb sidechannel.SnapshotRowCallback,
+	rowDecoderFactory pgtypes.RowDecoderFactory, hypertable *systemcatalog.Hypertable,
+	snapshotName string, cb sidechannel.SnapshotRowCallback,
 ) error {
 
-	return rc.sideChannel.FetchHypertableSnapshotBatch(hypertable, snapshotName, rc.snapshotBatchSize, cb)
+	// FIXME: remove the intermediate function?
+	return rc.sideChannel.FetchHypertableSnapshotBatch(
+		rowDecoderFactory, hypertable, snapshotName, rc.snapshotBatchSize, cb,
+	)
 }
 
 func (rc *replicationContext) ReadSnapshotHighWatermark(
-	hypertable *systemcatalog.Hypertable, snapshotName string,
+	rowDecoderFactory pgtypes.RowDecoderFactory, hypertable *systemcatalog.Hypertable, snapshotName string,
 ) (map[string]any, error) {
 
-	return rc.sideChannel.ReadSnapshotHighWatermark(hypertable, snapshotName)
+	// FIXME: remove the intermediate function?
+	return rc.sideChannel.ReadSnapshotHighWatermark(rowDecoderFactory, hypertable, snapshotName)
 }
 
 func (rc *replicationContext) ReadReplicaIdentity(

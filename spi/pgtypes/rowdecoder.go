@@ -18,22 +18,26 @@
 package pgtypes
 
 import (
-	"fmt"
-	"github.com/jackc/pglogrepl"
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
-type TupleDecoderPlan interface {
-	Decode(tupleData *pglogrepl.TupleData) (map[string]any, error)
-}
+type RowDecoderFactory = func(fields []pgconn.FieldDescription) (RowDecoder, error)
 
-func codecScan(
-	codec pgtype.Codec, m *pgtype.Map, oid uint32, format int16, src []byte, dst any,
-) error {
-
-	scanPlan := codec.PlanScan(m, oid, format, dst)
-	if scanPlan == nil {
-		return fmt.Errorf("PlanScan did not find a plan")
-	}
-	return scanPlan.Scan(src, dst)
+type RowDecoder interface {
+	DecodeRowsMapAndSink(
+		rows pgx.Rows, sink func(values map[string]any) error,
+	) error
+	DecodeRowsAndSink(
+		rows pgx.Rows, sink func(values []any) error,
+	) error
+	Decode(
+		rawRow [][]byte,
+	) ([]any, error)
+	DecodeAndSink(
+		rawRow [][]byte, sink func(values []any) error,
+	) error
+	DecodeMapAndSink(
+		rawRow [][]byte, sink func(values map[string]any) error,
+	) error
 }

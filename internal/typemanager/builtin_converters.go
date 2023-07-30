@@ -95,6 +95,17 @@ func reflectiveArrayConverter(
 	}
 }
 
+func enum2string(
+	_ uint32, value any,
+) (any, error) {
+
+	switch v := value.(type) {
+	case string:
+		return v, nil
+	}
+	return nil, errIllegalValue
+}
+
 func float42float(
 	_ uint32, value any,
 ) (any, error) {

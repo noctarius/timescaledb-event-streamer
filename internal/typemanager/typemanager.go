@@ -21,13 +21,13 @@ import (
 	"fmt"
 	"github.com/go-errors/errors"
 	"github.com/jackc/pglogrepl"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/noctarius/timescaledb-event-streamer/internal/containers"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/sidechannel"
-	"github.com/samber/lo"
 	"reflect"
 	"sync"
 )
@@ -45,13 +45,16 @@ var (
 	mapType     = reflect.TypeOf(map[string]any{})
 )
 
+type typeMapTypeFactory func(typeMap *pgtype.Map, typ pgtypes.PgType) *pgtype.Type
+
 type typeRegistration struct {
-	schemaType    schema.Type
-	schemaBuilder schema.Builder
-	isArray       bool
-	oidElement    uint32
-	converter     pgtypes.TypeConverter
-	codec         pgtype.Codec
+	schemaType         schema.Type
+	schemaBuilder      schema.Builder
+	isArray            bool
+	oidElement         uint32
+	converter          pgtypes.TypeConverter
+	codec              pgtype.Codec
+	typeMapTypeFactory typeMapTypeFactory
 }
 
 // errIllegalValue represents an illegal type conversion request
@@ -62,12 +65,15 @@ type typeManager struct {
 	logger      *logging.Logger
 	sideChannel sidechannel.SideChannel
 
+	typeMap *pgtype.Map
+
 	typeCache      map[uint32]pgtypes.PgType
 	typeNameCache  map[string]uint32
 	typeCacheMutex sync.RWMutex
 
 	optimizedTypes      map[uint32]pgtypes.PgType
 	optimizedConverters map[uint32]typeRegistration
+	dynamicConverters   map[uint32]typeRegistration
 	cachedDecoderPlans  *containers.ConcurrentMap[uint32, pgtypes.TupleDecoderPlan]
 }
 
@@ -84,12 +90,15 @@ func NewTypeManager(
 		logger:      logger,
 		sideChannel: sideChannel,
 
+		typeMap: pgtype.NewMap(),
+
 		typeCache:      make(map[uint32]pgtypes.PgType),
 		typeNameCache:  make(map[string]uint32),
 		typeCacheMutex: sync.RWMutex{},
 
 		optimizedTypes:      make(map[uint32]pgtypes.PgType),
 		optimizedConverters: make(map[uint32]typeRegistration),
+		dynamicConverters:   make(map[uint32]typeRegistration),
 		cachedDecoderPlans:  containers.NewConcurrentMap[uint32, pgtypes.TupleDecoderPlan](),
 	}
 
@@ -103,61 +112,7 @@ func (tm *typeManager) initialize() error {
 	tm.typeCacheMutex.Lock()
 	defer tm.typeCacheMutex.Unlock()
 
-	// Extract keys from the built-in core types
-	coreTypesSlice := lo.Keys(coreTypes)
-
-	if err := tm.sideChannel.ReadPgTypes(tm.typeFactory, func(typ pgtypes.PgType) error {
-		if lo.IndexOf(coreTypesSlice, typ.Oid()) != -1 {
-			return nil
-		}
-
-		tm.typeCache[typ.Oid()] = typ
-		tm.typeNameCache[typ.Name()] = typ.Oid()
-
-		if registration, present := optimizedTypes[typ.Name()]; present {
-			if t, ok := typ.(*pgType); ok {
-				t.schemaType = registration.schemaType
-			}
-
-			tm.optimizedTypes[typ.Oid()] = typ
-
-			var converter pgtypes.TypeConverter
-			if registration.isArray {
-				lazyConverter := &lazyArrayConverter{
-					typeManager: tm,
-					oidElement:  typ.OidElement(),
-				}
-				converter = lazyConverter.convert
-			} else {
-				converter = registration.converter
-			}
-
-			if converter == nil {
-				return errors.Errorf("Type %s has no assigned value converter", typ.Name())
-			}
-
-			tm.optimizedConverters[typ.Oid()] = typeRegistration{
-				schemaType:    registration.schemaType,
-				schemaBuilder: registration.schemaBuilder,
-				isArray:       registration.isArray,
-				oidElement:    typ.OidElement(),
-				converter:     converter,
-				codec:         registration.codec,
-			}
-
-			if typ.IsArray() {
-				if elementType, present := pgtypes.GetType(typ.OidElement()); present {
-					pgtypes.RegisterType(&pgtype.Type{
-						Name: typ.Name(), OID: typ.Oid(), Codec: &pgtype.ArrayCodec{ElementType: elementType},
-					})
-				}
-			} else {
-				pgtypes.RegisterType(&pgtype.Type{Name: typ.Name(), OID: typ.Oid(), Codec: registration.codec})
-			}
-		}
-
-		return nil
-	}); err != nil {
+	if err := tm.sideChannel.ReadPgTypes(tm.typeFactory, tm.registerType); err != nil {
 		return err
 	}
 	return nil
@@ -193,9 +148,9 @@ func (tm *typeManager) ResolveDataType(
 		defer tm.typeCacheMutex.Unlock()
 
 		var pt pgtypes.PgType
-		err := tm.sideChannel.ReadPgTypes(tm.typeFactory, func(p pgtypes.PgType) error {
-			pt = p
-			return nil
+		err := tm.sideChannel.ReadPgTypes(tm.typeFactory, func(typ pgtypes.PgType) error {
+			pt = typ
+			return tm.registerType(typ)
 		}, oid)
 
 		if err != nil {
@@ -205,9 +160,6 @@ func (tm *typeManager) ResolveDataType(
 		if pt == nil {
 			return false, nil
 		}
-
-		tm.typeCache[oid] = pt
-		tm.typeNameCache[pt.Name()] = oid
 		return true, nil
 	}
 
@@ -241,6 +193,9 @@ func (tm *typeManager) ResolveTypeConverter(
 		return registration.converter, nil
 	}
 	if registration, present := tm.optimizedConverters[oid]; present {
+		return registration.converter, nil
+	}
+	if registration, present := tm.dynamicConverters[oid]; present {
 		return registration.converter, nil
 	}
 	return nil, fmt.Errorf("unsupported OID: %d", oid)
@@ -282,13 +237,20 @@ func (tm *typeManager) GetOrPlanTupleDecoder(
 
 	plan, ok := tm.cachedDecoderPlans.Load(relation.RelationID)
 	if !ok {
-		plan, err = pgtypes.PlanTupleDecoder(relation)
+		plan, err = planTupleDecoder(tm, relation)
 		if err != nil {
 			return nil, err
 		}
 		tm.cachedDecoderPlans.Store(relation.RelationID, plan)
 	}
 	return plan, nil
+}
+
+func (tm *typeManager) GetOrPlanRowDecoder(
+	fields []pgconn.FieldDescription,
+) (pgtypes.RowDecoder, error) {
+
+	return newRowDecoder(tm, fields)
 }
 
 func (tm *typeManager) getSchemaType(
@@ -375,65 +337,123 @@ func (tm *typeManager) resolveSchemaBuilder(
 	}
 }
 
-type lazyArrayConverter struct {
-	typeManager *typeManager
-	oidElement  uint32
-	converter   pgtypes.TypeConverter
-}
+func (tm *typeManager) registerType(
+	typ pgtypes.PgType,
+) error {
 
-func (lac *lazyArrayConverter) convert(
-	oid uint32, value any,
-) (any, error) {
+	tm.typeCache[typ.Oid()] = typ
+	tm.typeNameCache[typ.Name()] = typ.Oid()
 
-	if lac.converter == nil {
-		elementType, err := lac.typeManager.ResolveDataType(lac.oidElement)
-		if err != nil {
-			return nil, err
+	// Is core type not available in TypeMap by default (bug or not implemented in pgx)?
+	if registration, present := coreTypes[typ.Oid()]; present {
+		if !tm.knownInTypeMap(typ.Oid()) {
+			if err := tm.registerTypeInTypeMap(typ, registration); err != nil {
+				return err
+			}
 		}
-
-		elementConverter, err := lac.typeManager.ResolveTypeConverter(lac.oidElement)
-		if err != nil {
-			return nil, err
-		}
-
-		reflectiveType, err := schemaType2ReflectiveType(elementType.SchemaType())
-		if err != nil {
-			return nil, err
-		}
-
-		targetType := reflect.SliceOf(reflectiveType)
-		lac.converter = reflectiveArrayConverter(lac.oidElement, targetType, elementConverter)
 	}
 
-	return lac.converter(oid, value)
+	// Optimized types have dynamic OIDs and need to registered dynamically
+	if registration, present := optimizedTypes[typ.Name()]; present {
+		if t, ok := typ.(*pgType); ok {
+			t.schemaType = registration.schemaType
+		}
+
+		tm.optimizedTypes[typ.Oid()] = typ
+
+		converter := tm.resolveOptimizedTypeConverter(typ, registration)
+		if converter == nil {
+			return errors.Errorf("Type %s has no assigned value converter", typ.Name())
+		}
+
+		tm.optimizedConverters[typ.Oid()] = typeRegistration{
+			schemaType:    registration.schemaType,
+			schemaBuilder: registration.schemaBuilder,
+			isArray:       registration.isArray,
+			oidElement:    typ.OidElement(),
+			converter:     converter,
+			codec:         registration.codec,
+		}
+
+		if err := tm.registerTypeInTypeMap(typ, registration); err != nil {
+			return err
+		}
+	}
+
+	// Enums are user defined objects and need to be registered manually
+	if typ.Kind() == pgtypes.EnumKind {
+		registration := typeRegistration{
+			schemaType: typ.SchemaType(),
+			converter:  enum2string,
+			codec:      &pgtype.EnumCodec{},
+		}
+
+		tm.dynamicConverters[typ.Oid()] = registration
+		if err := tm.registerTypeInTypeMap(typ, registration); err != nil {
+			return err
+		}
+	}
+
+	// Object types (all remaining) need to be handled specifically
+	if typ.SchemaType() == schema.STRUCT {
+		// TODO: ignore for now - missing implementation
+		registration := typeRegistration{
+			schemaType: typ.SchemaType(),
+		}
+		tm.dynamicConverters[typ.Oid()] = registration
+	}
+
+	return nil
 }
 
-func schemaType2ReflectiveType(
-	schemaType schema.Type,
-) (reflect.Type, error) {
+func (tm *typeManager) knownInTypeMap(oid uint32) (known bool) {
+	_, known = tm.typeMap.TypeForOID(oid)
+	return
+}
 
-	switch schemaType {
-	case schema.INT8:
-		return int8Type, nil
-	case schema.INT16:
-		return int16Type, nil
-	case schema.INT32:
-		return int32Type, nil
-	case schema.INT64:
-		return int64Type, nil
-	case schema.FLOAT32:
-		return float32Type, nil
-	case schema.FLOAT64:
-		return float64Type, nil
-	case schema.BOOLEAN:
-		return booleanType, nil
-	case schema.STRING:
-		return stringType, nil
-	case schema.BYTES:
-		return byteaType, nil
-	case schema.MAP:
-		return mapType, nil
-	default:
-		return nil, errors.Errorf("Unsupported schema type %s", string(schemaType))
+func (tm *typeManager) registerTypeInTypeMap(
+	typ pgtypes.PgType, registration typeRegistration,
+) error {
+
+	// If specific codec is registered, we can use it directly
+	if registration.codec != nil {
+		tm.typeMap.RegisterType(&pgtype.Type{Name: typ.Name(), OID: typ.Oid(), Codec: registration.codec})
+		return nil
 	}
+
+	// Slightly more complicated types have a factory for the pgx type
+	if registration.typeMapTypeFactory != nil {
+		tm.typeMap.RegisterType(registration.typeMapTypeFactory(tm.typeMap, typ))
+		return nil
+	}
+
+	// When array type, try to resolve element type and use generic array codec
+	if typ.IsArray() {
+		if elementDecoderType, present := tm.typeMap.TypeForOID(typ.OidElement()); present {
+			tm.typeMap.RegisterType(
+				&pgtype.Type{
+					Name:  typ.Name(),
+					OID:   typ.Oid(),
+					Codec: &pgtype.ArrayCodec{ElementType: elementDecoderType},
+				},
+			)
+			return nil
+		}
+	}
+
+	return errors.Errorf("Unknown codec for type registration with oid %d", typ.Oid())
+}
+
+func (tm *typeManager) resolveOptimizedTypeConverter(
+	typ pgtypes.PgType, registration typeRegistration,
+) pgtypes.TypeConverter {
+
+	if registration.isArray {
+		lazyConverter := &lazyArrayConverter{
+			typeManager: tm,
+			oidElement:  typ.OidElement(),
+		}
+		return lazyConverter.convert
+	}
+	return registration.converter
 }

@@ -1120,7 +1120,7 @@ func (its *IntegrationTestSuite) TestContinuousAggregate_Scheduled_Refresh_Creat
 			logger.Warnln("Scheduling continuous aggregate refresh")
 			if err := ctx.PrivilegedContext(func(pctx testrunner.PrivilegedContext) error {
 				_, err := pctx.Exec(context.Background(), `
-					SELECT alter_job(j.id, next_start => now() + interval '5 seconds')
+					SELECT tsdb.alter_job(j.id, next_start => now() + interval '5 seconds')
 					FROM _timescaledb_config.bgw_job j
 					LEFT JOIN _timescaledb_catalog.hypertable h ON h.id = j.hypertable_id
 					LEFT JOIN _timescaledb_catalog.continuous_agg c ON c.mat_hypertable_id = j.hypertable_id
