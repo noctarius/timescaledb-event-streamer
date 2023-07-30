@@ -43,7 +43,6 @@ type replicationContext struct {
 	stateStorageManager statestorage.Manager
 
 	snapshotInitialMode     spiconfig.InitialSnapshotMode
-	snapshotBatchSize       int
 	replicationSlotName     string
 	replicationSlotCreate   bool
 	replicationSlotAutoDrop bool
@@ -71,9 +70,6 @@ func NewReplicationContext(
 	snapshotInitialMode := spiconfig.GetOrDefault(
 		config, spiconfig.PropertyPostgresqlSnapshotInitialMode, spiconfig.Never,
 	)
-	snapshotBatchSize := spiconfig.GetOrDefault(
-		config, spiconfig.PropertyPostgresqlSnapshotBatchsize, 1000,
-	)
 	replicationSlotName := spiconfig.GetOrDefault(
 		config, spiconfig.PropertyPostgresqlReplicationSlotName, lo.RandomString(20, lo.LowerCaseLettersCharset),
 	)
@@ -99,7 +95,6 @@ func NewReplicationContext(
 		stateStorageManager: stateStorageManager,
 
 		snapshotInitialMode:     snapshotInitialMode,
-		snapshotBatchSize:       snapshotBatchSize,
 		replicationSlotName:     replicationSlotName,
 		replicationSlotCreate:   replicationSlotCreate,
 		replicationSlotAutoDrop: replicationSlotAutoDrop,
@@ -135,10 +130,6 @@ func NewReplicationContext(
 	replicationContext.walLevel = walLevel
 
 	return replicationContext, nil
-}
-
-func (rc *replicationContext) StateStorageManager() statestorage.Manager {
-	return rc.stateStorageManager
 }
 
 func (rc *replicationContext) StartReplicationContext() error {
@@ -374,33 +365,6 @@ func (rc *replicationContext) ReadHypertableSchema(
 ) error {
 
 	return rc.sideChannel.ReadHypertableSchema(cb, pgTypeResolver, hypertables...)
-}
-
-func (rc *replicationContext) SnapshotChunkTable(
-	rowDecoderFactory pgtypes.RowDecoderFactory, chunk *systemcatalog.Chunk, cb sidechannel.SnapshotRowCallback,
-) (pgtypes.LSN, error) {
-
-	// FIXME: remove the intermediate function?
-	return rc.sideChannel.SnapshotChunkTable(rowDecoderFactory, chunk, rc.snapshotBatchSize, cb)
-}
-
-func (rc *replicationContext) FetchHypertableSnapshotBatch(
-	rowDecoderFactory pgtypes.RowDecoderFactory, hypertable *systemcatalog.Hypertable,
-	snapshotName string, cb sidechannel.SnapshotRowCallback,
-) error {
-
-	// FIXME: remove the intermediate function?
-	return rc.sideChannel.FetchHypertableSnapshotBatch(
-		rowDecoderFactory, hypertable, snapshotName, rc.snapshotBatchSize, cb,
-	)
-}
-
-func (rc *replicationContext) ReadSnapshotHighWatermark(
-	rowDecoderFactory pgtypes.RowDecoderFactory, hypertable *systemcatalog.Hypertable, snapshotName string,
-) (map[string]any, error) {
-
-	// FIXME: remove the intermediate function?
-	return rc.sideChannel.ReadSnapshotHighWatermark(rowDecoderFactory, hypertable, snapshotName)
 }
 
 func (rc *replicationContext) ReadReplicaIdentity(

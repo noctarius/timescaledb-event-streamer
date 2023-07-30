@@ -25,7 +25,8 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/publication"
-	"github.com/noctarius/timescaledb-event-streamer/spi/replicationcontext"
+	"github.com/noctarius/timescaledb-event-streamer/spi/sidechannel"
+	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/task"
 	"github.com/noctarius/timescaledb-event-streamer/spi/watermark"
@@ -42,30 +43,36 @@ type SnapshotTask struct {
 }
 
 type Snapshotter struct {
-	partitionCount     uint64
-	replicationContext replicationcontext.ReplicationContext
-	taskManager        task.TaskManager
-	typeManager        pgtypes.TypeManager
-	publicationManager publication.PublicationManager
-	snapshotQueues     []chan SnapshotTask
-	shutdownAwaiter    *waiting.MultiShutdownAwaiter
-	logger             *logging.Logger
+	partitionCount    uint64
+	snapshotBatchSize int
+
+	taskManager         task.TaskManager
+	typeManager         pgtypes.TypeManager
+	sideChannel         sidechannel.SideChannel
+	stateStorageManager statestorage.Manager
+	publicationManager  publication.PublicationManager
+	snapshotQueues      []chan SnapshotTask
+	shutdownAwaiter     *waiting.MultiShutdownAwaiter
+	logger              *logging.Logger
 }
 
 func NewSnapshotterFromConfig(
-	c *config.Config, replicationContext replicationcontext.ReplicationContext,
+	c *config.Config, stateStorageManager statestorage.Manager, sideChannel sidechannel.SideChannel,
 	taskManager task.TaskManager, publicationManager publication.PublicationManager,
 	typeManager pgtypes.TypeManager,
 ) (*Snapshotter, error) {
 
 	parallelism := config.GetOrDefault(c, config.PropertySnapshotterParallelism, uint8(5))
-	return NewSnapshotter(parallelism, replicationContext, taskManager, publicationManager, typeManager)
+	snapshotBatchSize := config.GetOrDefault(c, config.PropertyPostgresqlSnapshotBatchsize, 1000)
+	return NewSnapshotter(
+		parallelism, snapshotBatchSize, stateStorageManager, sideChannel, taskManager, publicationManager, typeManager,
+	)
 }
 
 func NewSnapshotter(
-	partitionCount uint8, replicationContext replicationcontext.ReplicationContext,
-	taskManager task.TaskManager, publicationManager publication.PublicationManager,
-	typeManager pgtypes.TypeManager,
+	partitionCount uint8, snapshotBatchSize int, stateStorageManager statestorage.Manager,
+	sideChannel sidechannel.SideChannel, taskManager task.TaskManager,
+	publicationManager publication.PublicationManager, typeManager pgtypes.TypeManager,
 ) (*Snapshotter, error) {
 
 	snapshotQueues := make([]chan SnapshotTask, partitionCount)
@@ -79,14 +86,17 @@ func NewSnapshotter(
 	}
 
 	return &Snapshotter{
-		partitionCount:     uint64(partitionCount),
-		replicationContext: replicationContext,
-		taskManager:        taskManager,
-		typeManager:        typeManager,
-		publicationManager: publicationManager,
-		snapshotQueues:     snapshotQueues,
-		logger:             logger,
-		shutdownAwaiter:    waiting.NewMultiShutdownAwaiter(uint(partitionCount)),
+		partitionCount:    uint64(partitionCount),
+		snapshotBatchSize: snapshotBatchSize,
+
+		stateStorageManager: stateStorageManager,
+		sideChannel:         sideChannel,
+		taskManager:         taskManager,
+		typeManager:         typeManager,
+		publicationManager:  publicationManager,
+		snapshotQueues:      snapshotQueues,
+		logger:              logger,
+		shutdownAwaiter:     waiting.NewMultiShutdownAwaiter(uint(partitionCount)),
 	}, nil
 }
 
@@ -182,8 +192,8 @@ func (s *Snapshotter) snapshotChunk(
 		}
 	}
 
-	lsn, err := s.replicationContext.SnapshotChunkTable(
-		s.typeManager.GetOrPlanRowDecoder, t.Chunk,
+	lsn, err := s.sideChannel.SnapshotChunkTable(
+		s.typeManager.GetOrPlanRowDecoder, t.Chunk, s.snapshotBatchSize,
 		func(lsn pgtypes.LSN, values map[string]any) error {
 			return s.taskManager.EnqueueTask(func(notificator task.Notificator) {
 				callback := func(handler eventhandlers.HypertableReplicationEventHandler) error {
@@ -213,17 +223,15 @@ func (s *Snapshotter) snapshotHypertable(
 	t SnapshotTask,
 ) error {
 
-	stateManager := s.replicationContext.StateStorageManager()
-
 	// tableSnapshotState
-	if err := stateManager.SnapshotContextTransaction(
+	if err := s.stateStorageManager.SnapshotContextTransaction(
 		*t.SnapshotName, true,
 		func(snapshotContext *watermark.SnapshotContext) error {
 			hypertableWatermark, created := snapshotContext.GetOrCreateWatermark(t.Hypertable)
 
 			// Initialize the watermark or update the high watermark after a restart
 			if created || t.nextSnapshotFetch {
-				highWatermark, err := s.replicationContext.ReadSnapshotHighWatermark(
+				highWatermark, err := s.sideChannel.ReadSnapshotHighWatermark(
 					s.typeManager.GetOrPlanRowDecoder, t.Hypertable, *t.SnapshotName,
 				)
 				if err != nil {
@@ -244,7 +252,7 @@ func (s *Snapshotter) snapshotHypertable(
 		return errors.Wrap(err, 0)
 	}
 
-	return stateManager.SnapshotContextTransaction(
+	return s.stateStorageManager.SnapshotContextTransaction(
 		*t.SnapshotName, false,
 		func(snapshotContext *watermark.SnapshotContext) error {
 			hypertableWatermark, present := snapshotContext.GetWatermark(t.Hypertable)
@@ -275,8 +283,8 @@ func (s *Snapshotter) runSnapshotFetchBatch(
 	t SnapshotTask,
 ) error {
 
-	return s.replicationContext.FetchHypertableSnapshotBatch(
-		s.typeManager.GetOrPlanRowDecoder, t.Hypertable, *t.SnapshotName,
+	return s.sideChannel.FetchHypertableSnapshotBatch(
+		s.typeManager.GetOrPlanRowDecoder, t.Hypertable, *t.SnapshotName, s.snapshotBatchSize,
 		func(lsn pgtypes.LSN, values map[string]any) error {
 			return s.taskManager.EnqueueTask(func(notificator task.Notificator) {
 				notificator.NotifyHypertableReplicationEventHandler(

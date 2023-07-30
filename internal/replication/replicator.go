@@ -34,6 +34,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/publication"
 	"github.com/noctarius/timescaledb-event-streamer/spi/replicationcontext"
+	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/task"
 	"github.com/noctarius/timescaledb-event-streamer/spi/wiring"
@@ -126,13 +127,18 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 		return erroring.AdaptError(err, 1)
 	}
 
+	var stateStorageManager statestorage.Manager
+	if err := container.Service(&stateStorageManager); err != nil {
+		return erroring.AdaptError(err, 1)
+	}
+
 	// Get initial list of chunks to add to
 	var systemCatalog systemcatalog.SystemCatalog
 	if err := container.Service(&systemCatalog); err != nil {
 		return erroring.AdaptError(err, 1)
 	}
 	initialChunkTables, err := r.collectChunksForPublication(
-		replicationContext.StateStorageManager().EncodedState, systemCatalog.GetAllChunks,
+		stateStorageManager.EncodedState, systemCatalog.GetAllChunks,
 		publicationManager.ReadPublishedTables,
 	)
 	if err != nil {
@@ -153,7 +159,7 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 		err2 := eventEmitter.Stop()
 		state, err3 := encodeKnownChunks(systemCatalog.GetAllChunks())
 		if err3 == nil {
-			replicationContext.StateStorageManager().SetEncodedState(esPreviouslyKnownChunks, state)
+			stateStorageManager.SetEncodedState(esPreviouslyKnownChunks, state)
 		}
 		err4 := taskManager.StopDispatcher()
 		err5 := replicationContext.StopReplicationContext()

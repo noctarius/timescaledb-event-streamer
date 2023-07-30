@@ -19,16 +19,13 @@ package replicationconnection
 
 import (
 	"github.com/jackc/pglogrepl"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
-	"github.com/noctarius/timescaledb-event-streamer/spi/publication"
 	"github.com/noctarius/timescaledb-event-streamer/spi/sidechannel"
 	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
-	"github.com/noctarius/timescaledb-event-streamer/spi/task"
 	"github.com/noctarius/timescaledb-event-streamer/spi/version"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
@@ -341,30 +338,11 @@ func (t testReplicationContext) StopReplicationContext() error {
 	return nil
 }
 
-func (t testReplicationContext) NewSideChannelConnection(
-	ctx context.Context,
-) (*pgx.Conn, error) {
-
-	return nil, nil
-}
-
 func (t testReplicationContext) NewReplicationChannelConnection(
 	ctx context.Context,
 ) (*pgconn.PgConn, error) {
 
 	return nil, nil
-}
-
-func (t testReplicationContext) PublicationManager() publication.PublicationManager {
-	return nil
-}
-
-func (t testReplicationContext) StateStorageManager() statestorage.Manager {
-	return t.stateStorageManager
-}
-
-func (t testReplicationContext) TaskManager() task.TaskManager {
-	return nil
 }
 
 func (t testReplicationContext) Offset() (*statestorage.Offset, error) {
@@ -524,28 +502,6 @@ func (t testReplicationContext) ReadHypertableSchema(
 ) error {
 
 	return nil
-}
-
-func (t testReplicationContext) SnapshotChunkTable(
-	rowDecoderFactory pgtypes.RowDecoderFactory, chunk *systemcatalog.Chunk, cb sidechannel.SnapshotRowCallback,
-) (pgtypes.LSN, error) {
-
-	return 0, nil
-}
-
-func (t testReplicationContext) FetchHypertableSnapshotBatch(
-	rowDecoderFactory pgtypes.RowDecoderFactory, hypertable *systemcatalog.Hypertable,
-	snapshotName string, cb sidechannel.SnapshotRowCallback,
-) error {
-
-	return nil
-}
-
-func (t testReplicationContext) ReadSnapshotHighWatermark(
-	rowDecoderFactory pgtypes.RowDecoderFactory, hypertable *systemcatalog.Hypertable, snapshotName string,
-) (map[string]any, error) {
-
-	return nil, nil
 }
 
 func (t testReplicationContext) ReadReplicaIdentity(

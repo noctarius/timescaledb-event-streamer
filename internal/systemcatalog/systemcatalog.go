@@ -28,6 +28,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/publication"
 	"github.com/noctarius/timescaledb-event-streamer/spi/replicationcontext"
 	"github.com/noctarius/timescaledb-event-streamer/spi/sidechannel"
+	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/task"
 	"github.com/noctarius/timescaledb-event-streamer/spi/watermark"
@@ -45,20 +46,21 @@ type systemCatalog struct {
 	hypertable2compressed map[int32]int32
 	compressed2hypertable map[int32]int32
 
-	replicationContext replicationcontext.ReplicationContext
-	publicationManager publication.PublicationManager
-	typeManager        pgtypes.TypeManager
-	taskManager        task.TaskManager
-	replicationFilter  *tablefiltering.TableFilter
-	snapshotter        *snapshotting.Snapshotter
-	logger             *logging.Logger
-	rwLock             sync.RWMutex
+	replicationContext  replicationcontext.ReplicationContext
+	publicationManager  publication.PublicationManager
+	stateStorageManager statestorage.Manager
+	typeManager         pgtypes.TypeManager
+	taskManager         task.TaskManager
+	replicationFilter   *tablefiltering.TableFilter
+	snapshotter         *snapshotting.Snapshotter
+	logger              *logging.Logger
+	rwLock              sync.RWMutex
 }
 
 func NewSystemCatalog(
 	config *config.Config, replicationContext replicationcontext.ReplicationContext,
 	typeManager pgtypes.TypeManager, snapshotter *snapshotting.Snapshotter, taskManager task.TaskManager,
-	publicationManager publication.PublicationManager,
+	publicationManager publication.PublicationManager, stateStorageManager statestorage.Manager,
 ) (systemcatalog.SystemCatalog, error) {
 
 	if config == nil {
@@ -93,13 +95,14 @@ func NewSystemCatalog(
 		hypertable2compressed: make(map[int32]int32),
 		compressed2hypertable: make(map[int32]int32),
 
-		replicationContext: replicationContext,
-		replicationFilter:  replicationFilter,
-		publicationManager: publicationManager,
-		snapshotter:        snapshotter,
-		typeManager:        typeManager,
-		taskManager:        taskManager,
-		logger:             logger,
+		replicationContext:  replicationContext,
+		stateStorageManager: stateStorageManager,
+		replicationFilter:   replicationFilter,
+		publicationManager:  publicationManager,
+		snapshotter:         snapshotter,
+		typeManager:         typeManager,
+		taskManager:         taskManager,
+		logger:              logger,
 	}, nil
 }
 
@@ -460,7 +463,7 @@ func (s *snapshottingEventHandler) OnHypertableSnapshotStartedEvent(
 	snapshotName string, hypertable *systemcatalog.Hypertable,
 ) error {
 
-	stateManager := s.systemCatalog.replicationContext.StateStorageManager()
+	stateManager := s.systemCatalog.stateStorageManager
 	snapshotContext, err := stateManager.SnapshotContext()
 	if err != nil {
 		return err
@@ -493,7 +496,7 @@ func (s *snapshottingEventHandler) OnHypertableSnapshotFinishedEvent(
 	snapshotName string, hypertable *systemcatalog.Hypertable,
 ) error {
 
-	stateManager := s.systemCatalog.replicationContext.StateStorageManager()
+	stateManager := s.systemCatalog.stateStorageManager
 	if err := stateManager.SnapshotContextTransaction(
 		snapshotName, false,
 		func(snapshotContext *watermark.SnapshotContext) error {

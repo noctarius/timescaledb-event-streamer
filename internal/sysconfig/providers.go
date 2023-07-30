@@ -79,7 +79,7 @@ type SinkManagerProvider = func(
 ) sink.Manager
 
 type SnapshotterProvider = func(
-	*config.Config, replicationcontext.ReplicationContext,
+	*config.Config, statestorage.Manager, sidechannel.SideChannel,
 	task.TaskManager, publication.PublicationManager, pgtypes.TypeManager,
 ) (*snapshotting.Snapshotter, error)
 
@@ -114,7 +114,7 @@ type StreamManagerProvider = func(
 
 type SystemCatalogProvider = func(
 	*config.Config, replicationcontext.ReplicationContext, pgtypes.TypeManager,
-	*snapshotting.Snapshotter, task.TaskManager, publication.PublicationManager,
+	*snapshotting.Snapshotter, task.TaskManager, publication.PublicationManager, statestorage.Manager,
 ) (systemcatalog.SystemCatalog, error)
 
 type EventEmitterProvider = func(

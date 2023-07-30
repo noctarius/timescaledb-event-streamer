@@ -18,8 +18,6 @@ type ReplicationContext interface {
 		ctx context.Context,
 	) (*pgconn.PgConn, error)
 
-	StateStorageManager() statestorage.Manager
-
 	Offset() (*statestorage.Offset, error)
 	SetLastTransactionId(
 		xid uint32,
@@ -77,16 +75,6 @@ type ReplicationContext interface {
 		pgTypeResolver func(oid uint32) (pgtypes.PgType, error),
 		hypertables ...*systemcatalog.Hypertable,
 	) error
-	SnapshotChunkTable(
-		rowDecoderFactory pgtypes.RowDecoderFactory, chunk *systemcatalog.Chunk, cb sidechannel.SnapshotRowCallback,
-	) (pgtypes.LSN, error)
-	FetchHypertableSnapshotBatch(
-		rowDecoderFactory pgtypes.RowDecoderFactory, hypertable *systemcatalog.Hypertable,
-		snapshotName string, cb sidechannel.SnapshotRowCallback,
-	) error
-	ReadSnapshotHighWatermark(
-		rowDecoderFactory pgtypes.RowDecoderFactory, hypertable *systemcatalog.Hypertable, snapshotName string,
-	) (map[string]any, error)
 	ReadReplicaIdentity(
 		entity systemcatalog.SystemEntity,
 	) (pgtypes.ReplicaIdentity, error)
