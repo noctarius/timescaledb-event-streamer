@@ -23,9 +23,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
-	"github.com/noctarius/timescaledb-event-streamer/spi/sidechannel"
 	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
-	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/version"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
@@ -473,49 +471,6 @@ func (t testReplicationContext) IsTSDB212GE() bool {
 
 func (t testReplicationContext) IsLogicalReplicationEnabled() bool {
 	return false
-}
-
-func (t testReplicationContext) HasTablePrivilege(
-	entity systemcatalog.SystemEntity, grant sidechannel.TableGrant,
-) (access bool, err error) {
-
-	return false, err
-}
-
-func (t testReplicationContext) LoadHypertables(
-	cb func(hypertable *systemcatalog.Hypertable) error,
-) error {
-
-	return nil
-}
-
-func (t testReplicationContext) LoadChunks(
-	cb func(chunk *systemcatalog.Chunk) error,
-) error {
-
-	return nil
-}
-
-func (t testReplicationContext) ReadHypertableSchema(
-	cb sidechannel.HypertableSchemaCallback,
-	pgTypeResolver func(oid uint32) (pgtypes.PgType, error), hypertables ...*systemcatalog.Hypertable,
-) error {
-
-	return nil
-}
-
-func (t testReplicationContext) ReadReplicaIdentity(
-	entity systemcatalog.SystemEntity,
-) (pgtypes.ReplicaIdentity, error) {
-
-	return "", nil
-}
-
-func (t testReplicationContext) ReadContinuousAggregate(
-	materializedHypertableId int32,
-) (viewSchema, viewName string, found bool, err error) {
-
-	return "", "", false, nil
 }
 
 func (t testReplicationContext) ExistsReplicationSlot(

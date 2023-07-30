@@ -47,7 +47,7 @@ func (s *systemCatalogReplicationEventHandler) OnRelationEvent(
 				return nil
 			}
 
-			return s.systemCatalog.replicationContext.ReadHypertableSchema(
+			return s.systemCatalog.sideChannel.ReadHypertableSchema(
 				s.systemCatalog.ApplySchemaUpdate, s.systemCatalog.typeManager.ResolveDataType, hypertable,
 			)
 		}
@@ -65,7 +65,7 @@ func (s *systemCatalogReplicationEventHandler) OnHypertableAddedEvent(
 
 			var viewSchema, viewName *string
 			if systemcatalog.IsContinuousAggregateHypertable(hypertableName) {
-				if vS, vN, found, err := s.systemCatalog.replicationContext.ReadContinuousAggregate(id); err != nil {
+				if vS, vN, found, err := s.systemCatalog.sideChannel.ReadContinuousAggregate(id); err != nil {
 					return errors.Errorf("failed reading continuous aggregate information: %+v", err)
 				} else if found {
 					viewSchema = &vS
@@ -73,9 +73,7 @@ func (s *systemCatalogReplicationEventHandler) OnHypertableAddedEvent(
 				}
 			}
 
-			replicaIdentity, err := s.systemCatalog.replicationContext.ReadReplicaIdentity(
-				systemcatalog.NewSystemEntity(schemaName, hypertableName),
-			)
+			replicaIdentity, err := s.systemCatalog.sideChannel.ReadReplicaIdentity(schemaName, hypertableName)
 			if err != nil {
 				return err
 			}
@@ -90,7 +88,7 @@ func (s *systemCatalogReplicationEventHandler) OnHypertableAddedEvent(
 			}
 			s.systemCatalog.logger.Verbosef("Entry Added: Hypertable %d => %s", h.Id(), h)
 
-			return s.systemCatalog.replicationContext.ReadHypertableSchema(
+			return s.systemCatalog.sideChannel.ReadHypertableSchema(
 				s.systemCatalog.ApplySchemaUpdate, s.systemCatalog.typeManager.ResolveDataType, h,
 			)
 		},
@@ -106,7 +104,9 @@ func (s *systemCatalogReplicationEventHandler) OnHypertableUpdatedEvent(
 			compressedHypertableId *int32, compressionState int16, distributed bool) error {
 
 			if hypertable, present := s.systemCatalog.FindHypertableById(id); present {
-				replicaIdentity, err := s.systemCatalog.replicationContext.ReadReplicaIdentity(hypertable)
+				replicaIdentity, err := s.systemCatalog.sideChannel.ReadReplicaIdentity(
+					hypertable.SchemaName(), hypertable.TableName(),
+				)
 				if err != nil {
 					return err
 				}

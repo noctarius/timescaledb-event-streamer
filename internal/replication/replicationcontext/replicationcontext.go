@@ -28,7 +28,6 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/replicationcontext"
 	"github.com/noctarius/timescaledb-event-streamer/spi/sidechannel"
 	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
-	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/version"
 	"github.com/samber/lo"
 	"github.com/urfave/cli"
@@ -337,49 +336,6 @@ func (rc *replicationContext) IsLogicalReplicationEnabled() bool {
 }
 
 // ----> SideChannel functions
-
-func (rc *replicationContext) HasTablePrivilege(
-	entity systemcatalog.SystemEntity, grant sidechannel.TableGrant,
-) (access bool, err error) {
-
-	return rc.sideChannel.HasTablePrivilege(rc.pgxConfig.User, entity, grant)
-}
-
-func (rc *replicationContext) LoadHypertables(
-	cb func(hypertable *systemcatalog.Hypertable) error,
-) error {
-
-	return rc.sideChannel.ReadHypertables(cb)
-}
-
-func (rc *replicationContext) LoadChunks(
-	cb func(chunk *systemcatalog.Chunk) error,
-) error {
-
-	return rc.sideChannel.ReadChunks(cb)
-}
-
-func (rc *replicationContext) ReadHypertableSchema(
-	cb func(hypertable *systemcatalog.Hypertable, columns []systemcatalog.Column) bool,
-	pgTypeResolver func(oid uint32) (pgtypes.PgType, error), hypertables ...*systemcatalog.Hypertable,
-) error {
-
-	return rc.sideChannel.ReadHypertableSchema(cb, pgTypeResolver, hypertables...)
-}
-
-func (rc *replicationContext) ReadReplicaIdentity(
-	entity systemcatalog.SystemEntity,
-) (pgtypes.ReplicaIdentity, error) {
-
-	return rc.sideChannel.ReadReplicaIdentity(entity.SchemaName(), entity.TableName())
-}
-
-func (rc *replicationContext) ReadContinuousAggregate(
-	materializedHypertableId int32,
-) (viewSchema, viewName string, found bool, err error) {
-
-	return rc.sideChannel.ReadContinuousAggregate(materializedHypertableId)
-}
 
 func (rc *replicationContext) ExistsReplicationSlot(
 	slotName string,

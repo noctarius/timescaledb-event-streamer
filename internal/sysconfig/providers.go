@@ -113,7 +113,7 @@ type StreamManagerProvider = func(
 ) (stream.Manager, error)
 
 type SystemCatalogProvider = func(
-	*config.Config, replicationcontext.ReplicationContext, pgtypes.TypeManager,
+	*config.Config, *pgx.ConnConfig, sidechannel.SideChannel, pgtypes.TypeManager,
 	*snapshotting.Snapshotter, task.TaskManager, publication.PublicationManager, statestorage.Manager,
 ) (systemcatalog.SystemCatalog, error)
 

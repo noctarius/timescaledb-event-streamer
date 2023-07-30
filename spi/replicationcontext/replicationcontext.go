@@ -5,9 +5,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
-	"github.com/noctarius/timescaledb-event-streamer/spi/sidechannel"
 	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
-	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/version"
 )
 
@@ -61,26 +59,6 @@ type ReplicationContext interface {
 	IsTSDB212GE() bool
 	IsLogicalReplicationEnabled() bool
 
-	HasTablePrivilege(
-		entity systemcatalog.SystemEntity, grant sidechannel.TableGrant,
-	) (access bool, err error)
-	LoadHypertables(
-		cb func(hypertable *systemcatalog.Hypertable) error,
-	) error
-	LoadChunks(
-		cb func(chunk *systemcatalog.Chunk) error,
-	) error
-	ReadHypertableSchema(
-		cb sidechannel.HypertableSchemaCallback,
-		pgTypeResolver func(oid uint32) (pgtypes.PgType, error),
-		hypertables ...*systemcatalog.Hypertable,
-	) error
-	ReadReplicaIdentity(
-		entity systemcatalog.SystemEntity,
-	) (pgtypes.ReplicaIdentity, error)
-	ReadContinuousAggregate(
-		materializedHypertableId int32,
-	) (viewSchema, viewName string, found bool, err error)
 	ExistsReplicationSlot(
 		slotName string,
 	) (found bool, err error)

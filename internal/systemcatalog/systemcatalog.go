@@ -19,6 +19,7 @@ package systemcatalog
 
 import (
 	"github.com/go-errors/errors"
+	"github.com/jackc/pgx/v5"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/snapshotting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/tablefiltering"
@@ -26,7 +27,6 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/publication"
-	"github.com/noctarius/timescaledb-event-streamer/spi/replicationcontext"
 	"github.com/noctarius/timescaledb-event-streamer/spi/sidechannel"
 	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
@@ -46,8 +46,10 @@ type systemCatalog struct {
 	hypertable2compressed map[int32]int32
 	compressed2hypertable map[int32]int32
 
-	replicationContext  replicationcontext.ReplicationContext
+	username string
+
 	publicationManager  publication.PublicationManager
+	sideChannel         sidechannel.SideChannel
 	stateStorageManager statestorage.Manager
 	typeManager         pgtypes.TypeManager
 	taskManager         task.TaskManager
@@ -58,20 +60,10 @@ type systemCatalog struct {
 }
 
 func NewSystemCatalog(
-	config *config.Config, replicationContext replicationcontext.ReplicationContext,
-	typeManager pgtypes.TypeManager, snapshotter *snapshotting.Snapshotter, taskManager task.TaskManager,
+	config *config.Config, userConfig *pgx.ConnConfig, sideChannel sidechannel.SideChannel, typeManager pgtypes.TypeManager,
+	snapshotter *snapshotting.Snapshotter, taskManager task.TaskManager,
 	publicationManager publication.PublicationManager, stateStorageManager statestorage.Manager,
 ) (systemcatalog.SystemCatalog, error) {
-
-	if config == nil {
-		return nil, errors.New("config must not be nil")
-	}
-	if replicationContext == nil {
-		return nil, errors.New("replicationContext must not be nil")
-	}
-	if snapshotter == nil {
-		return nil, errors.New("snapshotter must not be nil")
-	}
 
 	// Create the Replication Filter, selecting enabled and blocking disabled hypertables for replication
 	filterDefinition := config.TimescaleDB.Hypertables
@@ -95,10 +87,12 @@ func NewSystemCatalog(
 		hypertable2compressed: make(map[int32]int32),
 		compressed2hypertable: make(map[int32]int32),
 
-		replicationContext:  replicationContext,
+		username: userConfig.User,
+
 		stateStorageManager: stateStorageManager,
 		replicationFilter:   replicationFilter,
 		publicationManager:  publicationManager,
+		sideChannel:         sideChannel,
 		snapshotter:         snapshotter,
 		typeManager:         typeManager,
 		taskManager:         taskManager,
@@ -352,14 +346,14 @@ func initializeSystemCatalog(
 	sc *systemCatalog,
 ) (*systemCatalog, error) {
 
-	if err := sc.replicationContext.LoadHypertables(func(hypertable *systemcatalog.Hypertable) error {
+	if err := sc.sideChannel.ReadHypertables(func(hypertable *systemcatalog.Hypertable) error {
 		// Check if we want to replicate that hypertable
 		if !sc.replicationFilter.Enabled(hypertable) {
 			return nil
 		}
 
 		// Run basic access check based on user permissions
-		access, err := sc.replicationContext.HasTablePrivilege(hypertable, sidechannel.Select)
+		access, err := sc.sideChannel.HasTablePrivilege(sc.username, hypertable, sidechannel.Select)
 		if err != nil {
 			return errors.Wrap(err, 0)
 		}
@@ -376,7 +370,7 @@ func initializeSystemCatalog(
 		return nil, errors.Wrap(err, 0)
 	}
 
-	if err := sc.replicationContext.LoadChunks(func(chunk *systemcatalog.Chunk) error {
+	if err := sc.sideChannel.ReadChunks(func(chunk *systemcatalog.Chunk) error {
 		if err := sc.RegisterChunk(chunk); err != nil {
 			return errors.Errorf("registering chunk failed: %s (error: %+v)", chunk, err)
 		}
@@ -397,7 +391,7 @@ func initializeSystemCatalog(
 		hypertables = append(hypertables, hypertable)
 	}
 
-	if err := sc.replicationContext.ReadHypertableSchema(
+	if err := sc.sideChannel.ReadHypertableSchema(
 		sc.ApplySchemaUpdate, sc.typeManager.ResolveDataType, hypertables...,
 	); err != nil {
 		return nil, errors.Wrap(err, 0)
