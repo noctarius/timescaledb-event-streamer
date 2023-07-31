@@ -37,6 +37,7 @@ jobs:
 
     - name: Format
       run: |
+        go install github.com/lluissm/license-header-checker/cmd/license-header-checker@v1.4.0
         make fmt
         git diff --exit-code .
 

@@ -37,6 +37,7 @@ build:
 .PHONY: fmt
 fmt:
 	go fmt ./...
+	./scripts/check_style.sh full
 
 .PHONY: lint
 lint:
