@@ -363,8 +363,8 @@ func (n *immediateNotificator) NotifySystemCatalogReplicationEventHandler(
 	}
 }
 
-func (n *immediateNotificator) NotifyCompressionReplicationEventHandler(fn func(
-	handler eventhandlers.CompressionReplicationEventHandler) error,
+func (n *immediateNotificator) NotifyCompressionReplicationEventHandler(
+	fn func(handler eventhandlers.CompressionReplicationEventHandler) error,
 ) {
 
 	for _, handler := range n.dispatcher.compressionHandlers {

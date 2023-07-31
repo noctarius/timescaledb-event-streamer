@@ -33,7 +33,10 @@ func (m *baseMessage) Type() pglogrepl.MessageType {
 	return m.msgType
 }
 
-func (m *baseMessage) SetType(t pglogrepl.MessageType) {
+func (m *baseMessage) SetType(
+	t pglogrepl.MessageType,
+) {
+
 	m.msgType = t
 }
 

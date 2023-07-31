@@ -26,12 +26,18 @@ type JsonEncoder struct {
 	marshallerFunction func(value any) ([]byte, error)
 }
 
-func NewJsonEncoderWithConfig(c *config.Config) *JsonEncoder {
+func NewJsonEncoderWithConfig(
+	c *config.Config,
+) *JsonEncoder {
+
 	customReflection := config.GetOrDefault(c, config.PropertyEncodingCustomReflection, true)
 	return NewJsonEncoder(customReflection)
 }
 
-func NewJsonEncoder(customReflection bool) *JsonEncoder {
+func NewJsonEncoder(
+	customReflection bool,
+) *JsonEncoder {
+
 	marshallerFunction := json.Marshal
 	if customReflection {
 		marshallerFunction = json.MarshalNoEscape
@@ -42,7 +48,10 @@ func NewJsonEncoder(customReflection bool) *JsonEncoder {
 	}
 }
 
-func (j *JsonEncoder) Marshal(value any) ([]byte, error) {
+func (j *JsonEncoder) Marshal(
+	value any,
+) ([]byte, error) {
+
 	return j.marshallerFunction(value)
 }
 
@@ -50,12 +59,18 @@ type JsonDecoder struct {
 	unmarshallerFunction func(data []byte, v any) error
 }
 
-func NewJsonDecoderWithConfig(c *config.Config) *JsonDecoder {
+func NewJsonDecoderWithConfig(
+	c *config.Config,
+) *JsonDecoder {
+
 	customReflection := config.GetOrDefault(c, config.PropertyEncodingCustomReflection, true)
 	return NewJsonDecoder(customReflection)
 }
 
-func NewJsonDecoder(customReflection bool) *JsonDecoder {
+func NewJsonDecoder(
+	customReflection bool,
+) *JsonDecoder {
+
 	unmarshallerFunction := json.Unmarshal
 	if customReflection {
 		unmarshallerFunction = func(data []byte, v any) error {
@@ -68,6 +83,9 @@ func NewJsonDecoder(customReflection bool) *JsonDecoder {
 	}
 }
 
-func (j *JsonDecoder) Unmarshal(data []byte, v any) error {
+func (j *JsonDecoder) Unmarshal(
+	data []byte, v any,
+) error {
+
 	return j.unmarshallerFunction(data, v)
 }

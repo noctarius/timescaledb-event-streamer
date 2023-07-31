@@ -19,7 +19,10 @@ package pgtypes
 
 import "github.com/jackc/pgx/v5/pgtype"
 
-func AsFieldLength(typ PgType, modifiers int) (int, bool) {
+func AsFieldLength(
+	typ PgType, modifiers int,
+) (int, bool) {
+
 	switch typ.Oid() {
 	case pgtype.BitOID, pgtype.VarbitOID, pgtype.BitArrayOID, pgtype.VarbitArrayOID:
 		if modifiers > 1 {

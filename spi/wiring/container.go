@@ -26,7 +26,10 @@ type Container interface {
 	Service(service any) error
 }
 
-func NewContainer(modules ...Module) (Container, error) {
+func NewContainer(
+	modules ...Module,
+) (Container, error) {
+
 	injector := do.New()
 
 	// Register providers
@@ -52,7 +55,10 @@ type container struct {
 	injector *do.Injector
 }
 
-func (c *container) Service(service any) error {
+func (c *container) Service(
+	service any,
+) error {
+
 	serviceValue := reflect.ValueOf(service)
 
 	if serviceValue.Kind() == reflect.Pointer {

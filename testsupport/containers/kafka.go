@@ -26,15 +26,19 @@ import (
 	"math"
 )
 
-const starterScript = "/usr/sbin/testcontainers_start.sh"
+const (
+	starterScript              = "/usr/sbin/testcontainers_start.sh"
+	defaultListenerAddresses   = "PLAINTEXT://0.0.0.0:9093,BROKER://0.0.0.0:9092,CONTROLLER://0.0.0.0:9094"
+	defaultSecurityProtocolMap = "BROKER:PLAINTEXT,PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT"
+)
 
 func SetupKafkaContainer() (testcontainers.Container, []string, error) {
 	containerRequest := testcontainers.ContainerRequest{
 		Image:        "confluentinc/cp-kafka:7.3.3",
 		ExposedPorts: []string{"9093/tcp"},
 		Env: map[string]string{
-			"KAFKA_LISTENERS":                                "PLAINTEXT://0.0.0.0:9093,BROKER://0.0.0.0:9092,CONTROLLER://0.0.0.0:9094",
-			"KAFKA_LISTENER_SECURITY_PROTOCOL_MAP":           "BROKER:PLAINTEXT,PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT",
+			"KAFKA_LISTENERS":                                defaultListenerAddresses,
+			"KAFKA_LISTENER_SECURITY_PROTOCOL_MAP":           defaultSecurityProtocolMap,
 			"KAFKA_INTER_BROKER_LISTENER_NAME":               "BROKER",
 			"KAFKA_BROKER_ID":                                "1",
 			"KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR":         "1",
@@ -94,7 +98,8 @@ source /etc/confluent/docker/bash-config
 export KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://%s:%d,BROKER://%s:9092
 echo Starting Kafka KRaft mode
 sed -i '/KAFKA_ZOOKEEPER_CONNECT/d' /etc/confluent/docker/configure
-echo 'kafka-storage format --ignore-formatted -t "$(kafka-storage random-uuid)" -c /etc/kafka/kafka.properties' >> /etc/confluent/docker/configure
+echo 'kafka-storage format --ignore-formatted -t "$(kafka-storage random-uuid)" \
+-c /etc/kafka/kafka.properties' >> /etc/confluent/docker/configure
 echo '' > /etc/confluent/docker/ensure
 /etc/confluent/docker/configure
 /etc/confluent/docker/launch`,

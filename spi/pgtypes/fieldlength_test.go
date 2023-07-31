@@ -138,7 +138,10 @@ var fieldLengthTestCases = []fieldLengthTestCase{
 	},
 }
 
-func Test_Field_Length(t *testing.T) {
+func Test_Field_Length(
+	t *testing.T,
+) {
+
 	for _, testCase := range fieldLengthTestCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			typ := &mockPgType{}

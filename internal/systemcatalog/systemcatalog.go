@@ -60,8 +60,8 @@ type systemCatalog struct {
 }
 
 func NewSystemCatalog(
-	config *config.Config, userConfig *pgx.ConnConfig, sideChannel sidechannel.SideChannel, typeManager pgtypes.TypeManager,
-	snapshotter *snapshotting.Snapshotter, taskManager task.TaskManager,
+	config *config.Config, userConfig *pgx.ConnConfig, sideChannel sidechannel.SideChannel,
+	typeManager pgtypes.TypeManager, snapshotter *snapshotting.Snapshotter, taskManager task.TaskManager,
 	publicationManager publication.PublicationManager, stateStorageManager statestorage.Manager,
 ) (systemcatalog.SystemCatalog, error) {
 

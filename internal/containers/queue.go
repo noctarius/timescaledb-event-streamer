@@ -27,7 +27,10 @@ type Queue[E any] struct {
 	locked    atomic.Bool
 }
 
-func NewQueue[E any](maxSize int) *Queue[E] {
+func NewQueue[E any](
+	maxSize int,
+) *Queue[E] {
+
 	return &Queue[E]{
 		queueChan: make(chan E, maxSize),
 		locked:    atomic.Bool{},

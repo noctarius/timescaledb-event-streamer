@@ -357,7 +357,10 @@ func (l *Logger) log(
 	}
 }
 
-func (l *Logger) levelEnabled(level slog.Level) bool {
+func (l *Logger) levelEnabled(
+	level slog.Level,
+) bool {
+
 	if l.level >= level || (level == VerboseLevel && WithVerbose) {
 		return true
 	}

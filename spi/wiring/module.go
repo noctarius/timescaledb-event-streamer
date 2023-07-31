@@ -58,7 +58,10 @@ func ForceInitialization() ProvideOption {
 type forceInitializationProvideOption struct {
 }
 
-func (f forceInitializationProvideOption) applyProvideOption(info *bindingInfo) {
+func (f forceInitializationProvideOption) applyProvideOption(
+	info *bindingInfo,
+) {
+
 	info.forceInit = true
 }
 
@@ -70,7 +73,10 @@ type Module interface {
 	stage2(injector *do.Injector) error
 }
 
-func DefineModule(name string, definer func(module Module)) Module {
+func DefineModule(
+	name string, definer func(module Module),
+) Module {
+
 	module := &module{
 		name: name,
 	}
@@ -83,7 +89,10 @@ type module struct {
 	bindings []*bindingInfo
 }
 
-func (m *module) stage1(injector *do.Injector) error {
+func (m *module) stage1(
+	injector *do.Injector,
+) error {
+
 	for _, binding := range m.bindings {
 		if binding.invoker == nil {
 			if lo.Contains(injector.ListProvidedServices(), binding.output.name) {
@@ -96,7 +105,10 @@ func (m *module) stage1(injector *do.Injector) error {
 	return nil
 }
 
-func (m *module) stage2(injector *do.Injector) error {
+func (m *module) stage2(
+	injector *do.Injector,
+) error {
+
 	for _, binding := range m.bindings {
 		if binding.invoker != nil {
 			if err := binding.invoker(injector); err != nil {
@@ -112,7 +124,10 @@ func (m *module) stage2(injector *do.Injector) error {
 	return nil
 }
 
-func (m *module) MayProvide(constructor any, options ...ProvideOption) {
+func (m *module) MayProvide(
+	constructor any, options ...ProvideOption,
+) {
+
 	if constructor == nil {
 		return
 	}
@@ -122,7 +137,10 @@ func (m *module) MayProvide(constructor any, options ...ProvideOption) {
 	m.Provide(constructor, options...)
 }
 
-func (m *module) Provide(constructor any, options ...ProvideOption) {
+func (m *module) Provide(
+	constructor any, options ...ProvideOption,
+) {
+
 	t := reflect.TypeOf(constructor)
 	if t.Kind() != reflect.Func {
 		panic(errors.Errorf("Type %s is not a function", t.String()))
@@ -194,7 +212,10 @@ func (m *module) Provide(constructor any, options ...ProvideOption) {
 	m.bindings = append(m.bindings, binding)
 }
 
-func (m *module) Invoke(call any) {
+func (m *module) Invoke(
+	call any,
+) {
+
 	t := reflect.TypeOf(call)
 	if t.Kind() != reflect.Func {
 		panic(errors.Errorf("Type %s is not a function", t.String()))
@@ -249,7 +270,10 @@ func (m *module) Invoke(call any) {
 	m.bindings = append(m.bindings, binding)
 }
 
-func asError[T any](t T) error {
+func asError[T any](
+	t T,
+) error {
+
 	return any(t).(error)
 }
 

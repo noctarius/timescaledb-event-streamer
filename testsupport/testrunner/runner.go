@@ -90,11 +90,17 @@ type SetupContext interface {
 	)
 }
 
-func Attribute[V any](context Context, key string, value V) {
+func Attribute[V any](
+	context Context, key string, value V,
+) {
+
 	context.attribute(key, value)
 }
 
-func GetAttribute[V any](context Context, key string) V {
+func GetAttribute[V any](
+	context Context, key string,
+) V {
+
 	return context.getAttribute(key).(V)
 }
 
@@ -102,37 +108,59 @@ type testPrivilegedContext struct {
 	pool *pgxpool.Pool
 }
 
-func (t *testPrivilegedContext) Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
+func (t *testPrivilegedContext) Exec(
+	ctx context.Context, sql string, args ...any,
+) (pgconn.CommandTag, error) {
+
 	return t.pool.Exec(ctx, sql, args...)
 }
 
-func (t *testPrivilegedContext) Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
+func (t *testPrivilegedContext) Query(
+	ctx context.Context, sql string, args ...any,
+) (pgx.Rows, error) {
+
 	return t.pool.Query(ctx, sql, args...)
 }
 
-func (t *testPrivilegedContext) QueryRow(ctx context.Context, sql string, args ...any) pgx.Row {
+func (t *testPrivilegedContext) QueryRow(
+	ctx context.Context, sql string, args ...any,
+) pgx.Row {
+
 	return t.pool.QueryRow(ctx, sql, args...)
 }
 
-func (t *testPrivilegedContext) SendBatch(ctx context.Context, batch *pgx.Batch) pgx.BatchResults {
+func (t *testPrivilegedContext) SendBatch(
+	ctx context.Context, batch *pgx.Batch,
+) pgx.BatchResults {
+
 	return t.pool.SendBatch(ctx, batch)
 }
 
-func (t *testPrivilegedContext) CopyFrom(ctx context.Context, identifier pgx.Identifier,
-	strings []string, source pgx.CopyFromSource) (int64, error) {
+func (t *testPrivilegedContext) CopyFrom(
+	ctx context.Context, identifier pgx.Identifier, strings []string, source pgx.CopyFromSource,
+) (int64, error) {
 
 	return t.pool.CopyFrom(ctx, identifier, strings, source)
 }
 
-func (t *testPrivilegedContext) Begin(ctx context.Context) (pgx.Tx, error) {
+func (t *testPrivilegedContext) Begin(
+	ctx context.Context,
+) (pgx.Tx, error) {
+
 	return t.pool.Begin(ctx)
 }
 
-func (t *testPrivilegedContext) BeginTx(ctx context.Context, txOptions pgx.TxOptions) (pgx.Tx, error) {
+func (t *testPrivilegedContext) BeginTx(
+	ctx context.Context, txOptions pgx.TxOptions,
+) (pgx.Tx, error) {
+
 	return t.pool.BeginTx(ctx, txOptions)
 }
 
-func (t *testPrivilegedContext) Ping(ctx context.Context) error {
+func (t *testPrivilegedContext) Ping(
+	ctx context.Context,
+) error {
+
 	return t.pool.Ping(ctx)
 }
 
@@ -198,7 +226,10 @@ func (t *testContext) TimescaleVersion() version.TimescaleVersion {
 	return tsv
 }
 
-func (t *testContext) PrivilegedContext(fn func(context PrivilegedContext) error) error {
+func (t *testContext) PrivilegedContext(
+	fn func(context PrivilegedContext) error,
+) error {
+
 	pool, err := pgxpool.NewWithConfig(context.Background(), t.superuserConfig)
 	if err != nil {
 		return err
@@ -209,8 +240,9 @@ func (t *testContext) PrivilegedContext(fn func(context PrivilegedContext) error
 	return fn(subTestContext)
 }
 
-func (t *testContext) CreateHypertable(timeDimension string,
-	chunkSize time.Duration, columns ...inttest.Column) (string, string, error) {
+func (t *testContext) CreateHypertable(
+	timeDimension string, chunkSize time.Duration, columns ...inttest.Column,
+) (string, string, error) {
 
 	schemaName, tableName, err := inttest.CreateHypertable(t.pool, timeDimension, chunkSize, columns...)
 	if err != nil {
@@ -220,7 +252,10 @@ func (t *testContext) CreateHypertable(timeDimension string,
 	return schemaName, tableName, nil
 }
 
-func (t *testContext) AddSystemConfigConfigurator(fn func(config *sysconfig.SystemConfig)) {
+func (t *testContext) AddSystemConfigConfigurator(
+	fn func(config *sysconfig.SystemConfig),
+) {
+
 	t.systemConfigConfigurators = append(t.systemConfigConfigurators, fn)
 }
 
@@ -236,23 +271,35 @@ type TestRunner struct {
 	withCaller bool
 }
 
-func (t *testContext) attribute(key string, value any) {
+func (t *testContext) attribute(
+	key string, value any,
+) {
+
 	t.attributes[key] = value
 }
 
-func (t *testContext) getAttribute(key string) any {
+func (t *testContext) getAttribute(
+	key string,
+) any {
+
 	return t.attributes[key]
 }
 
 type testConfigurator func(ctx *testContext)
 
-func WithSetup(fn func(ctx SetupContext) error) testConfigurator {
+func WithSetup(
+	fn func(ctx SetupContext) error,
+) testConfigurator {
+
 	return func(ctx *testContext) {
 		ctx.setupFunctions = append(ctx.setupFunctions, fn)
 	}
 }
 
-func WithTearDown(fn func(ctx Context) error) testConfigurator {
+func WithTearDown(
+	fn func(ctx Context) error,
+) testConfigurator {
+
 	return func(ctx *testContext) {
 		ctx.tearDownFunction = append(ctx.tearDownFunction, fn)
 	}
@@ -318,7 +365,10 @@ func (tr *TestRunner) TearDownSuite() {
 	logging.WithCaller = tr.withCaller
 }
 
-func (tr *TestRunner) RunTest(testFn func(context Context) error, configurators ...testConfigurator) {
+func (tr *TestRunner) RunTest(
+	testFn func(context Context) error, configurators ...testConfigurator,
+) {
+
 	pool, err := pgxpool.NewWithConfig(context.Background(), tr.userConfig)
 	if err != nil {
 		tr.T().Fatalf("failed to create connection pool: %+v", err)
@@ -400,7 +450,10 @@ type ContainerLogForwarder struct {
 	Logger *logging.Logger
 }
 
-func (c *ContainerLogForwarder) Accept(log testcontainers.Log) {
+func (c *ContainerLogForwarder) Accept(
+	log testcontainers.Log,
+) {
+
 	switch log.LogType {
 	case testcontainers.StdoutLog:
 		c.Logger.Infof(string(log.Content))

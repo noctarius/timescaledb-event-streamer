@@ -43,7 +43,10 @@ type LogicalReplicationMessage struct {
 	Content []byte
 }
 
-func (m *LogicalReplicationMessage) Decode(src []byte) (err error) {
+func (m *LogicalReplicationMessage) Decode(
+	src []byte,
+) (err error) {
+
 	var low, used int
 	m.Flags = src[0]
 	low += 1

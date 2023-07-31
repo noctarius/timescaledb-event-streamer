@@ -26,7 +26,10 @@ import (
 
 var emptyList []string
 
-func asList(v ...string) []string {
+func asList(
+	v ...string,
+) []string {
+
 	return v
 }
 

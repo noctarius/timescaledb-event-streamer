@@ -79,7 +79,10 @@ var DynamicModule = wiring.DefineModule(
 	},
 )
 
-func OverridesModule(config *sysconfig.SystemConfig) wiring.Module {
+func OverridesModule(
+	config *sysconfig.SystemConfig,
+) wiring.Module {
+
 	return wiring.DefineModule("Overrides", func(module wiring.Module) {
 		module.MayProvide(config.EventEmitterProvider)
 		module.MayProvide(config.LogicalReplicationResolverProvider)

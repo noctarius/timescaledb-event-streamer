@@ -42,7 +42,7 @@ const (
 
 // Description returns a description of this REPLICA IDENTITY
 // Values are in sync with debezium project:
-// https://github.com/debezium/debezium/blob/main/debezium-connector-postgres/src/main/java/io/debezium/connector/postgresql/connection/ServerInfo.java
+// debezium-connector-postgres/src/main/java/io/debezium/connector/postgresql/connection/ServerInfo.java
 func (ri ReplicaIdentity) Description() string {
 	switch ri {
 	case NOTHING:

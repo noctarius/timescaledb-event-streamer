@@ -406,7 +406,10 @@ func (tm *typeManager) registerType(
 	return nil
 }
 
-func (tm *typeManager) knownInTypeMap(oid uint32) (known bool) {
+func (tm *typeManager) knownInTypeMap(
+	oid uint32,
+) (known bool) {
+
 	_, known = tm.typeMap.TypeForOID(oid)
 	return
 }

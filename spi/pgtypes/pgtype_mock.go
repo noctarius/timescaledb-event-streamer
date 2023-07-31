@@ -121,7 +121,10 @@ func (t *mockPgType) Format() string {
 	return args.String(0)
 }
 
-func (t *mockPgType) Equal(other PgType) bool {
+func (t *mockPgType) Equal(
+	other PgType,
+) bool {
+
 	args := t.Called(other)
 	return args.Bool(0)
 }

@@ -81,7 +81,10 @@ func CreateHypertable(
 	return DatabaseSchema, tableName, nil
 }
 
-func RandomNumber(min, max int) int {
+func RandomNumber(
+	min, max int,
+) int {
+
 	return min + rand.Intn(max-min)
 }
 
