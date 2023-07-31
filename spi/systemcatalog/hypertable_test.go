@@ -266,3 +266,7 @@ func (t *testPgType) Format() string {
 func (t *testPgType) Equal(_ pgtypes.PgType) bool {
 	return true
 }
+
+func (t *testPgType) CompositeColumns() ([]pgtypes.CompositeColumn, error) {
+	return nil, nil
+}

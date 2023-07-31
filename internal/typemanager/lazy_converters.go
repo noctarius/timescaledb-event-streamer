@@ -57,31 +57,6 @@ func (lac *lazyArrayConverter) convert(
 	return lac.converter(oid, value)
 }
 
-/*type lazyCustomTypeConverter struct {
-	typeManager *typeManager
-	oidElement  uint32
-	converter   pgtypes.TypeConverter
-}
-
-func (lctc *lazyCustomTypeConverter) convert(
-	oid uint32, value any,
-) (any, error) {
-	if lctc.converter == nil {
-		typ, err := lctc.typeManager.ResolveDataType(lctc.oidElement)
-		if err != nil {
-			return nil, err
-		}
-
-		if typ.Kind() == pgtypes.EnumKind {
-			lctc.converter = enum2string
-		} else {
-			return nil, errIllegalValue
-		}
-	}
-
-	return lctc.converter(oid, value)
-}*/
-
 func schemaType2ReflectiveType(
 	schemaType schema.Type,
 ) (reflect.Type, error) {

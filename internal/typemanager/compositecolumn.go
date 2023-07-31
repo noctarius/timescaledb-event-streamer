@@ -15,26 +15,48 @@
  * limitations under the License.
  */
 
-package pgtypes
+package typemanager
 
 import (
-	"github.com/jackc/pglogrepl"
-	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 )
 
-type TypeManager interface {
-	ResolveDataType(
-		oid uint32,
-	) (PgType, error)
-	ResolveTypeConverter(
-		oid uint32,
-	) (TypeConverter, error)
-	NumKnownTypes() int
-	DecodeTuples(
-		relation *RelationMessage, tupleData *pglogrepl.TupleData,
-	) (map[string]any, error)
-	GetOrPlanTupleDecoder(relation *RelationMessage) (TupleDecoderPlan, error)
-	GetOrPlanRowDecoder(fields []pgconn.FieldDescription) (RowDecoder, error)
-	RegisterColumnType(column schema.ColumnAlike) error
+type compositeColumn struct {
+	name      string
+	typ       pgtypes.PgType
+	modifiers int
+	nullable  bool
+}
+
+func newCompositeColumn(
+	name string, typ pgtypes.PgType, modifiers int, nullable bool,
+) *compositeColumn {
+
+	return &compositeColumn{
+		name:      name,
+		typ:       typ,
+		modifiers: modifiers,
+		nullable:  nullable,
+	}
+}
+
+func (cc *compositeColumn) Name() string {
+	return cc.name
+}
+
+func (cc *compositeColumn) Type() pgtypes.PgType {
+	return cc.typ
+}
+
+func (cc *compositeColumn) Modifiers() int {
+	return cc.modifiers
+}
+
+func (cc *compositeColumn) Nullable() bool {
+	return cc.nullable
+}
+
+func (cc *compositeColumn) SchemaBuilder() schema.Builder {
+	return cc.typ.SchemaBuilder().FieldName(cc.name).Clone()
 }

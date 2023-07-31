@@ -37,7 +37,7 @@ const (
 
 type HypertableSchemaCallback = func(
 	hypertable *systemcatalog.Hypertable, columns []systemcatalog.Column,
-) bool
+) error
 
 type SnapshotRowCallback = func(
 	lsn pgtypes.LSN, values map[string]any,
@@ -109,6 +109,9 @@ type SideChannel interface {
 		slotName string,
 	) (found bool, err error)
 	ReadPgTypes(
-		factory pgtypes.TypeFactory, cb func(pgType pgtypes.PgType) error, oids ...uint32,
+		factory pgtypes.TypeFactory, cb func(typ pgtypes.PgType) error, oids ...uint32,
 	) error
+	ReadPgCompositeTypeSchema(
+		oid uint32, compositeColumnFactory pgtypes.CompositeColumnFactory,
+	) ([]pgtypes.CompositeColumn, error)
 }

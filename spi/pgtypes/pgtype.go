@@ -75,6 +75,7 @@ type PgType interface {
 	Modifiers() int
 	EnumValues() []string
 	Delimiter() string
+	CompositeColumns() ([]CompositeColumn, error)
 	SchemaType() schema.Type
 	Format() string
 	Equal(

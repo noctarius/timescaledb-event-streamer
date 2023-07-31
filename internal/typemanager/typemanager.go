@@ -177,6 +177,7 @@ func (tm *typeManager) ResolveDataType(
 		return nil, errors.Errorf("illegal oid: %d", oid)
 	}
 
+	// Try again
 	t, present = get()
 	if !present {
 		panic("illegal state, PgType not available after successful resolve")
@@ -253,6 +254,48 @@ func (tm *typeManager) GetOrPlanRowDecoder(
 	return newRowDecoder(tm, fields)
 }
 
+func (tm *typeManager) RegisterColumnType(
+	column schema.ColumnAlike,
+) error {
+
+	if !tm.knownInTypeMap(column.DataType()) {
+		typ, err := tm.ResolveDataType(column.DataType())
+		if err != nil {
+			return err
+		}
+
+		// We only handle struct schema types here. Everything else should
+		// already be registered, or this is a bug
+		if typ.SchemaType() == schema.STRUCT {
+			codec, err := newCompositeCodec(tm, typ)
+			if err != nil {
+				return err
+			}
+
+			converter, err := newCompositeConverter(tm, typ)
+			if err != nil {
+				return err
+			}
+
+			tm.typeCacheMutex.Lock()
+			registration, present := tm.dynamicConverters[typ.Oid()]
+			if !present {
+				return errors.Errorf("Not found registration for lazy type map %d", column.DataType())
+			}
+			registration.codec = codec
+			registration.converter = converter
+			tm.dynamicConverters[typ.Oid()] = registration
+			tm.typeCacheMutex.Unlock()
+			if err := tm.registerTypeInTypeMap(typ, registration); err != nil {
+				return err
+			}
+		} else {
+			return errors.Errorf("Cannot lazily register type %d in type map", column.DataType())
+		}
+	}
+	return nil
+}
+
 func (tm *typeManager) getSchemaType(
 	oid uint32, arrayType bool, kind pgtypes.PgKind,
 ) schema.Type {
@@ -272,16 +315,16 @@ func (tm *typeManager) getSchemaType(
 }
 
 func (tm *typeManager) resolveSchemaBuilder(
-	pgType *pgType,
+	typ *pgType,
 ) schema.Builder {
 
-	if registration, present := tm.optimizedConverters[pgType.oid]; present {
+	if registration, present := tm.optimizedConverters[typ.oid]; present {
 		if registration.schemaBuilder != nil {
 			return registration.schemaBuilder
 		}
 	}
 
-	switch pgType.schemaType {
+	switch typ.schemaType {
 	case schema.INT8:
 		return schema.Int8()
 
@@ -304,10 +347,10 @@ func (tm *typeManager) resolveSchemaBuilder(
 		return schema.Boolean()
 
 	case schema.STRING:
-		if pgType.kind == pgtypes.EnumKind {
-			return schema.Enum(pgType.EnumValues())
+		if typ.kind == pgtypes.EnumKind {
+			return schema.Enum(typ.EnumValues())
 		}
-		switch pgType.oid {
+		switch typ.oid {
 		case pgtype.JSONOID, pgtype.JSONBOID:
 			return schema.Json()
 
@@ -317,7 +360,7 @@ func (tm *typeManager) resolveSchemaBuilder(
 		case pgtype.BitOID:
 			// TODO: needs better handling
 
-		case 142: // XML
+		case pgtypes.XmlOID: // XML
 			return schema.Xml()
 		}
 		return schema.String()
@@ -326,15 +369,48 @@ func (tm *typeManager) resolveSchemaBuilder(
 		return schema.Bytes()
 
 	case schema.ARRAY:
-		elementType := pgType.ElementType()
-		return schema.NewSchemaBuilder(pgType.schemaType).ValueSchema(elementType.SchemaBuilder())
+		elementType := typ.ElementType()
+		return schema.NewSchemaBuilder(typ.schemaType).ValueSchema(elementType.SchemaBuilder())
 
 	case schema.MAP:
+		// FIXME: Implement Map Schema Type
+		return nil
+
+	case schema.STRUCT:
+		if typ.Kind() == pgtypes.CompositeKind {
+			columns, err := typ.CompositeColumns()
+			if err != nil {
+				panic(err)
+			}
+			schemaBuilder := schema.NewSchemaBuilder(typ.schemaType)
+			for i, column := range columns {
+				schemaBuilder = schemaBuilder.Field(column.Name(), i, column.SchemaBuilder())
+			}
+			return schemaBuilder.Clone()
+		}
+
+		if typ.Kind() == pgtypes.DomainKind {
+			baseType := typ.BaseType()
+			return baseType.SchemaBuilder().SchemaName(fmt.Sprintf("%s.Type", typ.name)).Clone()
+		}
+
 		return nil
 
 	default:
 		return nil
 	}
+}
+
+func (tm *typeManager) resolveCompositeTypeColumns(
+	typ *pgType,
+) ([]pgtypes.CompositeColumn, error) {
+
+	return tm.sideChannel.ReadPgCompositeTypeSchema(
+		typ.oid, func(name string, oid uint32, modifiers int, nullable bool) pgtypes.CompositeColumn {
+			columnType := tm.typeCache[oid]
+			return newCompositeColumn(name, columnType, modifiers, nullable)
+		},
+	)
 }
 
 func (tm *typeManager) registerType(
@@ -396,11 +472,17 @@ func (tm *typeManager) registerType(
 
 	// Object types (all remaining) need to be handled specifically
 	if typ.SchemaType() == schema.STRUCT {
-		// TODO: ignore for now - missing implementation
-		registration := typeRegistration{
-			schemaType: typ.SchemaType(),
+		if typ.Kind() == pgtypes.CompositeKind {
+			registration := typeRegistration{
+				schemaType: typ.SchemaType(),
+			}
+			tm.dynamicConverters[typ.Oid()] = registration
+			// Attention: Type map registration is lazy to prevent heavy
+			// reading of columns for unused types:
+			// See @RegisterColumnTypes
 		}
-		tm.dynamicConverters[typ.Oid()] = registration
+
+		// TODO: ignore all other types for now - missing implementation
 	}
 
 	return nil

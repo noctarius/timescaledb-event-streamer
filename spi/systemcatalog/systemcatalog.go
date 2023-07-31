@@ -76,7 +76,7 @@ type SystemCatalog interface {
 
 	ApplySchemaUpdate(
 		hypertable *Hypertable, columns []Column,
-	) bool
+	) error
 
 	GetAllChunks() []SystemEntity
 }

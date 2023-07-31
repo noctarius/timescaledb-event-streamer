@@ -17,24 +17,16 @@
 
 package pgtypes
 
-import (
-	"github.com/jackc/pglogrepl"
-	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
-)
+import "github.com/noctarius/timescaledb-event-streamer/spi/schema"
 
-type TypeManager interface {
-	ResolveDataType(
-		oid uint32,
-	) (PgType, error)
-	ResolveTypeConverter(
-		oid uint32,
-	) (TypeConverter, error)
-	NumKnownTypes() int
-	DecodeTuples(
-		relation *RelationMessage, tupleData *pglogrepl.TupleData,
-	) (map[string]any, error)
-	GetOrPlanTupleDecoder(relation *RelationMessage) (TupleDecoderPlan, error)
-	GetOrPlanRowDecoder(fields []pgconn.FieldDescription) (RowDecoder, error)
-	RegisterColumnType(column schema.ColumnAlike) error
+type CompositeColumnFactory func(
+	name string, oid uint32, modifiers int, nullable bool,
+) CompositeColumn
+
+type CompositeColumn interface {
+	schema.Buildable
+	Name() string
+	Type() PgType
+	Modifiers() int
+	Nullable() bool
 }

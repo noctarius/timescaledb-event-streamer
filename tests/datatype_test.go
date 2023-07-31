@@ -938,6 +938,19 @@ var dataTypeTable = []DataTypeTest{
 		value:                "Foo",
 		expected:             quickCheckValue[string],
 	},
+	{
+		name:                 "Composite Type",
+		pgTypeName:           "mytype",
+		customTypeDefinition: "CREATE TYPE tsdb.mytype AS (id uuid, time timestamptz)",
+		schemaType:           schema.STRUCT,
+		value:                "'(\"392eefd4-1892-46fc-ad73-953f024bd176\", \"2023-01-01\")'::mytype",
+		insertPlain:          true,
+		expectedValueOverride: map[string]any{
+			"id":   "392eefd4-1892-46fc-ad73-953f024bd176",
+			"time": "2023-01-01T00:00:00Z",
+		},
+		expected: quickCheckValue[map[string]any],
+	},
 }
 
 const lookupTypeOidQuery = "SELECT oid FROM pg_catalog.pg_type where typname = $1"

@@ -295,13 +295,17 @@ func (sc *systemCatalog) UnregisterChunk(
 
 func (sc *systemCatalog) ApplySchemaUpdate(
 	hypertable *systemcatalog.Hypertable, columns []systemcatalog.Column,
-) bool {
+) error {
 
 	if difference := hypertable.ApplyTableSchema(columns); difference != nil {
 		sc.logger.Verbosef("Schema Update: Hypertable %d => %+v", hypertable.Id(), difference)
-		return len(difference) > 0
+		for _, column := range columns {
+			if err := sc.typeManager.RegisterColumnType(column); err != nil {
+				return err
+			}
+		}
 	}
-	return false
+	return nil
 }
 
 func (sc *systemCatalog) GetAllChunks() []systemcatalog.SystemEntity {

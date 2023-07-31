@@ -196,3 +196,16 @@ LIMIT 1`
 const queryCheckUserTablePrivilege = `SELECT HAS_TABLE_PRIVILEGE($1, $2, $3)`
 
 // endregion
+
+// region PostgreSQL Type Queries
+const queryReadCompositeTypeSchema = `
+SELECT a.attname,
+       a.atttypid,
+       a.atttypmod,
+       a.attnotnull
+FROM pg_catalog.pg_attribute a
+RIGHT JOIN pg_catalog.pg_class pc on pc.reltype = $1
+WHERE a.attrelid = pc.oid AND a.attnum > 0 AND NOT a.attisdropped
+ORDER BY a.attnum`
+
+// endregion

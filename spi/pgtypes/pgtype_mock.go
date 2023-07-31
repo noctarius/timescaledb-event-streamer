@@ -26,6 +26,11 @@ type mockPgType struct {
 	mock.Mock
 }
 
+func (t *mockPgType) CompositeColumns() ([]CompositeColumn, error) {
+	args := t.Called()
+	return args.Get(0).([]CompositeColumn), args.Error(1)
+}
+
 func (t *mockPgType) SchemaBuilder() schema.Builder {
 	args := t.Called()
 	return args.Get(0).(schema.Builder)

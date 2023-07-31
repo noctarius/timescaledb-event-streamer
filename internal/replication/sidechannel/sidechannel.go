@@ -580,6 +580,32 @@ func (sc *sideChannel) ExistsReplicationSlot(
 	return
 }
 
+func (sc *sideChannel) ReadPgCompositeTypeSchema(
+	oid uint32, compositeColumnFactory pgtypes.CompositeColumnFactory,
+) ([]pgtypes.CompositeColumn, error) {
+
+	columns := make([]pgtypes.CompositeColumn, 0)
+	if err := sc.newSession(time.Second*10, func(session *session) error {
+		return session.queryFunc(func(row pgx.Row) error {
+			var attname string
+			var atttypeid uint32
+			var atttypmod int
+			var attnotnull bool
+
+			if err := row.Scan(&attname, &atttypeid, &atttypmod, &attnotnull); err != nil {
+				return err
+			}
+
+			columns = append(columns, compositeColumnFactory(attname, atttypeid, atttypmod, !attnotnull))
+			return nil
+		}, queryReadCompositeTypeSchema, oid)
+	}); err != nil {
+		return nil, err
+	}
+
+	return columns, nil
+}
+
 func (sc *sideChannel) ReadPgTypes(
 	factory pgtypes.TypeFactory, cb func(pgType pgtypes.PgType) error, oids ...uint32,
 ) error {
@@ -606,7 +632,7 @@ func (sc *sideChannel) ReadPgTypes(
 			}
 
 			// Record types aren't supported at the moment, so we can simply skip them
-			if typ.IsRecord() {
+			if typ.IsRecord() && typ.Kind() != pgtypes.CompositeKind {
 				return nil
 			}
 
@@ -695,8 +721,8 @@ func (sc *sideChannel) readHypertableSchema0(
 		return err
 	}
 
-	if !cb(hypertable, columns) {
-		return errors.Errorf("hypertable schema callback failed")
+	if err := cb(hypertable, columns); err != nil {
+		return err
 	}
 
 	return nil

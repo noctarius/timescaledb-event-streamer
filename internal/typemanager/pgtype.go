@@ -19,6 +19,7 @@ package typemanager
 
 import (
 	"fmt"
+	"github.com/go-errors/errors"
 	"github.com/noctarius/timescaledb-event-streamer/internal/functional"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
@@ -39,6 +40,8 @@ type pgType struct {
 	enumValues []string
 	delimiter  string
 	schemaType schema.Type
+
+	columns []pgtypes.CompositeColumn
 
 	typeManager         *typeManager
 	schemaBuilder       schema.Builder
@@ -167,6 +170,20 @@ func (t *pgType) EnumValues() []string {
 
 func (t *pgType) Delimiter() string {
 	return t.delimiter
+}
+
+func (t *pgType) CompositeColumns() ([]pgtypes.CompositeColumn, error) {
+	if !t.IsRecord() {
+		return nil, errors.Errorf("Type %d is not a record type", t.oid)
+	}
+	if t.columns == nil {
+		columns, err := t.typeManager.resolveCompositeTypeColumns(t)
+		if err != nil {
+			return nil, err
+		}
+		t.columns = columns
+	}
+	return t.columns, nil
 }
 
 func (t *pgType) SchemaType() schema.Type {
