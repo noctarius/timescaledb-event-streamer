@@ -123,11 +123,12 @@ events.
 `timescaledb-event-streamer` supports almost all default data types available in
 PostgreSQL, which some exception that shouldn't be seen in real-world scenarios.
 Apart from that, it lacks support for structural data types (composite types,
-and similar), as well as Enum types. Support is planned though.
+and similar). Support is worked on though.
 
 The following list describes all available data types and their schema type
 mappings. For Array data types, the element type of array children is also
-named.
+named. Furthermore, starting with 0.4.0, `timescaledb-event-streamer`
+supports user defined Enum data types and handles them correctly.
 
 | Type Name                              | PostgreSQL Type         | Schema Type | Schema Element Type |
 |----------------------------------------|-------------------------|-------------|---------------------|
