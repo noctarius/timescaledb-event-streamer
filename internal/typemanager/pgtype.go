@@ -34,7 +34,7 @@ type pgType struct {
 	recordType bool
 	oidArray   uint32
 	oidElement uint32
-	oidParent  uint32
+	oidBase    uint32
 	modifiers  int
 	enumValues []string
 	delimiter  string
@@ -49,7 +49,7 @@ type pgType struct {
 
 func newType(
 	typeManager *typeManager, namespace, name string, kind pgtypes.PgKind, oid uint32,
-	category pgtypes.PgCategory, arrayType, recordType bool, oidArray, oidElement, oidParent uint32,
+	category pgtypes.PgCategory, arrayType, recordType bool, oidArray, oidElement, oidBase uint32,
 	modifiers int, enumValues []string, delimiter string,
 ) pgtypes.PgType {
 
@@ -63,7 +63,7 @@ func newType(
 		recordType:  recordType,
 		oidArray:    oidArray,
 		oidElement:  oidElement,
-		oidParent:   oidParent,
+		oidBase:     oidBase,
 		modifiers:   modifiers,
 		enumValues:  enumValues,
 		delimiter:   delimiter,
@@ -129,13 +129,13 @@ func (t *pgType) ElementType() pgtypes.PgType {
 	return t.resolvedElementType
 }
 
-func (t *pgType) ParentType() pgtypes.PgType {
+func (t *pgType) BaseType() pgtypes.PgType {
 	if t.resolvedParentType == nil {
-		parentType, err := t.typeManager.ResolveDataType(t.oidParent)
+		baseType, err := t.typeManager.ResolveDataType(t.oidBase)
 		if err != nil {
 			panic(err)
 		}
-		t.resolvedParentType = parentType
+		t.resolvedParentType = baseType
 	}
 	return t.resolvedParentType
 }
@@ -148,8 +148,8 @@ func (t *pgType) OidElement() uint32 {
 	return t.oidElement
 }
 
-func (t *pgType) OidParent() uint32 {
-	return t.oidParent
+func (t *pgType) OidBase() uint32 {
+	return t.oidBase
 }
 
 func (t *pgType) Modifiers() int {
@@ -200,7 +200,7 @@ func (t *pgType) Equal(
 		t.oidArray == other.OidArray() &&
 		t.oidElement == other.OidElement() &&
 		t.recordType == other.IsRecord() &&
-		t.oidParent == other.OidParent() &&
+		t.oidBase == other.OidBase() &&
 		t.modifiers == other.Modifiers() &&
 		t.delimiter == other.Delimiter() &&
 		t.schemaType == other.SchemaType() &&

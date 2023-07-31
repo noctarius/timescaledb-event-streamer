@@ -223,7 +223,7 @@ func (t *testPgType) ElementType() pgtypes.PgType {
 	return nil
 }
 
-func (t *testPgType) ParentType() pgtypes.PgType {
+func (t *testPgType) BaseType() pgtypes.PgType {
 	return nil
 }
 
@@ -235,7 +235,7 @@ func (t *testPgType) OidElement() uint32 {
 	return 0
 }
 
-func (t *testPgType) OidParent() uint32 {
+func (t *testPgType) OidBase() uint32 {
 	return 0
 }
 

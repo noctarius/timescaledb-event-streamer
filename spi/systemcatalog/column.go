@@ -19,7 +19,6 @@ package systemcatalog
 
 import (
 	"fmt"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/noctarius/timescaledb-event-streamer/internal/functional"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
@@ -497,21 +496,9 @@ func (c Column) differences(
 }
 
 func (c Column) valueLength() int {
-	switch c.dataType {
-	case pgtype.BitOID, pgtype.VarbitOID, pgtype.BPCharOID, pgtype.VarcharOID:
-		if c.maxCharLength != nil {
-			return *c.maxCharLength
-		}
-
-	case pgtype.BitArrayOID, pgtype.VarbitArrayOID:
-		if c.modifiers > 0 {
-			return c.pgType.Modifiers()
-		}
-
-	case pgtype.BPCharArrayOID, pgtype.VarcharArrayOID:
-		if c.modifiers > 4 { // FIXME: 4 is only assumed to be true on systems (size_of(int32))
-			return c.Modifiers() - 4
-		}
+	fieldLength, applicable := pgtypes.AsFieldLength(c.pgType, c.modifiers)
+	if !applicable {
+		return -1
 	}
-	return -1
+	return fieldLength
 }

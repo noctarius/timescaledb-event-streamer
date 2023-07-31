@@ -88,9 +88,9 @@ type Builder interface {
 }
 
 type Field interface {
+	Buildable
 	Index() int
 	SchemaStruct() Struct
-	SchemaBuilder() Builder
 }
 
 func Int8() Builder {

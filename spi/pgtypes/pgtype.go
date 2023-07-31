@@ -58,6 +58,7 @@ const (
 )
 
 type PgType interface {
+	schema.Buildable
 	Namespace() string
 	Name() string
 	Kind() PgKind
@@ -67,15 +68,14 @@ type PgType interface {
 	IsRecord() bool
 	ArrayType() PgType
 	ElementType() PgType
-	ParentType() PgType
+	BaseType() PgType
 	OidArray() uint32
 	OidElement() uint32
-	OidParent() uint32
+	OidBase() uint32
 	Modifiers() int
 	EnumValues() []string
 	Delimiter() string
 	SchemaType() schema.Type
-	SchemaBuilder() schema.Builder
 	Format() string
 	Equal(
 		other PgType,
@@ -83,5 +83,5 @@ type PgType interface {
 }
 
 type TypeFactory func(namespace, name string, kind PgKind, oid uint32, category PgCategory,
-	arrayType bool, recordType bool, oidArray uint32, oidElement uint32, oidParent uint32,
+	arrayType bool, recordType bool, oidArray uint32, oidElement uint32, oidBase uint32,
 	modifiers int, enumValues []string, delimiter string) PgType

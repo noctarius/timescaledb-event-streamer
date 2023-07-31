@@ -622,13 +622,13 @@ func (sc *sideChannel) scanPgType(
 	var namespace, name string
 	var kind, category, delimiter int32
 	var arrayType, recordType bool
-	var oid, oidArray, oidElement, parentOid uint32
+	var oid, oidArray, oidElement, baseOid uint32
 	var modifiers int
 	var enumValues []string
 
 	if err := row.Scan(
 		&namespace, &name, &arrayType, &recordType, &kind, &oid, &oidArray, &oidElement,
-		&category, &parentOid, &modifiers, &enumValues, &delimiter,
+		&category, &baseOid, &modifiers, &enumValues, &delimiter,
 	); err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, false, nil
@@ -637,7 +637,7 @@ func (sc *sideChannel) scanPgType(
 	}
 
 	return factory(namespace, name, pgtypes.PgKind(kind), oid, pgtypes.PgCategory(category),
-		arrayType, recordType, oidArray, oidElement, parentOid, modifiers, enumValues, string(delimiter),
+		arrayType, recordType, oidArray, oidElement, baseOid, modifiers, enumValues, string(delimiter),
 	), true, nil
 }
 
