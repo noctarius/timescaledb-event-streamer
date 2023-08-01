@@ -25,7 +25,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/logicalreplicationresolver"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationchannel"
 	replicationcontextimpl "github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationcontext"
-	sidechannelimpl "github.com/noctarius/timescaledb-event-streamer/internal/replication/sidechannel"
+	sidechannelimpl "github.com/noctarius/timescaledb-event-streamer/internal/sidechannel"
 	systemcatalogimpl "github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/snapshotting"
 	taskmanagerimpl "github.com/noctarius/timescaledb-event-streamer/internal/taskmanager"
