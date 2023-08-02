@@ -22,6 +22,7 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/jackc/pglogrepl"
 	"github.com/jackc/pgx/v5/pgproto3"
+	"github.com/noctarius/timescaledb-event-streamer/internal/containers"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationconnection"
 	"github.com/noctarius/timescaledb-event-streamer/internal/waiting"
@@ -39,7 +40,7 @@ type replicationHandler struct {
 	taskManager        task.TaskManager
 	typeManager        pgtypes.TypeManager
 	clientXLogPos      pglogrepl.LSN
-	relations          map[uint32]*pgtypes.RelationMessage
+	relations          *containers.RelationCache
 	shutdownAwaiter    *waiting.ShutdownAwaiter
 	loopDead           atomic.Bool
 	lastTransactionId  *uint32
@@ -60,7 +61,7 @@ func newReplicationHandler(
 		replicationContext: replicationContext,
 		taskManager:        taskManager,
 		typeManager:        typeManager,
-		relations:          make(map[uint32]*pgtypes.RelationMessage),
+		relations:          containers.NewRelationCache(),
 		shutdownAwaiter:    waiting.NewShutdownAwaiter(),
 		logger:             logger,
 		loopDead:           atomic.Bool{},
@@ -203,7 +204,7 @@ func (rh *replicationHandler) handleReplicationEvents(
 	case *pglogrepl.RelationMessage:
 		intLogicalMsg := pgtypes.RelationMessage(*logicalMsg)
 		rh.logger.Debugf("EVENT: %s", intLogicalMsg)
-		rh.relations[logicalMsg.RelationID] = &intLogicalMsg
+		rh.relations.Set(logicalMsg.RelationID, &intLogicalMsg)
 		return rh.taskManager.EnqueueTask(func(notificator task.Notificator) {
 			notificator.NotifyBaseReplicationEventHandler(
 				func(handler eventhandlers.BaseReplicationEventHandler) error {
@@ -292,8 +293,8 @@ func (rh *replicationHandler) handleDeleteMessage(
 	xld pgtypes.XLogData, msg *pglogrepl.DeleteMessage,
 ) error {
 
-	rel, ok := rh.relations[msg.RelationID]
-	if !ok {
+	rel, present := rh.relations.Get(msg.RelationID)
+	if !present {
 		rh.logger.Fatalf("unknown relation ID %d", msg.RelationID)
 	}
 
@@ -326,8 +327,8 @@ func (rh *replicationHandler) handleUpdateMessage(
 	xld pgtypes.XLogData, msg *pglogrepl.UpdateMessage,
 ) error {
 
-	rel, ok := rh.relations[msg.RelationID]
-	if !ok {
+	rel, present := rh.relations.Get(msg.RelationID)
+	if !present {
 		rh.logger.Fatalf("unknown relation ID %d", msg.RelationID)
 	}
 
@@ -366,8 +367,8 @@ func (rh *replicationHandler) handleInsertMessage(
 	xld pgtypes.XLogData, msg *pglogrepl.InsertMessage,
 ) error {
 
-	rel, ok := rh.relations[msg.RelationID]
-	if !ok {
+	rel, present := rh.relations.Get(msg.RelationID)
+	if !present {
 		rh.logger.Fatalf("unknown relation ID %d", msg.RelationID)
 	}
 

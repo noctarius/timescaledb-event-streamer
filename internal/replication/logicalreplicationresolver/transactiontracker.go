@@ -38,7 +38,7 @@ const (
 type transactionTracker struct {
 	timeout                      time.Duration
 	maxSize                      uint
-	relations                    map[uint32]*pgtypes.RelationMessage
+	relations                    *containers.RelationCache
 	resolver                     *logicalReplicationResolver
 	taskManager                  task.TaskManager
 	systemCatalog                systemcatalog.SystemCatalog
@@ -63,7 +63,7 @@ func newTransactionTracker(
 		maxSize:                      maxSize,
 		systemCatalog:                systemCatalog,
 		taskManager:                  taskManager,
-		relations:                    make(map[uint32]*pgtypes.RelationMessage),
+		relations:                    containers.NewRelationCache(),
 		logger:                       logger,
 		resolver:                     resolver,
 		supportsDecompressionMarkers: replicationContext.IsTSDB212GE(),
@@ -117,7 +117,7 @@ func (tt *transactionTracker) OnRelationEvent(
 	xld pgtypes.XLogData, msg *pgtypes.RelationMessage,
 ) error {
 
-	tt.relations[msg.RelationID] = msg
+	tt.relations.Set(msg.RelationID, msg)
 	return tt.resolver.OnRelationEvent(xld, msg)
 }
 
@@ -192,8 +192,8 @@ func (tt *transactionTracker) OnInsertEvent(
 	xld pgtypes.XLogData, msg *pgtypes.InsertMessage,
 ) error {
 
-	relation, ok := tt.relations[msg.RelationID]
-	if ok {
+	relation, present := tt.relations.Get(msg.RelationID)
+	if present {
 		// If no insert events are going to be generated, and we don't need to update the catalog,
 		// we can already ignore the event here and prevent it from hogging memory while we wait
 		// for the transaction to be completely transmitted
@@ -246,7 +246,7 @@ func (tt *transactionTracker) OnUpdateEvent(
 		msg: msg,
 	}
 
-	if relation, ok := tt.relations[msg.RelationID]; ok {
+	if relation, present := tt.relations.Get(msg.RelationID); present {
 		if spicatalog.IsChunkEvent(relation) {
 			chunkId := msg.NewValues["id"].(int32)
 			if chunk, present := tt.systemCatalog.FindChunkById(chunkId); present {
@@ -305,7 +305,7 @@ func (tt *transactionTracker) OnDeleteEvent(
 		return tt.resolver.OnDeleteEvent(xld, msg)
 	}
 
-	if relation, ok := tt.relations[msg.RelationID]; ok {
+	if relation, present := tt.relations.Get(msg.RelationID); present {
 		// If no delete events are going to be generated, and we don't need to update the catalog,
 		// we can already ignore the event here and prevent it from hogging memory while we wait
 		// for the transaction to be completely transmitted

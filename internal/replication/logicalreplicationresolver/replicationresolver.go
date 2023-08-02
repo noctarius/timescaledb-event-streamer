@@ -41,7 +41,7 @@ type logicalReplicationResolver struct {
 	typeManager        pgtypes.TypeManager
 	logger             *logging.Logger
 
-	relations   map[uint32]*pgtypes.RelationMessage
+	relations   *containers.RelationCache
 	eventQueues map[string]*containers.Queue[snapshotCallback]
 
 	genDeleteTombstone    bool
@@ -73,7 +73,7 @@ func newLogicalReplicationResolver(
 		typeManager:        typeManager,
 		logger:             logger,
 
-		relations:   make(map[uint32]*pgtypes.RelationMessage),
+		relations:   containers.NewRelationCache(),
 		eventQueues: make(map[string]*containers.Queue[snapshotCallback]),
 
 		genDeleteTombstone:    spiconfig.GetOrDefault(config, spiconfig.PropertySinkTombstone, false),
@@ -168,7 +168,7 @@ func (l *logicalReplicationResolver) OnRelationEvent(
 	_ pgtypes.XLogData, msg *pgtypes.RelationMessage,
 ) error {
 
-	l.relations[msg.RelationID] = msg
+	l.relations.Set(msg.RelationID, msg)
 	if _, err := l.typeManager.GetOrPlanTupleDecoder(msg); err != nil {
 		return err
 	}
@@ -202,8 +202,8 @@ func (l *logicalReplicationResolver) OnInsertEvent(
 	xld pgtypes.XLogData, msg *pgtypes.InsertMessage,
 ) error {
 
-	rel, ok := l.relations[msg.RelationID]
-	if !ok {
+	rel, present := l.relations.Get(msg.RelationID)
+	if !present {
 		l.logger.Fatalf("unknown relation ID %d", msg.RelationID)
 	}
 
@@ -238,8 +238,8 @@ func (l *logicalReplicationResolver) OnUpdateEvent(
 	xld pgtypes.XLogData, msg *pgtypes.UpdateMessage,
 ) error {
 
-	rel, ok := l.relations[msg.RelationID]
-	if !ok {
+	rel, present := l.relations.Get(msg.RelationID)
+	if !present {
 		l.logger.Fatalf("unknown relation ID %d", msg.RelationID)
 	}
 	if spicatalog.IsHypertableEvent(rel) {
@@ -282,8 +282,8 @@ func (l *logicalReplicationResolver) OnDeleteEvent(
 	xld pgtypes.XLogData, msg *pgtypes.DeleteMessage,
 ) error {
 
-	rel, ok := l.relations[msg.RelationID]
-	if !ok {
+	rel, present := l.relations.Get(msg.RelationID)
+	if !present {
 		l.logger.Fatalf("unknown relation ID %d", msg.RelationID)
 	}
 
@@ -338,8 +338,8 @@ func (l *logicalReplicationResolver) OnTruncateEvent(
 
 	truncatedHypertables := make([]*spicatalog.Hypertable, 0)
 	for i := 0; i < int(msg.RelationNum); i++ {
-		rel, ok := l.relations[msg.RelationIDs[i]]
-		if !ok {
+		rel, present := l.relations.Get(msg.RelationIDs[i])
+		if !present {
 			l.logger.Fatalf("unknown relation ID %d", msg.RelationIDs[i])
 		}
 
