@@ -22,6 +22,7 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationconnection"
+	"github.com/noctarius/timescaledb-event-streamer/internal/stats"
 	"github.com/noctarius/timescaledb-event-streamer/internal/waiting"
 	"github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
@@ -42,6 +43,7 @@ type ReplicationChannel struct {
 	taskManager        task.TaskManager
 	createdPublication bool
 	shutdownAwaiter    *waiting.ShutdownAwaiter
+	statsReporter      *stats.Reporter
 	logger             *logging.Logger
 	shutdownRequested  atomic.Bool
 }
@@ -50,6 +52,7 @@ type ReplicationChannel struct {
 func NewReplicationChannel(
 	replicationContext replicationcontext.ReplicationContext, typeManager pgtypes.TypeManager,
 	taskManager task.TaskManager, publicationManager publication.PublicationManager,
+	statsService *stats.Service,
 ) (*ReplicationChannel, error) {
 
 	logger, err := logging.NewLogger("ReplicationChannel")
@@ -64,6 +67,7 @@ func NewReplicationChannel(
 		taskManager:        taskManager,
 		shutdownAwaiter:    waiting.NewShutdownAwaiter(),
 		logger:             logger,
+		statsReporter:      statsService.NewReporter("replicationChannel"),
 	}, nil
 }
 
@@ -82,7 +86,7 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 	initialTables []systemcatalog.SystemEntity,
 ) error {
 
-	handler, err := newReplicationHandler(rc.replicationContext, rc.typeManager, rc.taskManager)
+	handler, err := newReplicationHandler(rc.replicationContext, rc.typeManager, rc.taskManager, rc.statsReporter)
 	if err != nil {
 		return errors.Wrap(err, 0)
 	}

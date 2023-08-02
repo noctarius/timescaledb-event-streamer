@@ -26,6 +26,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationchannel"
 	replicationcontextimpl "github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationcontext"
 	sidechannelimpl "github.com/noctarius/timescaledb-event-streamer/internal/sidechannel"
+	"github.com/noctarius/timescaledb-event-streamer/internal/stats"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
 	systemcatalogimpl "github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/snapshotting"
@@ -56,6 +57,7 @@ var StaticModule = wiring.DefineModule(
 		module.Provide(publicationmanager.NewPublicationManager)
 		module.Provide(systemcatalogimpl.NewSystemCatalog)
 		module.Provide(typemanager.NewTypeManager)
+		module.Provide(stats.NewStatsService)
 	},
 )
 

@@ -56,8 +56,15 @@ func (rc *RelationCache) Set(
 
 	if oid >= rc.cacheSize {
 		newCacheSize := uint32(float64(rc.cacheSize) * relationCacheSizeMultiplier)
+		for {
+			if newCacheSize > oid {
+				break
+			}
+			newCacheSize = uint32(float64(newCacheSize) * relationCacheSizeMultiplier)
+		}
 		newCache := make([]*pgtypes.RelationMessage, newCacheSize)
 		copy(newCache, rc.cache)
+		rc.cacheSize = newCacheSize
 		rc.cache = newCache
 	}
 	rc.cache[oid] = msg

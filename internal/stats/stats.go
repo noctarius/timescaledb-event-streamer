@@ -16,3 +16,82 @@
  */
 
 package stats
+
+import (
+	"github.com/go-errors/errors"
+	"github.com/noctarius/timescaledb-event-streamer/spi/config"
+	"github.com/noctarius/timescaledb-event-streamer/spi/version"
+	"github.com/segmentio/stats"
+	"github.com/segmentio/stats/procstats"
+	"github.com/segmentio/stats/prometheus"
+	"golang.org/x/net/context"
+	"net/http"
+)
+
+type Service struct {
+	statsEnabled bool
+	handler      *prometheus.Handler
+	engine       *stats.Engine
+	server       *http.Server
+}
+
+func NewStatsService(
+	c *config.Config,
+) *Service {
+
+	statsHandler := &prometheus.Handler{
+		TrimPrefix: version.BinName,
+	}
+
+	statsEnabled := config.GetOrDefault(c, config.PropertyStatsEnabled, true)
+	runtimeStatsEnabled := config.GetOrDefault(c, config.PropertyRuntimeStatsEnabled, true)
+
+	engine := stats.NewEngine(version.BinName, statsHandler)
+	if runtimeStatsEnabled {
+		runtimeMetrics := procstats.NewGoMetricsWith(engine)
+		procstats.StartCollector(runtimeMetrics)
+	}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/metrics", statsHandler.ServeHTTP)
+
+	return &Service{
+		statsEnabled: statsEnabled,
+		handler:      statsHandler,
+		engine:       engine,
+		server: &http.Server{
+			Addr:    ":8081",
+			Handler: mux,
+		},
+	}
+}
+
+func (s *Service) Start() error {
+	if s.statsEnabled {
+		go func() {
+			err := s.server.ListenAndServe()
+			if err != nil && !errors.Is(err, http.ErrServerClosed) {
+				panic(err)
+			}
+		}()
+	}
+	return nil
+}
+
+func (s *Service) Stop() error {
+	if !s.statsEnabled {
+		return nil
+	}
+	return s.server.Shutdown(context.Background())
+}
+
+func (s *Service) NewReporter(
+	prefix string,
+) *Reporter {
+
+	engine := s.engine.WithPrefix(prefix)
+	return &Reporter{
+		statsEnabled: s.statsEnabled,
+		engine:       engine,
+	}
+}

@@ -27,6 +27,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/functional"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationchannel"
+	"github.com/noctarius/timescaledb-event-streamer/internal/stats"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/snapshotting"
 	"github.com/noctarius/timescaledb-event-streamer/spi/config"
@@ -87,6 +88,15 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 	)
 	if err != nil {
 		return erroring.AdaptError(err, 1)
+	}
+
+	// Start statistics service
+	var statsService *stats.Service
+	if err := container.Service(&statsService); err != nil {
+		return erroring.AdaptError(err, 1)
+	}
+	if err := statsService.Start(); err != nil {
+		return nil
 	}
 
 	// Start internal dispatching
@@ -163,7 +173,8 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 		}
 		err4 := taskManager.StopDispatcher()
 		err5 := replicationContext.StopReplicationContext()
-		return stderrors.Join(err1, err2, err3, err4, err5)
+		err6 := statsService.Stop()
+		return stderrors.Join(err1, err2, err3, err4, err5, err6)
 	}
 
 	return nil

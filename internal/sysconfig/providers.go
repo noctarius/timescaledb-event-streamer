@@ -26,6 +26,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationchannel"
 	replicationcontextimpl "github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationcontext"
 	sidechannelimpl "github.com/noctarius/timescaledb-event-streamer/internal/sidechannel"
+	"github.com/noctarius/timescaledb-event-streamer/internal/stats"
 	systemcatalogimpl "github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/snapshotting"
 	taskmanagerimpl "github.com/noctarius/timescaledb-event-streamer/internal/taskmanager"
@@ -84,7 +85,8 @@ type SnapshotterProvider = func(
 ) (*snapshotting.Snapshotter, error)
 
 type ReplicationChannelProvider = func(
-	replicationcontext.ReplicationContext, pgtypes.TypeManager, task.TaskManager, publication.PublicationManager,
+	replicationcontext.ReplicationContext, pgtypes.TypeManager,
+	task.TaskManager, publication.PublicationManager, *stats.Service,
 ) (*replicationchannel.ReplicationChannel, error)
 
 type NameGeneratorProvider = func(
@@ -118,5 +120,6 @@ type SystemCatalogProvider = func(
 ) (systemcatalog.SystemCatalog, error)
 
 type EventEmitterProvider = func(
-	*config.Config, replicationcontext.ReplicationContext, stream.Manager, pgtypes.TypeManager, task.TaskManager,
+	*config.Config, replicationcontext.ReplicationContext, stream.Manager,
+	pgtypes.TypeManager, task.TaskManager, *stats.Service,
 ) (*eventemitting.EventEmitter, error)

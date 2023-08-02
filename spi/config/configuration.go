@@ -80,6 +80,15 @@ type InternalConfig struct {
 	Encoding    EncodingConfig    `toml:"encoding" yaml:"encoding"`
 }
 
+type StatsConfig struct {
+	Enabled *bool              `toml:"enabled" yaml:"enabled"`
+	Runtime RuntimeStatsConfig `toml:"runtime" yaml:"runtime"`
+}
+
+type RuntimeStatsConfig struct {
+	Enabled *bool `toml:"enabled" yaml:"enabled"`
+}
+
 type DispatcherConfig struct {
 	InitialQueueCapacity uint `toml:"initialqueuecapacity" yaml:"initialQueueCapacity"`
 }
@@ -276,6 +285,7 @@ type Config struct {
 	StateStorage StateStorageConfig `toml:"statestorage" yaml:"stateStorage"`
 	Internal     InternalConfig     `toml:"internal" yaml:"internal"`
 	Plugins      []string           `toml:"plugins" yaml:"plugins"`
+	Stats        StatsConfig        `toml:"stats" yaml:"stats"`
 }
 
 type StateStorageConfig struct {

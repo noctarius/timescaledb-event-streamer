@@ -35,6 +35,9 @@ const (
 	PropertySink          = "sink.type"
 	PropertySinkTombstone = "sink.tombstone"
 
+	PropertyStatsEnabled = "stats.enabled"
+	PropertyRuntimeStatsEnabled = "stats.runtime.enabled"
+
 	PropertyStateStorageType     = "statestorage.type"
 	PropertyFileStateStoragePath = "statestorage.file.path"
 

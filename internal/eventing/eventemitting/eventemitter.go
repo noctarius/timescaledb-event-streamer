@@ -25,6 +25,7 @@ import (
 	"github.com/jackc/pglogrepl"
 	"github.com/noctarius/timescaledb-event-streamer/internal/eventing/eventfiltering"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
+	"github.com/noctarius/timescaledb-event-streamer/internal/stats"
 	"github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
@@ -45,20 +46,31 @@ type payloadFactoryFn func(
 	source schema.Struct, stream stream.Stream,
 ) (schema.Struct, error)
 
+type eventEmitterStats struct {
+	calls struct {
+		count uint64        `metric:"count" type:"counter"`
+		time  time.Duration `metric:"runtime" type:"histogram"`
+		retry uint          `metric:"retry" type:"histogram"`
+	} `metric:"emitted"`
+}
+
 type EventEmitter struct {
 	replicationContext replicationcontext.ReplicationContext
 	filter             eventfiltering.EventFilter
 	typeManager        pgtypes.TypeManager
 	taskManager        task.TaskManager
 	streamManager      stream.Manager
+	statsReporter      *stats.Reporter
 	backOff            backoff.BackOff
 	logger             *logging.Logger
+
+	stats eventEmitterStats
 }
 
 func NewEventEmitterFromConfig(
 	c *config.Config, replicationContext replicationcontext.ReplicationContext,
 	streamManager stream.Manager, typeManager pgtypes.TypeManager,
-	taskManager task.TaskManager,
+	taskManager task.TaskManager, statsService *stats.Service,
 ) (*EventEmitter, error) {
 
 	filters, err := eventfiltering.NewEventFilter(c.Sink.Filters)
@@ -66,12 +78,13 @@ func NewEventEmitterFromConfig(
 		return nil, err
 	}
 
-	return NewEventEmitter(replicationContext, streamManager, typeManager, taskManager, filters)
+	return NewEventEmitter(replicationContext, streamManager, typeManager, taskManager, statsService, filters)
 }
 
 func NewEventEmitter(
 	replicationContext replicationcontext.ReplicationContext, streamManager stream.Manager,
-	typeManager pgtypes.TypeManager, taskManager task.TaskManager, filter eventfiltering.EventFilter,
+	typeManager pgtypes.TypeManager, taskManager task.TaskManager, statsService *stats.Service,
+	filter eventfiltering.EventFilter,
 ) (*EventEmitter, error) {
 
 	logger, err := logging.NewLogger("EventEmitter")
@@ -86,6 +99,7 @@ func NewEventEmitter(
 		streamManager:      streamManager,
 		filter:             filter,
 		logger:             logger,
+		statsReporter:      statsService.NewReporter("eventEmitter"),
 		backOff:            backoff.WithMaxRetries(backoff.NewExponentialBackOff(), 8),
 	}, nil
 }
@@ -118,6 +132,10 @@ func (ee *EventEmitter) emit(
 	xld pgtypes.XLogData, stream stream.Stream, key, value schema.Struct,
 ) error {
 
+	// Start time
+	start := time.Now()
+	retries := uint(0)
+
 	// Retryable operation
 	operation := func() error {
 		ee.logger.Tracef("Publishing event: %+v", value)
@@ -125,9 +143,17 @@ func (ee *EventEmitter) emit(
 	}
 
 	// Run with backoff (it'll automatically reset before starting)
-	if err := backoff.Retry(operation, ee.backOff); err != nil {
+	if err := backoff.RetryNotify(operation, ee.backOff, func(_ error, _ time.Duration) {
+		retries++
+	}); err != nil {
 		return err
 	}
+
+	ee.stats.calls.count++
+	ee.stats.calls.time = time.Since(start)
+	ee.stats.calls.retry = retries
+	ee.statsReporter.Report(ee.stats)
+
 	return ee.replicationContext.AcknowledgeProcessed(xld, nil)
 }
 

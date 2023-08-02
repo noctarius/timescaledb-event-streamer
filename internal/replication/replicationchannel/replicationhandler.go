@@ -25,6 +25,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/containers"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationconnection"
+	"github.com/noctarius/timescaledb-event-streamer/internal/stats"
 	"github.com/noctarius/timescaledb-event-streamer/internal/waiting"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
@@ -35,6 +36,21 @@ import (
 	"time"
 )
 
+type replicationChannelStats struct {
+	calls struct {
+		total     uint64 `metric:"total" type:"counter"`
+		inserts   uint64 `metric:"insert" type:"counter"`
+		updates   uint64 `metric:"updates" type:"counter"`
+		deletes   uint64 `metric:"deletes" type:"counter"`
+		truncates uint64 `metric:"truncates" type:"counter"`
+		skipped   uint64 `metric:"skipped" type:"counter"`
+		messages  uint64 `metric:"messages" type:"counter"`
+	} `metric:"calls"`
+	statistics struct {
+		largestTransaction uint64 `metric:"largestTransaction" type:"gauge"`
+	} `metric:"statistics"`
+}
+
 type replicationHandler struct {
 	replicationContext replicationcontext.ReplicationContext
 	taskManager        task.TaskManager
@@ -42,14 +58,19 @@ type replicationHandler struct {
 	clientXLogPos      pglogrepl.LSN
 	relations          *containers.RelationCache
 	shutdownAwaiter    *waiting.ShutdownAwaiter
+	statsReporter      *stats.Reporter
 	loopDead           atomic.Bool
 	lastTransactionId  *uint32
 	logger             *logging.Logger
+
+	stats           replicationChannelStats
+	transactionSize uint64
 }
 
 func newReplicationHandler(
 	replicationContext replicationcontext.ReplicationContext,
 	typeManager pgtypes.TypeManager, taskManager task.TaskManager,
+	statsReporter *stats.Reporter,
 ) (*replicationHandler, error) {
 
 	logger, err := logging.NewLogger("ReplicationHandler")
@@ -61,6 +82,7 @@ func newReplicationHandler(
 		replicationContext: replicationContext,
 		taskManager:        taskManager,
 		typeManager:        typeManager,
+		statsReporter:      statsReporter,
 		relations:          containers.NewRelationCache(),
 		shutdownAwaiter:    waiting.NewShutdownAwaiter(),
 		logger:             logger,
@@ -162,6 +184,9 @@ func (rh *replicationHandler) startReplicationHandler(
 			msgType := pglogrepl.MessageType(xld.WALData[0])
 			if msgType != pglogrepl.MessageTypeRelation && restartLSN > pgtypes.LSN(xld.WALStart) {
 				rh.logger.Debugf("Skipped message, LSN lower than restartLSN: %s < %s", xld.WALStart, restartLSN)
+				rh.stats.calls.total++
+				rh.stats.calls.skipped++
+				rh.statsReporter.Report(rh.stats)
 				continue
 			}
 
@@ -200,6 +225,9 @@ func (rh *replicationHandler) handleReplicationEvents(
 	xld pgtypes.XLogData, msg pglogrepl.Message,
 ) error {
 
+	rh.stats.calls.total++
+	defer rh.statsReporter.Report(rh.stats)
+
 	switch logicalMsg := msg.(type) {
 	case *pglogrepl.RelationMessage:
 		intLogicalMsg := pgtypes.RelationMessage(*logicalMsg)
@@ -221,6 +249,7 @@ func (rh *replicationHandler) handleReplicationEvents(
 		// Indicates the beginning of a group of changes in a transaction. This is only
 		// sent for committed transactions. You won't get any events from rolled back
 		// transactions.
+		rh.transactionSize = 0
 		return rh.taskManager.EnqueueTask(func(notificator task.Notificator) {
 			notificator.NotifyLogicalReplicationEventHandler(
 				func(handler eventhandlers.LogicalReplicationEventHandler) error {
@@ -232,6 +261,11 @@ func (rh *replicationHandler) handleReplicationEvents(
 		intLogicalMsg := pgtypes.CommitMessage(*logicalMsg)
 		rh.logger.Debugf("EVENT: %s", intLogicalMsg)
 		rh.lastTransactionId = nil
+
+		if rh.transactionSize > rh.stats.statistics.largestTransaction {
+			rh.stats.statistics.largestTransaction = rh.transactionSize
+		}
+
 		return rh.taskManager.EnqueueTask(func(notificator task.Notificator) {
 			notificator.NotifyLogicalReplicationEventHandler(
 				func(handler eventhandlers.LogicalReplicationEventHandler) error {
@@ -240,14 +274,22 @@ func (rh *replicationHandler) handleReplicationEvents(
 			)
 		})
 	case *pglogrepl.InsertMessage:
+		rh.transactionSize++
+		rh.stats.calls.inserts++
 		return rh.handleInsertMessage(xld, logicalMsg)
 	case *pglogrepl.UpdateMessage:
+		rh.transactionSize++
+		rh.stats.calls.updates++
 		return rh.handleUpdateMessage(xld, logicalMsg)
 	case *pglogrepl.DeleteMessage:
+		rh.transactionSize++
+		rh.stats.calls.deletes++
 		return rh.handleDeleteMessage(xld, logicalMsg)
 	case *pglogrepl.TruncateMessage:
 		intLogicalMsg := pgtypes.TruncateMessage(*logicalMsg)
 		rh.logger.Debugf("EVENT: %s", intLogicalMsg)
+		rh.transactionSize++
+		rh.stats.calls.truncates++
 		return rh.taskManager.EnqueueTask(func(notificator task.Notificator) {
 			notificator.NotifyLogicalReplicationEventHandler(
 				func(handler eventhandlers.LogicalReplicationEventHandler) error {
@@ -277,6 +319,8 @@ func (rh *replicationHandler) handleReplicationEvents(
 		})
 	case *pgtypes.LogicalReplicationMessage:
 		rh.logger.Debugf("EVENT: %s", logicalMsg)
+		rh.transactionSize++
+		rh.stats.calls.messages++
 		return rh.taskManager.EnqueueTask(func(notificator task.Notificator) {
 			notificator.NotifyLogicalReplicationEventHandler(
 				func(handler eventhandlers.LogicalReplicationEventHandler) error {
