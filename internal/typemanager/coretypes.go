@@ -383,13 +383,13 @@ var optimizedTypes = map[string]typeRegistration{
 	},
 }
 
-var highestOid uint32
+var upperCoreOidBound uint32
 var emptyTypeRegistration = typeRegistration{}
 var coreTypes []*typeRegistration
 
 func init() {
-	highestOid = lo.Max(lo.Keys(coreTypeMap)) + 1
-	coreTypes = make([]*typeRegistration, highestOid)
+	upperCoreOidBound = lo.Max(lo.Keys(coreTypeMap)) + 1
+	coreTypes = make([]*typeRegistration, upperCoreOidBound)
 	for oid, registration := range coreTypeMap {
 		coreTypes[oid] = lo.ToPtr(registration)
 	}
@@ -399,7 +399,7 @@ func coreType(
 	oid uint32,
 ) (typeRegistration, bool) {
 
-	if oid >= highestOid {
+	if oid >= upperCoreOidBound {
 		return emptyTypeRegistration, false
 	}
 	registration := coreTypes[oid]

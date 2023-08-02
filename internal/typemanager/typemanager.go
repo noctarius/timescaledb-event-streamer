@@ -66,7 +66,8 @@ type typeManager struct {
 
 	typeMap *pgtype.Map
 
-	typeCache           *containers.CasCache[uint32, pgtypes.PgType]
+	coreTypeCache       []pgtypes.PgType
+	dynamicTypeCache    *containers.CasCache[uint32, pgtypes.PgType]
 	optimizedConverters *containers.CasCache[uint32, typeRegistration]
 	dynamicConverters   *containers.CasCache[uint32, typeRegistration]
 	decoderPlanCache    *containers.CasCache[uint32, pgtypes.TupleDecoderPlan]
@@ -87,7 +88,8 @@ func NewTypeManager(
 
 		typeMap: pgtype.NewMap(),
 
-		typeCache:           containers.NewCasCache[uint32, pgtypes.PgType](),
+		coreTypeCache:       make([]pgtypes.PgType, upperCoreOidBound),
+		dynamicTypeCache:    containers.NewCasCache[uint32, pgtypes.PgType](),
 		optimizedConverters: containers.NewCasCache[uint32, typeRegistration](),
 		dynamicConverters:   containers.NewCasCache[uint32, typeRegistration](),
 		decoderPlanCache:    containers.NewCasCache[uint32, pgtypes.TupleDecoderPlan](),
@@ -120,7 +122,13 @@ func (tm *typeManager) ResolveDataType(
 	oid uint32,
 ) (pgtypes.PgType, error) {
 
-	return tm.typeCache.GetOrCompute(oid, func() (pgtypes.PgType, error) {
+	if oid < upperCoreOidBound {
+		if typ := tm.coreTypeCache[oid]; typ != nil {
+			return typ, nil
+		}
+	}
+
+	return tm.dynamicTypeCache.GetOrCompute(oid, func() (pgtypes.PgType, error) {
 		var pt pgtypes.PgType
 		err := tm.sideChannel.ReadPgTypes(tm.typeFactory, func(typ pgtypes.PgType) error {
 			pt = typ
@@ -147,7 +155,7 @@ func (tm *typeManager) ResolveTypeConverter(
 }
 
 func (tm *typeManager) NumKnownTypes() int {
-	return tm.typeCache.Length()
+	return tm.dynamicTypeCache.Length()
 }
 
 func (tm *typeManager) DecodeTuples(
@@ -222,6 +230,19 @@ func (tm *typeManager) RegisterColumnType(
 		}
 	}
 	return nil
+}
+
+func (tm *typeManager) findType(
+	oid uint32,
+) (typ pgtypes.PgType, present bool) {
+
+	if oid < upperCoreOidBound {
+		if typ = tm.coreTypeCache[oid]; typ != nil {
+			return typ, true
+		}
+	}
+	typ, present = tm.dynamicTypeCache.Get(oid)
+	return
 }
 
 func (tm *typeManager) getSchemaType(
@@ -335,7 +356,7 @@ func (tm *typeManager) resolveCompositeTypeColumns(
 
 	return tm.sideChannel.ReadPgCompositeTypeSchema(
 		typ.oid, func(name string, oid uint32, modifiers int, nullable bool) (pgtypes.CompositeColumn, error) {
-			columnType, present := tm.typeCache.Get(oid)
+			columnType, present := tm.findType(oid)
 			if !present {
 				return nil, errors.Errorf("Type with oid %d not found", oid)
 			}
@@ -348,7 +369,13 @@ func (tm *typeManager) registerType(
 	typ pgtypes.PgType,
 ) error {
 
-	tm.typeCache.Set(typ.Oid(), typ)
+	// Make sure we store the type for optimized core types
+	if _, present := coreType(typ.Oid()); present {
+		tm.coreTypeCache[typ.Oid()] = typ
+	}
+
+	// And store it like anything else
+	tm.dynamicTypeCache.Set(typ.Oid(), typ)
 
 	// Is core type not available in TypeMap by default (bug or not implemented in pgx)?
 	if registration, present := coreType(typ.Oid()); present {
