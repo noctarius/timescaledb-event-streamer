@@ -37,12 +37,11 @@ const (
 
 type transactionTracker struct {
 	timeout                      time.Duration
-	maxSize                      uint
 	relations                    *containers.RelationCache
 	resolver                     *logicalReplicationResolver
 	taskManager                  task.TaskManager
 	systemCatalog                systemcatalog.SystemCatalog
-	currentTransaction           *transaction
+	activeTransaction            *transaction
 	logger                       *logging.Logger
 	supportsDecompressionMarkers bool
 }
@@ -58,16 +57,22 @@ func newTransactionTracker(
 		return nil, err
 	}
 
-	return &transactionTracker{
+	tt := &transactionTracker{
 		timeout:                      timeout,
-		maxSize:                      maxSize,
 		systemCatalog:                systemCatalog,
 		taskManager:                  taskManager,
 		relations:                    containers.NewRelationCache(),
 		logger:                       logger,
 		resolver:                     resolver,
 		supportsDecompressionMarkers: replicationContext.IsTSDB212GE(),
-	}, nil
+	}
+
+	tt.activeTransaction = &transaction{
+		transactionTracker: tt,
+		queue:              containers.NewQueue[*transactionEntry](int(maxSize + 1)),
+	}
+
+	return tt, nil
 }
 func (tt *transactionTracker) PostConstruct() error {
 	tt.taskManager.RegisterReplicationEventHandler(tt)
@@ -125,7 +130,7 @@ func (tt *transactionTracker) OnBeginEvent(
 	xld pgtypes.XLogData, msg *pgtypes.BeginMessage,
 ) error {
 
-	tt.currentTransaction = tt.newTransaction(msg.Xid, msg.CommitTime, pgtypes.LSN(msg.FinalLSN))
+	tt.startTransaction(msg.Xid, msg.CommitTime, pgtypes.LSN(msg.FinalLSN))
 	if tt.supportsDecompressionMarkers {
 		return tt.resolver.OnBeginEvent(xld, msg)
 	}
@@ -140,21 +145,17 @@ func (tt *transactionTracker) OnCommitEvent(
 	// got restarted and the last processed LSN was inside a running
 	// transaction. In this case we skip all earlier logrepl messages
 	// and keep going from where we left off.
-	if tt.currentTransaction == nil {
+	if tt.activeTransaction.active {
 		return tt.resolver.OnCommitEvent(xld, msg)
 	}
-
-	currentTransaction := tt.currentTransaction
-	tt.currentTransaction = nil
+	tt.activeTransaction.active = false
 
 	if tt.supportsDecompressionMarkers {
 		return tt.resolver.OnCommitEvent(xld, msg)
 	}
 
-	currentTransaction.queue.Lock()
-
-	if currentTransaction.compressionUpdate != nil {
-		message := currentTransaction.compressionUpdate
+	if tt.activeTransaction.compressionUpdate != nil {
+		message := tt.activeTransaction.compressionUpdate
 		chunkId := message.msg.(*pgtypes.UpdateMessage).NewValues["id"].(int32)
 		if chunk, present := tt.systemCatalog.FindChunkById(chunkId); present {
 			if err := tt.resolver.onChunkCompressionEvent(xld, chunk); err != nil {
@@ -166,13 +167,13 @@ func (tt *transactionTracker) OnCommitEvent(
 		}
 
 		// If there isn't a decompression event in the same transaction where done here
-		if currentTransaction.decompressionUpdate == nil {
+		if tt.activeTransaction.decompressionUpdate == nil {
 			return nil
 		}
 	}
 
-	if currentTransaction.decompressionUpdate != nil {
-		message := currentTransaction.decompressionUpdate
+	if tt.activeTransaction.decompressionUpdate != nil {
+		message := tt.activeTransaction.decompressionUpdate
 		chunkId := message.msg.(*pgtypes.UpdateMessage).NewValues["id"].(int32)
 		if chunk, present := tt.systemCatalog.FindChunkById(chunkId); present {
 			if err := tt.resolver.onChunkDecompressionEvent(xld, chunk); err != nil {
@@ -182,7 +183,7 @@ func (tt *transactionTracker) OnCommitEvent(
 		}
 	}
 
-	if err := currentTransaction.drain(); err != nil {
+	if err := tt.activeTransaction.drain(); err != nil {
 		return err
 	}
 	return tt.resolver.OnCommitEvent(xld, msg)
@@ -205,12 +206,12 @@ func (tt *transactionTracker) OnInsertEvent(
 		}
 	}
 
-	if tt.currentTransaction != nil {
+	if tt.activeTransaction.active {
 		// If we already know that the transaction represents a decompression in TimescaleDB
 		// we can start to discard all newly incoming INSERTs immediately, since those are the
 		// re-inserted, uncompressed rows that were already replicated into events in the past.
-		if (tt.currentTransaction.decompressionUpdate != nil ||
-			tt.currentTransaction.ongoingDecompression) &&
+		if (tt.activeTransaction.decompressionUpdate != nil ||
+			tt.activeTransaction.ongoingDecompression) &&
 			!spicatalog.IsHypertableEvent(relation) &&
 			!spicatalog.IsChunkEvent(relation) {
 
@@ -218,7 +219,7 @@ func (tt *transactionTracker) OnInsertEvent(
 		}
 
 		if !tt.supportsDecompressionMarkers {
-			handled, err := tt.currentTransaction.pushTransactionEntry(&transactionEntry{
+			handled, err := tt.activeTransaction.pushTransactionEntry(&transactionEntry{
 				xld: xld,
 				msg: msg,
 			})
@@ -255,9 +256,9 @@ func (tt *transactionTracker) OnUpdateEvent(
 
 				// If true, we found a compression event
 				if oldChunkStatus == 0 && newChunkStatus != 0 {
-					tt.currentTransaction.compressionUpdate = updateEntry
-				} else if tt.currentTransaction.compressionUpdate != nil {
-					compressionMsg := tt.currentTransaction.compressionUpdate.msg.(*pgtypes.UpdateMessage)
+					tt.activeTransaction.compressionUpdate = updateEntry
+				} else if tt.activeTransaction.compressionUpdate != nil {
+					compressionMsg := tt.activeTransaction.compressionUpdate.msg.(*pgtypes.UpdateMessage)
 					if compressionMsg.RelationID == msg.RelationID {
 						oldChunkStatus = compressionMsg.NewValues["status"].(int32)
 					}
@@ -267,7 +268,7 @@ func (tt *transactionTracker) OnUpdateEvent(
 				tt.logger.Verbosef("Chunk %d: status=%d, new value=%d", chunkId, oldChunkStatus, newChunkStatus)
 
 				if previouslyCompressed {
-					tt.currentTransaction.decompressionUpdate = updateEntry
+					tt.activeTransaction.decompressionUpdate = updateEntry
 				}
 			}
 		}
@@ -282,8 +283,8 @@ func (tt *transactionTracker) OnUpdateEvent(
 		}
 	}
 
-	if tt.currentTransaction != nil {
-		handled, err := tt.currentTransaction.pushTransactionEntry(&transactionEntry{
+	if tt.activeTransaction.active {
+		handled, err := tt.activeTransaction.pushTransactionEntry(&transactionEntry{
 			xld: xld,
 			msg: msg,
 		})
@@ -317,8 +318,8 @@ func (tt *transactionTracker) OnDeleteEvent(
 		}
 	}
 
-	if tt.currentTransaction != nil {
-		handled, err := tt.currentTransaction.pushTransactionEntry(&transactionEntry{
+	if tt.activeTransaction.active {
+		handled, err := tt.activeTransaction.pushTransactionEntry(&transactionEntry{
 			xld: xld,
 			msg: msg,
 		})
@@ -344,8 +345,8 @@ func (tt *transactionTracker) OnTruncateEvent(
 		return nil
 	}
 
-	if !tt.supportsDecompressionMarkers && tt.currentTransaction != nil {
-		handled, err := tt.currentTransaction.pushTransactionEntry(&transactionEntry{
+	if !tt.supportsDecompressionMarkers && tt.activeTransaction.active {
+		handled, err := tt.activeTransaction.pushTransactionEntry(&transactionEntry{
 			xld: xld,
 			msg: msg,
 		})
@@ -381,11 +382,11 @@ func (tt *transactionTracker) OnMessageEvent(
 	// transaction, otherwise we can run it straight away.
 	if msg.IsTransactional() {
 		if msg.Prefix == decompressionMarkerStartId {
-			tt.currentTransaction.ongoingDecompression = true
+			tt.activeTransaction.ongoingDecompression = true
 			return nil
 		} else if msg.Prefix == decompressionMarkerEndId &&
-			(tt.currentTransaction != nil && tt.currentTransaction.ongoingDecompression) {
-			tt.currentTransaction.ongoingDecompression = false
+			(tt.activeTransaction != nil && tt.activeTransaction.ongoingDecompression) {
+			tt.activeTransaction.ongoingDecompression = false
 			return nil
 		}
 
@@ -396,8 +397,8 @@ func (tt *transactionTracker) OnMessageEvent(
 		}
 
 		if !tt.supportsDecompressionMarkers {
-			if tt.currentTransaction != nil {
-				handled, err := tt.currentTransaction.pushTransactionEntry(&transactionEntry{
+			if tt.activeTransaction.active {
+				handled, err := tt.activeTransaction.pushTransactionEntry(&transactionEntry{
 					xld: xld,
 					msg: msg,
 				})
@@ -413,22 +414,30 @@ func (tt *transactionTracker) OnMessageEvent(
 	return tt.resolver.OnMessageEvent(xld, msg)
 }
 
-func (tt *transactionTracker) newTransaction(
+func (tt *transactionTracker) startTransaction(
 	xid uint32, commitTime time.Time, finalLSN pgtypes.LSN,
-) *transaction {
+) {
 
-	return &transaction{
+	for {
+		// Make sure the queue is fully drained by this time
+		if v := tt.activeTransaction.queue.Pop(); v == nil {
+			break
+		}
+	}
+
+	tt.activeTransaction = &transaction{
 		transactionTracker: tt,
+		maxSize:            tt.activeTransaction.maxSize,
 		xid:                xid,
-		commitTime:         commitTime,
 		finalLSN:           finalLSN,
-		queue:              containers.NewQueue[*transactionEntry](int(tt.maxSize + 1)),
-		maxSize:            tt.maxSize,
+		commitTime:         commitTime,
 		deadline:           time.Now().Add(tt.timeout),
+		queue:              tt.activeTransaction.queue,
 	}
 }
 
 type transaction struct {
+	active               bool
 	transactionTracker   *transactionTracker
 	maxSize              uint
 	deadline             time.Time
@@ -474,7 +483,6 @@ func (t *transaction) drain() error {
 	for {
 		entry := t.queue.Pop()
 		if entry == nil {
-			t.queue.Close()
 			break
 		}
 
