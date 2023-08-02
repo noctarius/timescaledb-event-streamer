@@ -21,7 +21,7 @@ import "github.com/noctarius/timescaledb-event-streamer/spi/schema"
 
 type CompositeColumnFactory func(
 	name string, oid uint32, modifiers int, nullable bool,
-) CompositeColumn
+) (CompositeColumn, error)
 
 type CompositeColumn interface {
 	schema.Buildable

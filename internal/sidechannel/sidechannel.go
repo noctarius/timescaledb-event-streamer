@@ -596,7 +596,12 @@ func (sc *sideChannel) ReadPgCompositeTypeSchema(
 				return err
 			}
 
-			columns = append(columns, compositeColumnFactory(attname, atttypeid, atttypmod, !attnotnull))
+			column, err := compositeColumnFactory(attname, atttypeid, atttypmod, !attnotnull)
+			if err != nil {
+				return err
+			}
+
+			columns = append(columns, column)
 			return nil
 		}, queryReadCompositeTypeSchema, oid)
 	}); err != nil {

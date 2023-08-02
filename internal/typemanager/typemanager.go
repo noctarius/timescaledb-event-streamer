@@ -29,7 +29,6 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/sidechannel"
 	"reflect"
-	"sync"
 )
 
 var (
@@ -67,14 +66,10 @@ type typeManager struct {
 
 	typeMap *pgtype.Map
 
-	typeCache      map[uint32]pgtypes.PgType
-	typeNameCache  map[string]uint32
-	typeCacheMutex sync.RWMutex
-
-	optimizedTypes      map[uint32]pgtypes.PgType
-	optimizedConverters map[uint32]typeRegistration
-	dynamicConverters   map[uint32]typeRegistration
-	cachedDecoderPlans  *containers.ConcurrentMap[uint32, pgtypes.TupleDecoderPlan]
+	typeCache           *containers.CasCache[uint32, pgtypes.PgType]
+	optimizedConverters *containers.CasCache[uint32, typeRegistration]
+	dynamicConverters   *containers.CasCache[uint32, typeRegistration]
+	decoderPlanCache    *containers.CasCache[uint32, pgtypes.TupleDecoderPlan]
 }
 
 func NewTypeManager(
@@ -92,14 +87,10 @@ func NewTypeManager(
 
 		typeMap: pgtype.NewMap(),
 
-		typeCache:      make(map[uint32]pgtypes.PgType),
-		typeNameCache:  make(map[string]uint32),
-		typeCacheMutex: sync.RWMutex{},
-
-		optimizedTypes:      make(map[uint32]pgtypes.PgType),
-		optimizedConverters: make(map[uint32]typeRegistration),
-		dynamicConverters:   make(map[uint32]typeRegistration),
-		cachedDecoderPlans:  containers.NewConcurrentMap[uint32, pgtypes.TupleDecoderPlan](),
+		typeCache:           containers.NewCasCache[uint32, pgtypes.PgType](),
+		optimizedConverters: containers.NewCasCache[uint32, typeRegistration](),
+		dynamicConverters:   containers.NewCasCache[uint32, typeRegistration](),
+		decoderPlanCache:    containers.NewCasCache[uint32, pgtypes.TupleDecoderPlan](),
 	}
 
 	if err := typeManager.initialize(); err != nil {
@@ -109,9 +100,6 @@ func NewTypeManager(
 }
 
 func (tm *typeManager) initialize() error {
-	tm.typeCacheMutex.Lock()
-	defer tm.typeCacheMutex.Unlock()
-
 	if err := tm.sideChannel.ReadPgTypes(tm.typeFactory, tm.registerType); err != nil {
 		return err
 	}
@@ -132,58 +120,14 @@ func (tm *typeManager) ResolveDataType(
 	oid uint32,
 ) (pgtypes.PgType, error) {
 
-	get := func() (pgtypes.PgType, bool) {
-		tm.typeCacheMutex.RLock()
-		defer tm.typeCacheMutex.RUnlock()
-
-		dataType, present := tm.typeCache[oid]
-		if present {
-			return dataType, true
-		}
-		return nil, false
-	}
-
-	resolve := func() (bool, error) {
-		tm.typeCacheMutex.Lock()
-		defer tm.typeCacheMutex.Unlock()
-
+	return tm.typeCache.GetOrCompute(oid, func() (pgtypes.PgType, error) {
 		var pt pgtypes.PgType
 		err := tm.sideChannel.ReadPgTypes(tm.typeFactory, func(typ pgtypes.PgType) error {
 			pt = typ
 			return tm.registerType(typ)
 		}, oid)
-
-		if err != nil {
-			return false, err
-		}
-
-		if pt == nil {
-			return false, nil
-		}
-		return true, nil
-	}
-
-	// Is it already available / cached?
-	t, present := get()
-	if present {
-		return t, nil
-	}
-
-	// Not yet available, needs to be resolved
-	found, err := resolve()
-	if err != nil {
-		return nil, err
-	} else if !found {
-		return nil, errors.Errorf("illegal oid: %d", oid)
-	}
-
-	// Try again
-	t, present = get()
-	if !present {
-		panic("illegal state, PgType not available after successful resolve")
-	}
-
-	return t, nil
+		return pt, err
+	})
 }
 
 func (tm *typeManager) ResolveTypeConverter(
@@ -193,32 +137,17 @@ func (tm *typeManager) ResolveTypeConverter(
 	if registration, present := coreTypes[oid]; present {
 		return registration.converter, nil
 	}
-	if registration, present := tm.optimizedConverters[oid]; present {
+	if registration, present := tm.optimizedConverters.Get(oid); present {
 		return registration.converter, nil
 	}
-	if registration, present := tm.dynamicConverters[oid]; present {
+	if registration, present := tm.dynamicConverters.Get(oid); present {
 		return registration.converter, nil
 	}
 	return nil, fmt.Errorf("unsupported OID: %d", oid)
 }
 
 func (tm *typeManager) NumKnownTypes() int {
-	tm.typeCacheMutex.RLock()
-	defer tm.typeCacheMutex.RUnlock()
-	return len(tm.typeCache)
-}
-
-func (tm *typeManager) OidByName(
-	name string,
-) uint32 {
-
-	tm.typeCacheMutex.RLock()
-	defer tm.typeCacheMutex.RUnlock()
-	oid, present := tm.typeNameCache[name]
-	if !present {
-		panic(fmt.Sprintf("Type %s isn't registered", name))
-	}
-	return oid
+	return tm.typeCache.Length()
 }
 
 func (tm *typeManager) DecodeTuples(
@@ -236,15 +165,12 @@ func (tm *typeManager) GetOrPlanTupleDecoder(
 	relation *pgtypes.RelationMessage,
 ) (plan pgtypes.TupleDecoderPlan, err error) {
 
-	plan, ok := tm.cachedDecoderPlans.Load(relation.RelationID)
-	if !ok {
-		plan, err = planTupleDecoder(tm, relation)
-		if err != nil {
-			return nil, err
-		}
-		tm.cachedDecoderPlans.Store(relation.RelationID, plan)
-	}
-	return plan, nil
+	return tm.decoderPlanCache.GetOrCompute(
+		relation.RelationID,
+		func() (pgtypes.TupleDecoderPlan, error) {
+			return planTupleDecoder(tm, relation)
+		},
+	)
 }
 
 func (tm *typeManager) GetOrPlanRowDecoder(
@@ -277,15 +203,17 @@ func (tm *typeManager) RegisterColumnType(
 				return err
 			}
 
-			tm.typeCacheMutex.Lock()
-			registration, present := tm.dynamicConverters[typ.Oid()]
-			if !present {
-				return errors.Errorf("Not found registration for lazy type map %d", column.DataType())
+			registration, err := tm.dynamicConverters.TransformSetAndGet(
+				typ.Oid(), func(old typeRegistration) (typeRegistration, error) {
+					old.codec = codec
+					old.converter = converter
+					return old, nil
+				},
+			)
+			if err != nil {
+				return err
 			}
-			registration.codec = codec
-			registration.converter = converter
-			tm.dynamicConverters[typ.Oid()] = registration
-			tm.typeCacheMutex.Unlock()
+
 			if err := tm.registerTypeInTypeMap(typ, registration); err != nil {
 				return err
 			}
@@ -303,7 +231,7 @@ func (tm *typeManager) getSchemaType(
 	if registration, present := coreTypes[oid]; present {
 		return registration.schemaType
 	}
-	if registration, present := tm.optimizedConverters[oid]; present {
+	if registration, present := tm.optimizedConverters.Get(oid); present {
 		return registration.schemaType
 	}
 	if arrayType {
@@ -318,7 +246,7 @@ func (tm *typeManager) resolveSchemaBuilder(
 	typ *pgType,
 ) schema.Builder {
 
-	if registration, present := tm.optimizedConverters[typ.oid]; present {
+	if registration, present := tm.optimizedConverters.Get(typ.oid); present {
 		if registration.schemaBuilder != nil {
 			return registration.schemaBuilder
 		}
@@ -406,9 +334,12 @@ func (tm *typeManager) resolveCompositeTypeColumns(
 ) ([]pgtypes.CompositeColumn, error) {
 
 	return tm.sideChannel.ReadPgCompositeTypeSchema(
-		typ.oid, func(name string, oid uint32, modifiers int, nullable bool) pgtypes.CompositeColumn {
-			columnType := tm.typeCache[oid]
-			return newCompositeColumn(name, columnType, modifiers, nullable)
+		typ.oid, func(name string, oid uint32, modifiers int, nullable bool) (pgtypes.CompositeColumn, error) {
+			columnType, present := tm.typeCache.Get(oid)
+			if !present {
+				return nil, errors.Errorf("Type with oid %d not found", oid)
+			}
+			return newCompositeColumn(name, columnType, modifiers, nullable), nil
 		},
 	)
 }
@@ -417,8 +348,7 @@ func (tm *typeManager) registerType(
 	typ pgtypes.PgType,
 ) error {
 
-	tm.typeCache[typ.Oid()] = typ
-	tm.typeNameCache[typ.Name()] = typ.Oid()
+	tm.typeCache.Set(typ.Oid(), typ)
 
 	// Is core type not available in TypeMap by default (bug or not implemented in pgx)?
 	if registration, present := coreTypes[typ.Oid()]; present {
@@ -435,21 +365,19 @@ func (tm *typeManager) registerType(
 			t.schemaType = registration.schemaType
 		}
 
-		tm.optimizedTypes[typ.Oid()] = typ
-
 		converter := tm.resolveOptimizedTypeConverter(typ, registration)
 		if converter == nil {
 			return errors.Errorf("Type %s has no assigned value converter", typ.Name())
 		}
 
-		tm.optimizedConverters[typ.Oid()] = typeRegistration{
+		tm.optimizedConverters.Set(typ.Oid(), typeRegistration{
 			schemaType:    registration.schemaType,
 			schemaBuilder: registration.schemaBuilder,
 			isArray:       registration.isArray,
 			oidElement:    typ.OidElement(),
 			converter:     converter,
 			codec:         registration.codec,
-		}
+		})
 
 		if err := tm.registerTypeInTypeMap(typ, registration); err != nil {
 			return err
@@ -464,7 +392,7 @@ func (tm *typeManager) registerType(
 			codec:      &pgtype.EnumCodec{},
 		}
 
-		tm.dynamicConverters[typ.Oid()] = registration
+		tm.dynamicConverters.Set(typ.Oid(), registration)
 		if err := tm.registerTypeInTypeMap(typ, registration); err != nil {
 			return err
 		}
@@ -476,7 +404,7 @@ func (tm *typeManager) registerType(
 			registration := typeRegistration{
 				schemaType: typ.SchemaType(),
 			}
-			tm.dynamicConverters[typ.Oid()] = registration
+			tm.dynamicConverters.Set(typ.Oid(), registration)
 			// Attention: Type map registration is lazy to prevent heavy
 			// reading of columns for unused types:
 			// See @RegisterColumnTypes
