@@ -134,7 +134,7 @@ func (tm *typeManager) ResolveTypeConverter(
 	oid uint32,
 ) (pgtypes.TypeConverter, error) {
 
-	if registration, present := coreTypes[oid]; present {
+	if registration, present := coreType(oid); present {
 		return registration.converter, nil
 	}
 	if registration, present := tm.optimizedConverters.Get(oid); present {
@@ -228,7 +228,7 @@ func (tm *typeManager) getSchemaType(
 	oid uint32, arrayType bool, kind pgtypes.PgKind,
 ) schema.Type {
 
-	if registration, present := coreTypes[oid]; present {
+	if registration, present := coreType(oid); present {
 		return registration.schemaType
 	}
 	if registration, present := tm.optimizedConverters.Get(oid); present {
@@ -351,7 +351,7 @@ func (tm *typeManager) registerType(
 	tm.typeCache.Set(typ.Oid(), typ)
 
 	// Is core type not available in TypeMap by default (bug or not implemented in pgx)?
-	if registration, present := coreTypes[typ.Oid()]; present {
+	if registration, present := coreType(typ.Oid()); present {
 		if !tm.knownInTypeMap(typ.Oid()) {
 			if err := tm.registerTypeInTypeMap(typ, registration); err != nil {
 				return err

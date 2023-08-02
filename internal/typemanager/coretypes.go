@@ -21,9 +21,12 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
+	"github.com/samber/lo"
 )
 
-var coreTypes = map[uint32]typeRegistration{
+// This map is just for easier definition, and gets optimized
+// at startup into a simplified array for faster index access
+var coreTypeMap = map[uint32]typeRegistration{
 	pgtype.BoolOID: {
 		schemaType: schema.BOOLEAN,
 	},
@@ -378,4 +381,30 @@ var optimizedTypes = map[string]typeRegistration{
 		schemaType: schema.ARRAY,
 		isArray:    true,
 	},
+}
+
+var highestOid uint32
+var emptyTypeRegistration = typeRegistration{}
+var coreTypes []*typeRegistration
+
+func init() {
+	highestOid = lo.Max(lo.Keys(coreTypeMap)) + 1
+	coreTypes = make([]*typeRegistration, highestOid)
+	for oid, registration := range coreTypeMap {
+		coreTypes[oid] = lo.ToPtr(registration)
+	}
+}
+
+func coreType(
+	oid uint32,
+) (typeRegistration, bool) {
+
+	if oid >= highestOid {
+		return emptyTypeRegistration, false
+	}
+	registration := coreTypes[oid]
+	if registration == nil {
+		return emptyTypeRegistration, false
+	}
+	return *registration, true
 }
