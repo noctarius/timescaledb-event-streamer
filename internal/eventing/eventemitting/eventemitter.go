@@ -54,6 +54,10 @@ type eventEmitterStats struct {
 	} `metric:"emitted"`
 }
 
+func (ees *eventEmitterStats) reset() {
+	ees.calls.count = 0
+}
+
 type EventEmitter struct {
 	replicationContext replicationcontext.ReplicationContext
 	filter             eventfiltering.EventFilter
@@ -64,7 +68,7 @@ type EventEmitter struct {
 	backOff            backoff.BackOff
 	logger             *logging.Logger
 
-	stats eventEmitterStats
+	stats *eventEmitterStats
 }
 
 func NewEventEmitterFromConfig(
@@ -99,8 +103,9 @@ func NewEventEmitter(
 		streamManager:      streamManager,
 		filter:             filter,
 		logger:             logger,
-		statsReporter:      statsService.NewReporter("eventEmitter"),
+		statsReporter:      statsService.NewReporter("streamer_eventemitter"),
 		backOff:            backoff.WithMaxRetries(backoff.NewExponentialBackOff(), 8),
+		stats:              &eventEmitterStats{},
 	}, nil
 }
 
@@ -149,6 +154,7 @@ func (ee *EventEmitter) emit(
 		return err
 	}
 
+	ee.stats.reset()
 	ee.stats.calls.count++
 	ee.stats.calls.time = time.Since(start)
 	ee.stats.calls.retry = retries

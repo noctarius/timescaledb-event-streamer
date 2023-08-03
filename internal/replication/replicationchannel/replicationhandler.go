@@ -47,8 +47,20 @@ type replicationChannelStats struct {
 		messages  uint64 `metric:"messages" type:"counter"`
 	} `metric:"calls"`
 	statistics struct {
+		transactions       uint64 `metric:"transactions" type:"counter"`
 		largestTransaction uint64 `metric:"largestTransaction" type:"gauge"`
 	} `metric:"statistics"`
+}
+
+func (rcs *replicationChannelStats) reset() {
+	rcs.calls.total = 0
+	rcs.calls.inserts = 0
+	rcs.calls.updates = 0
+	rcs.calls.deletes = 0
+	rcs.calls.truncates = 0
+	rcs.calls.skipped = 0
+	rcs.calls.messages = 0
+	rcs.statistics.transactions = 0
 }
 
 type replicationHandler struct {
@@ -56,14 +68,14 @@ type replicationHandler struct {
 	taskManager        task.TaskManager
 	typeManager        pgtypes.TypeManager
 	clientXLogPos      pglogrepl.LSN
-	relations          *containers.RelationCache
+	relations          *containers.RelationCache[*pgtypes.RelationMessage]
 	shutdownAwaiter    *waiting.ShutdownAwaiter
 	statsReporter      *stats.Reporter
 	loopDead           atomic.Bool
 	lastTransactionId  *uint32
 	logger             *logging.Logger
 
-	stats           replicationChannelStats
+	stats           *replicationChannelStats
 	transactionSize uint64
 }
 
@@ -83,10 +95,11 @@ func newReplicationHandler(
 		taskManager:        taskManager,
 		typeManager:        typeManager,
 		statsReporter:      statsReporter,
-		relations:          containers.NewRelationCache(),
+		relations:          containers.NewRelationCache[*pgtypes.RelationMessage](),
 		shutdownAwaiter:    waiting.NewShutdownAwaiter(),
 		logger:             logger,
 		loopDead:           atomic.Bool{},
+		stats:              &replicationChannelStats{},
 	}, nil
 }
 
@@ -184,6 +197,7 @@ func (rh *replicationHandler) startReplicationHandler(
 			msgType := pglogrepl.MessageType(xld.WALData[0])
 			if msgType != pglogrepl.MessageTypeRelation && restartLSN > pgtypes.LSN(xld.WALStart) {
 				rh.logger.Debugf("Skipped message, LSN lower than restartLSN: %s < %s", xld.WALStart, restartLSN)
+				rh.stats.reset()
 				rh.stats.calls.total++
 				rh.stats.calls.skipped++
 				rh.statsReporter.Report(rh.stats)
@@ -225,6 +239,7 @@ func (rh *replicationHandler) handleReplicationEvents(
 	xld pgtypes.XLogData, msg pglogrepl.Message,
 ) error {
 
+	rh.stats.reset()
 	rh.stats.calls.total++
 	defer rh.statsReporter.Report(rh.stats)
 
@@ -265,6 +280,7 @@ func (rh *replicationHandler) handleReplicationEvents(
 		if rh.transactionSize > rh.stats.statistics.largestTransaction {
 			rh.stats.statistics.largestTransaction = rh.transactionSize
 		}
+		rh.stats.statistics.transactions++
 
 		return rh.taskManager.EnqueueTask(func(notificator task.Notificator) {
 			notificator.NotifyLogicalReplicationEventHandler(

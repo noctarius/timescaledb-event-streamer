@@ -102,10 +102,7 @@ func NewTypeManager(
 }
 
 func (tm *typeManager) initialize() error {
-	if err := tm.sideChannel.ReadPgTypes(tm.typeFactory, tm.registerType); err != nil {
-		return err
-	}
-	return nil
+	return tm.sideChannel.ReadPgTypes(tm.typeFactory, tm.registerType)
 }
 
 func (tm *typeManager) typeFactory(

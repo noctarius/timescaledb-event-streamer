@@ -25,14 +25,16 @@ import (
 	"github.com/segmentio/stats/procstats"
 	"github.com/segmentio/stats/prometheus"
 	"golang.org/x/net/context"
+	"io"
 	"net/http"
 )
 
 type Service struct {
-	statsEnabled bool
-	handler      *prometheus.Handler
-	engine       *stats.Engine
-	server       *http.Server
+	statsEnabled         bool
+	handler              *prometheus.Handler
+	engine               *stats.Engine
+	server               *http.Server
+	runtimeMetricsCloser io.Closer
 }
 
 func NewStatsService(
@@ -47,18 +49,21 @@ func NewStatsService(
 	runtimeStatsEnabled := config.GetOrDefault(c, config.PropertyRuntimeStatsEnabled, true)
 
 	engine := stats.NewEngine(version.BinName, statsHandler)
+
+	var runtimeMetricsCloser io.Closer
 	if runtimeStatsEnabled {
 		runtimeMetrics := procstats.NewGoMetricsWith(engine)
-		procstats.StartCollector(runtimeMetrics)
+		runtimeMetricsCloser = procstats.StartCollector(runtimeMetrics)
 	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/metrics", statsHandler.ServeHTTP)
 
 	return &Service{
-		statsEnabled: statsEnabled,
-		handler:      statsHandler,
-		engine:       engine,
+		runtimeMetricsCloser: runtimeMetricsCloser,
+		statsEnabled:         statsEnabled,
+		handler:              statsHandler,
+		engine:               engine,
 		server: &http.Server{
 			Addr:    ":8081",
 			Handler: mux,
@@ -81,6 +86,9 @@ func (s *Service) Start() error {
 func (s *Service) Stop() error {
 	if !s.statsEnabled {
 		return nil
+	}
+	if s.runtimeMetricsCloser != nil {
+		s.runtimeMetricsCloser.Close()
 	}
 	return s.server.Shutdown(context.Background())
 }

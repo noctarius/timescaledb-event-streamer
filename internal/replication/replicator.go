@@ -96,7 +96,7 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 		return erroring.AdaptError(err, 1)
 	}
 	if err := statsService.Start(); err != nil {
-		return nil
+		return erroring.AdaptError(err, 0)
 	}
 
 	// Start internal dispatching

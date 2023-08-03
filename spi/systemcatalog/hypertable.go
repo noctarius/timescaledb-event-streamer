@@ -39,6 +39,7 @@ type Hypertable struct {
 	viewSchema             *string
 	viewName               *string
 	columns                []Column
+	tableColumns           []schema.ColumnAlike
 	replicaIdentity        pgtypes.ReplicaIdentity
 }
 
@@ -65,6 +66,7 @@ func NewHypertable(
 		viewName:               viewName,
 		replicaIdentity:        replicaIdentity,
 		columns:                make([]Column, 0),
+		tableColumns:           make([]schema.ColumnAlike, 0),
 	}
 }
 
@@ -137,11 +139,7 @@ func (h *Hypertable) Columns() Columns {
 }
 
 func (h *Hypertable) TableColumns() []schema.ColumnAlike {
-	columns := make([]schema.ColumnAlike, 0, len(h.columns))
-	for i := 0; i < len(h.columns); i++ {
-		columns = append(columns, h.columns[i])
-	}
-	return columns
+	return h.tableColumns
 }
 
 func (h *Hypertable) KeyIndexColumns() []schema.ColumnAlike {
@@ -229,6 +227,11 @@ func (h *Hypertable) ApplyTableSchema(
 	oldColumns := h.columns
 	h.columns = newColumns
 
+	h.tableColumns = make([]schema.ColumnAlike, 0, len(newColumns))
+	for i := 0; i < len(newColumns); i++ {
+		h.tableColumns = append(h.tableColumns, newColumns[i])
+	}
+
 	newIndex := 0
 	differences := make(map[string]string, 0)
 	for i, c1 := range oldColumns {
@@ -308,6 +311,7 @@ func (h *Hypertable) ApplyChanges(
 		compressionState:       compressionState,
 		distributed:            h.distributed,
 		columns:                h.columns,
+		tableColumns:           h.tableColumns,
 		replicaIdentity:        replicaIdentity,
 	}
 	return h2, h.differences(h2)

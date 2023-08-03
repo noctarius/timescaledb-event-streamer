@@ -116,6 +116,27 @@ func (cc *CasCache[K, V]) Set(
 	}
 }
 
+func (cc *CasCache[K, V]) SetAll(
+	m map[K]V,
+) {
+
+	for {
+		o := cc.mapPtr.Load()
+
+		// Copy data from existing map
+		if o != nil {
+			for k, v := range *o {
+				m[k] = v
+			}
+		}
+
+		// Try exchange
+		if cc.mapPtr.CompareAndSwap(o, &m) {
+			break
+		}
+	}
+}
+
 func (cc *CasCache[K, V]) TransformSetAndGet(
 	key K, transformer func(old V) (V, error),
 ) (V, error) {

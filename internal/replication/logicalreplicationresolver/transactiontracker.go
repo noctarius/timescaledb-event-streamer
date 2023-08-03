@@ -37,7 +37,7 @@ const (
 
 type transactionTracker struct {
 	timeout                      time.Duration
-	relations                    *containers.RelationCache
+	relations                    *containers.RelationCache[*pgtypes.RelationMessage]
 	resolver                     *logicalReplicationResolver
 	taskManager                  task.TaskManager
 	systemCatalog                systemcatalog.SystemCatalog
@@ -61,7 +61,7 @@ func newTransactionTracker(
 		timeout:                      timeout,
 		systemCatalog:                systemCatalog,
 		taskManager:                  taskManager,
-		relations:                    containers.NewRelationCache(),
+		relations:                    containers.NewRelationCache[*pgtypes.RelationMessage](),
 		logger:                       logger,
 		resolver:                     resolver,
 		supportsDecompressionMarkers: replicationContext.IsTSDB212GE(),

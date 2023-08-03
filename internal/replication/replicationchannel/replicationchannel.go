@@ -67,7 +67,7 @@ func NewReplicationChannel(
 		taskManager:        taskManager,
 		shutdownAwaiter:    waiting.NewShutdownAwaiter(),
 		logger:             logger,
-		statsReporter:      statsService.NewReporter("replicationChannel"),
+		statsReporter:      statsService.NewReporter("streamer_replicationchannel"),
 	}, nil
 }
 

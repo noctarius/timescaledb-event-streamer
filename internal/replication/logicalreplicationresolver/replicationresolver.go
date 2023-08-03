@@ -41,8 +41,9 @@ type logicalReplicationResolver struct {
 	typeManager        pgtypes.TypeManager
 	logger             *logging.Logger
 
-	relations   *containers.RelationCache
-	eventQueues map[string]*containers.Queue[snapshotCallback]
+	relations     *containers.RelationCache[*pgtypes.RelationMessage]
+	chunkIdLookup *containers.RelationCache[int32]
+	eventQueues   map[string]*containers.Queue[snapshotCallback]
 
 	genDeleteTombstone    bool
 	genReadEvent          bool
@@ -73,8 +74,9 @@ func newLogicalReplicationResolver(
 		typeManager:        typeManager,
 		logger:             logger,
 
-		relations:   containers.NewRelationCache(),
-		eventQueues: make(map[string]*containers.Queue[snapshotCallback]),
+		relations:     containers.NewRelationCache[*pgtypes.RelationMessage](),
+		chunkIdLookup: containers.NewRelationCache[int32](),
+		eventQueues:   make(map[string]*containers.Queue[snapshotCallback]),
 
 		genDeleteTombstone:    spiconfig.GetOrDefault(config, spiconfig.PropertySinkTombstone, false),
 		genReadEvent:          spiconfig.GetOrDefault(config, spiconfig.PropertyEventsRead, true),
@@ -219,7 +221,10 @@ func (l *logicalReplicationResolver) OnInsertEvent(
 		return nil
 	}
 
-	if chunk, hypertable, present := l.resolveChunkAndHypertable(rel.Namespace, rel.RelationName); present {
+	if chunk, hypertable, present := l.resolveChunkAndHypertable(
+		rel.RelationID, rel.Namespace, rel.RelationName,
+	); present {
+
 		return l.enqueueOrExecute(chunk, xld, func() error {
 			return l.taskManager.EnqueueTask(func(notificator task.Notificator) {
 				notificator.NotifyHypertableReplicationEventHandler(
@@ -263,7 +268,10 @@ func (l *logicalReplicationResolver) OnUpdateEvent(
 		return nil
 	}
 
-	if chunk, hypertable, present := l.resolveChunkAndHypertable(rel.Namespace, rel.RelationName); present {
+	if chunk, hypertable, present := l.resolveChunkAndHypertable(
+		rel.RelationID, rel.Namespace, rel.RelationName,
+	); present {
+
 		return l.enqueueOrExecute(chunk, xld, func() error {
 			return l.taskManager.EnqueueTask(func(notificator task.Notificator) {
 				notificator.NotifyHypertableReplicationEventHandler(
@@ -299,7 +307,10 @@ func (l *logicalReplicationResolver) OnDeleteEvent(
 		return nil
 	}
 
-	if chunk, hypertable, present := l.resolveChunkAndHypertable(rel.Namespace, rel.RelationName); present {
+	if chunk, hypertable, present := l.resolveChunkAndHypertable(
+		rel.RelationID, rel.Namespace, rel.RelationName,
+	); present {
+
 		if err := l.enqueueOrExecute(chunk, xld, func() error {
 			return l.taskManager.EnqueueTask(func(notificator task.Notificator) {
 				notificator.NotifyHypertableReplicationEventHandler(
@@ -348,7 +359,10 @@ func (l *logicalReplicationResolver) OnTruncateEvent(
 			continue
 		}
 
-		if _, hypertable, present := l.resolveChunkAndHypertable(rel.Namespace, rel.RelationName); present {
+		if _, hypertable, present := l.resolveChunkAndHypertable(
+			rel.RelationID, rel.Namespace, rel.RelationName,
+		); present {
+
 			truncatedHypertables = append(truncatedHypertables, hypertable)
 		}
 	}
@@ -569,13 +583,29 @@ func (l *logicalReplicationResolver) isSnapshotting(
 }
 
 func (l *logicalReplicationResolver) resolveChunkAndHypertable(
-	schemaName, tableName string,
+	chunkOid uint32, schemaName, tableName string,
 ) (*spicatalog.Chunk, *spicatalog.Hypertable, bool) {
 
-	if chunk, present := l.systemCatalog.FindChunkByName(schemaName, tableName); present {
-		if hypertable, present := l.systemCatalog.FindHypertableById(chunk.HypertableId()); present {
-			return chunk, hypertable, true
+	var chunk *systemcatalog.Chunk
+
+	chunkId, present := l.chunkIdLookup.Get(chunkOid)
+	if !present {
+		chunk, present = l.systemCatalog.FindChunkByName(schemaName, tableName)
+		if !present {
+			return nil, nil, false
 		}
+		l.chunkIdLookup.Set(chunkOid, chunk.Id())
+	}
+
+	if chunk == nil {
+		chunk, present = l.systemCatalog.FindChunkById(chunkId)
+		if !present {
+			return nil, nil, false
+		}
+	}
+
+	if hypertable, present := l.systemCatalog.FindHypertableById(chunk.HypertableId()); present {
+		return chunk, hypertable, true
 	}
 	return nil, nil, false
 }

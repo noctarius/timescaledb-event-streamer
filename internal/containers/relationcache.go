@@ -17,55 +17,81 @@
 
 package containers
 
-import "github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
+import (
+	"github.com/noctarius/timescaledb-event-streamer/internal/functional"
+)
 
 const (
-	relationCacheBaseSize       = 300000
+	relationCacheBaseSize       = 0
 	relationCacheSizeMultiplier = 1.5
 )
 
-type RelationCache struct {
-	cache     []*pgtypes.RelationMessage
-	cacheSize uint32
+type RelationCache[V any] struct {
+	cache      []*V
+	empty      V
+	lowerBound uint32
+	upperBound uint32
 }
 
-func NewRelationCache() *RelationCache {
-	return &RelationCache{
-		cache:     make([]*pgtypes.RelationMessage, relationCacheBaseSize),
-		cacheSize: relationCacheBaseSize,
+func NewRelationCache[V any]() *RelationCache[V] {
+	return &RelationCache[V]{
+		cache:      make([]*V, relationCacheBaseSize),
+		empty:      functional.Zero[V](),
+		lowerBound: 0,
+		upperBound: 0,
 	}
 }
 
-func (rc *RelationCache) Get(
+func (rc *RelationCache[V]) Get(
 	oid uint32,
-) (msg *pgtypes.RelationMessage, present bool) {
+) (value V, present bool) {
 
-	if oid >= rc.cacheSize {
-		return nil, false
+	if oid > rc.upperBound {
+		return rc.empty, false
 	}
 
-	if msg = rc.cache[oid]; msg != nil {
-		return msg, true
+	if v := rc.cache[rc.location(oid, rc.lowerBound)]; v != nil {
+		return *v, true
 	}
-	return nil, false
+	return rc.empty, false
 }
 
-func (rc *RelationCache) Set(
-	oid uint32, msg *pgtypes.RelationMessage,
+func (rc *RelationCache[V]) Set(
+	oid uint32, value V,
 ) {
 
-	if oid >= rc.cacheSize {
-		newCacheSize := uint32(float64(rc.cacheSize) * relationCacheSizeMultiplier)
-		for {
-			if newCacheSize > oid {
-				break
-			}
-			newCacheSize = uint32(float64(newCacheSize) * relationCacheSizeMultiplier)
+	oldLowerBound := rc.lowerBound
+
+	needsResizing := false
+	if rc.lowerBound == 0 || rc.lowerBound > oid {
+		rc.lowerBound = oid
+		needsResizing = true
+	}
+	if rc.upperBound < oid {
+		rc.upperBound = oid
+		needsResizing = true
+	}
+
+	if needsResizing {
+		newCacheSize := uint32(float64(rc.upperBound-rc.lowerBound+1) * relationCacheSizeMultiplier)
+		newCache := make([]*V, newCacheSize)
+
+		target := newCache
+		source := rc.cache
+		if oldLowerBound > rc.lowerBound {
+			diff := oldLowerBound - rc.lowerBound
+			target = target[diff:]
 		}
-		newCache := make([]*pgtypes.RelationMessage, newCacheSize)
-		copy(newCache, rc.cache)
-		rc.cacheSize = newCacheSize
+		copy(target, source)
+
 		rc.cache = newCache
 	}
-	rc.cache[oid] = msg
+	rc.cache[rc.location(oid, rc.lowerBound)] = &value
+}
+
+func (rc *RelationCache[V]) location(
+	oid, lowerBound uint32,
+) uint32 {
+
+	return oid - lowerBound
 }

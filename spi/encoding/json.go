@@ -30,7 +30,7 @@ func NewJsonEncoderWithConfig(
 	c *config.Config,
 ) *JsonEncoder {
 
-	customReflection := config.GetOrDefault(c, config.PropertyEncodingCustomReflection, true)
+	customReflection := config.GetOrDefault(c, config.PropertyEncodingCustomReflection, false)
 	return NewJsonEncoder(customReflection)
 }
 
@@ -38,7 +38,9 @@ func NewJsonEncoder(
 	customReflection bool,
 ) *JsonEncoder {
 
-	marshallerFunction := json.Marshal
+	marshallerFunction := func(v any) ([]byte, error) {
+		return json.MarshalWithOption(v, json.UnorderedMap())
+	}
 	if customReflection {
 		marshallerFunction = json.MarshalNoEscape
 	}

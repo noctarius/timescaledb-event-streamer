@@ -20,6 +20,7 @@ package snapshotting
 import (
 	"github.com/go-errors/errors"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
+	"github.com/noctarius/timescaledb-event-streamer/internal/stats"
 	"github.com/noctarius/timescaledb-event-streamer/internal/waiting"
 	"github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
@@ -34,6 +35,23 @@ import (
 	"time"
 )
 
+type snapshotterStats struct {
+	scheduler struct {
+		partitionCount uint   `metric:"partitioncount" type:"gauge"`
+		scheduled      uint64 `metric:"scheduled" type:"gauge"`
+	} `metric:"scheduler"`
+}
+
+type snapshotterPartitionStats struct {
+	snapshots struct {
+		hypertables uint `metric:"hypertable" type:"gauge"`
+		chunks      uint `metric:"chunks" type:"gauge"`
+	} `metric:"snapshots"`
+	records struct {
+		total uint64 `metric:"total" type:"gauge"`
+	} `metric:"records"`
+}
+
 type SnapshotTask struct {
 	Hypertable        *systemcatalog.Hypertable
 	Chunk             *systemcatalog.Chunk
@@ -46,6 +64,7 @@ type Snapshotter struct {
 	partitionCount    uint64
 	snapshotBatchSize int
 
+	statsReporter       *stats.Reporter
 	taskManager         task.TaskManager
 	typeManager         pgtypes.TypeManager
 	sideChannel         sidechannel.SideChannel
@@ -54,18 +73,22 @@ type Snapshotter struct {
 	snapshotQueues      []chan SnapshotTask
 	shutdownAwaiter     *waiting.MultiShutdownAwaiter
 	logger              *logging.Logger
+
+	stats          snapshotterStats
+	partitionStats []snapshotterPartitionStats
 }
 
 func NewSnapshotterFromConfig(
 	c *config.Config, stateStorageManager statestorage.Manager, sideChannel sidechannel.SideChannel,
 	taskManager task.TaskManager, publicationManager publication.PublicationManager,
-	typeManager pgtypes.TypeManager,
+	typeManager pgtypes.TypeManager, statsService *stats.Service,
 ) (*Snapshotter, error) {
 
 	parallelism := config.GetOrDefault(c, config.PropertySnapshotterParallelism, uint8(5))
 	snapshotBatchSize := config.GetOrDefault(c, config.PropertyPostgresqlSnapshotBatchsize, 1000)
 	return NewSnapshotter(
-		parallelism, snapshotBatchSize, stateStorageManager, sideChannel, taskManager, publicationManager, typeManager,
+		parallelism, snapshotBatchSize, stateStorageManager, sideChannel,
+		taskManager, publicationManager, typeManager, statsService,
 	)
 }
 
@@ -73,6 +96,7 @@ func NewSnapshotter(
 	partitionCount uint8, snapshotBatchSize int, stateStorageManager statestorage.Manager,
 	sideChannel sidechannel.SideChannel, taskManager task.TaskManager,
 	publicationManager publication.PublicationManager, typeManager pgtypes.TypeManager,
+	statsService *stats.Service,
 ) (*Snapshotter, error) {
 
 	snapshotQueues := make([]chan SnapshotTask, partitionCount)
@@ -85,7 +109,7 @@ func NewSnapshotter(
 		return nil, err
 	}
 
-	return &Snapshotter{
+	s := &Snapshotter{
 		partitionCount:    uint64(partitionCount),
 		snapshotBatchSize: snapshotBatchSize,
 
@@ -96,8 +120,14 @@ func NewSnapshotter(
 		publicationManager:  publicationManager,
 		snapshotQueues:      snapshotQueues,
 		logger:              logger,
+		statsReporter:       statsService.NewReporter("streamer_snapshotter"),
 		shutdownAwaiter:     waiting.NewMultiShutdownAwaiter(uint(partitionCount)),
-	}, nil
+		partitionStats:      make([]snapshotterPartitionStats, partitionCount),
+	}
+
+	s.stats.scheduler.partitionCount = uint(partitionCount)
+
+	return s, nil
 }
 
 func (s *Snapshotter) EnqueueSnapshot(
@@ -105,6 +135,8 @@ func (s *Snapshotter) EnqueueSnapshot(
 ) error {
 
 	enqueueSnapshotTask := func() {
+		defer s.statsReporter.Report(s.stats)
+
 		// Partition calculation
 		hasher := fnv.New64a()
 		if _, err := hasher.Write([]byte(t.Hypertable.CanonicalName())); err != nil {
@@ -121,6 +153,7 @@ func (s *Snapshotter) EnqueueSnapshot(
 				t.Chunk.TableName(), partition,
 			)
 		}
+		s.stats.scheduler.scheduled++
 	}
 
 	// Notify of snapshotting to save incoming events
@@ -147,7 +180,7 @@ func (s *Snapshotter) StartSnapshotter() {
 			for {
 				select {
 				case task := <-s.snapshotQueues[partition]:
-					if err := s.snapshot(task); err != nil {
+					if err := s.snapshot(task, partition); err != nil {
 						s.logger.Fatalf("snapshotting of task '%+v' failed: %+v", task, err)
 					}
 				case <-s.shutdownAwaiter.AwaitShutdownChan(uint(partition)):
@@ -169,18 +202,21 @@ func (s *Snapshotter) StopSnapshotter() {
 }
 
 func (s *Snapshotter) snapshot(
-	task SnapshotTask,
+	task SnapshotTask, partition int,
 ) error {
 
 	if task.Chunk != nil {
-		return s.snapshotChunk(task)
+		return s.snapshotChunk(task, partition)
 	}
-	return s.snapshotHypertable(task)
+	return s.snapshotHypertable(task, partition)
 }
 
 func (s *Snapshotter) snapshotChunk(
-	t SnapshotTask,
+	t SnapshotTask, partition int,
 ) error {
+
+	defer s.statsReporter.Report(s.partitionStats[partition])
+	s.partitionStats[partition].snapshots.chunks++
 
 	alreadyPublished, err := s.publicationManager.ExistsTableInPublication(t.Chunk)
 	if err != nil {
@@ -195,6 +231,7 @@ func (s *Snapshotter) snapshotChunk(
 	lsn, err := s.sideChannel.SnapshotChunkTable(
 		s.typeManager.GetOrPlanRowDecoder, t.Chunk, s.snapshotBatchSize,
 		func(lsn pgtypes.LSN, values map[string]any) error {
+			s.partitionStats[partition].records.total++
 			return s.taskManager.EnqueueTask(func(notificator task.Notificator) {
 				callback := func(handler eventhandlers.HypertableReplicationEventHandler) error {
 					return handler.OnReadEvent(lsn, t.Hypertable, t.Chunk, values)
@@ -220,8 +257,11 @@ func (s *Snapshotter) snapshotChunk(
 }
 
 func (s *Snapshotter) snapshotHypertable(
-	t SnapshotTask,
+	t SnapshotTask, partition int,
 ) error {
+
+	defer s.statsReporter.Report(s.partitionStats[partition])
+	s.partitionStats[partition].snapshots.hypertables++
 
 	// tableSnapshotState
 	if err := s.stateStorageManager.SnapshotContextTransaction(
@@ -248,7 +288,7 @@ func (s *Snapshotter) snapshotHypertable(
 	}
 
 	// Kick off snapshot fetching
-	if err := s.runSnapshotFetchBatch(t); err != nil {
+	if err := s.runSnapshotFetchBatch(t, partition); err != nil {
 		return errors.Wrap(err, 0)
 	}
 
@@ -280,12 +320,19 @@ func (s *Snapshotter) snapshotHypertable(
 }
 
 func (s *Snapshotter) runSnapshotFetchBatch(
-	t SnapshotTask,
+	t SnapshotTask, partition int,
 ) error {
 
+	iteration := 0
 	return s.sideChannel.FetchHypertableSnapshotBatch(
 		s.typeManager.GetOrPlanRowDecoder, t.Hypertable, *t.SnapshotName, s.snapshotBatchSize,
 		func(lsn pgtypes.LSN, values map[string]any) error {
+			s.partitionStats[partition].records.total++
+			iteration++
+			if iteration > 100 {
+				s.statsReporter.Report(s.stats)
+				iteration = 0
+			}
 			return s.taskManager.EnqueueTask(func(notificator task.Notificator) {
 				notificator.NotifyHypertableReplicationEventHandler(
 					func(handler eventhandlers.HypertableReplicationEventHandler) error {
