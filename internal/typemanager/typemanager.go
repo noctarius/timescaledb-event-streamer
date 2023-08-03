@@ -66,11 +66,11 @@ type typeManager struct {
 
 	typeMap *pgtype.Map
 
-	coreTypeCache       []pgtypes.PgType
-	dynamicTypeCache    *containers.CasCache[uint32, pgtypes.PgType]
-	optimizedConverters *containers.CasCache[uint32, typeRegistration]
-	dynamicConverters   *containers.CasCache[uint32, typeRegistration]
-	decoderPlanCache    *containers.CasCache[uint32, pgtypes.TupleDecoderPlan]
+	coreTypeCache           []pgtypes.PgType
+	dynamicTypeCache        *containers.CasCache[uint32, pgtypes.PgType]
+	optimizedConverterCache *containers.CasCache[uint32, typeRegistration]
+	dynamicConverterCache   *containers.CasCache[uint32, typeRegistration]
+	decoderPlanCache        *containers.CasCache[uint32, pgtypes.TupleDecoderPlan]
 }
 
 func NewTypeManager(
@@ -88,11 +88,11 @@ func NewTypeManager(
 
 		typeMap: pgtype.NewMap(),
 
-		coreTypeCache:       make([]pgtypes.PgType, upperCoreOidBound),
-		dynamicTypeCache:    containers.NewCasCache[uint32, pgtypes.PgType](),
-		optimizedConverters: containers.NewCasCache[uint32, typeRegistration](),
-		dynamicConverters:   containers.NewCasCache[uint32, typeRegistration](),
-		decoderPlanCache:    containers.NewCasCache[uint32, pgtypes.TupleDecoderPlan](),
+		coreTypeCache:           make([]pgtypes.PgType, upperCoreOidBound),
+		dynamicTypeCache:        containers.NewCasCache[uint32, pgtypes.PgType](),
+		optimizedConverterCache: containers.NewCasCache[uint32, typeRegistration](),
+		dynamicConverterCache:   containers.NewCasCache[uint32, typeRegistration](),
+		decoderPlanCache:        containers.NewCasCache[uint32, pgtypes.TupleDecoderPlan](),
 	}
 
 	if err := typeManager.initialize(); err != nil {
@@ -102,7 +102,32 @@ func NewTypeManager(
 }
 
 func (tm *typeManager) initialize() error {
-	return tm.sideChannel.ReadPgTypes(tm.typeFactory, tm.registerType)
+	dynamicTypes := make(map[uint32]pgtypes.PgType)
+	optimizedConverters := make(map[uint32]typeRegistration)
+	dynamicConverters := make(map[uint32]typeRegistration)
+
+	dynamicTypeSetter := func(oid uint32, typ pgtypes.PgType) {
+		dynamicTypes[oid] = typ
+	}
+	optimizedConverterSetter := func(oid uint32, registration typeRegistration) {
+		optimizedConverters[oid] = registration
+	}
+	dynamicConverterSetter := func(oid uint32, registration typeRegistration) {
+		dynamicConverters[oid] = registration
+	}
+
+	registerTypeAdapter := func(typ pgtypes.PgType) error {
+		return tm.registerType(typ, dynamicTypeSetter, dynamicConverterSetter, optimizedConverterSetter)
+	}
+
+	if err := tm.sideChannel.ReadPgTypes(tm.typeFactory, registerTypeAdapter); err != nil {
+		return err
+	}
+
+	tm.dynamicTypeCache.SetAll(dynamicTypes)
+	tm.dynamicConverterCache.SetAll(dynamicConverters)
+	tm.optimizedConverterCache.SetAll(optimizedConverters)
+	return nil
 }
 
 func (tm *typeManager) typeFactory(
@@ -129,7 +154,9 @@ func (tm *typeManager) ResolveDataType(
 		var pt pgtypes.PgType
 		err := tm.sideChannel.ReadPgTypes(tm.typeFactory, func(typ pgtypes.PgType) error {
 			pt = typ
-			return tm.registerType(typ)
+			return tm.registerType(
+				typ, tm.dynamicTypeCache.Set, tm.dynamicConverterCache.Set, tm.optimizedConverterCache.Set,
+			)
 		}, oid)
 		return pt, err
 	})
@@ -142,10 +169,10 @@ func (tm *typeManager) ResolveTypeConverter(
 	if registration, present := coreType(oid); present {
 		return registration.converter, nil
 	}
-	if registration, present := tm.optimizedConverters.Get(oid); present {
+	if registration, present := tm.optimizedConverterCache.Get(oid); present {
 		return registration.converter, nil
 	}
-	if registration, present := tm.dynamicConverters.Get(oid); present {
+	if registration, present := tm.dynamicConverterCache.Get(oid); present {
 		return registration.converter, nil
 	}
 	return nil, fmt.Errorf("unsupported OID: %d", oid)
@@ -208,7 +235,7 @@ func (tm *typeManager) RegisterColumnType(
 				return err
 			}
 
-			registration, err := tm.dynamicConverters.TransformSetAndGet(
+			registration, err := tm.dynamicConverterCache.TransformSetAndGet(
 				typ.Oid(), func(old typeRegistration) (typeRegistration, error) {
 					old.codec = codec
 					old.converter = converter
@@ -249,7 +276,7 @@ func (tm *typeManager) getSchemaType(
 	if registration, present := coreType(oid); present {
 		return registration.schemaType
 	}
-	if registration, present := tm.optimizedConverters.Get(oid); present {
+	if registration, present := tm.optimizedConverterCache.Get(oid); present {
 		return registration.schemaType
 	}
 	if arrayType {
@@ -264,7 +291,7 @@ func (tm *typeManager) resolveSchemaBuilder(
 	typ *pgType,
 ) schema.Builder {
 
-	if registration, present := tm.optimizedConverters.Get(typ.oid); present {
+	if registration, present := tm.optimizedConverterCache.Get(typ.oid); present {
 		if registration.schemaBuilder != nil {
 			return registration.schemaBuilder
 		}
@@ -363,7 +390,9 @@ func (tm *typeManager) resolveCompositeTypeColumns(
 }
 
 func (tm *typeManager) registerType(
-	typ pgtypes.PgType,
+	typ pgtypes.PgType, dynamicTypeSetter func(uint32, pgtypes.PgType),
+	dynamicConverterSetter func(uint32, typeRegistration),
+	optimizedConverterSetter func(uint32, typeRegistration),
 ) error {
 
 	// Make sure we store the type for optimized core types
@@ -372,7 +401,7 @@ func (tm *typeManager) registerType(
 	}
 
 	// And store it like anything else
-	tm.dynamicTypeCache.Set(typ.Oid(), typ)
+	dynamicTypeSetter(typ.Oid(), typ)
 
 	// Is core type not available in TypeMap by default (bug or not implemented in pgx)?
 	if registration, present := coreType(typ.Oid()); present {
@@ -394,7 +423,7 @@ func (tm *typeManager) registerType(
 			return errors.Errorf("Type %s has no assigned value converter", typ.Name())
 		}
 
-		tm.optimizedConverters.Set(typ.Oid(), typeRegistration{
+		optimizedConverterSetter(typ.Oid(), typeRegistration{
 			schemaType:    registration.schemaType,
 			schemaBuilder: registration.schemaBuilder,
 			isArray:       registration.isArray,
@@ -416,7 +445,7 @@ func (tm *typeManager) registerType(
 			codec:      &pgtype.EnumCodec{},
 		}
 
-		tm.dynamicConverters.Set(typ.Oid(), registration)
+		dynamicConverterSetter(typ.Oid(), registration)
 		if err := tm.registerTypeInTypeMap(typ, registration); err != nil {
 			return err
 		}
@@ -428,7 +457,7 @@ func (tm *typeManager) registerType(
 			registration := typeRegistration{
 				schemaType: typ.SchemaType(),
 			}
-			tm.dynamicConverters.Set(typ.Oid(), registration)
+			dynamicConverterSetter(typ.Oid(), registration)
 			// Attention: Type map registration is lazy to prevent heavy
 			// reading of columns for unused types:
 			// See @RegisterColumnTypes
