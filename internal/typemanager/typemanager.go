@@ -216,15 +216,67 @@ func (tm *typeManager) RegisterColumnType(
 	column schema.ColumnAlike,
 ) error {
 
-	if !tm.knownInTypeMap(column.DataType()) {
-		typ, err := tm.ResolveDataType(column.DataType())
+	return tm.lazilyRegisterTypeMap(column.DataType())
+}
+
+func (tm *typeManager) lazilyRegisterTypeMap(
+	oid uint32,
+) error {
+
+	if !tm.knownInTypeMap(oid) {
+		typ, err := tm.ResolveDataType(oid)
 		if err != nil {
 			return err
 		}
 
-		// We only handle struct schema types here. Everything else should
-		// already be registered, or this is a bug
-		if typ.SchemaType() == schema.STRUCT {
+		if typ.IsArray() {
+			elementType := typ.ElementType()
+			if err := tm.lazilyRegisterTypeMap(elementType.Oid()); err != nil {
+				return err
+			}
+
+			if elementType.Kind() == pgtypes.EnumKind {
+				if pt, present := tm.typeMap.TypeForOID(elementType.Oid()); present {
+					registration := typeRegistration{
+						schemaType: elementType.SchemaType(),
+						converter:  arrayConverter[[]string](elementType.Oid(), enum2string),
+						codec:      &pgtype.ArrayCodec{ElementType: pt},
+					}
+					tm.dynamicConverterCache.Set(typ.Oid(), registration)
+					if err := tm.registerTypeInTypeMap(typ, registration); err != nil {
+						return err
+					}
+				}
+
+			} else if elementType.SchemaType() == schema.STRUCT {
+				converter, err := newCompositeConverter(tm, elementType)
+				if err != nil {
+					return err
+				}
+
+				reflectiveType, err := schemaType2ReflectiveType(elementType.SchemaType())
+				if err != nil {
+					return err
+				}
+
+				targetType := reflect.SliceOf(reflectiveType)
+				registration := typeRegistration{
+					schemaType:    schema.ARRAY,
+					schemaBuilder: tm.resolveSchemaBuilder(typ),
+					isArray:       true,
+					oidElement:    typ.OidElement(),
+					converter:     reflectiveArrayConverter(elementType.Oid(), targetType, converter),
+				}
+
+				tm.dynamicConverterCache.Set(typ.Oid(), registration)
+				if err := tm.registerTypeInTypeMap(typ, registration); err != nil {
+					return err
+				}
+			}
+
+			// We only handle struct schema types here. Everything else should
+			// already be registered, or this is a bug
+		} else if typ.SchemaType() == schema.STRUCT {
 			codec, err := newCompositeCodec(tm, typ)
 			if err != nil {
 				return err
@@ -250,7 +302,7 @@ func (tm *typeManager) RegisterColumnType(
 				return err
 			}
 		} else {
-			return errors.Errorf("Cannot lazily register type %d in type map", column.DataType())
+			return errors.Errorf("Cannot lazily register type %d in type map", oid)
 		}
 	}
 	return nil
@@ -288,16 +340,16 @@ func (tm *typeManager) getSchemaType(
 }
 
 func (tm *typeManager) resolveSchemaBuilder(
-	typ *pgType,
+	typ pgtypes.PgType,
 ) schema.Builder {
 
-	if registration, present := tm.optimizedConverterCache.Get(typ.oid); present {
+	if registration, present := tm.optimizedConverterCache.Get(typ.Oid()); present {
 		if registration.schemaBuilder != nil {
 			return registration.schemaBuilder
 		}
 	}
 
-	switch typ.schemaType {
+	switch typ.SchemaType() {
 	case schema.INT8:
 		return schema.Int8()
 
@@ -320,10 +372,10 @@ func (tm *typeManager) resolveSchemaBuilder(
 		return schema.Boolean()
 
 	case schema.STRING:
-		if typ.kind == pgtypes.EnumKind {
+		if typ.Kind() == pgtypes.EnumKind {
 			return schema.Enum(typ.EnumValues())
 		}
-		switch typ.oid {
+		switch typ.Oid() {
 		case pgtype.JSONOID, pgtype.JSONBOID:
 			return schema.Json()
 
@@ -343,7 +395,7 @@ func (tm *typeManager) resolveSchemaBuilder(
 
 	case schema.ARRAY:
 		elementType := typ.ElementType()
-		return schema.NewSchemaBuilder(typ.schemaType).ValueSchema(elementType.SchemaBuilder())
+		return schema.NewSchemaBuilder(typ.SchemaType()).ValueSchema(elementType.SchemaBuilder())
 
 	case schema.MAP:
 		// FIXME: Implement Map Schema Type
@@ -355,7 +407,7 @@ func (tm *typeManager) resolveSchemaBuilder(
 			if err != nil {
 				panic(err)
 			}
-			schemaBuilder := schema.NewSchemaBuilder(typ.schemaType)
+			schemaBuilder := schema.NewSchemaBuilder(typ.SchemaType())
 			for i, column := range columns {
 				schemaBuilder = schemaBuilder.Field(column.Name(), i, column.SchemaBuilder())
 			}
@@ -364,7 +416,7 @@ func (tm *typeManager) resolveSchemaBuilder(
 
 		if typ.Kind() == pgtypes.DomainKind {
 			baseType := typ.BaseType()
-			return baseType.SchemaBuilder().SchemaName(fmt.Sprintf("%s.Type", typ.name)).Clone()
+			return baseType.SchemaBuilder().SchemaName(fmt.Sprintf("%s.Type", typ.Name())).Clone()
 		}
 
 		return nil

@@ -939,6 +939,17 @@ var dataTypeTable = []DataTypeTest{
 		expected:             quickCheckValue[string],
 	},
 	{
+		name:                  "Enum Type Array",
+		pgTypeName:            "myenumarray[]",
+		customTypeDefinition:  "CREATE TYPE tsdb.myenumarray AS ENUM ('Foo', 'Bar')",
+		schemaType:            schema.ARRAY,
+		elementSchemaType:     schema.STRING,
+		value:                 "'{\"Foo\",\"Bar\"}'::myenumarray[]",
+		insertPlain:           true,
+		expectedValueOverride: []string{"Foo", "Bar"},
+		expected:              quickCheckValue[[]string],
+	},
+	{
 		name:                 "Composite Type",
 		pgTypeName:           "mytype",
 		customTypeDefinition: "CREATE TYPE tsdb.mytype AS (id uuid, time timestamptz)",
@@ -950,6 +961,26 @@ var dataTypeTable = []DataTypeTest{
 			"time": "2023-01-01T00:00:00Z",
 		},
 		expected: quickCheckValue[map[string]any],
+	},
+	{
+		name:                 "Composite Type Array",
+		pgTypeName:           "mytypearray[]",
+		customTypeDefinition: "CREATE TYPE tsdb.mytypearray AS (id uuid, time timestamptz)",
+		schemaType:           schema.ARRAY,
+		elementSchemaType:    schema.STRUCT,
+		value:                "ARRAY['(\"392eefd4-1892-46fc-ad73-953f024bd176\", \"2023-01-01\")','(\"80a6b4c1-b5aa-472c-b8d2-b18606ef8d68\", \"2022-02-01\")']::mytypearray[]",
+		insertPlain:          true,
+		expectedValueOverride: []map[string]any{
+			{
+				"id":   "392eefd4-1892-46fc-ad73-953f024bd176",
+				"time": "2023-01-01T00:00:00Z",
+			},
+			{
+				"id":   "80a6b4c1-b5aa-472c-b8d2-b18606ef8d68",
+				"time": "2022-02-01T00:00:00Z",
+			},
+		},
+		expected: quickCheckValue[[]map[string]any],
 	},
 }
 

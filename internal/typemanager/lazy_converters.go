@@ -80,7 +80,7 @@ func schemaType2ReflectiveType(
 		return stringType, nil
 	case schema.BYTES:
 		return byteaType, nil
-	case schema.MAP:
+	case schema.MAP, schema.STRUCT:
 		return mapType, nil
 	default:
 		return nil, errors.Errorf("Unsupported schema type %s", string(schemaType))
