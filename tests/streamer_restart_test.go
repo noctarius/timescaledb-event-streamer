@@ -52,7 +52,7 @@ func (irts *IntegrationRestartTestSuite) Test_Restart_Streamer() {
 				return envelope.Payload.Op == schema.OP_READ || envelope.Payload.Op == schema.OP_CREATE
 			},
 		),
-		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink) {
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink, _ testsupport.Envelope) {
 			if sink.NumOfEvents() == 1 {
 				waiter.Signal()
 			}
@@ -157,7 +157,7 @@ func (irts *IntegrationRestartTestSuite) Test_Restart_Streamer_After_Backend_Kil
 				return envelope.Payload.Op == schema.OP_READ || envelope.Payload.Op == schema.OP_CREATE
 			},
 		),
-		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink) {
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink, _ testsupport.Envelope) {
 			if sink.NumOfEvents() == 1 {
 				waiter.Signal()
 			}

@@ -54,7 +54,7 @@ func (its *IntegrationTestSuite) TestInitialSnapshot_Single_Chunk() {
 				return envelope.Payload.Op == schema.OP_CREATE
 			},
 		),
-		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink) {
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink, _ testsupport.Envelope) {
 			if sink.NumOfEvents() == 1440 {
 				waiter.Signal()
 			}
@@ -112,7 +112,7 @@ func (its *IntegrationTestSuite) TestInitialSnapshot_Multi_Chunk() {
 				return envelope.Payload.Op == schema.OP_CREATE
 			},
 		),
-		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink) {
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink, _ testsupport.Envelope) {
 			if sink.NumOfEvents() == 2880 {
 				waiter.Signal()
 			}
@@ -170,7 +170,7 @@ func (its *IntegrationTestSuite) TestCreateEvents() {
 				return envelope.Payload.Op == schema.OP_CREATE
 			},
 		),
-		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink) {
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink, _ testsupport.Envelope) {
 			if sink.NumOfEvents()%10 == 0 {
 				waiter.Signal()
 			}
@@ -263,7 +263,7 @@ func (its *IntegrationTestSuite) TestUpdateEvents() {
 				return envelope.Payload.Op == schema.OP_CREATE || envelope.Payload.Op == schema.OP_UPDATE
 			},
 		),
-		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink) {
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink, _ testsupport.Envelope) {
 			if sink.NumOfEvents()%10 == 0 {
 				waiter.Signal()
 			}
@@ -356,7 +356,7 @@ func (its *IntegrationTestSuite) TestDeleteEvents() {
 				return envelope.Payload.Op == schema.OP_CREATE || envelope.Payload.Op == schema.OP_DELETE
 			},
 		),
-		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink) {
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink, _ testsupport.Envelope) {
 			if sink.NumOfEvents()%10 == 0 {
 				waiter.Signal()
 			}
@@ -443,7 +443,7 @@ func (its *IntegrationTestSuite) TestTruncateEvents() {
 				return envelope.Payload.Op == schema.OP_CREATE || envelope.Payload.Op == schema.OP_TRUNCATE
 			},
 		),
-		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink) {
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink, _ testsupport.Envelope) {
 			if sink.NumOfEvents()%10 == 0 {
 				waiter.Signal()
 			}
@@ -531,7 +531,7 @@ func (its *IntegrationTestSuite) TestCompressionEvents() {
 				return envelope.Payload.Op == schema.OP_CREATE || envelope.Payload.Op == schema.OP_TIMESCALE
 			},
 		),
-		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink) {
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink, _ testsupport.Envelope) {
 			if sink.NumOfEvents()%10 == 0 {
 				waiter.Signal()
 			}
@@ -636,7 +636,7 @@ func (its *IntegrationTestSuite) TestCompressionPartialInsertEvents() {
 					envelope.Payload.Op == schema.OP_TIMESCALE
 			},
 		),
-		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink) {
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink, _ testsupport.Envelope) {
 			if sink.NumOfEvents()%10 == 0 {
 				waiter.Signal()
 			}
@@ -756,18 +756,16 @@ func (its *IntegrationTestSuite) TestDecompressionEvents() {
 				return envelope.Payload.Op == schema.OP_CREATE || envelope.Payload.Op == schema.OP_TIMESCALE
 			},
 		),
-		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink) {
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink, envelope testsupport.Envelope) {
 			if sink.NumOfEvents()%10 == 0 {
 				waiter.Signal()
 			}
 
-			for _, event := range sink.Events() {
-				if event.Envelope.Payload.Op == schema.OP_TIMESCALE &&
-					(event.Envelope.Payload.TsdbOp == schema.OP_DECOMPRESSION ||
-						event.Envelope.Payload.TsdbOp == schema.OP_COMPRESSION) {
+			if envelope.Payload.Op == schema.OP_TIMESCALE &&
+				(envelope.Payload.TsdbOp == schema.OP_DECOMPRESSION ||
+					envelope.Payload.TsdbOp == schema.OP_COMPRESSION) {
 
-					waiter.Signal()
-				}
+				waiter.Signal()
 			}
 		}),
 	)
@@ -880,17 +878,15 @@ func (its *IntegrationTestSuite) TestCompression_Decompression_SingleTransaction
 				return envelope.Payload.Op == schema.OP_CREATE || envelope.Payload.Op == schema.OP_TIMESCALE
 			},
 		),
-		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink) {
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink, envelope testsupport.Envelope) {
 			if sink.NumOfEvents()%10 == 0 {
 				waiter.Signal()
 			}
 
-			for _, event := range sink.Events() {
-				if event.Envelope.Payload.Op == schema.OP_TIMESCALE &&
-					event.Envelope.Payload.TsdbOp == schema.OP_DECOMPRESSION {
+			if envelope.Payload.Op == schema.OP_TIMESCALE &&
+				envelope.Payload.TsdbOp == schema.OP_DECOMPRESSION {
 
-					waiter.Signal()
-				}
+				waiter.Signal()
 			}
 		}),
 	)
@@ -1004,7 +1000,7 @@ func (its *IntegrationTestSuite) TestContinuousAggregateCreateEvents() {
 				return envelope.Payload.Op == schema.OP_CREATE
 			},
 		),
-		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink) {
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink, _ testsupport.Envelope) {
 			if sink.NumOfEvents()%20 == 0 {
 				waiter.Signal()
 			}
@@ -1093,7 +1089,7 @@ func (its *IntegrationTestSuite) TestContinuousAggregate_Scheduled_Refresh_Creat
 				return envelope.Payload.Op == schema.OP_CREATE
 			},
 		),
-		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink) {
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink, _ testsupport.Envelope) {
 			if sink.NumOfEvents()%20 == 0 {
 				waiter.Signal()
 			}
@@ -1202,7 +1198,7 @@ func (its *IntegrationTestSuite) Ignore_TestRollbackEvents() {
 				return envelope.Payload.Op == schema.OP_READ || envelope.Payload.Op == schema.OP_CREATE
 			},
 		),
-		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink) {
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink, _ testsupport.Envelope) {
 			if sink.NumOfEvents()%1000 == 0 {
 				waiter.Signal()
 			}
@@ -1286,7 +1282,7 @@ func (its *IntegrationTestSuite) Test_Acknowledge_To_PG_With_Only_Begin_Commit()
 				return envelope.Payload.Op == schema.OP_READ || envelope.Payload.Op == schema.OP_CREATE
 			},
 		),
-		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink) {
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink, _ testsupport.Envelope) {
 			if sink.NumOfEvents() == 1 {
 				waiter.Signal()
 			}

@@ -52,7 +52,7 @@ func (its *IntegrationSnapshotTestSuite) TestInitialSnapshot_Hypertable() {
 				return envelope.Payload.Op == schema.OP_READ
 			},
 		),
-		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink) {
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink, _ testsupport.Envelope) {
 			if sink.NumOfEvents() == 8640 {
 				waiter.Signal()
 			}

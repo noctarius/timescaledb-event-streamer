@@ -64,7 +64,7 @@ type EventCollectorSink struct {
 	filter func(timestamp time.Time, topicName string, envelope Envelope) bool
 
 	preHook  func(sink *EventCollectorSink)
-	postHook func(sink *EventCollectorSink)
+	postHook func(sink *EventCollectorSink, envelope Envelope)
 }
 
 func (t *EventCollectorSink) Start() error {
@@ -96,7 +96,7 @@ func WithPreHook(
 }
 
 func WithPostHook(
-	fn func(sink *EventCollectorSink),
+	fn func(sink *EventCollectorSink, envelope Envelope),
 ) EventCollectorSinkOption {
 
 	return func(eventCollectorSink *EventCollectorSink) {
@@ -182,7 +182,7 @@ func (t *EventCollectorSink) Emit(
 	})
 	t.mutex.Unlock()
 	if t.postHook != nil {
-		t.postHook(t)
+		t.postHook(t, eventEnvelope)
 	}
 	return nil
 }

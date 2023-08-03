@@ -1014,7 +1014,7 @@ func (dtt *DataTypeTestSuite) runDataTypeTest(
 				return envelope.Payload.Op == schema.OP_CREATE
 			},
 		),
-		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink) {
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink, _ testsupport.Envelope) {
 			if sink.NumOfEvents() < 3 {
 				waiter.Signal()
 			}

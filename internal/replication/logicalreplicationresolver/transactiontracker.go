@@ -145,7 +145,7 @@ func (tt *transactionTracker) OnCommitEvent(
 	// got restarted and the last processed LSN was inside a running
 	// transaction. In this case we skip all earlier logrepl messages
 	// and keep going from where we left off.
-	if tt.activeTransaction.active {
+	if !tt.activeTransaction.active {
 		return tt.resolver.OnCommitEvent(xld, msg)
 	}
 	tt.activeTransaction.active = false
@@ -385,7 +385,7 @@ func (tt *transactionTracker) OnMessageEvent(
 			tt.activeTransaction.ongoingDecompression = true
 			return nil
 		} else if msg.Prefix == decompressionMarkerEndId &&
-			(tt.activeTransaction != nil && tt.activeTransaction.ongoingDecompression) {
+			(tt.activeTransaction.active && tt.activeTransaction.ongoingDecompression) {
 			tt.activeTransaction.ongoingDecompression = false
 			return nil
 		}

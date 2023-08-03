@@ -129,7 +129,7 @@ func (pts *PublicationTestSuite) Test_Reloading_From_Known_Chunks() {
 				return envelope.Payload.Op == schema.OP_CREATE
 			},
 		),
-		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink) {
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink, _ testsupport.Envelope) {
 			waiter.Signal()
 		}),
 	)
@@ -259,7 +259,7 @@ func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_With_State_Stor
 				return envelope.Payload.Op == schema.OP_CREATE
 			},
 		),
-		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink) {
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink, _ testsupport.Envelope) {
 			waiter.Signal()
 		}),
 	)
@@ -418,7 +418,7 @@ func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_Without_State_S
 				return envelope.Payload.Op == schema.OP_CREATE
 			},
 		),
-		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink) {
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink, _ testsupport.Envelope) {
 			waiter.Signal()
 		}),
 	)
