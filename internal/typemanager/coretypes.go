@@ -360,6 +360,69 @@ var coreTypeMap = map[uint32]typeRegistration{
 		schemaType: schema.ARRAY,
 		oidElement: pgtypes.XmlOID,
 	},
+	pgtype.PointOID: {
+		schemaType: schema.STRING,
+		converter:  point2string,
+	},
+	pgtype.PointArrayOID: {
+		schemaType: schema.ARRAY,
+		oidElement: pgtype.PointOID,
+		converter:  arrayConverter[[]string](pgtype.PointOID, point2string),
+	},
+	pgtype.BoxOID: {
+		schemaType: schema.STRING,
+		converter:  box2string,
+	},
+	pgtype.BoxArrayOID: {
+		schemaType: schema.ARRAY,
+		oidElement: pgtype.BoxOID,
+		converter:  arrayConverter[[]string](pgtype.BoxOID, box2string),
+	},
+	pgtype.LineOID: {
+		schemaType: schema.STRING,
+		converter:  line2string,
+	},
+	pgtype.LineArrayOID: {
+		schemaType: schema.ARRAY,
+		oidElement: pgtype.LineOID,
+		converter:  arrayConverter[[]string](pgtype.LineOID, line2string),
+	},
+	pgtype.PolygonOID: {
+		schemaType: schema.STRING,
+		converter:  polygon2string,
+	},
+	pgtype.PolygonArrayOID: {
+		schemaType: schema.ARRAY,
+		oidElement: pgtype.PolygonOID,
+		converter:  arrayConverter[[]string](pgtype.PolygonOID, polygon2string),
+	},
+	pgtype.CircleOID: {
+		schemaType: schema.STRING,
+		converter:  circle2string,
+	},
+	pgtype.CircleArrayOID: {
+		schemaType: schema.ARRAY,
+		oidElement: pgtype.CircleOID,
+		converter:  arrayConverter[[]string](pgtype.CircleOID, circle2string),
+	},
+	pgtype.PathOID: {
+		schemaType: schema.STRING,
+		converter:  path2string,
+	},
+	pgtype.PathArrayOID: {
+		schemaType: schema.ARRAY,
+		oidElement: pgtype.PathOID,
+		converter:  arrayConverter[[]string](pgtype.PathArrayOID, path2string),
+	},
+	pgtype.LsegOID: {
+		schemaType: schema.STRING,
+		converter:  lseg2string,
+	},
+	pgtype.LsegArrayOID: {
+		schemaType: schema.ARRAY,
+		oidElement: pgtype.LsegOID,
+		converter:  arrayConverter[[]string](pgtype.LsegArrayOID, lseg2string),
+	},
 }
 
 var optimizedTypes = map[string]typeRegistration{

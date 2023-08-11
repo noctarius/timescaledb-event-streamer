@@ -31,6 +31,7 @@ import (
 	"net"
 	"net/netip"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -366,6 +367,163 @@ func hstore2map(
 		return converted, nil
 	}
 	return nil, errIllegalValue
+}
+
+func box2string(
+	_ uint32, value any,
+) (any, error) {
+
+	if v, ok := value.(pgtype.Box); ok {
+		if !v.Valid {
+			return nil, nil
+		}
+
+		return strings.Join([]string{vector2string(v.P[0]), vector2string(v.P[1])}, ","), nil
+	}
+	return nil, errIllegalValue
+}
+
+func line2string(
+	_ uint32, value any,
+) (any, error) {
+
+	if v, ok := value.(pgtype.Line); ok {
+		if !v.Valid {
+			return nil, nil
+		}
+
+		builder := strings.Builder{}
+		builder.WriteString("{")
+		builder.WriteString(strconv.FormatFloat(v.A, 'f', -1, 64))
+		builder.WriteString(",")
+		builder.WriteString(strconv.FormatFloat(v.B, 'f', -1, 64))
+		builder.WriteString(",")
+		builder.WriteString(strconv.FormatFloat(v.C, 'f', -1, 64))
+		builder.WriteString("}")
+		return builder.String(), nil
+	}
+	return nil, errIllegalValue
+}
+
+func lseg2string(
+	_ uint32, value any,
+) (any, error) {
+
+	if v, ok := value.(pgtype.Lseg); ok {
+		if !v.Valid {
+			return nil, nil
+		}
+
+		builder := strings.Builder{}
+		builder.WriteString("[")
+		builder.WriteString(vector2string(v.P[0]))
+		builder.WriteString(",")
+		builder.WriteString(vector2string(v.P[1]))
+		builder.WriteString("]")
+		return builder.String(), nil
+	}
+	return nil, errIllegalValue
+}
+
+func polygon2string(
+	_ uint32, value any,
+) (any, error) {
+
+	if v, ok := value.(pgtype.Polygon); ok {
+		if !v.Valid {
+			return nil, nil
+		}
+
+		points := lo.Map(v.P, func(point pgtype.Vec2, _ int) string {
+			return vector2string(point)
+		})
+
+		builder := strings.Builder{}
+		builder.WriteString("(")
+		builder.WriteString(strings.Join(points, ","))
+		builder.WriteString(")")
+		return builder.String(), nil
+	}
+	return nil, errIllegalValue
+}
+
+func path2string(
+	_ uint32, value any,
+) (any, error) {
+
+	if v, ok := value.(pgtype.Path); ok {
+		if !v.Valid {
+			return nil, nil
+		}
+
+		points := lo.Map(v.P, func(point pgtype.Vec2, _ int) string {
+			return vector2string(point)
+		})
+
+		builder := strings.Builder{}
+		if v.Closed {
+			builder.WriteString("(")
+		} else {
+			builder.WriteString("[")
+		}
+		builder.WriteString(strings.Join(points, ","))
+		if v.Closed {
+			builder.WriteString(")")
+		} else {
+			builder.WriteString("]")
+		}
+		return builder.String(), nil
+	}
+	return nil, errIllegalValue
+}
+
+func circle2string(
+	_ uint32, value any,
+) (any, error) {
+
+	if v, ok := value.(pgtype.Circle); ok {
+		if !v.Valid {
+			return nil, nil
+		}
+
+		builder := strings.Builder{}
+		builder.WriteString("<(")
+		builder.WriteString(strconv.FormatFloat(v.P.X, 'f', -1, 64))
+		builder.WriteString(",")
+		builder.WriteString(strconv.FormatFloat(v.P.Y, 'f', -1, 64))
+		builder.WriteString("),")
+		builder.WriteString(strconv.FormatFloat(v.R, 'f', -1, 64))
+		builder.WriteString(">")
+		return builder.String(), nil
+	}
+	return nil, errIllegalValue
+}
+
+func point2string(
+	_ uint32, value any,
+) (any, error) {
+
+	if v, ok := value.(pgtype.Point); ok {
+		if !v.Valid {
+			return nil, nil
+		}
+
+		return vector2string(v.P), nil
+	}
+	return nil, errIllegalValue
+}
+
+func vector2string(
+	v pgtype.Vec2,
+) string {
+
+	builder := strings.Builder{}
+	builder.WriteString("(")
+	builder.WriteString(strconv.FormatFloat(v.X, 'f', -1, 64))
+	builder.WriteString(",")
+	builder.WriteString(strconv.FormatFloat(v.Y, 'f', -1, 64))
+	builder.WriteString(")")
+	return builder.String()
 }
 
 func numrange2string(
