@@ -381,6 +381,16 @@ var optimizedTypes = map[string]typeRegistration{
 		schemaType: schema.ARRAY,
 		isArray:    true,
 	},
+	"hstore": {
+		schemaType:    schema.MAP,
+		schemaBuilder: schema.HStore(),
+		converter:     hstore2map,
+		codec:         pgtype.HstoreCodec{},
+	},
+	"_hstore": {
+		schemaType: schema.ARRAY,
+		isArray:    true,
+	},
 }
 
 var upperCoreOidBound uint32

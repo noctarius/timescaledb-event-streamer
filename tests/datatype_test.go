@@ -982,6 +982,37 @@ var dataTypeTable = []DataTypeTest{
 		},
 		expected: quickCheckValue[[]map[string]any],
 	},
+	{
+		name:        "HStore",
+		pgTypeName:  "hstore",
+		schemaType:  schema.MAP,
+		value:       "'1=>\"value\", key2=>foo'::hstore",
+		insertPlain: true,
+		expectedValueOverride: map[string]any{
+			"1":    "value",
+			"key2": "foo",
+		},
+		expected: quickCheckValue[map[string]any],
+	},
+	{
+		name:              "HStore Array",
+		pgTypeName:        "hstore[]",
+		schemaType:        schema.ARRAY,
+		elementSchemaType: schema.MAP,
+		value:             "ARRAY['1=>\"value\", key2=>foo','\"key3\"=>1, foo=>bar']::hstore[]",
+		insertPlain:       true,
+		expectedValueOverride: []map[string]any{
+			{
+				"1":    "value",
+				"key2": "foo",
+			},
+			{
+				"key3": "1",
+				"foo":  "bar",
+			},
+		},
+		expected: quickCheckValue[[]map[string]any],
+	},
 }
 
 const lookupTypeOidQuery = "SELECT oid FROM pg_catalog.pg_type where typname = $1"

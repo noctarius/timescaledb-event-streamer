@@ -350,6 +350,24 @@ func ltree2string(
 	return nil, errIllegalValue
 }
 
+func hstore2map(
+	_ uint32, value any,
+) (any, error) {
+
+	switch v := value.(type) {
+	case map[string]any:
+		return v, nil
+
+	case pgtype.Hstore:
+		converted := make(map[string]any, len(v))
+		for key, val := range v {
+			converted[key] = val
+		}
+		return converted, nil
+	}
+	return nil, errIllegalValue
+}
+
 func numrange2string(
 	_ uint32, value any,
 ) (any, error) {

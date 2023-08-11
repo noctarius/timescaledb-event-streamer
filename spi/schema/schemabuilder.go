@@ -173,6 +173,14 @@ func Xml() Builder {
 		Version(1)
 }
 
+func Map() Builder {
+	return NewSchemaBuilder(MAP)
+}
+
+func HStore() Builder {
+	return Map().KeySchema(String()).ValueSchema(String().Optional())
+}
+
 type fieldImpl struct {
 	name          string
 	index         int

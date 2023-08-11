@@ -254,6 +254,12 @@ func SetupTimescaleContainer() (testcontainers.Container, *ConfigProvider, error
 	); err != nil {
 		return nil, nil, err
 	}
+	timescaledbLogger.Verbosef("Create HStore extension")
+	if err := exec(
+		fmt.Sprintf("CREATE EXTENSION IF NOT EXISTS hstore WITH SCHEMA %s", databaseSchema),
+	); err != nil {
+		return nil, nil, err
+	}
 	timescaledbLogger.Verbosef("Drop existing publication")
 
 	// Create initial publication function
