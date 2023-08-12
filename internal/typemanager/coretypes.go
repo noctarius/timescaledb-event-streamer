@@ -221,7 +221,7 @@ var coreTypeMap = map[uint32]typeRegistration{
 	pgtypes.MacAddr8OID: {
 		schemaType: schema.STRING,
 		converter:  macaddr2text,
-		typeMapTypeFactory: func(_ *pgtype.Map, typ pgtypes.PgType) *pgtype.Type {
+		typeFactory: func(_ *pgtype.Map, typ pgtypes.PgType) *pgtype.Type {
 			return &pgtype.Type{Name: "macaddr8", OID: pgtypes.MacAddr8OID, Codec: pgtype.MacaddrCodec{}}
 		},
 	},
@@ -341,7 +341,7 @@ var coreTypeMap = map[uint32]typeRegistration{
 	pgtypes.TimeTZOID: {
 		schemaType: schema.STRING,
 		converter:  time2text,
-		typeMapTypeFactory: func(_ *pgtype.Map, typ pgtypes.PgType) *pgtype.Type {
+		typeFactory: func(_ *pgtype.Map, typ pgtypes.PgType) *pgtype.Type {
 			return &pgtype.Type{Name: "timetz", OID: pgtypes.TimeTZOID, Codec: &pgtypes.TimetzCodec{}}
 		},
 	},
@@ -352,7 +352,7 @@ var coreTypeMap = map[uint32]typeRegistration{
 	},
 	pgtypes.XmlOID: {
 		schemaType: schema.STRING,
-		typeMapTypeFactory: func(_ *pgtype.Map, typ pgtypes.PgType) *pgtype.Type {
+		typeFactory: func(_ *pgtype.Map, typ pgtypes.PgType) *pgtype.Type {
 			return &pgtype.Type{Name: "xml", OID: pgtypes.XmlOID, Codec: pgtypes.XmlCodec{}}
 		},
 	},
@@ -377,6 +377,15 @@ var coreTypeMap = map[uint32]typeRegistration{
 		schemaType: schema.ARRAY,
 		oidElement: pgtype.BoxOID,
 		converter:  arrayConverter[[]string](pgtype.BoxOID, box2string),
+		codecFactory: func(typeMap *pgtype.Map) pgtype.Codec {
+			if pt, present := typeMap.TypeForOID(pgtype.BoxOID); present {
+				return &pgtypes.BoxArrayCodec{
+					PgxArrayCodec: &pgtype.ArrayCodec{ElementType: pt},
+				}
+			}
+			return nil
+		},
+		overrideExistingCodec: true,
 	},
 	pgtype.LineOID: {
 		schemaType: schema.STRING,

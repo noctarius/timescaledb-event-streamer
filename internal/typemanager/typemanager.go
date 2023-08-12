@@ -44,16 +44,20 @@ var (
 	mapType     = reflect.TypeOf(map[string]any{})
 )
 
-type typeMapTypeFactory func(typeMap *pgtype.Map, typ pgtypes.PgType) *pgtype.Type
+type ttypeFactory func(typeMap *pgtype.Map, typ pgtypes.PgType) *pgtype.Type
+
+type codecFactory func(typeMap *pgtype.Map) pgtype.Codec
 
 type typeRegistration struct {
-	schemaType         schema.Type
-	schemaBuilder      schema.Builder
-	isArray            bool
-	oidElement         uint32
-	converter          pgtypes.TypeConverter
-	codec              pgtype.Codec
-	typeMapTypeFactory typeMapTypeFactory
+	schemaType            schema.Type
+	schemaBuilder         schema.Builder
+	isArray               bool
+	oidElement            uint32
+	converter             pgtypes.TypeConverter
+	codec                 pgtype.Codec
+	codecFactory          codecFactory
+	typeFactory           ttypeFactory
+	overrideExistingCodec bool
 }
 
 // errIllegalValue represents an illegal type conversion request
@@ -457,7 +461,7 @@ func (tm *typeManager) registerType(
 
 	// Is core type not available in TypeMap by default (bug or not implemented in pgx)?
 	if registration, present := coreType(typ.Oid()); present {
-		if !tm.knownInTypeMap(typ.Oid()) {
+		if !tm.knownInTypeMap(typ.Oid()) || registration.overrideExistingCodec {
 			if err := tm.registerTypeInTypeMap(typ, registration); err != nil {
 				return err
 			}
@@ -482,6 +486,7 @@ func (tm *typeManager) registerType(
 			oidElement:    typ.OidElement(),
 			converter:     converter,
 			codec:         registration.codec,
+			codecFactory:  registration.codecFactory,
 		})
 
 		if err := tm.registerTypeInTypeMap(typ, registration); err != nil {
@@ -534,14 +539,23 @@ func (tm *typeManager) registerTypeInTypeMap(
 ) error {
 
 	// If specific codec is registered, we can use it directly
-	if registration.codec != nil {
-		tm.typeMap.RegisterType(&pgtype.Type{Name: typ.Name(), OID: typ.Oid(), Codec: registration.codec})
+	if registration.codec != nil || registration.codecFactory != nil {
+		codec := registration.codec
+		if registration.codecFactory != nil {
+			codec = registration.codecFactory(tm.typeMap)
+		}
+
+		if codec == nil {
+			return errors.Errorf("No valid codec provided for type %s", typ.Name())
+		}
+
+		tm.typeMap.RegisterType(&pgtype.Type{Name: typ.Name(), OID: typ.Oid(), Codec: codec})
 		return nil
 	}
 
 	// Slightly more complicated types have a factory for the pgx type
-	if registration.typeMapTypeFactory != nil {
-		tm.typeMap.RegisterType(registration.typeMapTypeFactory(tm.typeMap, typ))
+	if registration.typeFactory != nil {
+		tm.typeMap.RegisterType(registration.typeFactory(tm.typeMap, typ))
 		return nil
 	}
 
