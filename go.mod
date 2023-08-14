@@ -13,6 +13,7 @@ require (
 	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/goccy/go-json v0.10.2
 	github.com/gookit/color v1.5.3
+	github.com/gookit/goutil v0.6.10
 	github.com/gookit/slog v0.5.2
 	github.com/hashicorp/go-uuid v1.0.3
 	github.com/inhies/go-bytesize v0.0.0-20220417184213-4913239db9cf
@@ -23,10 +24,12 @@ require (
 	github.com/nats-io/nats.go v1.27.1
 	github.com/samber/do v1.6.0
 	github.com/samber/lo v1.38.1
+	github.com/segmentio/stats v4.1.0+incompatible
 	github.com/stretchr/testify v1.8.4
 	github.com/testcontainers/testcontainers-go v0.21.0
 	github.com/testcontainers/testcontainers-go/modules/localstack v0.21.0
 	github.com/testcontainers/testcontainers-go/modules/redis v0.21.0
+	github.com/twpayne/go-geom v1.5.2
 	github.com/urfave/cli v1.22.14
 	golang.org/x/net v0.12.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -50,7 +53,6 @@ require (
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/uuid v1.3.0 // indirect
-	github.com/gookit/goutil v0.6.10 // indirect
 	github.com/gookit/gsr v0.0.8 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
@@ -70,6 +72,7 @@ require (
 	github.com/mdlayher/genetlink v1.3.2 // indirect
 	github.com/mdlayher/netlink v1.7.2 // indirect
 	github.com/mdlayher/socket v0.4.1 // indirect
+	github.com/mdlayher/taskstats v0.0.0-20230712191918-387b3d561d14 // indirect
 	github.com/moby/patternmatcher v0.5.0 // indirect
 	github.com/moby/sys/sequential v0.5.0 // indirect
 	github.com/moby/term v0.5.0 // indirect
@@ -89,7 +92,7 @@ require (
 	github.com/rogpeppe/go-internal v1.9.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/segmentio/fasthash v1.0.3 // indirect
-	github.com/segmentio/stats v4.1.0+incompatible // indirect
+	github.com/segmentio/objconv v1.0.1 // indirect
 	github.com/segmentio/taskstats v0.0.0-20190328215536-52f398ff659c // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/stretchr/objx v0.5.0 // indirect

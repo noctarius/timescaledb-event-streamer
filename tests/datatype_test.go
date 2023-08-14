@@ -1023,6 +1023,18 @@ var dataTypeTable = []DataTypeTest{
 		},
 		expected: quickCheckValue[[]map[string]any],
 	},
+	{
+		name:        "Geometry",
+		pgTypeName:  "geometry",
+		schemaType:  schema.STRING,
+		value:       "'010100000000000000000024C000000000000034C0'::geometry",
+		insertPlain: true,
+		expectedValueOverride: map[string]any{
+			"1":    "value",
+			"key2": "foo",
+		},
+		expected: quickCheckValue[map[string]any],
+	},
 }
 
 const lookupTypeOidQuery = "SELECT oid FROM pg_catalog.pg_type where typname = $1"

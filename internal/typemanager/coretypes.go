@@ -435,11 +435,14 @@ var coreTypeMap = map[uint32]typeRegistration{
 }
 
 var optimizedTypes = map[string]typeRegistration{
-	/*"geometry": {
-		schemaType: schema.STRUCT,
-		converter: nil,
+	"geometry": {
+		schemaType: schema.STRING,
+		codec:      pgtypes.GeometryCodec{},
+		converter: func(oid uint32, value any) (any, error) {
+			return value, nil
+		},
 	},
-	"_geometry": {
+	/*"_geometry": {
 		schemaType: schema.ARRAY,
 		isArray:    true,
 	},*/
