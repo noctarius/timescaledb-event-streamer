@@ -108,7 +108,7 @@ func newConsoleHandler(
 		)
 	}
 	if logToStdErr {
-		consoleHandler.IOWriterHandler = *handler.NewIOWriterHandler(os.Stderr, slog.AllLevels)
+		consoleHandler.Output = os.Stderr
 	}
 	return &consoleHandlerSyncAdapter{ConsoleHandler: consoleHandler}
 }

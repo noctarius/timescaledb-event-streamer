@@ -19,7 +19,7 @@ package kafka
 
 import (
 	"crypto/tls"
-	"github.com/Shopify/sarama"
+	"github.com/IBM/sarama"
 	sinkimpl "github.com/noctarius/timescaledb-event-streamer/internal/eventing/sink"
 	config "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/encoding"

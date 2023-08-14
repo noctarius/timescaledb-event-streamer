@@ -19,7 +19,7 @@ package config
 
 import (
 	"crypto/tls"
-	"github.com/Shopify/sarama"
+	"github.com/IBM/sarama"
 	"os"
 	"reflect"
 	"strings"

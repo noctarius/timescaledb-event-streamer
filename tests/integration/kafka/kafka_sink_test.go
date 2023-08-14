@@ -20,7 +20,7 @@ package kafka
 import (
 	"context"
 	"fmt"
-	"github.com/Shopify/sarama"
+	"github.com/IBM/sarama"
 	"github.com/go-errors/errors"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"

@@ -604,7 +604,7 @@ var dataTypeTable = []DataTypeTest{
 	},
 	{
 		name:                  "Quoted Char Array",
-		oid:                   pgtypes.QCharArrayOID,
+		oid:                   pgtype.QCharArrayOID,
 		pgTypeName:            "\"char\"[]",
 		columnNameOverride:    "qchar[]",
 		schemaType:            schema.ARRAY,
