@@ -39,7 +39,7 @@ const (
 
 var (
 	BinName    = "timescaledb-event-streamer"
-	Version    = "0.5.0"
+	Version    = "0.5.1-dev"
 	CommitHash = "unknown"
 	Branch     = "unknown"
 )
