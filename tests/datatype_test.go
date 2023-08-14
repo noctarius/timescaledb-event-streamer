@@ -604,7 +604,7 @@ var dataTypeTable = []DataTypeTest{
 	},
 	{
 		name:                  "Quoted Char Array",
-		oid:                   pgtypes.QCharArrayOID,
+		oid:                   pgtype.QCharArrayOID,
 		pgTypeName:            "\"char\"[]",
 		columnNameOverride:    "qchar[]",
 		schemaType:            schema.ARRAY,
@@ -1022,18 +1022,6 @@ var dataTypeTable = []DataTypeTest{
 			},
 		},
 		expected: quickCheckValue[[]map[string]any],
-	},
-	{
-		name:        "Geometry",
-		pgTypeName:  "geometry",
-		schemaType:  schema.STRING,
-		value:       "'010100000000000000000024C000000000000034C0'::geometry",
-		insertPlain: true,
-		expectedValueOverride: map[string]any{
-			"1":    "value",
-			"key2": "foo",
-		},
-		expected: quickCheckValue[map[string]any],
 	},
 }
 

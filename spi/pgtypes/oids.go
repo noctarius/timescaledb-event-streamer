@@ -18,7 +18,6 @@
 package pgtypes
 
 const (
-	QCharArrayOID    uint32 = 1002
 	MacAddr8OID      uint32 = 774
 	MacAddrArray8OID uint32 = 775
 	TimeTZOID        uint32 = 1266
