@@ -19,7 +19,7 @@ package integration
 
 import (
 	"encoding/json"
-	"github.com/Shopify/sarama"
+	"github.com/IBM/sarama"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/testsupport"
 	"testing"

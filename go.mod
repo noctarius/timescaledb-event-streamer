@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/BurntSushi/toml v1.3.2
-	github.com/Shopify/sarama v1.38.1
+	github.com/IBM/sarama v1.40.1
 	github.com/antonmedv/expr v1.12.5
 	github.com/aws/aws-sdk-go v1.44.295
 	github.com/cenkalti/backoff/v4 v4.2.1
