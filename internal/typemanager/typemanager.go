@@ -44,9 +44,11 @@ var (
 	mapType     = reflect.TypeOf(map[string]any{})
 )
 
-type ttypeFactory func(typeMap *pgtype.Map, typ pgtypes.PgType) *pgtype.Type
+type typeFactory func(typeMap *pgtype.Map, typ pgtypes.PgType) *pgtype.Type
 
-type codecFactory func(typeMap *pgtype.Map) pgtype.Codec
+type codecFactory func(typeMap *pgtype.Map, typ pgtypes.PgType) pgtype.Codec
+
+type converterFactory func(typeMap *pgtype.Map, typ pgtypes.PgType) pgtypes.TypeConverter
 
 type typeRegistration struct {
 	schemaType            schema.Type
@@ -55,8 +57,9 @@ type typeRegistration struct {
 	oidElement            uint32
 	converter             pgtypes.TypeConverter
 	codec                 pgtype.Codec
+	converterFactory      converterFactory
 	codecFactory          codecFactory
-	typeFactory           ttypeFactory
+	typeFactory           typeFactory
 	overrideExistingCodec bool
 }
 
@@ -174,6 +177,13 @@ func (tm *typeManager) ResolveTypeConverter(
 		return registration.converter, nil
 	}
 	if registration, present := tm.optimizedConverterCache.Get(oid); present {
+		if registration.converterFactory != nil {
+			typ, err := tm.ResolveDataType(oid)
+			if err != nil {
+				return nil, err
+			}
+			return registration.converterFactory(tm.typeMap, typ), nil
+		}
 		return registration.converter, nil
 	}
 	if registration, present := tm.dynamicConverterCache.Get(oid); present {
@@ -480,13 +490,14 @@ func (tm *typeManager) registerType(
 		}
 
 		optimizedConverterSetter(typ.Oid(), typeRegistration{
-			schemaType:    registration.schemaType,
-			schemaBuilder: registration.schemaBuilder,
-			isArray:       registration.isArray,
-			oidElement:    typ.OidElement(),
-			converter:     converter,
-			codec:         registration.codec,
-			codecFactory:  registration.codecFactory,
+			schemaType:       registration.schemaType,
+			schemaBuilder:    registration.schemaBuilder,
+			isArray:          registration.isArray,
+			oidElement:       typ.OidElement(),
+			converter:        converter,
+			converterFactory: registration.converterFactory,
+			codec:            registration.codec,
+			codecFactory:     registration.codecFactory,
 		})
 
 		if err := tm.registerTypeInTypeMap(typ, registration); err != nil {
@@ -542,7 +553,7 @@ func (tm *typeManager) registerTypeInTypeMap(
 	if registration.codec != nil || registration.codecFactory != nil {
 		codec := registration.codec
 		if registration.codecFactory != nil {
-			codec = registration.codecFactory(tm.typeMap)
+			codec = registration.codecFactory(tm.typeMap, typ)
 		}
 
 		if codec == nil {
@@ -586,6 +597,9 @@ func (tm *typeManager) resolveOptimizedTypeConverter(
 			oidElement:  typ.OidElement(),
 		}
 		return lazyConverter.convert
+	}
+	if registration.converterFactory != nil {
+		return registration.converterFactory(tm.typeMap, typ)
 	}
 	return registration.converter
 }

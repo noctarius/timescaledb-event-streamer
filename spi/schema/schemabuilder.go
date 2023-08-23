@@ -181,6 +181,12 @@ func HStore() Builder {
 	return Map().KeySchema(String()).ValueSchema(String().Optional())
 }
 
+func Geography() Builder {
+	return NewSchemaBuilder(STRUCT).
+		Field("wkb", 0, String()).
+		Field("srid", 1, Int32())
+}
+
 type fieldImpl struct {
 	name          string
 	index         int

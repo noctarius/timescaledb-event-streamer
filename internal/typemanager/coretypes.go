@@ -377,7 +377,7 @@ var coreTypeMap = map[uint32]typeRegistration{
 		schemaType: schema.ARRAY,
 		oidElement: pgtype.BoxOID,
 		converter:  arrayConverter[[]string](pgtype.BoxOID, box2string),
-		codecFactory: func(typeMap *pgtype.Map) pgtype.Codec {
+		codecFactory: func(typeMap *pgtype.Map, typ pgtypes.PgType) pgtype.Codec {
 			if pt, present := typeMap.TypeForOID(pgtype.BoxOID); present {
 				return &pgtypes.BoxArrayCodec{
 					PgxArrayCodec: &pgtype.ArrayCodec{ElementType: pt},
@@ -436,16 +436,25 @@ var coreTypeMap = map[uint32]typeRegistration{
 
 var optimizedTypes = map[string]typeRegistration{
 	"geometry": {
-		schemaType: schema.STRING,
-		codec:      pgtypes.GeometryCodec{},
-		converter: func(oid uint32, value any) (any, error) {
-			return value, nil
+		schemaType:    schema.STRING,
+		codec:         pgtypes.GeometryCodec{},
+		converter:     geometry2struct,
+		schemaBuilder: schema.Geography(),
+	},
+	"_geometry": {
+		schemaType: schema.ARRAY,
+		codecFactory: func(typeMap *pgtype.Map, typ pgtypes.PgType) pgtype.Codec {
+			if pt, present := typeMap.TypeForOID(typ.OidElement()); present {
+				return &pgtypes.GeometryArrayCodec{
+					PgxArrayCodec: &pgtype.ArrayCodec{ElementType: pt},
+				}
+			}
+			return nil
+		},
+		converterFactory: func(typeMap *pgtype.Map, typ pgtypes.PgType) pgtypes.TypeConverter {
+			return arrayConverter[[]map[string]any](typ.OidElement(), geometry2struct)
 		},
 	},
-	/*"_geometry": {
-		schemaType: schema.ARRAY,
-		isArray:    true,
-	},*/
 	"ltree": {
 		schemaType:    schema.STRING,
 		schemaBuilder: schema.Ltree(),

@@ -1023,6 +1023,37 @@ var dataTypeTable = []DataTypeTest{
 		},
 		expected: quickCheckValue[[]map[string]any],
 	},
+	{
+		name:        "Geometry",
+		pgTypeName:  "geometry",
+		schemaType:  schema.STRUCT,
+		value:       "'010100000000000000000024C000000000000034C0'::geometry",
+		insertPlain: true,
+		expectedValueOverride: map[string]any{
+			"wkb":  "AAAAAAHAJAAAAAAAAMA0AAAAAAAA",
+			"srid": float64(0),
+		},
+		expected: quickCheckValue[map[string]any],
+	},
+	{
+		name:              "Geometry Array",
+		pgTypeName:        "geometry[]",
+		schemaType:        schema.ARRAY,
+		elementSchemaType: schema.STRUCT,
+		value:             "array['010100000000000000000024C000000000000034C0','010100000000000000000000000000000000000000']::geometry[]",
+		insertPlain:       true,
+		expectedValueOverride: []map[string]any{
+			{
+				"wkb":  "AAAAAAHAJAAAAAAAAMA0AAAAAAAA",
+				"srid": float64(0),
+			},
+			{
+				"wkb":  "AAAAAAEAAAAAAAAAAAAAAAAAAAAA",
+				"srid": float64(0),
+			},
+		},
+		expected: quickCheckValue[[]map[string]any],
+	},
 }
 
 const lookupTypeOidQuery = "SELECT oid FROM pg_catalog.pg_type where typname = $1"
