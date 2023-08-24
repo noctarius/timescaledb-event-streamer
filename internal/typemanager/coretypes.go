@@ -430,7 +430,7 @@ var coreTypeMap = map[uint32]typeRegistration{
 var optimizedTypes = map[string]typeRegistration{
 	"geometry": {
 		schemaType:    schema.STRING,
-		codec:         pgtypes.GeometryCodec{},
+		codec:         pgtypes.PostGisCodec[pgtypes.Geometry, *pgtypes.Geometry, pgtypes.Geometry]{},
 		converter:     postgis2struct,
 		schemaBuilder: schema.Geometry(),
 	},
@@ -443,7 +443,7 @@ var optimizedTypes = map[string]typeRegistration{
 	},
 	"geography": {
 		schemaType:    schema.STRING,
-		codec:         pgtypes.GeographyCodec{},
+		codec:         pgtypes.PostGisCodec[pgtypes.Geography, *pgtypes.Geography, pgtypes.Geography]{},
 		converter:     postgis2struct,
 		schemaBuilder: schema.Geography(),
 	},
