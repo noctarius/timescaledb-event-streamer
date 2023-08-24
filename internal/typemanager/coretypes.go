@@ -374,17 +374,10 @@ var coreTypeMap = map[uint32]typeRegistration{
 		converter:  box2string,
 	},
 	pgtype.BoxArrayOID: {
-		schemaType: schema.ARRAY,
-		oidElement: pgtype.BoxOID,
-		converter:  arrayConverter[[]string](pgtype.BoxOID, box2string),
-		codecFactory: func(typeMap *pgtype.Map, typ pgtypes.PgType) pgtype.Codec {
-			if pt, present := typeMap.TypeForOID(pgtype.BoxOID); present {
-				return &pgtypes.BoxArrayCodec{
-					PgxArrayCodec: &pgtype.ArrayCodec{ElementType: pt},
-				}
-			}
-			return nil
-		},
+		schemaType:            schema.ARRAY,
+		oidElement:            pgtype.BoxOID,
+		converter:             arrayConverter[[]string](pgtype.BoxOID, box2string),
+		codecFactory:          pgtypes.EnhancedArrayTextCodecFactory[pgtype.Box],
 		overrideExistingCodec: true,
 	},
 	pgtype.LineOID: {
@@ -438,21 +431,27 @@ var optimizedTypes = map[string]typeRegistration{
 	"geometry": {
 		schemaType:    schema.STRING,
 		codec:         pgtypes.GeometryCodec{},
-		converter:     geometry2struct,
-		schemaBuilder: schema.Geography(),
+		converter:     postgis2struct,
+		schemaBuilder: schema.Geometry(),
 	},
 	"_geometry": {
-		schemaType: schema.ARRAY,
-		codecFactory: func(typeMap *pgtype.Map, typ pgtypes.PgType) pgtype.Codec {
-			if pt, present := typeMap.TypeForOID(typ.OidElement()); present {
-				return &pgtypes.GeometryArrayCodec{
-					PgxArrayCodec: &pgtype.ArrayCodec{ElementType: pt},
-				}
-			}
-			return nil
-		},
+		schemaType:   schema.ARRAY,
+		codecFactory: pgtypes.EnhancedArrayTextCodecFactory[pgtypes.Geometry],
 		converterFactory: func(typeMap *pgtype.Map, typ pgtypes.PgType) pgtypes.TypeConverter {
-			return arrayConverter[[]map[string]any](typ.OidElement(), geometry2struct)
+			return arrayConverter[[]map[string]any](typ.OidElement(), postgis2struct)
+		},
+	},
+	"geography": {
+		schemaType:    schema.STRING,
+		codec:         pgtypes.GeographyCodec{},
+		converter:     postgis2struct,
+		schemaBuilder: schema.Geography(),
+	},
+	"_geography": {
+		schemaType:   schema.ARRAY,
+		codecFactory: pgtypes.EnhancedArrayTextCodecFactory[pgtypes.Geography],
+		converterFactory: func(typeMap *pgtype.Map, typ pgtypes.PgType) pgtypes.TypeConverter {
+			return arrayConverter[[]map[string]any](typ.OidElement(), postgis2struct)
 		},
 	},
 	"ltree": {

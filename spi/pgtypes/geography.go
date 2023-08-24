@@ -28,131 +28,131 @@ import (
 	"github.com/twpayne/go-geom/encoding/geojson"
 )
 
-type GeometryScanner interface {
-	ScanGeometry(
-		v Geometry,
+type GeographyScanner interface {
+	ScanGeography(
+		v Geography,
 	) error
 }
 
-type GeometryValuer interface {
-	GeometryValue() (Geometry, error)
+type GeographyValuer interface {
+	GeographyValue() (Geography, error)
 }
 
-type Geometry struct {
-	Geometry geom.T
-	Valid    bool
+type Geography struct {
+	Geography geom.T
+	Valid     bool
 }
 
-func (g *Geometry) ScanGeometry(
-	v Geometry,
+func (g *Geography) ScanGeography(
+	v Geography,
 ) error {
 
 	*g = v
 	return nil
 }
 
-func (g Geometry) GeometryValue() (Geometry, error) {
+func (g Geography) GeographyValue() (Geography, error) {
 	return g, nil
 }
 
-func (g *Geometry) Scan(
+func (g *Geography) Scan(
 	src any,
 ) error {
 
 	if src == nil {
-		*g = Geometry{}
+		*g = Geography{}
 		return nil
 	}
 
 	switch src := src.(type) {
 	case string:
-		return scanPlanTextGeometryToGeometryScanner{}.Scan([]byte(src), g)
+		return scanPlanTextGeographyToGeographyScanner{}.Scan([]byte(src), g)
 	}
 
 	return fmt.Errorf("cannot scan %T", src)
 }
 
-func (g Geometry) Value() (driver.Value, error) {
+func (g Geography) Value() (driver.Value, error) {
 	if !g.Valid {
 		return nil, nil
 	}
 
-	return g.Geometry, nil
+	return g.Geography, nil
 }
 
-func (g Geometry) MarshalJSON() ([]byte, error) {
+func (g Geography) MarshalJSON() ([]byte, error) {
 	if !g.Valid {
 		return []byte("null"), nil
 	}
 
-	return geojson.Marshal(g.Geometry)
+	return geojson.Marshal(g.Geography)
 }
 
-func (g *Geometry) UnmarshalJSON(
+func (g *Geography) UnmarshalJSON(
 	b []byte,
 ) error {
 
-	var geometry geom.T
-	if err := geojson.Unmarshal(b, &geometry); err != nil {
+	var geography geom.T
+	if err := geojson.Unmarshal(b, &geography); err != nil {
 		return err
 	}
 
-	if geometry == nil {
-		*g = Geometry{}
+	if geography == nil {
+		*g = Geography{}
 		return nil
 	}
 
-	*g = Geometry{Geometry: geometry, Valid: true}
+	*g = Geography{Geography: geography, Valid: true}
 	return nil
 }
 
-type GeometryCodec struct{}
+type GeographyCodec struct{}
 
-func (GeometryCodec) FormatSupported(
+func (GeographyCodec) FormatSupported(
 	format int16,
 ) bool {
 
 	return format == pgtype.TextFormatCode || format == pgtype.BinaryFormatCode
 }
 
-func (GeometryCodec) PreferredFormat() int16 {
+func (GeographyCodec) PreferredFormat() int16 {
 	return pgtype.BinaryFormatCode
 }
 
-func (GeometryCodec) PlanEncode(
+func (GeographyCodec) PlanEncode(
 	_ *pgtype.Map, _ uint32, format int16, value any,
 ) pgtype.EncodePlan {
 
-	if _, ok := value.(GeometryValuer); !ok {
+	if _, ok := value.(GeographyValuer); !ok {
 		return nil
 	}
 
 	switch format {
 	case pgtype.BinaryFormatCode:
-		return encodePlanGeometryCodecBinary{}
+		return encodePlanGeographyCodecBinary{}
 	case pgtype.TextFormatCode:
-		return encodePlanGeometryCodecText{}
+		return encodePlanGeographyCodecText{}
 	}
 
 	return nil
 }
 
-type encodePlanGeometryCodecBinary struct{}
+type encodePlanGeographyCodecBinary struct{}
 
-func (encodePlanGeometryCodecBinary) Encode(
+func (encodePlanGeographyCodecBinary) Encode(
 	value any, buf []byte,
 ) (newBuf []byte, err error) {
 
-	geometry, err := value.(GeometryValuer).GeometryValue()
+	geography, err := value.(GeographyValuer).GeographyValue()
 	if err != nil {
 		return nil, err
 	}
 
-	if !geometry.Valid {
+	if !geography.Valid {
 		return nil, nil
 	}
 
-	data, err := ewkb.Marshal(geometry.Geometry, binary.BigEndian)
+	data, err := ewkb.Marshal(geography.Geography, binary.BigEndian)
 	if err != nil {
 		return nil, err
 	}
@@ -160,22 +160,22 @@ func (encodePlanGeometryCodecBinary) Encode(
 	return buf, nil
 }
 
-type encodePlanGeometryCodecText struct{}
+type encodePlanGeographyCodecText struct{}
 
-func (encodePlanGeometryCodecText) Encode(
+func (encodePlanGeographyCodecText) Encode(
 	value any, buf []byte,
 ) (newBuf []byte, err error) {
 
-	geometry, err := value.(GeometryValuer).GeometryValue()
+	geography, err := value.(GeographyValuer).GeographyValue()
 	if err != nil {
 		return nil, err
 	}
 
-	if !geometry.Valid {
+	if !geography.Valid {
 		return nil, nil
 	}
 
-	data, err := ewkb.Marshal(geometry.Geometry, binary.BigEndian)
+	data, err := ewkb.Marshal(geography.Geography, binary.BigEndian)
 	if err != nil {
 		return nil, err
 	}
@@ -183,36 +183,36 @@ func (encodePlanGeometryCodecText) Encode(
 	return buf, nil
 }
 
-func (GeometryCodec) PlanScan(
+func (GeographyCodec) PlanScan(
 	_ *pgtype.Map, _ uint32, format int16, target any,
 ) pgtype.ScanPlan {
 
 	switch format {
 	case pgtype.BinaryFormatCode:
 		switch target.(type) {
-		case GeometryScanner:
-			return scanPlanBinaryGeometryToGeometryScanner{}
+		case GeographyScanner:
+			return scanPlanBinaryGeographyToGeographyScanner{}
 		}
 	case pgtype.TextFormatCode:
 		switch target.(type) {
-		case GeometryScanner:
-			return scanPlanTextGeometryToGeometryScanner{}
+		case GeographyScanner:
+			return scanPlanTextGeographyToGeographyScanner{}
 		}
 	}
 
 	return nil
 }
 
-type scanPlanBinaryGeometryToGeometryScanner struct{}
+type scanPlanBinaryGeographyToGeographyScanner struct{}
 
-func (scanPlanBinaryGeometryToGeometryScanner) Scan(
+func (scanPlanBinaryGeographyToGeographyScanner) Scan(
 	src []byte, dst any,
 ) error {
 
-	scanner := (dst).(GeometryScanner)
+	scanner := (dst).(GeographyScanner)
 
 	if src == nil {
-		return scanner.ScanGeometry(Geometry{})
+		return scanner.ScanGeography(Geography{})
 	}
 
 	if len(src) < 2 {
@@ -224,24 +224,24 @@ func (scanPlanBinaryGeometryToGeometryScanner) Scan(
 		return fmt.Errorf("unsupported version for ltree: %v", version)
 	}
 
-	geometry, err := ewkb.Unmarshal(src)
+	geography, err := ewkb.Unmarshal(src)
 	if err != nil {
 		return err
 	}
 
-	return scanner.ScanGeometry(Geometry{Geometry: geometry, Valid: true})
+	return scanner.ScanGeography(Geography{Geography: geography, Valid: true})
 }
 
-type scanPlanTextGeometryToGeometryScanner struct{}
+type scanPlanTextGeographyToGeographyScanner struct{}
 
-func (scanPlanTextGeometryToGeometryScanner) Scan(
+func (scanPlanTextGeographyToGeographyScanner) Scan(
 	src []byte, dst any,
 ) error {
 
-	scanner := (dst).(GeometryScanner)
+	scanner := (dst).(GeographyScanner)
 
 	if src == nil {
-		return scanner.ScanGeometry(Geometry{})
+		return scanner.ScanGeography(Geography{})
 	}
 
 	b, err := hex.DecodeString(string(src))
@@ -249,15 +249,15 @@ func (scanPlanTextGeometryToGeometryScanner) Scan(
 		return err
 	}
 
-	geometry, err := ewkb.Unmarshal(b)
+	geography, err := ewkb.Unmarshal(b)
 	if err != nil {
 		return err
 	}
 
-	return scanner.ScanGeometry(Geometry{Geometry: geometry, Valid: true})
+	return scanner.ScanGeography(Geography{Geography: geography, Valid: true})
 }
 
-func (c GeometryCodec) DecodeDatabaseSQLValue(
+func (c GeographyCodec) DecodeDatabaseSQLValue(
 	m *pgtype.Map, oid uint32, format int16, src []byte,
 ) (driver.Value, error) {
 
@@ -265,15 +265,15 @@ func (c GeometryCodec) DecodeDatabaseSQLValue(
 		return nil, nil
 	}
 
-	var geometry Geometry
-	err := codecScan(c, m, oid, format, src, &geometry)
+	var geography Geography
+	err := codecScan(c, m, oid, format, src, &geography)
 	if err != nil {
 		return nil, err
 	}
-	return geometry, nil
+	return geography, nil
 }
 
-func (c GeometryCodec) DecodeValue(
+func (c GeographyCodec) DecodeValue(
 	m *pgtype.Map, oid uint32, format int16, src []byte,
 ) (any, error) {
 
@@ -281,10 +281,10 @@ func (c GeometryCodec) DecodeValue(
 		return nil, nil
 	}
 
-	var geometry Geometry
-	err := codecScan(c, m, oid, format, src, &geometry)
+	var geography Geography
+	err := codecScan(c, m, oid, format, src, &geography)
 	if err != nil {
 		return nil, err
 	}
-	return geometry, nil
+	return geography, nil
 }

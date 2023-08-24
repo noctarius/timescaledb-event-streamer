@@ -99,11 +99,12 @@ func reflectiveArrayConverter(
 	}
 }
 
-func geometry2struct(
+func postgis2struct(
 	_ uint32, value any,
 ) (any, error) {
 
-	if v, ok := value.(pgtypes.Geometry); ok {
+	switch v := value.(type) {
+	case pgtypes.Geometry:
 		if !v.Valid {
 			return nil, nil
 		}
@@ -115,6 +116,23 @@ func geometry2struct(
 
 		val := base64.StdEncoding.EncodeToString(b)
 		srid := v.Geometry.SRID()
+
+		return map[string]any{
+			"wkb":  val,
+			"srid": srid,
+		}, nil
+	case pgtypes.Geography:
+		if !v.Valid {
+			return nil, nil
+		}
+
+		b, err := wkb.Marshal(v.Geography, binary.BigEndian)
+		if err != nil {
+			return nil, err
+		}
+
+		val := base64.StdEncoding.EncodeToString(b)
+		srid := v.Geography.SRID()
 
 		return map[string]any{
 			"wkb":  val,
