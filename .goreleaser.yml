@@ -18,14 +18,9 @@ builds:
       - freebsd
     goarch:
       - amd64
-      - arm
       - arm64
       - riscv64
     ignore:
-      - goos: darwin
-        goarch: arm
-      - goos: windows
-        goarch: arm
       - goos: windows
         goarch: riscv64
       - goos: darwin
