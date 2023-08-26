@@ -14,7 +14,6 @@ builds:
     goos:
       - linux
       - windows
-      - darwin
       - freebsd
     goarch:
       - amd64
@@ -23,8 +22,17 @@ builds:
     ignore:
       - goos: windows
         goarch: riscv64
-      - goos: darwin
-        goarch: riscv64
+  - main: ./cmd/timescaledb-event-streamer
+    id: timescaledb-event-streamer-builder-darwin
+    env:
+      - CGO_ENABLED=1
+    ldflags:
+      - -X 'github.com/noctarius/timescaledb-event-streamer/internal/version.Branch={{.Branch}}' -X 'github.com/noctarius/timescaledb-event-streamer/internal/version.CommitHash={{.Commit}}'
+    goos:
+      - darwin
+    goarch:
+      - amd64
+      - arm64
 
 archives:
   - id: timescaledb-event-streamer-archiver
