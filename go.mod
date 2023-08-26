@@ -24,7 +24,7 @@ require (
 	github.com/nats-io/nats.go v1.28.0
 	github.com/samber/do v1.6.0
 	github.com/samber/lo v1.38.1
-	github.com/segmentio/stats v4.1.0+incompatible
+	github.com/segmentio/stats/v4 v4.1.0
 	github.com/stretchr/testify v1.8.4
 	github.com/testcontainers/testcontainers-go v0.23.0
 	github.com/testcontainers/testcontainers-go/modules/localstack v0.23.0
@@ -92,8 +92,6 @@ require (
 	github.com/rogpeppe/go-internal v1.9.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/segmentio/fasthash v1.0.3 // indirect
-	github.com/segmentio/objconv v1.0.1 // indirect
-	github.com/segmentio/taskstats v0.0.0-20190328215536-52f398ff659c // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/stretchr/objx v0.5.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
@@ -109,3 +107,5 @@ require (
 	google.golang.org/grpc v1.57.0 // indirect
 	google.golang.org/protobuf v1.31.0 // indirect
 )
+
+replace github.com/segmentio/stats/v4 v4.1.0 => github.com/noctarius/segmentio_stats/v4 v4.1.5

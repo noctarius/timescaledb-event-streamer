@@ -1,4 +1,4 @@
-//go:build darwin || linux
+//go:build !linux && !darwin
 
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
@@ -19,19 +19,10 @@
 
 package stats
 
-import "github.com/segmentio/stats/v4"
-
 type Reporter struct {
-	statsEnabled bool
-	engine       *stats.Engine
 }
 
 func (r *Reporter) Report(
-	metrics any,
+	_ any,
 ) {
-
-	if !r.statsEnabled {
-		return
-	}
-	r.engine.Report(metrics)
 }

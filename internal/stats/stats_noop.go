@@ -1,4 +1,4 @@
-//go:build darwin || linux
+//go:build !darwin && !linux
 
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
@@ -19,19 +19,30 @@
 
 package stats
 
-import "github.com/segmentio/stats/v4"
+import (
+	"github.com/noctarius/timescaledb-event-streamer/spi/config"
+)
 
-type Reporter struct {
-	statsEnabled bool
-	engine       *stats.Engine
+type Service struct {
 }
 
-func (r *Reporter) Report(
-	metrics any,
-) {
+func NewStatsService(
+	_ *config.Config,
+) *Service {
 
-	if !r.statsEnabled {
-		return
-	}
-	r.engine.Report(metrics)
+	return &Service{}
+}
+
+func (s *Service) Start() error {
+	return nil
+}
+
+func (s *Service) Stop() error {
+	return nil
+}
+
+func (s *Service) NewReporter(
+	_ string,
+) *Reporter {
+	return &Reporter{}
 }

@@ -1,3 +1,5 @@
+//go:build darwin || linux
+
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with
@@ -21,9 +23,9 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/version"
-	"github.com/segmentio/stats"
-	"github.com/segmentio/stats/procstats"
-	"github.com/segmentio/stats/prometheus"
+	"github.com/segmentio/stats/v4"
+	"github.com/segmentio/stats/v4/procstats"
+	"github.com/segmentio/stats/v4/prometheus"
 	"golang.org/x/net/context"
 	"io"
 	"net/http"
