@@ -128,7 +128,8 @@ and similar). Support is worked on though.
 The following list describes all available data types and their schema type
 mappings. For Array data types, the element type of array children is also
 named. Furthermore, starting with 0.4.0, `timescaledb-event-streamer`
-supports user defined Enum data types and handles them correctly.
+supports user defined Enum data types, as well as Composite types and
+handles them correctly.
 
 | Type Name                              | PostgreSQL Type         | Schema Type | Schema Element Type |
 |----------------------------------------|-------------------------|-------------|---------------------|
@@ -138,6 +139,8 @@ supports user defined Enum data types and handles them correctly.
 | Bit Varying Array                      | varbit[], varbit(n)[]   | ARRAY       | STRING              |
 | Boolean                                | boolean                 | BOOLEAN     |                     |
 | Boolean Array                          | boolean[]               | ARRAY       | BOOLEAN             |
+| Box                                    | box                     | STRING      |                     |
+| Box Array                              | box[]                   | ARRAY       | STRING              |
 | Byte Array (bytea)                     | bytea                   | STRING      |                     |
 | Byte Array (bytea) Array               | bytea[]                 | ARRAY       | STRING              |
 | CID                                    | cid                     | INT64       |                     |
@@ -146,6 +149,8 @@ supports user defined Enum data types and handles them correctly.
 | CIDR (IPv4) Array                      | cidr[]                  | ARRAY       | STRING              |
 | CIDR (IPv6)                            | cidr                    | STRING      |                     |
 | CIDR (IPv6) Array                      | cidr[]                  | ARRAY       | STRING              |
+| Circle                                 | circle                  | STRING      |                     |
+| Circle Array                           | circle[]                | ARRAY       | STRING              |
 | Date                                   | date                    | INT32       |                     |
 | Date Array                             | date[]                  | ARRAY       | INT32               |
 | Date Range                             | daterange               | STRING      |                     |
@@ -156,6 +161,12 @@ supports user defined Enum data types and handles them correctly.
 | Float (32bit) Array                    | float4[]                | ARRAY       | FLOAT32             |
 | Float (64bit)                          | float8                  | FLOAT64     |                     |
 | Float (64bit) Array                    | float8[]                | ARRAY       | FLOAT64             |
+| Geography (PostGUS)                    | geography               | STRUCT      |                     |
+| Geography Array  (PostGUS)             | geography[]             | ARRAY       | STRUCT              |
+| Geometry (PostGUS)                     | geometry                | STRUCT      |                     |
+| Geometry Array (PostGIS)               | geometry[]              | ARRAY       | STRUCT              |
+| Hstore                                 | hstore                  | MAP         |                     |
+| Hstore Array                           | hstore[]                | ARRAY       | MAP                 |
 | Inet (IPv4)                            | inet                    | STRING      |                     |
 | Inet (IPv4) Array                      | inet[]                  | ARRAY       | STRING              |
 | Inet (IPv6)                            | inet                    | STRING      |                     |
@@ -176,21 +187,31 @@ supports user defined Enum data types and handles them correctly.
 | JSON Array                             | json[]                  | ARRAY       | STRING              |
 | JSONB                                  | jsonb                   | STRING      |                     |
 | JSONB Array                            | jsonb[]                 | ARRAY       | STRING              |
+| Line                                   | line                    | STRING      |                     |
+| Line Array                             | line[]                  | ARRAY       | STRING              |
+| Lseg                                   | lseg                    | STRING      |                     |
+| Lseg Array                             | lseg[]                  | ARRAY       | STRING              |
 | Ltree                                  | ltree                   | STRING      |                     |
 | Ltree Array                            | ltree[]                 | ARRAY       | STRING              |
 | MAC Address                            | macaddr                 | STRING      |                     |
-| MAC Address Array                      | macaddr[]               | ARRAY       | STRING              |
 | MAC Address (EUI-64)                   | macaddr8                | STRING      |                     |
 | MAC Address (EUI-64) Array             | macaddr8[]              | ARRAY       | STRING              |
+| MAC Address Array                      | macaddr[]               | ARRAY       | STRING              |
+| Name                                   | name                    | STRING      |                     |
+| Name Array                             | name[]                  | ARRAY       | STRING              |
 | Numeric                                | numeric                 | FLOAT64     |                     |
 | Numeric Array                          | numeric[]               | ARRAY       | FLOAT64             |
 | Numeric Range                          | numrange                | STRING      |                     |
 | Numeric Range Array                    | numrange[]              | ARRAY       | STRING              |
 | OID                                    | oid                     | INT64       |                     |
 | OID Array                              | oid[]                   | ARRAY       | INT64               |
-| Name                                   | name                    | STRING      |                     |
-| Name Array                             | name[]                  | ARRAY       | STRING              |
-| Quoted Char                            | "char"                  | STRING      |                     |                     
+| Path                                   | path                    | STRING      |                     |
+| Path Array                             | path[]                  | ARRAY       | STRING              |
+| Point                                  | point                   | STRING      |                     |
+| Point Array                            | point[]                 | ARRAY       | STRING              |
+| Polygon                                | polygon                 | STRING      |                     |
+| Polygon Array                          | polygon[]               | ARRAY       | STRING              |
+| Quoted Char                            | "char"                  | STRING      |                     |
 | Quoted Char Array                      | "char"[]                | ARRAY       | STRING              |
 | Text                                   | text                    | STRING      |                     |
 | Text Array                             | text[]                  | ARRAY       | STRING              |
@@ -206,6 +227,10 @@ supports user defined Enum data types and handles them correctly.
 | Timestamp Without Timezone Array       | timestamp[]             | ARRAY       | INT64               |
 | Timestamp Without Timezone Range       | tsrange                 | STRING      |                     |
 | Timestamp Without Timezone Range Array | tsrange[]               | ARRAY       | STRING              |
+| User Defined Composite Type            | compositetype           | STRUCT      |                     |
+| User Defined Composite Type Array      | compositetype[]         | ARRAY       | STRUCT              |
+| User Defined Enum                      | enumtype                | STRING      |                     |
+| User Defined Enum Array                | enumtype[]              | ARRAY       | STRING              |
 | UUID                                   | uuid                    | STRING      |                     |
 | UUID Array                             | uuid[]                  | ARRAY       | STRING              |
 | Varchar                                | varchar, varchar(n)     | STRING      |                     |
