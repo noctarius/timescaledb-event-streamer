@@ -21,47 +21,46 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"github.com/twpayne/go-geom"
-	"github.com/twpayne/go-geom/encoding/geojson"
 )
 
-type Geometry struct {
-	Geometry geom.T
-	Valid    bool
+type Geography struct {
+	Geography geom.T
+	Valid     bool
 }
 
-func (g Geometry) value() geom.T {
-	return g.Geometry
+func (g Geography) value() geom.T {
+	return g.Geography
 }
 
-func (g Geometry) valid() bool {
+func (g Geography) valid() bool {
 	return g.Valid
 }
 
-func (g Geometry) New(
+func (g Geography) New(
 	v geom.T,
-) Geometry {
+) Geography {
 
-	return Geometry{Geometry: v, Valid: true}
+	return Geography{Geography: v, Valid: true}
 }
 
-func (g *Geometry) ScanPostGisValue(
-	v Geometry,
+func (g *Geography) ScanPostGisValue(
+	v Geography,
 ) error {
 
 	*g = v
 	return nil
 }
 
-func (g Geometry) PostGisValue() (Geometry, error) {
+func (g Geography) PostGisValue() (Geography, error) {
 	return g, nil
 }
 
-func (g *Geometry) Scan(
+func (g *Geography) Scan(
 	src any,
 ) error {
 
 	if src == nil {
-		*g = Geometry{}
+		*g = Geography{}
 		return nil
 	}
 
@@ -73,32 +72,32 @@ func (g *Geometry) Scan(
 	return fmt.Errorf("cannot scan %T", src)
 }
 
-func (g Geometry) Value() (driver.Value, error) {
+func (g Geography) Value() (driver.Value, error) {
+	if !g.Valid {
+		return nil, nil
+	}
+
+	return g.Geography, nil
+}
+
+func (g Geography) MarshalJSON() ([]byte, error) {
 	return postGisMarshalJson(g)
 }
 
-func (g Geometry) MarshalJSON() ([]byte, error) {
-	if !g.Valid {
-		return []byte("null"), nil
-	}
-
-	return geojson.Marshal(g.Geometry)
-}
-
-func (g *Geometry) UnmarshalJSON(
+func (g *Geography) UnmarshalJSON(
 	b []byte,
 ) error {
 
-	geometry, err := postGisUnmarshalJson(b)
+	geography, err := postGisUnmarshalJson(b)
 	if err != nil {
 		return err
 	}
 
-	if geometry == nil {
-		*g = Geometry{}
+	if geography == nil {
+		*g = Geography{}
 		return nil
 	}
 
-	*g = Geometry{Geometry: geometry, Valid: true}
+	*g = Geography{Geography: geography, Valid: true}
 	return nil
 }

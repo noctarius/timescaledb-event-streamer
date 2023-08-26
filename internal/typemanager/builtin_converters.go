@@ -18,6 +18,8 @@
 package typemanager
 
 import (
+	"encoding/base64"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -26,6 +28,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/samber/lo"
+	"github.com/twpayne/go-geom/encoding/wkb"
 	"math"
 	"math/big"
 	"net"
@@ -96,12 +99,54 @@ func reflectiveArrayConverter(
 	}
 }
 
-func enum2string(
+func postgis2struct(
 	_ uint32, value any,
 ) (any, error) {
 
 	switch v := value.(type) {
-	case string:
+	case pgtypes.Geometry:
+		if !v.Valid {
+			return nil, nil
+		}
+
+		b, err := wkb.Marshal(v.Geometry, binary.BigEndian)
+		if err != nil {
+			return nil, err
+		}
+
+		val := base64.StdEncoding.EncodeToString(b)
+		srid := v.Geometry.SRID()
+
+		return map[string]any{
+			"wkb":  val,
+			"srid": srid,
+		}, nil
+	case pgtypes.Geography:
+		if !v.Valid {
+			return nil, nil
+		}
+
+		b, err := wkb.Marshal(v.Geography, binary.BigEndian)
+		if err != nil {
+			return nil, err
+		}
+
+		val := base64.StdEncoding.EncodeToString(b)
+		srid := v.Geography.SRID()
+
+		return map[string]any{
+			"wkb":  val,
+			"srid": srid,
+		}, nil
+	}
+	return nil, errIllegalValue
+}
+
+func enum2string(
+	_ uint32, value any,
+) (any, error) {
+
+	if v, ok := value.(string); ok {
 		return v, nil
 	}
 	return nil, errIllegalValue
