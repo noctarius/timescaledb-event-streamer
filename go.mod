@@ -31,7 +31,7 @@ require (
 	github.com/testcontainers/testcontainers-go/modules/redis v0.23.0
 	github.com/twpayne/go-geom v1.5.2
 	github.com/urfave/cli v1.22.14
-	golang.org/x/net v0.14.0
+	golang.org/x/net v0.15.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -96,12 +96,12 @@ require (
 	github.com/stretchr/objx v0.5.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
-	golang.org/x/crypto v0.12.0 // indirect
+	golang.org/x/crypto v0.13.0 // indirect
 	golang.org/x/exp v0.0.0-20230713183714-613f0c0eb8a1 // indirect
 	golang.org/x/mod v0.12.0 // indirect
 	golang.org/x/sync v0.3.0 // indirect
-	golang.org/x/sys v0.11.0 // indirect
-	golang.org/x/text v0.12.0 // indirect
+	golang.org/x/sys v0.12.0 // indirect
+	golang.org/x/text v0.13.0 // indirect
 	golang.org/x/tools v0.11.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230717213848-3f92550aa753 // indirect
 	google.golang.org/grpc v1.57.0 // indirect
