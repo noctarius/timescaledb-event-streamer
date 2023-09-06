@@ -8,7 +8,7 @@ require (
 	github.com/antonmedv/expr v1.14.3
 	github.com/aws/aws-sdk-go v1.44.331
 	github.com/cenkalti/backoff/v4 v4.2.1
-	github.com/docker/docker v24.0.5+incompatible
+	github.com/docker/docker v24.0.6+incompatible
 	github.com/go-errors/errors v1.4.2
 	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/goccy/go-json v0.10.2
