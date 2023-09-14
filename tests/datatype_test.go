@@ -1141,7 +1141,7 @@ func (dtt *DataTypeTestSuite) runDataTypeTest(
 
 	columnName := makeColumnName(testCase)
 
-	waiter := waiting.NewWaiterWithTimeout(time.Second * 10)
+	waiter := waiting.NewWaiterWithTimeout(time.Second * 5)
 	testSink := testsupport.NewEventCollectorSink(
 		testsupport.WithFilter(
 			func(_ time.Time, _ string, envelope testsupport.Envelope) bool {
@@ -1149,7 +1149,7 @@ func (dtt *DataTypeTestSuite) runDataTypeTest(
 			},
 		),
 		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink, _ testsupport.Envelope) {
-			if sink.NumOfEvents() < 3 {
+			if sink.NumOfEvents() < 4 {
 				waiter.Signal()
 			}
 		}),
@@ -1158,12 +1158,18 @@ func (dtt *DataTypeTestSuite) runDataTypeTest(
 	var tableName string
 	dtt.RunTest(
 		func(ctx testrunner.Context) error {
-			insert := func(t time.Time) error {
-				if testCase.insertPlain {
+			insert := func(t time.Time, null bool) error {
+				value := testCase.value
+				insertPlain := testCase.insertPlain
+				if null {
+					value = "NULL"
+					insertPlain = true
+				}
+				if insertPlain {
 					if _, err := ctx.Exec(context.Background(),
 						fmt.Sprintf(
 							"INSERT INTO \"%s\" VALUES ($1, %s)",
-							tableName, testCase.value,
+							tableName, value,
 						), t,
 					); err != nil {
 						return err
@@ -1171,7 +1177,7 @@ func (dtt *DataTypeTestSuite) runDataTypeTest(
 				} else {
 					if _, err := ctx.Exec(context.Background(),
 						fmt.Sprintf("INSERT INTO \"%s\" VALUES ($1, $2)", tableName),
-						t, testCase.value,
+						t, value,
 					); err != nil {
 						return err
 					}
@@ -1179,7 +1185,7 @@ func (dtt *DataTypeTestSuite) runDataTypeTest(
 				return nil
 			}
 
-			if err := insert(time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)); err != nil {
+			if err := insert(time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC), false); err != nil {
 				return err
 			}
 			if err := waiter.Await(); err != nil {
@@ -1187,7 +1193,15 @@ func (dtt *DataTypeTestSuite) runDataTypeTest(
 			}
 
 			waiter.Reset()
-			if err := insert(time.Date(2023, 1, 1, 1, 0, 0, 0, time.UTC)); err != nil {
+			if err := insert(time.Date(2023, 1, 1, 1, 0, 0, 0, time.UTC), false); err != nil {
+				return err
+			}
+			if err := waiter.Await(); err != nil {
+				return err
+			}
+
+			waiter.Reset()
+			if err := insert(time.Date(2023, 1, 1, 2, 0, 0, 0, time.UTC), true); err != nil {
 				return err
 			}
 			if err := waiter.Await(); err != nil {
@@ -1195,9 +1209,9 @@ func (dtt *DataTypeTestSuite) runDataTypeTest(
 			}
 
 			events := testSink.Events()
-			assert.Equal(dtt.T(), 2, len(events))
+			assert.Equal(dtt.T(), 3, len(events))
 
-			for _, event := range events {
+			for index, event := range events {
 				// Check column schema
 				schema, present := testsupport.GetField("after", event.Envelope.Schema.Fields)
 				assert.True(dtt.T(), present)
@@ -1209,8 +1223,13 @@ func (dtt *DataTypeTestSuite) runDataTypeTest(
 
 				payload, present := event.Envelope.Payload.After[columnName]
 				assert.True(dtt.T(), present)
-				assert.NotNil(dtt.T(), payload)
-				testCase.expected(dtt.T(), testCase, payload)
+
+				if index < 2 {
+					assert.NotNil(dtt.T(), payload)
+					testCase.expected(dtt.T(), testCase, payload)
+				} else {
+					assert.Nil(dtt.T(), payload)
+				}
 			}
 			return nil
 		},
@@ -1230,7 +1249,7 @@ func (dtt *DataTypeTestSuite) runDataTypeTest(
 
 			_, tn, err := setupContext.CreateHypertable("ts", time.Hour*24,
 				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
-				testsupport.NewColumn(columnName, testCase.pgTypeName, false, false, nil),
+				testsupport.NewColumn(columnName, testCase.pgTypeName, true, false, nil),
 			)
 			if err != nil {
 				return err
