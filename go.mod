@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/BurntSushi/toml v1.3.2
 	github.com/IBM/sarama v1.41.2
-	github.com/antonmedv/expr v1.14.3
+	github.com/antonmedv/expr v1.15.2
 	github.com/aws/aws-sdk-go v1.45.9
 	github.com/cenkalti/backoff/v4 v4.2.1
 	github.com/docker/docker v24.0.6+incompatible
