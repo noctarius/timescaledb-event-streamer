@@ -441,34 +441,65 @@ func (l *logicalReplicationResolver) OnTruncateEvent(
 	xld pgtypes.XLogData, msg *pgtypes.TruncateMessage,
 ) error {
 
+	unknownRelations := lo.Filter(msg.RelationIDs, func(relId uint32, _ int) bool {
+		_, present := l.relations.Get(relId)
+		if !present {
+			l.logger.Fatalf("unknown relation ID %d", relId)
+			return true
+		}
+		return false
+	})
+	affectedTablesVanilla := lo.Filter(msg.RelationIDs, func(relId uint32, _ int) bool {
+		if relation, present := l.relations.Get(relId); present {
+			return spicatalog.IsVanillaTable(relation)
+		}
+		return false
+	})
+	affectedTablesHypertables := lo.Filter(msg.RelationIDs, func(relId uint32, _ int) bool {
+		return !lo.Contains(affectedTablesVanilla, relId) && !lo.Contains(unknownRelations, relId)
+	})
+
 	// FIXME: Truncate support for vanilla tables missing!
 
-	if !l.genHypertableTruncateEvent {
-		return nil
-	}
-
-	truncatedHypertables := make([]*spicatalog.Hypertable, 0)
+	truncatedTables := make([]schema.TableAlike, 0)
 	for i := 0; i < int(msg.RelationNum); i++ {
-		rel, present := l.relations.Get(msg.RelationIDs[i])
-		if !present {
-			l.logger.Fatalf("unknown relation ID %d", msg.RelationIDs[i])
+		relId := msg.RelationIDs[i]
+		if lo.Contains(affectedTablesHypertables, relId) {
+			if !l.genHypertableTruncateEvent {
+				continue
+			}
+
+			rel, present := l.relations.Get(relId)
+			if !present {
+				l.logger.Fatalf("unknown relation ID %d", msg.RelationIDs[i])
+			}
+
+			if spicatalog.IsHypertableEvent(rel) || spicatalog.IsChunkEvent(rel) {
+				// Catalog tables shouldn't be truncated; EVER!
+				continue
+			}
+
+			if _, hypertable, present := l.resolveChunkAndHypertable(
+				rel.RelationID, rel.Namespace, rel.RelationName,
+			); present {
+
+				truncatedTables = append(truncatedTables, hypertable)
+			}
 		}
 
-		if spicatalog.IsHypertableEvent(rel) || spicatalog.IsChunkEvent(rel) {
-			// Catalog tables shouldn't be truncated; EVER!
-			continue
-		}
+		if lo.Contains(affectedTablesVanilla, relId) {
+			if !l.genPostgresqlTruncateEvent {
+				continue
+			}
 
-		if _, hypertable, present := l.resolveChunkAndHypertable(
-			rel.RelationID, rel.Namespace, rel.RelationName,
-		); present {
-
-			truncatedHypertables = append(truncatedHypertables, hypertable)
+			if table, present := l.systemCatalog.FindVanillaTableById(relId); present {
+				truncatedTables = append(truncatedTables, table)
+			}
 		}
 	}
 
-	truncatedHypertables = lo.UniqBy(truncatedHypertables, (*spicatalog.Hypertable).CanonicalName)
-	for _, hypertable := range truncatedHypertables {
+	truncatedTables = lo.UniqBy(truncatedTables, schema.TableAlike.CanonicalName)
+	for _, hypertable := range truncatedTables {
 		if err := l.taskManager.EnqueueTask(func(notificator task.Notificator) {
 			notificator.NotifyRecordReplicationEventHandler(
 				func(handler eventhandlers.RecordReplicationEventHandler) error {
