@@ -1379,3 +1379,61 @@ func (its *IntegrationTestSuite) Test_Acknowledge_To_PG_With_Only_Begin_Commit()
 		}),
 	)
 }
+
+func (its *IntegrationTestSuite) Test_Vanilla_Table_Insert() {
+	waiter := waiting.NewWaiterWithTimeout(time.Second * 30)
+	testSink := testsupport.NewEventCollectorSink(
+		testsupport.WithFilter(
+			func(_ time.Time, _ string, envelope testsupport.Envelope) bool {
+				return envelope.Payload.Op == schema.OP_CREATE
+			},
+		),
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink, _ testsupport.Envelope) {
+			if sink.NumOfEvents() == 1440 {
+				waiter.Signal()
+			}
+		}),
+	)
+
+	its.RunTest(
+		func(ctx testrunner.Context) error {
+			if _, err := ctx.Exec(context.Background(),
+				fmt.Sprintf(
+					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 23:59:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
+					testrunner.GetAttribute[string](ctx, "tableName"),
+				),
+			); err != nil {
+				return err
+			}
+
+			if err := waiter.Await(); err != nil {
+				return err
+			}
+
+			for i, event := range testSink.Events() {
+				expected := i + 1
+				val := int(event.Envelope.Payload.After["val"].(float64))
+				if expected != val {
+					its.T().Errorf("event order inconsistent %d != %d", expected, val)
+					return nil
+				}
+			}
+
+			return nil
+		},
+
+		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
+			_, tn, err := ctx.CreateVanillaTable(
+				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("val", "integer", false, false, nil),
+			)
+			if err != nil {
+				return err
+			}
+			testrunner.Attribute(ctx, "tableName", tn)
+
+			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
+			return nil
+		}),
+	)
+}

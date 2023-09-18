@@ -198,7 +198,7 @@ func (tt *transactionTracker) OnInsertEvent(
 		// If no insert events are going to be generated, and we don't need to update the catalog,
 		// we can already ignore the event here and prevent it from hogging memory while we wait
 		// for the transaction to be completely transmitted
-		if !tt.resolver.genInsertEvent &&
+		if !tt.resolver.genHypertableInsertEvent &&
 			!spicatalog.IsHypertableEvent(relation) &&
 			!spicatalog.IsChunkEvent(relation) {
 
@@ -276,7 +276,7 @@ func (tt *transactionTracker) OnUpdateEvent(
 		// If no update events are going to be generated, and we don't need to update the catalog,
 		// we can already ignore the event here and prevent it from hogging memory while we wait
 		// for the transaction to be completely transmitted
-		if !tt.resolver.genUpdateEvent &&
+		if !tt.resolver.genHypertableUpdateEvent &&
 			!spicatalog.IsHypertableEvent(relation) {
 
 			return nil
@@ -310,7 +310,7 @@ func (tt *transactionTracker) OnDeleteEvent(
 		// If no delete events are going to be generated, and we don't need to update the catalog,
 		// we can already ignore the event here and prevent it from hogging memory while we wait
 		// for the transaction to be completely transmitted
-		if !tt.resolver.genDeleteEvent &&
+		if !tt.resolver.genHypertableDeleteEvent &&
 			!spicatalog.IsHypertableEvent(relation) &&
 			!spicatalog.IsChunkEvent(relation) {
 
@@ -341,7 +341,7 @@ func (tt *transactionTracker) OnTruncateEvent(
 	// and only collect the truncate event if we expect the event to be generated in
 	// the later step. If no event is going to be created we discard it right here
 	// and now.
-	if !tt.resolver.genTruncateEvent {
+	if !tt.resolver.genHypertableTruncateEvent {
 		return nil
 	}
 

@@ -26,6 +26,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/replicationcontext"
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	spicatalog "github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/task"
@@ -45,15 +46,22 @@ type logicalReplicationResolver struct {
 	chunkIdLookup *containers.RelationCache[int32]
 	eventQueues   map[string]*containers.Queue[snapshotCallback]
 
-	genDeleteTombstone    bool
-	genReadEvent          bool
-	genInsertEvent        bool
-	genUpdateEvent        bool
-	genDeleteEvent        bool
-	genTruncateEvent      bool
-	genMessageEvent       bool
-	genCompressionEvent   bool
-	genDecompressionEvent bool
+	genDeleteTombstone              bool
+	genHypertableReadEvent          bool
+	genHypertableInsertEvent        bool
+	genHypertableUpdateEvent        bool
+	genHypertableDeleteEvent        bool
+	genHypertableTruncateEvent      bool
+	genHypertableCompressionEvent   bool
+	genHypertableDecompressionEvent bool
+
+	genPostgresqlReadEvent     bool
+	genPostgresqlInsertEvent   bool
+	genPostgresqlUpdateEvent   bool
+	genPostgresqlDeleteEvent   bool
+	genPostgresqlTruncateEvent bool
+
+	genMessageEvent bool
 }
 
 func newLogicalReplicationResolver(
@@ -67,6 +75,9 @@ func newLogicalReplicationResolver(
 		return nil, err
 	}
 
+	genHypertableMessageEvent := spiconfig.GetOrDefault(config, spiconfig.PropertyHypertableEventsMessage, true)
+	genPostgresqlMessageEvent := spiconfig.GetOrDefault(config, spiconfig.PropertyPostgresqlEventsMessage, true)
+
 	return &logicalReplicationResolver{
 		replicationContext: replicationContext,
 		systemCatalog:      systemCatalog,
@@ -78,15 +89,47 @@ func newLogicalReplicationResolver(
 		chunkIdLookup: containers.NewRelationCache[int32](),
 		eventQueues:   make(map[string]*containers.Queue[snapshotCallback]),
 
-		genDeleteTombstone:    spiconfig.GetOrDefault(config, spiconfig.PropertySinkTombstone, false),
-		genReadEvent:          spiconfig.GetOrDefault(config, spiconfig.PropertyEventsRead, true),
-		genInsertEvent:        spiconfig.GetOrDefault(config, spiconfig.PropertyEventsInsert, true),
-		genUpdateEvent:        spiconfig.GetOrDefault(config, spiconfig.PropertyEventsUpdate, true),
-		genDeleteEvent:        spiconfig.GetOrDefault(config, spiconfig.PropertyEventsDelete, true),
-		genTruncateEvent:      spiconfig.GetOrDefault(config, spiconfig.PropertyEventsTruncate, true),
-		genMessageEvent:       spiconfig.GetOrDefault(config, spiconfig.PropertyEventsMessage, true),
-		genCompressionEvent:   spiconfig.GetOrDefault(config, spiconfig.PropertyEventsCompression, false),
-		genDecompressionEvent: spiconfig.GetOrDefault(config, spiconfig.PropertyEventsDecompression, false),
+		genDeleteTombstone: spiconfig.GetOrDefault(config, spiconfig.PropertySinkTombstone, false),
+
+		genMessageEvent: genHypertableMessageEvent || genPostgresqlMessageEvent,
+
+		genHypertableReadEvent: spiconfig.GetOrDefault(
+			config, spiconfig.PropertyHypertableEventsRead, true,
+		),
+		genHypertableInsertEvent: spiconfig.GetOrDefault(
+			config, spiconfig.PropertyHypertableEventsInsert, true,
+		),
+		genHypertableUpdateEvent: spiconfig.GetOrDefault(
+			config, spiconfig.PropertyHypertableEventsUpdate, true,
+		),
+		genHypertableDeleteEvent: spiconfig.GetOrDefault(
+			config, spiconfig.PropertyHypertableEventsDelete, true,
+		),
+		genHypertableTruncateEvent: spiconfig.GetOrDefault(
+			config, spiconfig.PropertyHypertableEventsTruncate, true,
+		),
+		genHypertableCompressionEvent: spiconfig.GetOrDefault(
+			config, spiconfig.PropertyHypertableEventsCompression, false,
+		),
+		genHypertableDecompressionEvent: spiconfig.GetOrDefault(
+			config, spiconfig.PropertyHypertableEventsDecompression, false,
+		),
+
+		genPostgresqlReadEvent: spiconfig.GetOrDefault(
+			config, spiconfig.PropertyPostgresqlEventsRead, true,
+		),
+		genPostgresqlInsertEvent: spiconfig.GetOrDefault(
+			config, spiconfig.PropertyPostgresqlEventsInsert, true,
+		),
+		genPostgresqlUpdateEvent: spiconfig.GetOrDefault(
+			config, spiconfig.PropertyPostgresqlEventsUpdate, true,
+		),
+		genPostgresqlDeleteEvent: spiconfig.GetOrDefault(
+			config, spiconfig.PropertyPostgresqlEventsDelete, true,
+		),
+		genPostgresqlTruncateEvent: spiconfig.GetOrDefault(
+			config, spiconfig.PropertyPostgresqlEventsTruncate, true,
+		),
 	}, nil
 }
 
@@ -192,8 +235,8 @@ func (l *logicalReplicationResolver) OnCommitEvent(
 
 	l.replicationContext.SetLastCommitLSN(pgtypes.LSN(msg.TransactionEndLSN))
 	return l.taskManager.EnqueueTask(func(notificator task.Notificator) {
-		notificator.NotifyHypertableReplicationEventHandler(
-			func(handler eventhandlers.HypertableReplicationEventHandler) error {
+		notificator.NotifyRecordReplicationEventHandler(
+			func(handler eventhandlers.RecordReplicationEventHandler) error {
 				return handler.OnTransactionFinishedEvent(xld, msg)
 			},
 		)
@@ -217,26 +260,43 @@ func (l *logicalReplicationResolver) OnInsertEvent(
 		return l.onChunkInsertEvent(xld, msg)
 	}
 
-	if !l.genInsertEvent {
-		return nil
+	var table schema.TableAlike
+	var chunk *systemcatalog.Chunk
+
+	if spicatalog.IsVanillaTable(rel) {
+		if !l.genPostgresqlInsertEvent {
+			return nil
+		}
+		t, present := l.systemCatalog.FindVanillaTableById(rel.RelationID)
+		if !present {
+			return nil
+		}
+		table = t
+	} else {
+		if !l.genHypertableInsertEvent {
+			return nil
+		}
+
+		c, h, present := l.resolveChunkAndHypertable(
+			rel.RelationID, rel.Namespace, rel.RelationName,
+		)
+		if !present {
+			return nil
+		}
+
+		table = h
+		chunk = c
 	}
 
-	if chunk, hypertable, present := l.resolveChunkAndHypertable(
-		rel.RelationID, rel.Namespace, rel.RelationName,
-	); present {
-
-		return l.enqueueOrExecute(chunk, xld, func() error {
-			return l.taskManager.EnqueueTask(func(notificator task.Notificator) {
-				notificator.NotifyHypertableReplicationEventHandler(
-					func(handler eventhandlers.HypertableReplicationEventHandler) error {
-						return handler.OnInsertEvent(xld, hypertable, chunk, msg.NewValues)
-					},
-				)
-			})
+	return l.enqueueOrExecute(chunk, xld, func() error {
+		return l.taskManager.EnqueueTask(func(notificator task.Notificator) {
+			notificator.NotifyRecordReplicationEventHandler(
+				func(handler eventhandlers.RecordReplicationEventHandler) error {
+					return handler.OnInsertEvent(xld, table, chunk, msg.NewValues)
+				},
+			)
 		})
-	}
-
-	return nil
+	})
 }
 
 func (l *logicalReplicationResolver) OnUpdateEvent(
@@ -264,26 +324,44 @@ func (l *logicalReplicationResolver) OnUpdateEvent(
 		return l.onChunkUpdateEvent(xld, msg)
 	}
 
-	if !l.genUpdateEvent {
-		return nil
+	var table schema.TableAlike
+	var chunk *systemcatalog.Chunk
+
+	if spicatalog.IsVanillaTable(rel) {
+		if !l.genPostgresqlUpdateEvent {
+			return nil
+		}
+
+		t, present := l.systemCatalog.FindVanillaTableById(rel.RelationID)
+		if !present {
+			return nil
+		}
+		table = t
+	} else {
+		if !l.genHypertableUpdateEvent {
+			return nil
+		}
+
+		c, h, present := l.resolveChunkAndHypertable(
+			rel.RelationID, rel.Namespace, rel.RelationName,
+		)
+		if !present {
+			return nil
+		}
+
+		table = h
+		chunk = c
 	}
 
-	if chunk, hypertable, present := l.resolveChunkAndHypertable(
-		rel.RelationID, rel.Namespace, rel.RelationName,
-	); present {
-
-		return l.enqueueOrExecute(chunk, xld, func() error {
-			return l.taskManager.EnqueueTask(func(notificator task.Notificator) {
-				notificator.NotifyHypertableReplicationEventHandler(
-					func(handler eventhandlers.HypertableReplicationEventHandler) error {
-						return handler.OnUpdateEvent(xld, hypertable, chunk, msg.OldValues, msg.NewValues)
-					},
-				)
-			})
+	return l.enqueueOrExecute(chunk, xld, func() error {
+		return l.taskManager.EnqueueTask(func(notificator task.Notificator) {
+			notificator.NotifyRecordReplicationEventHandler(
+				func(handler eventhandlers.RecordReplicationEventHandler) error {
+					return handler.OnUpdateEvent(xld, table, chunk, msg.OldValues, msg.NewValues)
+				},
+			)
 		})
-	}
-
-	return nil
+	})
 }
 
 func (l *logicalReplicationResolver) OnDeleteEvent(
@@ -303,37 +381,57 @@ func (l *logicalReplicationResolver) OnDeleteEvent(
 		return l.onChunkDeleteEvent(xld, msg)
 	}
 
-	if !l.genUpdateEvent {
-		return nil
+	var table schema.TableAlike
+	var chunk *systemcatalog.Chunk
+
+	if spicatalog.IsVanillaTable(rel) {
+		if !l.genPostgresqlDeleteEvent {
+			return nil
+		}
+
+		t, present := l.systemCatalog.FindVanillaTableById(rel.RelationID)
+		if !present {
+			return nil
+		}
+		table = t
+	} else {
+		if !l.genHypertableDeleteEvent {
+			return nil
+		}
+
+		c, h, present := l.resolveChunkAndHypertable(
+			rel.RelationID, rel.Namespace, rel.RelationName,
+		)
+		if !present {
+			return nil
+		}
+
+		table = h
+		chunk = c
 	}
 
-	if chunk, hypertable, present := l.resolveChunkAndHypertable(
-		rel.RelationID, rel.Namespace, rel.RelationName,
-	); present {
+	if err := l.enqueueOrExecute(chunk, xld, func() error {
+		return l.taskManager.EnqueueTask(func(notificator task.Notificator) {
+			notificator.NotifyRecordReplicationEventHandler(
+				func(handler eventhandlers.RecordReplicationEventHandler) error {
+					return handler.OnDeleteEvent(xld, table, chunk, msg.OldValues, false)
+				},
+			)
+		})
+	}); err != nil {
+		return err
+	}
 
-		if err := l.enqueueOrExecute(chunk, xld, func() error {
+	if l.genDeleteTombstone {
+		return l.enqueueOrExecute(chunk, xld, func() error {
 			return l.taskManager.EnqueueTask(func(notificator task.Notificator) {
-				notificator.NotifyHypertableReplicationEventHandler(
-					func(handler eventhandlers.HypertableReplicationEventHandler) error {
-						return handler.OnDeleteEvent(xld, hypertable, chunk, msg.OldValues, false)
+				notificator.NotifyRecordReplicationEventHandler(
+					func(handler eventhandlers.RecordReplicationEventHandler) error {
+						return handler.OnDeleteEvent(xld, table, chunk, msg.OldValues, true)
 					},
 				)
 			})
-		}); err != nil {
-			return err
-		}
-
-		if l.genDeleteTombstone {
-			return l.enqueueOrExecute(chunk, xld, func() error {
-				return l.taskManager.EnqueueTask(func(notificator task.Notificator) {
-					notificator.NotifyHypertableReplicationEventHandler(
-						func(handler eventhandlers.HypertableReplicationEventHandler) error {
-							return handler.OnDeleteEvent(xld, hypertable, chunk, msg.OldValues, true)
-						},
-					)
-				})
-			})
-		}
+		})
 	}
 
 	return nil
@@ -343,7 +441,9 @@ func (l *logicalReplicationResolver) OnTruncateEvent(
 	xld pgtypes.XLogData, msg *pgtypes.TruncateMessage,
 ) error {
 
-	if !l.genTruncateEvent {
+	// FIXME: Truncate support for vanilla tables missing!
+
+	if !l.genHypertableTruncateEvent {
 		return nil
 	}
 
@@ -370,8 +470,8 @@ func (l *logicalReplicationResolver) OnTruncateEvent(
 	truncatedHypertables = lo.UniqBy(truncatedHypertables, (*spicatalog.Hypertable).CanonicalName)
 	for _, hypertable := range truncatedHypertables {
 		if err := l.taskManager.EnqueueTask(func(notificator task.Notificator) {
-			notificator.NotifyHypertableReplicationEventHandler(
-				func(handler eventhandlers.HypertableReplicationEventHandler) error {
+			notificator.NotifyRecordReplicationEventHandler(
+				func(handler eventhandlers.RecordReplicationEventHandler) error {
 					return handler.OnTruncateEvent(xld, hypertable)
 				},
 			)
@@ -387,8 +487,8 @@ func (l *logicalReplicationResolver) OnMessageEvent(
 ) error {
 
 	return l.taskManager.EnqueueTask(func(notificator task.Notificator) {
-		notificator.NotifyHypertableReplicationEventHandler(
-			func(handler eventhandlers.HypertableReplicationEventHandler) error {
+		notificator.NotifyRecordReplicationEventHandler(
+			func(handler eventhandlers.RecordReplicationEventHandler) error {
 				return handler.OnMessageEvent(xld, msg)
 			},
 		)
@@ -512,7 +612,7 @@ func (l *logicalReplicationResolver) onChunkCompressionEvent(
 			uncompressedHypertable.TableName(), chunk.SchemaName(), chunk.TableName(),
 		)
 
-		if !l.genCompressionEvent {
+		if !l.genHypertableCompressionEvent {
 			return nil
 		}
 
@@ -538,7 +638,7 @@ func (l *logicalReplicationResolver) onChunkDecompressionEvent(
 			uncompressedHypertable.TableName(), chunk.SchemaName(), chunk.TableName(),
 		)
 
-		if !l.genDecompressionEvent {
+		if !l.genHypertableDecompressionEvent {
 			return nil
 		}
 
@@ -577,6 +677,10 @@ func (l *logicalReplicationResolver) enqueueOrExecute(
 func (l *logicalReplicationResolver) isSnapshotting(
 	chunk *spicatalog.Chunk,
 ) bool {
+
+	if chunk == nil {
+		return false
+	}
 
 	_, present := l.eventQueues[chunk.CanonicalName()]
 	return present

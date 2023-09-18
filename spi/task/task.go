@@ -31,8 +31,8 @@ type Notificator interface {
 	NotifyCompressionReplicationEventHandler(
 		fn func(handler eventhandlers.CompressionReplicationEventHandler) error,
 	)
-	NotifyHypertableReplicationEventHandler(
-		fn func(handler eventhandlers.HypertableReplicationEventHandler) error,
+	NotifyRecordReplicationEventHandler(
+		fn func(handler eventhandlers.RecordReplicationEventHandler) error,
 	)
 	NotifyLogicalReplicationEventHandler(
 		fn func(handler eventhandlers.LogicalReplicationEventHandler) error,

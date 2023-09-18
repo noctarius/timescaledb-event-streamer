@@ -66,12 +66,14 @@ const (
 )
 
 type PostgreSQLConfig struct {
-	Connection      string                `toml:"connection" yaml:"connection"`
-	Password        string                `toml:"password" yaml:"password"`
-	Publication     PublicationConfig     `toml:"publication" yaml:"publication"`
-	ReplicationSlot ReplicationSlotConfig `toml:"replicationslot" yaml:"replicationSlot"`
-	Transaction     TransactionConfig     `toml:"transaction" yaml:"transaction"`
-	Snapshot        SnapshotConfig        `toml:"snapshot" yaml:"snapshot"`
+	Connection      string                 `toml:"connection" yaml:"connection"`
+	Password        string                 `toml:"password" yaml:"password"`
+	Publication     PublicationConfig      `toml:"publication" yaml:"publication"`
+	ReplicationSlot ReplicationSlotConfig  `toml:"replicationslot" yaml:"replicationSlot"`
+	Transaction     TransactionConfig      `toml:"transaction" yaml:"transaction"`
+	Snapshot        SnapshotConfig         `toml:"snapshot" yaml:"snapshot"`
+	Tables          IncludedTablesConfig   `toml:"tables" yaml:"tables"`
+	Events          PostgresqlEventsConfig `toml:"events" yaml:"events"`
 }
 
 type InternalConfig struct {
@@ -140,9 +142,9 @@ type SinkConfig struct {
 }
 
 type EventFilterConfig struct {
-	Hypertables  *HypertablesConfig `toml:"hypertables" yaml:"hypertables"`
-	DefaultValue *bool              `toml:"default" yaml:"default"`
-	Condition    string             `toml:"condition" yaml:"condition"`
+	Tables       *IncludedTablesConfig `toml:"tables" yaml:"tables"`
+	DefaultValue *bool                 `toml:"default" yaml:"default"`
+	Condition    string                `toml:"condition" yaml:"condition"`
 }
 
 type TopicConfig struct {
@@ -151,7 +153,7 @@ type TopicConfig struct {
 }
 
 type TimescaleDBConfig struct {
-	Hypertables HypertablesConfig     `toml:"hypertables" yaml:"hypertables"`
+	Hypertables IncludedTablesConfig  `toml:"hypertables" yaml:"hypertables"`
 	Events      TimescaleEventsConfig `toml:"events" yaml:"events"`
 }
 
@@ -231,7 +233,7 @@ type TLSConfig struct {
 	ClientAuth tls.ClientAuthType `toml:"clientauth" yaml:"clientAuth"`
 }
 
-type HypertablesConfig struct {
+type IncludedTablesConfig struct {
 	Excludes []string `toml:"excludes" yaml:"excludes"`
 	Includes []string `toml:"includes" yaml:"includes"`
 }
@@ -245,6 +247,15 @@ type TimescaleEventsConfig struct {
 	Message       bool `toml:"message" yaml:"message"`
 	Compression   bool `toml:"compression" yaml:"compression"`
 	Decompression bool `toml:"decompression" yaml:"decompression"`
+}
+
+type PostgresqlEventsConfig struct {
+	Read     bool `toml:"read" yaml:"read"`
+	Insert   bool `toml:"insert" yaml:"insert"`
+	Update   bool `toml:"update" yaml:"update"`
+	Delete   bool `toml:"delete" yaml:"delete"`
+	Truncate bool `toml:"truncate" yaml:"truncate"`
+	Message  bool `toml:"message" yaml:"message"`
 }
 
 type AwsKinesisConfig struct {

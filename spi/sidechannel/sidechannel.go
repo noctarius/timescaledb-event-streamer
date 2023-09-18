@@ -35,8 +35,8 @@ const (
 	Trigger    TableGrant = "trigger"
 )
 
-type HypertableSchemaCallback = func(
-	hypertable *systemcatalog.Hypertable, columns []systemcatalog.Column,
+type TableSchemaCallback = func(
+	table systemcatalog.SystemEntity, columns []systemcatalog.Column,
 ) error
 
 type SnapshotRowCallback = func(
@@ -71,10 +71,18 @@ type SideChannel interface {
 	ReadChunks(
 		cb func(chunk *systemcatalog.Chunk) error,
 	) error
+	ReadVanillaTables(
+		cb func(table *systemcatalog.PgTable) error,
+	) error
 	ReadHypertableSchema(
-		cb HypertableSchemaCallback,
+		cb TableSchemaCallback,
 		pgTypeResolver func(oid uint32) (pgtypes.PgType, error),
 		hypertables ...*systemcatalog.Hypertable,
+	) error
+	ReadVanillaTableSchema(
+		cb TableSchemaCallback,
+		pgTypeResolver func(oid uint32) (pgtypes.PgType, error),
+		tables ...*systemcatalog.PgTable,
 	) error
 	AttachTablesToPublication(
 		publicationName string, entities ...systemcatalog.SystemEntity,

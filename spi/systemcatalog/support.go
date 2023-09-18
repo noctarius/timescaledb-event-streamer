@@ -40,6 +40,13 @@ func IsChunkEvent(
 	return relation.Namespace == "_timescaledb_catalog" && relation.RelationName == "chunk"
 }
 
+func IsVanillaTable(
+	relation *pgtypes.RelationMessage,
+) bool {
+
+	return relation.Namespace != "_timescaledb_catalog" && relation.Namespace != "_timescaledb_internal"
+}
+
 // IsContinuousAggregateHypertable returns true if the given
 // hypertable name is a backing hypertable for a continuous
 // aggregate, otherwise false

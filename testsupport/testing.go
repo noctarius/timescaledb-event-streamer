@@ -81,6 +81,34 @@ func CreateHypertable(
 	return DatabaseSchema, tableName, nil
 }
 
+func CreateVanillaTable(
+	pool *pgxpool.Pool, columns ...Column,
+) (string, string, error) {
+
+	tableName := randomTableName()
+	tx, err := pool.Begin(context.Background())
+	if err != nil {
+		tx.Rollback(context.Background())
+		return "", "", err
+	}
+
+	columnDefinitions := make([]string, len(columns))
+	for i, column := range columns {
+		columnDefinitions[i] = toDefinition(column)
+	}
+
+	query := fmt.Sprintf("CREATE TABLE \"%s\".\"%s\" (%s)", DatabaseSchema,
+		tableName, strings.Join(columnDefinitions, ", "))
+
+	if _, err := tx.Exec(context.Background(), query); err != nil {
+		tx.Rollback(context.Background())
+		return "", "", err
+	}
+
+	tx.Commit(context.Background())
+	return DatabaseSchema, tableName, nil
+}
+
 func RandomNumber(
 	min, max int,
 ) int {

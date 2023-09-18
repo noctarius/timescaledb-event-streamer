@@ -233,15 +233,15 @@ func (s *Snapshotter) snapshotChunk(
 		func(lsn pgtypes.LSN, values map[string]any) error {
 			s.partitionStats[partition].records.total++
 			return s.taskManager.EnqueueTask(func(notificator task.Notificator) {
-				callback := func(handler eventhandlers.HypertableReplicationEventHandler) error {
+				callback := func(handler eventhandlers.RecordReplicationEventHandler) error {
 					return handler.OnReadEvent(lsn, t.Hypertable, t.Chunk, values)
 				}
 				if t.Xld != nil {
-					callback = func(handler eventhandlers.HypertableReplicationEventHandler) error {
+					callback = func(handler eventhandlers.RecordReplicationEventHandler) error {
 						return handler.OnInsertEvent(*t.Xld, t.Hypertable, t.Chunk, values)
 					}
 				}
-				notificator.NotifyHypertableReplicationEventHandler(callback)
+				notificator.NotifyRecordReplicationEventHandler(callback)
 			})
 		},
 	)
@@ -334,8 +334,8 @@ func (s *Snapshotter) runSnapshotFetchBatch(
 				iteration = 0
 			}
 			return s.taskManager.EnqueueTask(func(notificator task.Notificator) {
-				notificator.NotifyHypertableReplicationEventHandler(
-					func(handler eventhandlers.HypertableReplicationEventHandler) error {
+				notificator.NotifyRecordReplicationEventHandler(
+					func(handler eventhandlers.RecordReplicationEventHandler) error {
 						return handler.OnReadEvent(lsn, t.Hypertable, t.Chunk, values)
 					},
 				)

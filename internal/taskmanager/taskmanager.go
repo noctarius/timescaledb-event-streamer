@@ -35,7 +35,7 @@ type taskManager struct {
 	baseHandlers        []eventhandlers.BaseReplicationEventHandler
 	catalogHandlers     []eventhandlers.SystemCatalogReplicationEventHandler
 	compressionHandlers []eventhandlers.CompressionReplicationEventHandler
-	hypertableHandlers  []eventhandlers.HypertableReplicationEventHandler
+	recordHandlers      []eventhandlers.RecordReplicationEventHandler
 	logicalHandlers     []eventhandlers.LogicalReplicationEventHandler
 	snapshotHandlers    []eventhandlers.SnapshottingEventHandler
 	shutdownAwaiter     *waiting.ShutdownAwaiter
@@ -61,7 +61,7 @@ func NewTaskManager(
 		baseHandlers:        make([]eventhandlers.BaseReplicationEventHandler, 0),
 		catalogHandlers:     make([]eventhandlers.SystemCatalogReplicationEventHandler, 0),
 		compressionHandlers: make([]eventhandlers.CompressionReplicationEventHandler, 0),
-		hypertableHandlers:  make([]eventhandlers.HypertableReplicationEventHandler, 0),
+		recordHandlers:      make([]eventhandlers.RecordReplicationEventHandler, 0),
 		logicalHandlers:     make([]eventhandlers.LogicalReplicationEventHandler, 0),
 		snapshotHandlers:    make([]eventhandlers.SnapshottingEventHandler, 0),
 		shutdownAwaiter:     waiting.NewShutdownAwaiter(),
@@ -98,13 +98,13 @@ func (d *taskManager) RegisterReplicationEventHandler(
 		d.compressionHandlers = append(d.compressionHandlers, h)
 	}
 
-	if h, ok := handler.(eventhandlers.HypertableReplicationEventHandler); ok {
-		for _, candidate := range d.hypertableHandlers {
+	if h, ok := handler.(eventhandlers.RecordReplicationEventHandler); ok {
+		for _, candidate := range d.recordHandlers {
 			if candidate == h {
 				return
 			}
 		}
-		d.hypertableHandlers = append(d.hypertableHandlers, h)
+		d.recordHandlers = append(d.recordHandlers, h)
 	}
 
 	if h, ok := handler.(eventhandlers.LogicalReplicationEventHandler); ok {
@@ -158,12 +158,12 @@ func (d *taskManager) UnregisterReplicationEventHandler(
 		}
 	}
 
-	if h, ok := handler.(eventhandlers.HypertableReplicationEventHandler); ok {
-		for index, candidate := range d.hypertableHandlers {
+	if h, ok := handler.(eventhandlers.RecordReplicationEventHandler); ok {
+		for index, candidate := range d.recordHandlers {
 			if candidate == h {
 				// Erase element (zero value) to prevent memory leak
-				d.hypertableHandlers[index] = nil
-				d.hypertableHandlers = append(d.hypertableHandlers[:index], d.hypertableHandlers[index+1:]...)
+				d.recordHandlers[index] = nil
+				d.recordHandlers = append(d.recordHandlers[:index], d.recordHandlers[index+1:]...)
 			}
 		}
 	}
@@ -291,11 +291,11 @@ func (n *notificator) NotifyCompressionReplicationEventHandler(
 	}
 }
 
-func (n *notificator) NotifyHypertableReplicationEventHandler(
-	fn func(handler eventhandlers.HypertableReplicationEventHandler) error,
+func (n *notificator) NotifyRecordReplicationEventHandler(
+	fn func(handler eventhandlers.RecordReplicationEventHandler) error,
 ) {
 
-	for _, handler := range n.dispatcher.hypertableHandlers {
+	for _, handler := range n.dispatcher.recordHandlers {
 		if err := fn(handler); err != nil {
 			n.handleError(err)
 		}
@@ -374,11 +374,11 @@ func (n *immediateNotificator) NotifyCompressionReplicationEventHandler(
 	}
 }
 
-func (n *immediateNotificator) NotifyHypertableReplicationEventHandler(
-	fn func(handler eventhandlers.HypertableReplicationEventHandler) error,
+func (n *immediateNotificator) NotifyRecordReplicationEventHandler(
+	fn func(handler eventhandlers.RecordReplicationEventHandler) error,
 ) {
 
-	for _, handler := range n.dispatcher.hypertableHandlers {
+	for _, handler := range n.dispatcher.recordHandlers {
 		if err := fn(handler); err != nil {
 			n.handleError(err)
 		}

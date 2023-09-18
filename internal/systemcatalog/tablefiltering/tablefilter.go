@@ -64,18 +64,18 @@ func NewTableFilter(
 }
 
 func (rf *TableFilter) Enabled(
-	hypertable *systemcatalog.Hypertable,
+	table systemcatalog.SystemEntity,
 ) bool {
 
 	// already tested?
-	canonicalName := hypertable.CanonicalName()
+	canonicalName := table.CanonicalName()
 	if v, present := rf.filterCache[canonicalName]; present {
 		return v
 	}
 
 	// excluded has priority
 	for _, exclude := range rf.excludes {
-		if exclude.matches(hypertable) {
+		if exclude.matches(table) {
 			rf.filterCache[canonicalName] = false
 			return false
 		}
@@ -83,7 +83,7 @@ func (rf *TableFilter) Enabled(
 
 	// is explicitly included?
 	for _, include := range rf.includes {
-		if include.matches(hypertable) {
+		if include.matches(table) {
 			rf.filterCache[canonicalName] = true
 			return true
 		}
@@ -136,21 +136,26 @@ func parseFilter(
 }
 
 func (f *filter) matches(
-	hypertable *systemcatalog.Hypertable,
+	table systemcatalog.SystemEntity,
 ) bool {
 
-	namespace := hypertable.SchemaName()
-	entity := hypertable.TableName()
-	if hypertable.IsContinuousAggregate() {
-		if n, found := hypertable.ViewSchema(); found {
-			namespace = n
-		} else {
-			return false
-		}
-		if e, found := hypertable.ViewName(); found {
-			entity = e
-		} else {
-			return false
+	namespace := table.SchemaName()
+	entity := table.TableName()
+
+	// If the table is a hypertable, we want to check for a
+	// potentially matching continuous aggregate
+	if hypertable, ok := table.(*systemcatalog.Hypertable); ok {
+		if hypertable.IsContinuousAggregate() {
+			if n, found := hypertable.ViewSchema(); found {
+				namespace = n
+			} else {
+				return false
+			}
+			if e, found := hypertable.ViewName(); found {
+				entity = e
+			} else {
+				return false
+			}
 		}
 	}
 
