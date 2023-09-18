@@ -29,19 +29,19 @@ import (
 
 type EventFilter interface {
 	Evaluate(
-		hypertable *systemcatalog.Hypertable, key, value schema.Struct,
+		table schema.TableAlike, key, value schema.Struct,
 	) (bool, error)
 }
 
 type eventFilterFunc func(
-	hypertable *systemcatalog.Hypertable, key, value schema.Struct,
+	table schema.TableAlike, key, value schema.Struct,
 ) (bool, error)
 
 func (eff eventFilterFunc) Evaluate(
-	hypertable *systemcatalog.Hypertable, key, value schema.Struct,
+	table schema.TableAlike, key, value schema.Struct,
 ) (bool, error) {
 
-	return eff(hypertable, key, value)
+	return eff(table, key, value)
 }
 
 func NewEventFilter(
@@ -60,8 +60,8 @@ func NewEventFilter(
 			defaultValue = *def.DefaultValue
 		}
 
-		if def.Hypertables != nil {
-			tf, err := tablefiltering.NewTableFilter(def.Hypertables.Excludes, def.Hypertables.Includes, true)
+		if def.Tables != nil {
+			tf, err := tablefiltering.NewTableFilter(def.Tables.Excludes, def.Tables.Includes, true)
 			if err != nil {
 				return nil, err
 			}
@@ -86,7 +86,7 @@ func NewEventFilter(
 }
 
 var acceptAllFilter eventFilterFunc = func(
-	_ *systemcatalog.Hypertable, _, _ schema.Struct,
+	_ schema.TableAlike, _, _ schema.Struct,
 ) (bool, error) {
 
 	return true, nil
@@ -98,11 +98,11 @@ var compositeFilter = func(
 
 	return eventFilterFunc(
 		func(
-			hypertable *systemcatalog.Hypertable, key, value schema.Struct,
+			table schema.TableAlike, key, value schema.Struct,
 		) (bool, error) {
 
 			for i, tableFilter := range tableFilters {
-				if hypertable == nil || tableFilter.Enabled(hypertable) {
+				if table == nil || tableFilter.Enabled(table) {
 					success, err := filters[i].evaluate(key, value)
 					if err != nil {
 						return false, err
@@ -153,23 +153,23 @@ func (f *eventFilter) evaluate(
 
 type tableFilter interface {
 	Enabled(
-		hypertable *systemcatalog.Hypertable,
+		table systemcatalog.SystemEntity,
 	) bool
 }
 
 type tableFilterFunc func(
-	hypertable *systemcatalog.Hypertable,
+	table systemcatalog.SystemEntity,
 ) bool
 
 func (tff tableFilterFunc) Enabled(
-	hypertable *systemcatalog.Hypertable,
+	table systemcatalog.SystemEntity,
 ) bool {
 
-	return tff(hypertable)
+	return tff(table)
 }
 
 var acceptAllTableFilter tableFilterFunc = func(
-	*systemcatalog.Hypertable,
+	systemcatalog.SystemEntity,
 ) bool {
 
 	return true

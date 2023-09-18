@@ -77,16 +77,25 @@ sink.type = 'stdout'
 topic.namingstrategy.type = 'debezium'
 topic.prefix = 'timescaledb'
 
-timescaledb.hypertables.excludes = []
+timescaledb.hypertables.excludes = ['pgcatalog.*']
 timescaledb.hypertables.includes = ['public.test']
 timescaledb.events.read = true
 timescaledb.events.insert = true
 timescaledb.events.update = true
 timescaledb.events.delete = true
 timescaledb.events.truncate = true
-timescaledb.events.message = false
+timescaledb.events.message = false #deprecated: see postgresql.events.message
 timescaledb.events.compression = false
 timescaledb.events.decompression = false
+
+postgresql.tables.excludes = ['pgcatalog.*']
+postgresql.tables.includes = ['public.*']
+postgresql.events.read = true
+postgresql.events.insert = true
+postgresql.events.update = true
+postgresql.events.delete = true
+postgresql.events.truncate = true
+postgresql.events.message = false
 
 logging.level = 'info'
 logging.outputs.console.enabled = true

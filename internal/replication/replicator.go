@@ -44,6 +44,7 @@ import (
 )
 
 const esPreviouslyKnownChunks = "::previously::known::chunks"
+const esPreviouslyKnownTables = "::previously::known::tables"
 
 // Replicator is the main controller for all things logical replication,
 // such as the logical replication connection, the side channel connection,
@@ -142,24 +143,38 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 		return erroring.AdaptError(err, 1)
 	}
 
-	// Get initial list of chunks to add to
 	var systemCatalog systemcatalog.SystemCatalog
 	if err := container.Service(&systemCatalog); err != nil {
 		return erroring.AdaptError(err, 1)
 	}
-	initialChunkTables, err := r.collectChunksForPublication(
-		stateStorageManager.EncodedState, systemCatalog.GetAllChunks,
-		publicationManager.ReadPublishedTables,
+
+	publishedTables, err := publicationManager.ReadPublishedTables()
+	if err != nil {
+		return erroring.AdaptErrorWithMessage(err, "failed to read published tbales", 25)
+	}
+
+	// Get initial list of chunks to add to publication
+	initialTables, err := r.collectChunksForPublication(
+		stateStorageManager.EncodedState, systemCatalog.GetAllChunks, publishedTables,
 	)
 	if err != nil {
 		return erroring.AdaptErrorWithMessage(err, "failed to read known chunks", 25)
 	}
 
+	// Get list of vanilla tables to add to publication
+	initialVanillaTables, err := r.collectVanillaTablesForPublication(
+		stateStorageManager.EncodedState, systemCatalog.GetAllVanillaTables, publishedTables,
+	)
+	if err != nil {
+		return erroring.AdaptErrorWithMessage(err, "failed to read known chunks", 25)
+	}
+	initialTables = append(initialTables, initialVanillaTables...)
+
 	var replicationChannel *replicationchannel.ReplicationChannel
 	if err := container.Service(&replicationChannel); err != nil {
 		return erroring.AdaptError(err, 1)
 	}
-	if err := replicationChannel.StartReplicationChannel(initialChunkTables); err != nil {
+	if err := replicationChannel.StartReplicationChannel(initialTables); err != nil {
 		return erroring.AdaptError(err, 16)
 	}
 
@@ -167,14 +182,18 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 		snapshotter.StopSnapshotter()
 		err1 := replicationChannel.StopReplicationChannel()
 		err2 := eventEmitter.Stop()
-		state, err3 := encodeKnownChunks(systemCatalog.GetAllChunks())
+		state, err3 := encodeKnownTables(systemCatalog.GetAllChunks())
 		if err3 == nil {
 			stateStorageManager.SetEncodedState(esPreviouslyKnownChunks, state)
 		}
-		err4 := taskManager.StopDispatcher()
-		err5 := replicationContext.StopReplicationContext()
-		err6 := statsService.Stop()
-		return stderrors.Join(err1, err2, err3, err4, err5, err6)
+		state, err4 := encodeKnownTables(systemCatalog.GetAllVanillaTables())
+		if err4 == nil {
+			stateStorageManager.SetEncodedState(esPreviouslyKnownTables, state)
+		}
+		err5 := taskManager.StopDispatcher()
+		err6 := replicationContext.StopReplicationContext()
+		err7 := statsService.Stop()
+		return stderrors.Join(err1, err2, err3, err4, err5, err6, err7)
 	}
 
 	return nil
@@ -228,10 +247,48 @@ func (r *Replicator) containerInitializer(
 	return nil
 }
 
+func (r *Replicator) collectVanillaTablesForPublication(
+	encodedState func(name string) ([]byte, bool),
+	getAllVanillaTables func() []systemcatalog.SystemEntity,
+	publishedTables []systemcatalog.SystemEntity,
+) ([]systemcatalog.SystemEntity, error) {
+
+	allKnownTables, err := getKnownVanillaTables(encodedState, getAllVanillaTables)
+	if err != nil {
+		return nil, erroring.AdaptErrorWithMessage(err, "failed to read known tables", 25)
+	}
+
+	r.logger.Debugf(
+		"All interesting tables: %+v",
+		lo.Map(allKnownTables, functional.MappingTransformer(systemcatalog.SystemEntity.CanonicalName)),
+	)
+
+	// Filter out published chunks, we're only interested in non TimescaleDB tables
+	publishedTables = lo.Filter(publishedTables, func(item systemcatalog.SystemEntity, _ int) bool {
+		return item.SchemaName() != "_timescaledb_internal" && item.SchemaName() != "_timescaledb_catalog"
+	})
+
+	r.logger.Debugf(
+		"Tables already in publication: %+v",
+		lo.Map(publishedTables, functional.MappingTransformer(systemcatalog.SystemEntity.CanonicalName)),
+	)
+
+	initialTables := lo.Filter(allKnownTables, func(item systemcatalog.SystemEntity, _ int) bool {
+		return !lo.ContainsBy(publishedTables, func(other systemcatalog.SystemEntity) bool {
+			return item.CanonicalName() == other.CanonicalName()
+		})
+	})
+	r.logger.Debugf(
+		"Tables to be added publication: %+v",
+		lo.Map(initialTables, functional.MappingTransformer(systemcatalog.SystemEntity.CanonicalName)),
+	)
+	return initialTables, nil
+}
+
 func (r *Replicator) collectChunksForPublication(
 	encodedState func(name string) ([]byte, bool),
 	getAllChunks func() []systemcatalog.SystemEntity,
-	readPublishedTables func() ([]systemcatalog.SystemEntity, error),
+	publishedTables []systemcatalog.SystemEntity,
 ) ([]systemcatalog.SystemEntity, error) {
 
 	// Get initial list of chunks to add to publication
@@ -246,21 +303,17 @@ func (r *Replicator) collectChunksForPublication(
 	)
 
 	// Filter published chunks to only add new chunks
-	alreadyPublished, err := readPublishedTables()
-	if err != nil {
-		return nil, erroring.AdaptError(err, 250)
-	}
-	alreadyPublished = lo.Filter(alreadyPublished, func(item systemcatalog.SystemEntity, _ int) bool {
+	publishedTables = lo.Filter(publishedTables, func(item systemcatalog.SystemEntity, _ int) bool {
 		return item.SchemaName() == "_timescaledb_internal"
 	})
 
 	r.logger.Debugf(
 		"Chunks already in publication: %+v",
-		lo.Map(alreadyPublished, functional.MappingTransformer(systemcatalog.SystemEntity.CanonicalName)),
+		lo.Map(publishedTables, functional.MappingTransformer(systemcatalog.SystemEntity.CanonicalName)),
 	)
 
 	initialChunkTables := lo.Filter(allKnownTables, func(item systemcatalog.SystemEntity, _ int) bool {
-		return !lo.ContainsBy(alreadyPublished, func(other systemcatalog.SystemEntity) bool {
+		return !lo.ContainsBy(publishedTables, func(other systemcatalog.SystemEntity) bool {
 			return item.CanonicalName() == other.CanonicalName()
 		})
 	})
@@ -271,6 +324,29 @@ func (r *Replicator) collectChunksForPublication(
 	return initialChunkTables, nil
 }
 
+func getKnownVanillaTables(
+	encodedState func(name string) ([]byte, bool),
+	getAllVanillaTables func() []systemcatalog.SystemEntity,
+) ([]systemcatalog.SystemEntity, error) {
+
+	allTables := getAllVanillaTables()
+	if state, present := encodedState(esPreviouslyKnownTables); present {
+		candidates, err := decodeKnownTables(state)
+		if err != nil {
+			return nil, err
+		}
+
+		// Filter potentially deleted chunks
+		return lo.Filter(candidates, func(item systemcatalog.SystemEntity, index int) bool {
+			return lo.ContainsBy(allTables, func(other systemcatalog.SystemEntity) bool {
+				return item.CanonicalName() == other.CanonicalName()
+			})
+		}), nil
+	}
+
+	return allTables, nil
+}
+
 func getKnownChunks(
 	encodedState func(name string) ([]byte, bool),
 	getAllChunks func() []systemcatalog.SystemEntity,
@@ -278,7 +354,7 @@ func getKnownChunks(
 
 	allChunks := getAllChunks()
 	if state, present := encodedState(esPreviouslyKnownChunks); present {
-		candidates, err := decodeKnownChunks(state)
+		candidates, err := decodeKnownTables(state)
 		if err != nil {
 			return nil, err
 		}
@@ -294,7 +370,7 @@ func getKnownChunks(
 	return allChunks, nil
 }
 
-func decodeKnownChunks(
+func decodeKnownTables(
 	data []byte,
 ) ([]systemcatalog.SystemEntity, error) {
 
@@ -320,7 +396,7 @@ func decodeKnownChunks(
 	return chunks, nil
 }
 
-func encodeKnownChunks(
+func encodeKnownTables(
 	chunks []systemcatalog.SystemEntity,
 ) ([]byte, error) {
 

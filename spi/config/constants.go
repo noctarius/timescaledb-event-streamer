@@ -45,14 +45,21 @@ const (
 	PropertySnapshotterParallelism         = "internal.snapshotter.parallelism"
 	PropertyEncodingCustomReflection       = "internal.encoding.customreflection"
 
-	PropertyEventsRead          = "timescaledb.events.read"
-	PropertyEventsInsert        = "timescaledb.events.insert"
-	PropertyEventsUpdate        = "timescaledb.events.update"
-	PropertyEventsDelete        = "timescaledb.events.delete"
-	PropertyEventsTruncate      = "timescaledb.events.truncate"
-	PropertyEventsMessage       = "timescaledb.events.message"
-	PropertyEventsCompression   = "timescaledb.events.compression"
-	PropertyEventsDecompression = "timescaledb.events.decompression"
+	PropertyHypertableEventsRead          = "timescaledb.events.read"
+	PropertyHypertableEventsInsert        = "timescaledb.events.insert"
+	PropertyHypertableEventsUpdate        = "timescaledb.events.update"
+	PropertyHypertableEventsDelete        = "timescaledb.events.delete"
+	PropertyHypertableEventsTruncate      = "timescaledb.events.truncate"
+	PropertyHypertableEventsCompression   = "timescaledb.events.compression"
+	PropertyHypertableEventsDecompression = "timescaledb.events.decompression"
+	PropertyHypertableEventsMessage       = "timescaledb.events.message" // FIXME: deprecated
+
+	PropertyPostgresqlEventsRead     = "postgresql.events.read"
+	PropertyPostgresqlEventsInsert   = "postgresql.events.insert"
+	PropertyPostgresqlEventsUpdate   = "postgresql.events.update"
+	PropertyPostgresqlEventsDelete   = "postgresql.events.delete"
+	PropertyPostgresqlEventsTruncate = "postgresql.events.truncate"
+	PropertyPostgresqlEventsMessage  = "postgresql.events.message"
 
 	PropertyNamingStrategy = "topic.namingstrategy.type"
 

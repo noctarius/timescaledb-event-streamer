@@ -1379,3 +1379,364 @@ func (its *IntegrationTestSuite) Test_Acknowledge_To_PG_With_Only_Begin_Commit()
 		}),
 	)
 }
+
+func (its *IntegrationTestSuite) TestVanillaCreateEvents() {
+	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
+	testSink := testsupport.NewEventCollectorSink(
+		testsupport.WithFilter(
+			func(_ time.Time, _ string, envelope testsupport.Envelope) bool {
+				return envelope.Payload.Op == schema.OP_CREATE
+			},
+		),
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink, _ testsupport.Envelope) {
+			if sink.NumOfEvents()%10 == 0 {
+				waiter.Signal()
+			}
+		}),
+	)
+
+	its.RunTest(
+		func(ctx testrunner.Context) error {
+			if _, err := ctx.Exec(context.Background(),
+				fmt.Sprintf(
+					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:09:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
+					testrunner.GetAttribute[string](ctx, "tableName"),
+				),
+			); err != nil {
+				return err
+			}
+
+			if err := waiter.Await(); err != nil {
+				return err
+			}
+			waiter.Reset()
+
+			if _, err := ctx.Exec(context.Background(),
+				fmt.Sprintf(
+					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:10:00'::TIMESTAMPTZ, '2023-03-25 00:19:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
+					testrunner.GetAttribute[string](ctx, "tableName"),
+				),
+			); err != nil {
+				return err
+			}
+
+			if err := waiter.Await(); err != nil {
+				return err
+			}
+
+			// Initial 10 events have to be of type read (same transaction as the chunk creation)
+			for i := 0; i < 10; i++ {
+				expected := i + 1
+				event := testSink.Events()[i]
+				val := int(event.Envelope.Payload.After["val"].(float64))
+				if expected != val {
+					its.T().Errorf("event order inconsistent %d != %d", expected, val)
+					return nil
+				}
+				if event.Envelope.Payload.Op != schema.OP_CREATE {
+					its.T().Errorf("event should be of type 'r' but was %s", event.Envelope.Payload.Op)
+					return nil
+				}
+			}
+
+			// Next 10 events have to be of type create (chunk should already be replicated)
+			for i := 0; i < 10; i++ {
+				expected := i + 1
+				event := testSink.Events()[i+10]
+				val := int(event.Envelope.Payload.After["val"].(float64))
+				if expected != val {
+					its.T().Errorf("event order inconsistent %d != %d", expected, val)
+					return nil
+				}
+				if event.Envelope.Payload.Op != schema.OP_CREATE {
+					its.T().Errorf("event should be of type 'c' but was %s", event.Envelope.Payload.Op)
+					return nil
+				}
+			}
+
+			return nil
+		},
+
+		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
+			_, tn, err := ctx.CreateVanillaTable(
+				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("val", "integer", false, false, nil),
+			)
+			if err != nil {
+				return err
+			}
+			testrunner.Attribute(ctx, "tableName", tn)
+
+			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
+			return nil
+		}),
+	)
+}
+
+func (its *IntegrationTestSuite) TestVanillaUpdateEvents() {
+	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
+	testSink := testsupport.NewEventCollectorSink(
+		testsupport.WithFilter(
+			func(_ time.Time, _ string, envelope testsupport.Envelope) bool {
+				return envelope.Payload.Op == schema.OP_CREATE || envelope.Payload.Op == schema.OP_UPDATE
+			},
+		),
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink, _ testsupport.Envelope) {
+			if sink.NumOfEvents()%10 == 0 {
+				waiter.Signal()
+			}
+		}),
+	)
+
+	its.RunTest(
+		func(ctx testrunner.Context) error {
+			if _, err := ctx.Exec(context.Background(),
+				fmt.Sprintf(
+					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:09:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
+					testrunner.GetAttribute[string](ctx, "tableName"),
+				),
+			); err != nil {
+				return err
+			}
+
+			if err := waiter.Await(); err != nil {
+				return err
+			}
+			waiter.Reset()
+
+			if _, err := ctx.Exec(context.Background(),
+				fmt.Sprintf(
+					"UPDATE \"%s\" SET val = val + 10",
+					testrunner.GetAttribute[string](ctx, "tableName"),
+				),
+			); err != nil {
+				return err
+			}
+
+			if err := waiter.Await(); err != nil {
+				return err
+			}
+
+			// Initial 10 events have to be of type read (same transaction as the chunk creation)
+			for i := 0; i < 10; i++ {
+				expected := i + 1
+				event := testSink.Events()[i]
+				val := int(event.Envelope.Payload.After["val"].(float64))
+				if expected != val {
+					its.T().Errorf("event order inconsistent %d != %d", expected, val)
+					return nil
+				}
+				if event.Envelope.Payload.Op != schema.OP_CREATE {
+					its.T().Errorf("event should be of type 'r' but was %s", event.Envelope.Payload.Op)
+					return nil
+				}
+			}
+
+			// Next 10 events have to be of type update (chunk should already be replicated)
+			for i := 0; i < 10; i++ {
+				expected := i + 11
+				event := testSink.Events()[i+10]
+				val := int(event.Envelope.Payload.After["val"].(float64))
+				if expected != val {
+					its.T().Errorf("event order inconsistent %d != %d", expected, val)
+					return nil
+				}
+				if event.Envelope.Payload.Op != schema.OP_UPDATE {
+					its.T().Errorf("event should be of type 'u' but was %s", event.Envelope.Payload.Op)
+					return nil
+				}
+			}
+
+			return nil
+		},
+
+		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
+			_, tn, err := ctx.CreateVanillaTable(
+				testsupport.NewColumn("ts", "timestamptz", false, true, nil),
+				testsupport.NewColumn("val", "integer", false, false, nil),
+			)
+			if err != nil {
+				return err
+			}
+			testrunner.Attribute(ctx, "tableName", tn)
+
+			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
+			return nil
+		}),
+	)
+}
+
+func (its *IntegrationTestSuite) TestVanillaDeleteEvents() {
+	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
+	testSink := testsupport.NewEventCollectorSink(
+		testsupport.WithFilter(
+			func(_ time.Time, _ string, envelope testsupport.Envelope) bool {
+				return envelope.Payload.Op == schema.OP_CREATE || envelope.Payload.Op == schema.OP_DELETE
+			},
+		),
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink, _ testsupport.Envelope) {
+			if sink.NumOfEvents()%10 == 0 {
+				waiter.Signal()
+			}
+		}),
+	)
+
+	its.RunTest(
+		func(ctx testrunner.Context) error {
+			if _, err := ctx.Exec(context.Background(),
+				fmt.Sprintf(
+					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:09:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
+					testrunner.GetAttribute[string](ctx, "tableName"),
+				),
+			); err != nil {
+				return err
+			}
+
+			if err := waiter.Await(); err != nil {
+				return err
+			}
+			waiter.Reset()
+
+			if _, err := ctx.Exec(context.Background(),
+				fmt.Sprintf(
+					"DELETE FROM \"%s\"",
+					testrunner.GetAttribute[string](ctx, "tableName"),
+				),
+			); err != nil {
+				return err
+			}
+
+			if err := waiter.Await(); err != nil {
+				return err
+			}
+
+			// Initial 10 events have to be of type read (same transaction as the chunk creation)
+			for i := 0; i < 10; i++ {
+				expected := i + 1
+				event := testSink.Events()[i]
+				val := int(event.Envelope.Payload.After["val"].(float64))
+				if expected != val {
+					its.T().Errorf("event order inconsistent %d != %d", expected, val)
+					return nil
+				}
+				if event.Envelope.Payload.Op != schema.OP_CREATE {
+					its.T().Errorf("event should be of type 'r' but was %s", event.Envelope.Payload.Op)
+					return nil
+				}
+			}
+
+			// Next 10 events have to be of type delete (chunk should already be replicated)
+			for i := 0; i < 10; i++ {
+				event := testSink.Events()[i+10]
+				if event.Envelope.Payload.Op != schema.OP_DELETE {
+					its.T().Errorf("event should be of type 'd' but was %s", event.Envelope.Payload.Op)
+					return nil
+				}
+			}
+
+			return nil
+		},
+
+		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
+			_, tn, err := ctx.CreateVanillaTable(
+				testsupport.NewColumn("ts", "timestamptz", false, true, nil),
+				testsupport.NewColumn("val", "integer", false, false, nil),
+			)
+			if err != nil {
+				return err
+			}
+			testrunner.Attribute(ctx, "tableName", tn)
+
+			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
+			return nil
+		}),
+	)
+}
+
+func (its *IntegrationTestSuite) TestVanillaTruncateEvents() {
+	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
+	testSink := testsupport.NewEventCollectorSink(
+		testsupport.WithFilter(
+			func(_ time.Time, _ string, envelope testsupport.Envelope) bool {
+				return envelope.Payload.Op == schema.OP_CREATE || envelope.Payload.Op == schema.OP_TRUNCATE
+			},
+		),
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink, _ testsupport.Envelope) {
+			if sink.NumOfEvents()%10 == 0 {
+				waiter.Signal()
+			}
+			if sink.NumOfEvents() == 11 {
+				waiter.Signal()
+			}
+		}),
+	)
+
+	its.RunTest(
+		func(ctx testrunner.Context) error {
+			if _, err := ctx.Exec(context.Background(),
+				fmt.Sprintf(
+					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:09:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
+					testrunner.GetAttribute[string](ctx, "tableName"),
+				),
+			); err != nil {
+				return err
+			}
+
+			if err := waiter.Await(); err != nil {
+				return err
+			}
+			waiter.Reset()
+
+			if _, err := ctx.Exec(context.Background(),
+				fmt.Sprintf(
+					"TRUNCATE %s",
+					testrunner.GetAttribute[string](ctx, "tableName"),
+				),
+			); err != nil {
+				return err
+			}
+
+			if err := waiter.Await(); err != nil {
+				return err
+			}
+
+			// Initial 10 events have to be of type read (same transaction as the chunk creation)
+			for i := 0; i < 10; i++ {
+				expected := i + 1
+				event := testSink.Events()[i]
+				val := int(event.Envelope.Payload.After["val"].(float64))
+				if expected != val {
+					its.T().Errorf("event order inconsistent %d != %d", expected, val)
+					return nil
+				}
+				if event.Envelope.Payload.Op != schema.OP_CREATE {
+					its.T().Errorf("event should be of type 'r' but was %s", event.Envelope.Payload.Op)
+					return nil
+				}
+			}
+
+			// Final event must be a truncate event
+			event := testSink.Events()[10]
+			if event.Envelope.Payload.Op != schema.OP_TRUNCATE {
+				its.T().Errorf("event should be of type 't' but was %s", event.Envelope.Payload.Op)
+				return nil
+			}
+
+			return nil
+		},
+
+		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
+			_, tn, err := ctx.CreateVanillaTable(
+				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("val", "integer", false, false, nil),
+			)
+			if err != nil {
+				return err
+			}
+			testrunner.Attribute(ctx, "tableName", tn)
+
+			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
+			return nil
+		}),
+	)
+}

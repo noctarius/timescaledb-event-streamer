@@ -19,6 +19,7 @@ package eventhandlers
 
 import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
+	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 )
 
@@ -59,32 +60,32 @@ type LogicalReplicationEventHandler interface {
 	) error
 }
 
-type HypertableReplicationEventHandler interface {
+type RecordReplicationEventHandler interface {
 	BaseReplicationEventHandler
 	OnReadEvent(
-		lsn pgtypes.LSN, hypertable *systemcatalog.Hypertable,
+		lsn pgtypes.LSN, table schema.TableAlike,
 		chunk *systemcatalog.Chunk, newValues map[string]any,
+	) error
+	OnInsertEvent(
+		xld pgtypes.XLogData, table schema.TableAlike,
+		chunk *systemcatalog.Chunk, newValues map[string]any,
+	) error
+	OnUpdateEvent(
+		xld pgtypes.XLogData, table schema.TableAlike,
+		chunk *systemcatalog.Chunk, oldValues, newValues map[string]any,
+	) error
+	OnDeleteEvent(
+		xld pgtypes.XLogData, table schema.TableAlike,
+		chunk *systemcatalog.Chunk, oldValues map[string]any, tombstone bool,
+	) error
+	OnTruncateEvent(
+		xld pgtypes.XLogData, table schema.TableAlike,
 	) error
 	OnBeginEvent(
 		xld pgtypes.XLogData, msg *pgtypes.BeginMessage,
 	) error
 	OnCommitEvent(
 		xld pgtypes.XLogData, msg *pgtypes.CommitMessage,
-	) error
-	OnInsertEvent(
-		xld pgtypes.XLogData, hypertable *systemcatalog.Hypertable,
-		chunk *systemcatalog.Chunk, newValues map[string]any,
-	) error
-	OnUpdateEvent(
-		xld pgtypes.XLogData, hypertable *systemcatalog.Hypertable,
-		chunk *systemcatalog.Chunk, oldValues, newValues map[string]any,
-	) error
-	OnDeleteEvent(
-		xld pgtypes.XLogData, hypertable *systemcatalog.Hypertable,
-		chunk *systemcatalog.Chunk, oldValues map[string]any, tombstone bool,
-	) error
-	OnTruncateEvent(
-		xld pgtypes.XLogData, hypertable *systemcatalog.Hypertable,
 	) error
 	OnTypeEvent(
 		xld pgtypes.XLogData, msg *pgtypes.TypeMessage,

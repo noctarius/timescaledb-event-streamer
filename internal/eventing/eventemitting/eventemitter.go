@@ -169,10 +169,11 @@ type eventEmitterEventHandler struct {
 }
 
 func (e *eventEmitterEventHandler) OnReadEvent(
-	lsn pgtypes.LSN, hypertable *systemcatalog.Hypertable, _ *systemcatalog.Chunk, newValues map[string]any,
+	lsn pgtypes.LSN, table schema.TableAlike,
+	_ *systemcatalog.Chunk, newValues map[string]any,
 ) error {
 
-	cnValues, err := e.convertValues(hypertable, newValues)
+	cnValues, err := e.convertValues(table, newValues)
 	if err != nil {
 		return err
 	}
@@ -186,7 +187,7 @@ func (e *eventEmitterEventHandler) OnReadEvent(
 		},
 	}
 
-	return e.emit0(xld, true, hypertable,
+	return e.emit0(xld, true, table,
 		func(stream stream.Stream) (schema.Struct, error) {
 			return stream.Key(newValues)
 		},
@@ -197,15 +198,16 @@ func (e *eventEmitterEventHandler) OnReadEvent(
 }
 
 func (e *eventEmitterEventHandler) OnInsertEvent(
-	xld pgtypes.XLogData, hypertable *systemcatalog.Hypertable, _ *systemcatalog.Chunk, newValues map[string]any,
+	xld pgtypes.XLogData, table schema.TableAlike,
+	_ *systemcatalog.Chunk, newValues map[string]any,
 ) error {
 
-	cnValues, err := e.convertValues(hypertable, newValues)
+	cnValues, err := e.convertValues(table, newValues)
 	if err != nil {
 		return err
 	}
 
-	return e.emit(xld, hypertable,
+	return e.emit(xld, table,
 		func(stream stream.Stream) (schema.Struct, error) {
 			return stream.Key(newValues)
 		},
@@ -216,20 +218,20 @@ func (e *eventEmitterEventHandler) OnInsertEvent(
 }
 
 func (e *eventEmitterEventHandler) OnUpdateEvent(
-	xld pgtypes.XLogData, hypertable *systemcatalog.Hypertable,
+	xld pgtypes.XLogData, table schema.TableAlike,
 	_ *systemcatalog.Chunk, oldValues, newValues map[string]any,
 ) error {
 
-	coValues, err := e.convertValues(hypertable, oldValues)
+	coValues, err := e.convertValues(table, oldValues)
 	if err != nil {
 		return err
 	}
-	cnValues, err := e.convertValues(hypertable, newValues)
+	cnValues, err := e.convertValues(table, newValues)
 	if err != nil {
 		return err
 	}
 
-	return e.emit(xld, hypertable,
+	return e.emit(xld, table,
 		func(stream stream.Stream) (schema.Struct, error) {
 			return stream.Key(newValues)
 		},
@@ -240,16 +242,16 @@ func (e *eventEmitterEventHandler) OnUpdateEvent(
 }
 
 func (e *eventEmitterEventHandler) OnDeleteEvent(
-	xld pgtypes.XLogData, hypertable *systemcatalog.Hypertable,
+	xld pgtypes.XLogData, table schema.TableAlike,
 	_ *systemcatalog.Chunk, oldValues map[string]any, tombstone bool,
 ) error {
 
-	coValues, err := e.convertValues(hypertable, oldValues)
+	coValues, err := e.convertValues(table, oldValues)
 	if err != nil {
 		return err
 	}
 
-	return e.emit(xld, hypertable,
+	return e.emit(xld, table,
 		func(stream stream.Stream) (schema.Struct, error) {
 			return stream.Key(oldValues)
 		},
@@ -260,10 +262,10 @@ func (e *eventEmitterEventHandler) OnDeleteEvent(
 }
 
 func (e *eventEmitterEventHandler) OnTruncateEvent(
-	xld pgtypes.XLogData, hypertable *systemcatalog.Hypertable,
+	xld pgtypes.XLogData, table schema.TableAlike,
 ) error {
 
-	return e.emit(xld, hypertable,
+	return e.emit(xld, table,
 		func(stream stream.Stream) (schema.Struct, error) {
 			return nil, nil
 		},
@@ -355,15 +357,15 @@ func (e *eventEmitterEventHandler) OnTransactionFinishedEvent(
 }
 
 func (e *eventEmitterEventHandler) emit(
-	xld pgtypes.XLogData, hypertable *systemcatalog.Hypertable,
+	xld pgtypes.XLogData, table schema.TableAlike,
 	keyFactory keyFactoryFn, payloadFactory payloadFactoryFn,
 ) error {
 
-	return e.emit0(xld, false, hypertable, keyFactory, payloadFactory)
+	return e.emit0(xld, false, table, keyFactory, payloadFactory)
 }
 
 func (e *eventEmitterEventHandler) emit0(
-	xld pgtypes.XLogData, snapshot bool, hypertable *systemcatalog.Hypertable,
+	xld pgtypes.XLogData, snapshot bool, hypertable schema.TableAlike,
 	keyFactory keyFactoryFn, payloadFactory payloadFactoryFn,
 ) error {
 
@@ -452,10 +454,10 @@ func (e *eventEmitterEventHandler) timescaleEventKey(
 }
 
 func (e *eventEmitterEventHandler) convertValues(
-	hypertable *systemcatalog.Hypertable, values map[string]any,
+	table schema.TableAlike, values map[string]any,
 ) (map[string]any, error) {
 
-	return e.convertColumnValues(hypertable.TableColumns(), values)
+	return e.convertColumnValues(table.TableColumns(), values)
 }
 
 func (e *eventEmitterEventHandler) convertColumnValues(

@@ -18,12 +18,20 @@
 package systemcatalog
 
 type SystemCatalog interface {
+	FindVanillaTableById(
+		relId uint32,
+	) (table *PgTable, present bool)
+
+	FindVanillaTableByName(
+		schemaName, tableName string,
+	) (table *PgTable, present bool)
+
 	FindHypertableById(
 		hypertableId int32,
 	) (hypertable *Hypertable, present bool)
 
 	FindHypertableByName(
-		schema, name string,
+		schemaName, tableName string,
 	) (hypertable *Hypertable, present bool)
 
 	FindHypertableByChunkId(
@@ -75,8 +83,10 @@ type SystemCatalog interface {
 	) error
 
 	ApplySchemaUpdate(
-		hypertable *Hypertable, columns []Column,
+		table SystemEntity, columns []Column,
 	) error
 
 	GetAllChunks() []SystemEntity
+
+	GetAllVanillaTables() []SystemEntity
 }

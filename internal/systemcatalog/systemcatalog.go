@@ -18,8 +18,10 @@
 package systemcatalog
 
 import (
+	"fmt"
 	"github.com/go-errors/errors"
 	"github.com/jackc/pgx/v5"
+	"github.com/noctarius/timescaledb-event-streamer/internal/functional"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/snapshotting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/tablefiltering"
@@ -33,12 +35,15 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/task"
 	"github.com/noctarius/timescaledb-event-streamer/spi/watermark"
 	"github.com/samber/lo"
+	"strings"
 	"sync"
 )
 
 type systemCatalog struct {
+	vanillaTables         map[uint32]*systemcatalog.PgTable
 	hypertables           map[int32]*systemcatalog.Hypertable
 	chunks                map[int32]*systemcatalog.Chunk
+	vanillaTableNameIndex map[string]uint32
 	hypertableNameIndex   map[string]int32
 	chunkNameIndex        map[string]int32
 	chunk2Hypertable      map[int32]int32
@@ -48,15 +53,16 @@ type systemCatalog struct {
 
 	username string
 
-	publicationManager  publication.PublicationManager
-	sideChannel         sidechannel.SideChannel
-	stateStorageManager statestorage.Manager
-	typeManager         pgtypes.TypeManager
-	taskManager         task.TaskManager
-	replicationFilter   *tablefiltering.TableFilter
-	snapshotter         *snapshotting.Snapshotter
-	logger              *logging.Logger
-	rwLock              sync.RWMutex
+	publicationManager          publication.PublicationManager
+	sideChannel                 sidechannel.SideChannel
+	stateStorageManager         statestorage.Manager
+	typeManager                 pgtypes.TypeManager
+	taskManager                 task.TaskManager
+	hypertableReplicationFilter *tablefiltering.TableFilter
+	vanillaReplicationFilter    *tablefiltering.TableFilter
+	snapshotter                 *snapshotting.Snapshotter
+	logger                      *logging.Logger
+	rwLock                      sync.RWMutex
 }
 
 func NewSystemCatalog(
@@ -66,8 +72,17 @@ func NewSystemCatalog(
 ) (systemcatalog.SystemCatalog, error) {
 
 	// Create the Replication Filter, selecting enabled and blocking disabled hypertables for replication
-	filterDefinition := config.TimescaleDB.Hypertables
-	replicationFilter, err := tablefiltering.NewTableFilter(filterDefinition.Excludes, filterDefinition.Includes, false)
+	hypertableReplicationFilter, err := tablefiltering.NewTableFilter(
+		config.TimescaleDB.Hypertables.Excludes, config.TimescaleDB.Hypertables.Includes, false,
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, 0)
+	}
+
+	// Create the Replication Filter, selecting enabled and blocking disabled PostgreSQL tables for replication
+	vanillaReplicationFilter, err := tablefiltering.NewTableFilter(
+		config.PostgreSQL.Tables.Excludes, config.PostgreSQL.Tables.Includes, false,
+	)
 	if err != nil {
 		return nil, errors.Wrap(err, 0)
 	}
@@ -78,8 +93,10 @@ func NewSystemCatalog(
 	}
 
 	return &systemCatalog{
+		vanillaTables:         make(map[uint32]*systemcatalog.PgTable),
 		hypertables:           make(map[int32]*systemcatalog.Hypertable),
 		chunks:                make(map[int32]*systemcatalog.Chunk),
+		vanillaTableNameIndex: make(map[string]uint32),
 		hypertableNameIndex:   make(map[string]int32),
 		chunkNameIndex:        make(map[string]int32),
 		chunk2Hypertable:      make(map[int32]int32),
@@ -89,14 +106,15 @@ func NewSystemCatalog(
 
 		username: userConfig.User,
 
-		stateStorageManager: stateStorageManager,
-		replicationFilter:   replicationFilter,
-		publicationManager:  publicationManager,
-		sideChannel:         sideChannel,
-		snapshotter:         snapshotter,
-		typeManager:         typeManager,
-		taskManager:         taskManager,
-		logger:              logger,
+		stateStorageManager:         stateStorageManager,
+		hypertableReplicationFilter: hypertableReplicationFilter,
+		vanillaReplicationFilter:    vanillaReplicationFilter,
+		publicationManager:          publicationManager,
+		sideChannel:                 sideChannel,
+		snapshotter:                 snapshotter,
+		typeManager:                 typeManager,
+		taskManager:                 taskManager,
+		logger:                      logger,
 	}, nil
 }
 
@@ -106,6 +124,28 @@ func (sc *systemCatalog) PostConstruct() error {
 	}
 	sc.taskManager.RegisterReplicationEventHandler(sc.newEventHandler())
 	return nil
+}
+
+func (sc *systemCatalog) FindVanillaTableById(
+	relId uint32,
+) (table *systemcatalog.PgTable, present bool) {
+
+	sc.rwLock.RLock()
+	defer sc.rwLock.RUnlock()
+	table, present = sc.vanillaTables[relId]
+	return
+}
+
+func (sc *systemCatalog) FindVanillaTableByName(
+	schema, name string,
+) (table *systemcatalog.PgTable, present bool) {
+
+	sc.rwLock.RLock()
+	defer sc.rwLock.RUnlock()
+	if relId, ok := sc.vanillaTableNameIndex[systemcatalog.MakeRelationKey(schema, name)]; ok {
+		return sc.FindVanillaTableById(relId)
+	}
+	return
 }
 
 func (sc *systemCatalog) FindHypertableById(
@@ -217,9 +257,20 @@ func (sc *systemCatalog) IsHypertableSelectedForReplication(
 ) bool {
 
 	if uncompressedHypertable, _, present := sc.ResolveUncompressedHypertable(hypertableId); present {
-		return sc.replicationFilter.Enabled(uncompressedHypertable)
+		return sc.hypertableReplicationFilter.Enabled(uncompressedHypertable)
 	}
 	return false
+}
+
+func (sc *systemCatalog) RegisterVanillaTable(
+	table *systemcatalog.PgTable,
+) error {
+
+	sc.rwLock.Lock()
+	defer sc.rwLock.Unlock()
+	sc.vanillaTables[table.RelId()] = table
+	sc.vanillaTableNameIndex[table.CanonicalName()] = table.RelId()
+	return nil
 }
 
 func (sc *systemCatalog) RegisterHypertable(
@@ -294,14 +345,26 @@ func (sc *systemCatalog) UnregisterChunk(
 }
 
 func (sc *systemCatalog) ApplySchemaUpdate(
-	hypertable *systemcatalog.Hypertable, columns []systemcatalog.Column,
+	table systemcatalog.SystemEntity, columns []systemcatalog.Column,
 ) error {
 
-	if difference := hypertable.ApplyTableSchema(columns); difference != nil {
-		sc.logger.Verbosef("Schema Update: Hypertable %d => %+v", hypertable.Id(), difference)
-		for _, column := range columns {
-			if err := sc.typeManager.RegisterColumnType(column); err != nil {
-				return err
+	if hypertable, ok := table.(*systemcatalog.Hypertable); ok {
+		if difference := hypertable.ApplyTableSchema(columns); difference != nil {
+			sc.logger.Verbosef("Schema Update: Hypertable %d => %+v", hypertable.Id(), difference)
+			for _, column := range columns {
+				if err := sc.typeManager.RegisterColumnType(column); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	if pgTable, ok := table.(*systemcatalog.PgTable); ok {
+		if difference := pgTable.ApplyTableSchema(columns); difference != nil {
+			sc.logger.Verbosef("Schema Update: Table %d => %+v", pgTable.RelId(), difference)
+			for _, column := range columns {
+				if err := sc.typeManager.RegisterColumnType(column); err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -316,6 +379,14 @@ func (sc *systemCatalog) GetAllChunks() []systemcatalog.SystemEntity {
 		}
 	}
 	return chunkTables
+}
+
+func (sc *systemCatalog) GetAllVanillaTables() []systemcatalog.SystemEntity {
+	tables := make([]systemcatalog.SystemEntity, 0)
+	for _, table := range sc.vanillaTables {
+		tables = append(tables, table)
+	}
+	return tables
 }
 
 func (sc *systemCatalog) snapshotChunkWithXld(
@@ -352,7 +423,7 @@ func initializeSystemCatalog(
 
 	if err := sc.sideChannel.ReadHypertables(func(hypertable *systemcatalog.Hypertable) error {
 		// Check if we want to replicate that hypertable
-		if !sc.replicationFilter.Enabled(hypertable) {
+		if !sc.hypertableReplicationFilter.Enabled(hypertable) {
 			return nil
 		}
 
@@ -389,29 +460,69 @@ func initializeSystemCatalog(
 		return nil, errors.Wrap(err, 0)
 	}
 
-	// No explicit logging, will not happen concurrently
-	hypertables := make([]*systemcatalog.Hypertable, 0)
-	for _, hypertable := range sc.hypertables {
-		hypertables = append(hypertables, hypertable)
+	if err := sc.sideChannel.ReadVanillaTables(func(table *systemcatalog.PgTable) error {
+		// Check if we want to replicate that PostgreSQL table
+		if !sc.vanillaReplicationFilter.Enabled(table) {
+			return nil
+		}
+
+		// Run basic access check based on user permissions
+		access, err := sc.sideChannel.HasTablePrivilege(sc.username, table, sidechannel.Select)
+		if err != nil {
+			return errors.Wrap(err, 0)
+		}
+		if !access {
+			return errors.Errorf("Table %s not accessible", table.CanonicalName())
+		}
+
+		if err := sc.RegisterVanillaTable(table); err != nil {
+			return errors.Errorf("registering table failed: %s (error: %+v)", table, err)
+		}
+		sc.logger.Verbosef("Entry Added: Vanilla Table %d => %s", table.RelId(), table)
+		return nil
+	}); err != nil {
+		return nil, errors.Wrap(err, 0)
 	}
 
+	// No explicit locking, will not happen concurrently
+	tables := make([]systemcatalog.SystemEntity, 0)
+	for _, hypertable := range sc.hypertables {
+		tables = append(tables, hypertable)
+	}
+	for _, table := range sc.vanillaTables {
+		tables = append(tables, table)
+	}
+
+	// Sorting by canonical name
+	tables = functional.Sort(tables, func(this, other systemcatalog.SystemEntity) bool {
+		return strings.Compare(this.CanonicalName(), other.CanonicalName()) < 0
+	})
+
 	if err := sc.sideChannel.ReadHypertableSchema(
-		sc.ApplySchemaUpdate, sc.typeManager.ResolveDataType, hypertables...,
+		sc.ApplySchemaUpdate, sc.typeManager.ResolveDataType, lo.Values(sc.hypertables)...,
 	); err != nil {
 		return nil, errors.Wrap(err, 0)
 	}
 
-	sc.logger.Println("Selected hypertables for replication:")
-	for _, hypertable := range hypertables {
-		if !hypertable.IsCompressedTable() && sc.IsHypertableSelectedForReplication(hypertable.Id()) {
-			if hypertable.IsContinuousAggregate() {
-				sc.logger.Infof("  * %s (type: Continuous Aggregate => %s)",
-					hypertable.CanonicalContinuousAggregateName(), hypertable.CanonicalName(),
-				)
-			} else {
-				sc.logger.Infof("  * %s (type: Hypertable)", hypertable.CanonicalName())
+	if err := sc.sideChannel.ReadVanillaTableSchema(
+		sc.ApplySchemaUpdate, sc.typeManager.ResolveDataType, lo.Values(sc.vanillaTables)...,
+	); err != nil {
+		return nil, errors.Wrap(err, 0)
+	}
+
+	sc.logger.Println("Selected tables for replication:")
+	for _, table := range tables {
+		tableType := "Vanilla"
+		tableName := table.CanonicalName()
+
+		if hypertable, ok := table.(*systemcatalog.Hypertable); ok {
+			if !hypertable.IsCompressedTable() && sc.IsHypertableSelectedForReplication(hypertable.Id()) {
+				if hypertable.IsContinuousAggregate() {
+					tableType = fmt.Sprintf("Continuous Aggregate => %s", hypertable.CanonicalName())
+				}
 			}
 		}
+		sc.logger.Infof("  * %s (type: %s)", tableName, tableType)
 	}
 
 	// Register the snapshot event handler

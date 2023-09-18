@@ -21,14 +21,13 @@ import (
 	"fmt"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
-	"github.com/samber/lo"
 	"strings"
 )
 
 // Hypertable represents a TimescaleDB hypertable definition
 // in the system catalog
 type Hypertable struct {
-	*baseSystemEntity
+	*BaseTable
 	id                     int32
 	associatedSchemaName   string
 	associatedTablePrefix  string
@@ -38,9 +37,6 @@ type Hypertable struct {
 	continuousAggregate    bool
 	viewSchema             *string
 	viewName               *string
-	columns                []Column
-	tableColumns           []schema.ColumnAlike
-	replicaIdentity        pgtypes.ReplicaIdentity
 }
 
 // NewHypertable instantiates a new Hypertable entity
@@ -51,10 +47,7 @@ func NewHypertable(
 ) *Hypertable {
 
 	return &Hypertable{
-		baseSystemEntity: &baseSystemEntity{
-			schemaName: schemaName,
-			tableName:  tableName,
-		},
+		BaseTable:              newBaseTable(schemaName, tableName, replicaIdentity),
 		id:                     id,
 		associatedSchemaName:   associatedSchemaName,
 		associatedTablePrefix:  associatedTablePrefix,
@@ -64,9 +57,6 @@ func NewHypertable(
 		continuousAggregate:    isContinuousAggregate(tableName, viewSchema, viewName),
 		viewSchema:             viewSchema,
 		viewName:               viewName,
-		replicaIdentity:        replicaIdentity,
-		columns:                make([]Column, 0),
-		tableColumns:           make([]schema.ColumnAlike, 0),
 	}
 }
 
@@ -132,16 +122,10 @@ func (h *Hypertable) IsContinuousAggregate() bool {
 	return h.continuousAggregate
 }
 
-// Columns returns a slice with the column definitions
-// of the hypertable
-func (h *Hypertable) Columns() Columns {
-	return h.columns
-}
-
-func (h *Hypertable) TableColumns() []schema.ColumnAlike {
-	return h.tableColumns
-}
-
+// KeyIndexColumns returns a slice of ColumnAlike entries
+// representing the snapshot index, or nil.
+// A snapshot index is either the (composite) primary key or
+// a "virtual" index built from the hypertable's dimensions
 func (h *Hypertable) KeyIndexColumns() []schema.ColumnAlike {
 	index, present := (Columns(h.columns)).SnapshotIndex()
 	if !present {
@@ -161,24 +145,6 @@ func (h *Hypertable) KeyIndexColumns() []schema.ColumnAlike {
 // IsContinuousAggregate before calling this method is adviced.
 func (h *Hypertable) CanonicalContinuousAggregateName() string {
 	return canonicalContinuousAggregateName(h)
-}
-
-// ReplicaIdentity returns the replica identity (if available),
-// otherwise a pgtypes.UNKNOWN is returned
-func (h *Hypertable) ReplicaIdentity() pgtypes.ReplicaIdentity {
-	return h.replicaIdentity
-}
-
-// SchemaBuilder returns a SchemaBuilder instance, preconfigured
-// for this hypertable instance
-func (h *Hypertable) SchemaBuilder() schema.Builder {
-	schemaBuilder := schema.NewSchemaBuilder(schema.STRUCT).
-		FieldName(h.CanonicalName())
-
-	for i, column := range h.columns {
-		schemaBuilder.Field(column.Name(), i, column.SchemaBuilder())
-	}
-	return schemaBuilder
 }
 
 func (h *Hypertable) String() string {
@@ -217,78 +183,6 @@ func (h *Hypertable) String() string {
 	return builder.String()
 }
 
-// ApplyTableSchema applies a new hypertable schema to this
-// hypertable instance and returns changes to the previously
-// known schema layout.
-func (h *Hypertable) ApplyTableSchema(
-	newColumns []Column,
-) (changes map[string]string) {
-
-	oldColumns := h.columns
-	h.columns = newColumns
-
-	h.tableColumns = make([]schema.ColumnAlike, 0, len(newColumns))
-	for i := 0; i < len(newColumns); i++ {
-		h.tableColumns = append(h.tableColumns, newColumns[i])
-	}
-
-	newIndex := 0
-	differences := make(map[string]string, 0)
-	for i, c1 := range oldColumns {
-		// dropped last column
-		if len(newColumns) <= newIndex {
-			differences[c1.Name()] = fmt.Sprintf("dropped: %+v", c1)
-			continue
-		}
-
-		c2 := newColumns[newIndex]
-		if c1.equals(c2) {
-			newIndex++
-			continue
-		}
-
-		handled := false
-		if c1.equalsExceptName(c2) {
-			// seems like last column was renamed
-			if newIndex+1 == len(newColumns) {
-				differences[c1.Name()] = fmt.Sprintf("name:%s=>%s", c1.Name(), c2.Name())
-				handled = true
-				if i < len(newColumns) {
-					newIndex++
-				}
-			} else {
-				// potentially renamed, run look ahead
-				lookAheadSuccessful := false
-				for o := i; o < lo.Min([]int{len(oldColumns), len(newColumns)}); o++ {
-					if oldColumns[o].equals(newColumns[o]) {
-						lookAheadSuccessful = true
-					}
-				}
-
-				if lookAheadSuccessful {
-					differences[c2.Name()] = fmt.Sprintf("name:%s=>%s", c1.Name(), c2.Name())
-					handled = true
-					newIndex++
-				}
-			}
-		}
-		if len(oldColumns) > i+1 && oldColumns[i+1].equals(c2) {
-			differences[c1.Name()] = fmt.Sprintf("dropped: %+v", c1)
-			handled = true
-		}
-
-		if !handled {
-			differences[c1.Name()] = fmt.Sprintf("%+v", c1.differences(c2))
-			newIndex++
-		}
-	}
-	for i := newIndex; i < len(newColumns); i++ {
-		c := newColumns[i]
-		differences[c.Name()] = fmt.Sprintf("added: %+v", c)
-	}
-	return differences
-}
-
 // ApplyChanges applies catalog changes to a copy of the
 // hypertable instance (not updating the current one) and
 // returns the new instance and a collection of applied
@@ -300,19 +194,13 @@ func (h *Hypertable) ApplyChanges(
 ) (applied *Hypertable, changes map[string]string) {
 
 	h2 := &Hypertable{
-		baseSystemEntity: &baseSystemEntity{
-			schemaName: schemaName,
-			tableName:  tableName,
-		},
+		BaseTable:              h.BaseTable.ApplyChanges(schemaName, tableName, replicaIdentity),
 		id:                     h.id,
 		associatedSchemaName:   associatedSchemaName,
 		associatedTablePrefix:  associatedTablePrefix,
 		compressedHypertableId: compressedHypertableId,
 		compressionState:       compressionState,
 		distributed:            h.distributed,
-		columns:                h.columns,
-		tableColumns:           h.tableColumns,
-		replicaIdentity:        replicaIdentity,
 	}
 	return h2, h.differences(h2)
 }

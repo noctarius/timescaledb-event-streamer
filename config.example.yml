@@ -18,6 +18,19 @@ postgresql:
 #      timeout: 60
 #      maxSize: 100000
 
+  tables:
+    excludes:
+      - 'pg_catalog.*'
+    includes:
+      - 'public.*'
+  events:
+    read: true
+    insert: true
+    update: true
+    delete: true
+    truncate: true
+    message: true
+
 stateStorage:
   type: file
   file:
@@ -119,7 +132,7 @@ timescaledb:
     update: true
     delete: true
     truncate: true
-    message: true
+    message: false #deprecated: see postgresql\events\message
     compression: false
     decompression: false
 

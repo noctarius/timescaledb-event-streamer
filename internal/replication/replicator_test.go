@@ -62,12 +62,8 @@ func Test_Replicator_Select_Missing_Tables(
 		return knownTables
 	}
 
-	readPublishedTables := func() ([]systemcatalog.SystemEntity, error) {
-		return publishedChunkTables, nil
-	}
-
 	neededChunkTables, err := replicator.collectChunksForPublication(
-		encodedState, getAllChunks, readPublishedTables,
+		encodedState, getAllChunks, publishedChunkTables,
 	)
 	if err != nil {
 		t.Error(err)
@@ -129,12 +125,8 @@ func Test_Replicator_Select_Missing_Tables_Random_Selection(
 		return knownTables
 	}
 
-	readPublishedTables := func() ([]systemcatalog.SystemEntity, error) {
-		return publishedChunkTables, nil
-	}
-
 	neededChunkTables, err := replicator.collectChunksForPublication(
-		encodedState, getAllChunks, readPublishedTables,
+		encodedState, getAllChunks, publishedChunkTables,
 	)
 	if err != nil {
 		t.Error(err)
@@ -208,7 +200,7 @@ func Test_Replicator_Filter_Old_Tables_In_State(
 		logger: logger,
 	}
 
-	state, err := encodeKnownChunks(knownTables)
+	state, err := encodeKnownTables(knownTables)
 	if err != nil {
 		t.Error(err)
 	}
@@ -221,12 +213,8 @@ func Test_Replicator_Filter_Old_Tables_In_State(
 		return allTables
 	}
 
-	readPublishedTables := func() ([]systemcatalog.SystemEntity, error) {
-		return nil, nil
-	}
-
 	neededChunkTables, err := replicator.collectChunksForPublication(
-		encodedState, getAllChunks, readPublishedTables,
+		encodedState, getAllChunks, nil,
 	)
 	if err != nil {
 		t.Error(err)

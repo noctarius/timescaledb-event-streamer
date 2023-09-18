@@ -176,16 +176,19 @@ WHERE c.table_schema = $1
   AND c.table_name = $2
 ORDER BY c.ordinal_position`
 
+const queryReadContinuousAggregateInformation = `
+SELECT ca.user_view_schema, ca.user_view_name
+FROM _timescaledb_catalog.continuous_agg ca 
+WHERE ca.mat_hypertable_id = $1`
+
+// endregion
+
+// region PostgreSQL Catalog Queries
 const queryReadReplicaIdentity = `
 SELECT c.relreplident::text
 FROM pg_catalog.pg_class c
 LEFT JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
 WHERE n.nspname=$1 and c.relname=$2`
-
-const queryReadContinuousAggregateInformation = `
-SELECT ca.user_view_schema, ca.user_view_name
-FROM _timescaledb_catalog.continuous_agg ca 
-WHERE ca.mat_hypertable_id = $1`
 
 const queryTemplateSnapshotHighWatermark = `
 SELECT %s
@@ -195,9 +198,6 @@ LIMIT 1`
 
 const queryCheckUserTablePrivilege = `SELECT HAS_TABLE_PRIVILEGE($1, $2, $3)`
 
-// endregion
-
-// region PostgreSQL Type Queries
 const queryReadCompositeTypeSchema = `
 SELECT a.attname,
        a.atttypid,
@@ -207,5 +207,61 @@ FROM pg_catalog.pg_attribute a
 RIGHT JOIN pg_catalog.pg_class pc on pc.reltype = $1
 WHERE a.attrelid = pc.oid AND a.attnum > 0 AND NOT a.attisdropped
 ORDER BY a.attnum`
+
+const queryReadVanillaTables = `
+SELECT c.oid, t.schemaname, t.tablename, c.relreplident
+FROM pg_catalog.pg_tables t
+LEFT JOIN pg_catalog.pg_namespace n
+    ON n.nspname = t.schemaname
+LEFT JOIN pg_catalog.pg_class c
+    ON c.relname = t.tablename
+   AND c.relnamespace = n.oid
+LEFT JOIN _timescaledb_catalog.hypertable h ON h.schema_name = t.schemaname AND h.table_name = t.tablename
+WHERE t.schemaname NOT LIKE '_timescaledb_%'
+  AND h.id IS NULL`
+
+const queryReadVanillaTableSchema = `
+SELECT
+   c.column_name,
+   t.oid::int,
+   a.atttypmod,
+   CASE WHEN c.is_nullable = 'YES' THEN true ELSE false END AS nullable,
+   coalesce(p.indisprimary, false) AS is_primary_key,
+   p.key_seq,
+   c.column_default,
+   coalesce(p.indisreplident, false) AS is_replica_ident,
+   p.index_name,
+   CASE o.option & 1 WHEN 1 THEN 'DESC' ELSE 'ASC' END AS index_column_order,
+   CASE o.option & 2 WHEN 2 THEN 'NULLS FIRST' ELSE 'NULLS LAST' END AS index_nulls_order,
+   c.character_maximum_length
+FROM information_schema.columns c
+LEFT JOIN (
+    SELECT
+        cl.relname,
+        n.nspname,
+        a.attname,
+        (information_schema._pg_expandarray(i.indkey)).n AS key_seq,
+        (information_schema._pg_expandarray(i.indkey)) AS keys,
+        a.attnum,
+        i.indisreplident,
+        i.indisprimary,
+        cl2.relname AS index_name,
+        i.indoption
+    FROM pg_index i, pg_attribute a, pg_class cl, pg_namespace n, pg_class cl2
+    WHERE cl.relnamespace = n.oid
+      AND a.attrelid = cl.oid
+      AND i.indrelid = cl.oid
+      AND i.indexrelid = cl2.oid
+      AND i.indisprimary
+) p ON p.attname = c.column_name AND p.nspname = c.table_schema AND p.relname = c.table_name AND p.attnum = (p.keys).x
+LEFT JOIN pg_catalog.pg_namespace nt ON nt.nspname = c.udt_schema
+LEFT JOIN pg_catalog.pg_type t ON t.typnamespace = nt.oid AND t.typname = c.udt_name
+LEFT JOIN pg_catalog.pg_namespace nc ON nc.nspname = c.table_schema
+LEFT JOIN pg_catalog.pg_class cl ON cl.relname = c.table_name AND cl.relnamespace = nc.oid
+LEFT JOIN pg_catalog.pg_attribute a ON a.attrelid = cl.oid AND a.attnum = c.ordinal_position
+LEFT JOIN unnest (p.indoption) WITH ORDINALITY o (option, ordinality) ON p.attnum = o.ordinality
+WHERE c.table_schema = $1
+  AND c.table_name = $2
+ORDER BY c.ordinal_position`
 
 // endregion

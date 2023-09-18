@@ -71,6 +71,9 @@ type Context interface {
 	CreateHypertable(
 		timeDimension string, chunkSize time.Duration, columns ...inttest.Column,
 	) (string, string, error)
+	CreateVanillaTable(
+		columns ...inttest.Column,
+	) (string, string, error)
 	PauseReplicator() error
 	ResumeReplicator() error
 	PostgresqlVersion() version.PostgresVersion
@@ -169,6 +172,7 @@ type testContext struct {
 	superuserConfig *pgxpool.Config
 	streamer        *internal.Streamer
 	hypertables     []string
+	vanillaTables   []string
 	attributes      map[string]any
 
 	streamerRunning bool
@@ -249,6 +253,18 @@ func (t *testContext) CreateHypertable(
 		return "", "", err
 	}
 	t.hypertables = append(t.hypertables, systemcatalog.MakeRelationKey(schemaName, tableName))
+	return schemaName, tableName, nil
+}
+
+func (t *testContext) CreateVanillaTable(
+	columns ...inttest.Column,
+) (string, string, error) {
+
+	schemaName, tableName, err := inttest.CreateVanillaTable(t.pool, columns...)
+	if err != nil {
+		return "", "", err
+	}
+	t.vanillaTables = append(t.vanillaTables, systemcatalog.MakeRelationKey(schemaName, tableName))
 	return schemaName, tableName, nil
 }
 
@@ -382,6 +398,7 @@ func (tr *TestRunner) RunTest(
 		},
 		superuserConfig: tr.superuserConfig,
 		hypertables:     make([]string, 0),
+		vanillaTables:   make([]string, 0),
 		attributes:      make(map[string]any),
 	}
 
@@ -401,9 +418,12 @@ func (tr *TestRunner) RunTest(
 			Publication: spiconfig.PublicationConfig{
 				Name: lo.RandomString(10, lo.LowerCaseLettersCharset),
 			},
+			Tables: spiconfig.IncludedTablesConfig{
+				Includes: tc.vanillaTables,
+			},
 		},
 		TimescaleDB: spiconfig.TimescaleDBConfig{
-			Hypertables: spiconfig.HypertablesConfig{
+			Hypertables: spiconfig.IncludedTablesConfig{
 				Includes: tc.hypertables,
 			},
 		},

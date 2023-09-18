@@ -210,6 +210,27 @@ func (sc *sideChannel) GetTimescaleDBVersion() (tsdbVersion version.TimescaleVer
 	return
 }
 
+func (sc *sideChannel) ReadVanillaTables(
+	cb func(table *systemcatalog.PgTable) error,
+) error {
+
+	return sc.newSession(time.Second*20, func(session *session) error {
+		return session.queryFunc(func(row pgx.Row) error {
+			var relId uint32
+			var schemaName, tableName string
+			var replicaIdentity pgtypes.ReplicaIdentity
+
+			if err := row.Scan(&relId, &schemaName, &tableName, &replicaIdentity); err != nil {
+				return errors.Wrap(err, 0)
+			}
+
+			return cb(
+				systemcatalog.NewPgTable(relId, schemaName, tableName, replicaIdentity),
+			)
+		}, queryReadVanillaTables)
+	})
+}
+
 func (sc *sideChannel) ReadHypertables(
 	cb func(hypertable *systemcatalog.Hypertable) error,
 ) error {
@@ -265,8 +286,24 @@ func (sc *sideChannel) ReadChunks(
 	})
 }
 
+func (sc *sideChannel) ReadVanillaTableSchema(
+	cb sidechannel.TableSchemaCallback,
+	pgTypeResolver func(oid uint32) (pgtypes.PgType, error),
+	tables ...*systemcatalog.PgTable,
+) error {
+
+	return sc.newSession(time.Second*10, func(session *session) error {
+		for _, table := range tables {
+			if err := sc.readVanillaTableSchema0(session, table, pgTypeResolver, cb); err != nil {
+				return errors.Wrap(err, 0)
+			}
+		}
+		return nil
+	})
+}
+
 func (sc *sideChannel) ReadHypertableSchema(
-	cb sidechannel.HypertableSchemaCallback, pgTypeResolver func(oid uint32) (pgtypes.PgType, error),
+	cb sidechannel.TableSchemaCallback, pgTypeResolver func(oid uint32) (pgtypes.PgType, error),
 	hypertables ...*systemcatalog.Hypertable,
 ) error {
 
@@ -688,10 +725,54 @@ func (sc *sideChannel) entitiesToTableList(
 	return strings.Join(canonicalEntityNames, ",")
 }
 
+func (sc *sideChannel) readVanillaTableSchema0(
+	session *session, table *systemcatalog.PgTable,
+	pgTypeResolver func(oid uint32) (pgtypes.PgType, error),
+	cb sidechannel.TableSchemaCallback,
+) error {
+
+	columns := make([]systemcatalog.Column, 0)
+	if err := session.queryFunc(func(row pgx.Row) error {
+		var name, sortOrder, nullsOrder string
+		var oid uint32
+		var modifiers int
+		var keySeq, maxCharLength *int
+		var nullable, primaryKey, isReplicaIdent bool
+		var defaultValue, indexName *string
+
+		if err := row.Scan(&name, &oid, &modifiers, &nullable, &primaryKey, &keySeq, &defaultValue,
+			&isReplicaIdent, &indexName, &sortOrder, &nullsOrder, &maxCharLength); err != nil {
+
+			return errors.Wrap(err, 0)
+		}
+
+		dataType, err := pgTypeResolver(oid)
+		if err != nil {
+			return errors.Wrap(err, 0)
+		}
+
+		column := systemcatalog.NewIndexColumn(
+			name, oid, modifiers, dataType, nullable, primaryKey, keySeq, defaultValue, isReplicaIdent, indexName,
+			systemcatalog.IndexSortOrder(sortOrder), systemcatalog.IndexNullsOrder(nullsOrder),
+			false, false, nil, nil, maxCharLength,
+		)
+		columns = append(columns, column)
+		return nil
+	}, queryReadVanillaTableSchema, table.SchemaName(), table.TableName()); err != nil {
+		return err
+	}
+
+	if err := cb(table, columns); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (sc *sideChannel) readHypertableSchema0(
 	session *session, hypertable *systemcatalog.Hypertable,
 	pgTypeResolver func(oid uint32) (pgtypes.PgType, error),
-	cb sidechannel.HypertableSchemaCallback,
+	cb sidechannel.TableSchemaCallback,
 ) error {
 
 	columns := make([]systemcatalog.Column, 0)
