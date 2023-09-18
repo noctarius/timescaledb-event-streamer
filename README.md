@@ -1,32 +1,43 @@
 # timescaledb-event-streamer
 
 `timescaledb-event-streamer` is a command line program to create a stream of
-CDC (Chance Data Capture) TimescaleDB Hypertable events from a PostgreSQL
-installation running the TimescaleDB extension.
+CDC (Chance Data Capture) TimescaleDB™ Hypertable and Continuous Aggregate
+events from a PostgreSQL installation running the TimescaleDB extension.
+In addition, it also supports capturing events of vanilla PostgreSQL tables.
 
 Change Data Capture is a technology where insert, update, delete and similar
 operations inside the database generate a corresponding set of events, which
 are commonly distributed through a messaging connector, such as Kafka, NATS,
 or similar.
 
-_**Attention:** This is not an official Timescale project, but just developed
-by a person who works for Timescale. This may change at some point in the future
-but it is not a given._
+_**Attention:** This is not an official Timescale™ project, but just developed
+by a person who used to work for Timescale._
+
+_**Trademark information:** Timescale (TIMESCALE) and TimescaleDB (TIMESCALEDB)
+are registered trademarks of Timescale, Inc._
 
 # Why not just Debezium?
 
-While [Debezium](https://debezium.io/documentation/reference/stable/connectors/postgresql.html)
+- Slightly outdated:<br/>
+_While [Debezium](https://debezium.io/documentation/reference/stable/connectors/postgresql.html)
 already supports PostgreSQL, the implementation doesn't really support the internals
 of TimescaleDB, most specifically the way data is chunked or partitioned. It is
 possible to use Debezium to capture change events of the actual chunks itself,
 but without the catalog handling. This means that every chunk would emit changes on
 its own, but with no reference to its parent hypertable. The `timescaledb-event-streamer`
 changes this, by handling the catalog updates and resolving the parent hypertable
-before emitting the events.
-
-Anyhow, the final goal is to provide an implementation for Debezium when the prototype
-(which may stay as its own standalone project) is fully working and every complication
-has been found and fixed.
+before emitting the events._
+- Current status:<br/>
+_While [Debezium](https://debezium.io/documentation/reference/stable/connectors/postgresql.html)
+already supports PostgreSQL and TimescaleDB, the implementation for TimescaleDB is very
+basic at this point may never catch up to this tool, which is much more specific. It is
+possible to use Debezium to catch changes on chunks (and the corresponding hypertable name
+will be provided in the Kafka header), but changes are still happening on chunk-individual
+streams. That said, it is still necessary to implement the handling / merging of chunks
+streams into their hypertable parent on the application side (behind Kafka). While there
+may be use-cases for this, the more general use-case would be to "ignore" that the data
+actually come from a hypertable, since, in most cases, this information won't mean
+anything to the target application._
 
 # Getting Started
 
@@ -254,21 +265,29 @@ duplicated (`test.some_value` becomes `TEST_SOME__VALUE`).
 
 ## PostgreSQL Configuration
 
-| Property                                |                                                                                                                                                                                                                                  Description | Data Type |                                 Default Value |
-|-----------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|----------:|----------------------------------------------:|
-| `postgresql.connection`                 |                                                                                                                                                                                   The connection string in one of the libpq-supported forms. |    string | host=localhost user=repl_user sslmode=disable |
-| `postgresql.password`                   |                                                                                                                                                                                                         The password to connect to the user. |    string |            Environment variable: `PGPASSWORD` |
-| `postgresql.snapshot.batchsize`         |                                                                                                                                                             The size of rows requested in a single batch iteration when snapshotting tables. |       int |                                          1000 |
-| `postgresql.snapshot.initial`           |                                                                                             The value describes the startup behavior for snapshotting. Valid values are `always`, `never`, `initial_only`. **NOT YET IMPLEMENTED: `always`** |    string |                                       `never` |
-| `postgresql.publication.name`           |                                                                                                                                                                                               The name of the publication inside PostgreSQL. |    string |                                  empty string |
-| `postgresql.publication.create`         |                                                                                                                                The value describes if a non-existent publication of the defined name should be automatically created or not. |   boolean |                                         false |
-| `postgresql.publication.autodrop`       |                                                                                                                              The value describes if a previously automatically created publication should be dropped when the program exits. |   boolean |                                          true | 
-| `postgresql.replicationslot.name`       |                                                                                                                               The name of the replication slot inside PostgreSQL. If not configured, a random 20 characters name is created. |    string |                            random string (20) |
-| `postgresql.replicationslot.create`     |                                                                                                                           The value describes if a non-existent replication slot of the defined name should be automatically created or not. |   boolean |                                          true |
-| `postgresql.replicationslot.autodrop`   |                                                                                                                         The value describes if a previously automatically created replication slot should be dropped when the program exits. |   boolean |                                          true |
-| `postgresql.transaction.window.enabled` |                                                            The value describes if a transaction window should be opened or not. Transaction windows are used to try to collect all WAL entries of the transaction before replicating it out. |   boolean |                                          true |
-| `postgresql.transaction.window.timeout` | The value describes the maximum time to wait for a transaction end (COMMIT) to be received. The value is the number of seconds. If the COMMIT isn't received inside the given time window, replication will start to prevent memory hogging. |       int |                                            60 |
-| `postgresql.transaction.window.maxsize` |                 The value describes the maximum number of cached entries to wait for a transaction end (COMMIT) to be received. If the COMMIT isn't received inside the given time window, replication will start to prevent memory hogging. |       int |                                         10000 |
+| Property                                |                                                                                                                                                                                                                                       Description |        Data Type |                                 Default Value |
+|-----------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|-----------------:|----------------------------------------------:|
+| `postgresql.connection`                 |                                                                                                                                                                                        The connection string in one of the libpq-supported forms. |           string | host=localhost user=repl_user sslmode=disable |
+| `postgresql.password`                   |                                                                                                                                                                                                              The password to connect to the user. |           string |            Environment variable: `PGPASSWORD` |
+| `postgresql.snapshot.batchsize`         |                                                                                                                                                                  The size of rows requested in a single batch iteration when snapshotting tables. |              int |                                          1000 |
+| `postgresql.snapshot.initial`           |                                                                                                  The value describes the startup behavior for snapshotting. Valid values are `always`, `never`, `initial_only`. **NOT YET IMPLEMENTED: `always`** |           string |                                       `never` |
+| `postgresql.publication.name`           |                                                                                                                                                                                                    The name of the publication inside PostgreSQL. |           string |                                  empty string |
+| `postgresql.publication.create`         |                                                                                                                                     The value describes if a non-existent publication of the defined name should be automatically created or not. |          boolean |                                         false |
+| `postgresql.publication.autodrop`       |                                                                                                                                   The value describes if a previously automatically created publication should be dropped when the program exits. |          boolean |                                          true | 
+| `postgresql.replicationslot.name`       |                                                                                                                                    The name of the replication slot inside PostgreSQL. If not configured, a random 20 characters name is created. |           string |                            random string (20) |
+| `postgresql.replicationslot.create`     |                                                                                                                                The value describes if a non-existent replication slot of the defined name should be automatically created or not. |          boolean |                                          true |
+| `postgresql.replicationslot.autodrop`   |                                                                                                                              The value describes if a previously automatically created replication slot should be dropped when the program exits. |          boolean |                                          true |
+| `postgresql.transaction.window.enabled` |                                                                 The value describes if a transaction window should be opened or not. Transaction windows are used to try to collect all WAL entries of the transaction before replicating it out. |          boolean |                                          true |
+| `postgresql.transaction.window.timeout` |      The value describes the maximum time to wait for a transaction end (COMMIT) to be received. The value is the number of seconds. If the COMMIT isn't received inside the given time window, replication will start to prevent memory hogging. |              int |                                            60 |
+| `postgresql.transaction.window.maxsize` |                      The value describes the maximum number of cached entries to wait for a transaction end (COMMIT) to be received. If the COMMIT isn't received inside the given time window, replication will start to prevent memory hogging. |              int |                                         10000 |
+| `postgresql.tables.includes`            | The includes definition defines which vanilla tables to include in the event stream generation. The available patters are explained in [Includes and Excludes Patterns](#includes-and-excludes-patterns). Excludes have precedence over includes. | array of strings |                                   empty array |
+| `postgresql.tables.excludes`            | The excludes definition defines which vanilla tables to exclude in the event stream generation. The available patters are explained in [Includes and Excludes Patterns](#includes-and-excludes-patterns). Excludes have precedence over includes. | array of strings |                                   empty array |
+| `postgresql.events.read`                |                                                                                                                                                                             The property defines if read events for vanilla tables are generated. |          boolean |                                          true |
+| `postgresql.events.insert`              |                                                                                                                                                                           The property defines if insert events for vanilla tables are generated. |          boolean |                                          true |
+| `postgresql.events.update`              |                                                                                                                                                                           The property defines if update events for vanilla tables are generated. |          boolean |                                          true |
+| `postgresql.events.delete`              |                                                                                                                                                                           The property defines if delete events for vanilla tables are generated. |          boolean |                                          true |
+| `postgresql.events.truncate`            |                                                                                                                                                                         The property defines if truncate events for vanilla tables are generated. |          boolean |                                          true |
+| `postgresql.events.message`             |                                                                                                                                                                         The property defines if logical replication message events are generated. |          boolean |                                         false |
 
 ## Topic Configuration
 
@@ -290,14 +309,14 @@ duplicated (`test.some_value` becomes `TEST_SOME__VALUE`).
 |------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|-----------------:|--------------:|
 | `timescaledb.hypertables.includes` | The includes definition defines which hypertables to include in the event stream generation. The available patters are explained in [Includes and Excludes Patterns](#includes-and-excludes-patterns). Excludes have precedence over includes. | array of strings |   empty array |
 | `timescaledb.hypertables.excludes` | The excludes definition defines which hypertables to exclude in the event stream generation. The available patters are explained in [Includes and Excludes Patterns](#includes-and-excludes-patterns). Excludes have precedence over includes. | array of strings |   empty array |
-| `timescaledb.events.read`          |                                                                                                                                                                                             The property defines if read events are generated. |          boolean |          true |
-| `timescaledb.events.insert`        |                                                                                                                                                                                           The property defines if insert events are generated. |          boolean |          true |
-| `timescaledb.events.update`        |                                                                                                                                                                                           The property defines if update events are generated. |          boolean |          true |
-| `timescaledb.events.delete`        |                                                                                                                                                                                           The property defines if delete events are generated. |          boolean |          true |
-| `timescaledb.events.truncate`      |                                                                                                                                                                                         The property defines if truncate events are generated. |          boolean |          true |
-| `timescaledb.events.message`       |                                                                                                                                                                      The property defines if logical replication message events are generated. |          boolean |         false |
-| `timescaledb.events.compression`   |                                                                                                                                                                                      The property defines if compression events are generated. |          boolean |         false |
-| `timescaledb.events.decompression` |                                                                                                                                                                                    The property defines if decompression events are generated. |          boolean |         false |
+| `timescaledb.events.read`          |                                                                                                                                                                             The property defines if read events for hypertables are generated. |          boolean |          true |
+| `timescaledb.events.insert`        |                                                                                                                                                                           The property defines if insert events for hypertables are generated. |          boolean |          true |
+| `timescaledb.events.update`        |                                                                                                                                                                           The property defines if update events for hypertables are generated. |          boolean |          true |
+| `timescaledb.events.delete`        |                                                                                                                                                                           The property defines if delete events for hypertables are generated. |          boolean |          true |
+| `timescaledb.events.truncate`      |                                                                                                                                                                         The property defines if truncate events for hypertables are generated. |          boolean |          true |
+| `timescaledb.events.compression`   |                                                                                                                                                                      The property defines if compression events for hypertables are generated. |          boolean |         false |
+| `timescaledb.events.decompression` |                                                                                                                                                                    The property defines if decompression events for hypertables are generated. |          boolean |         false |
+| `timescaledb.events.message`       |                                                                                             The property defines if logical replication message events are generated. This property is **deprecated**, please see `postgresql.events.message`. |          boolean |         false |
 
 ## Sink Configuration
 
