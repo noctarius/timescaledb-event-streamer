@@ -18,6 +18,7 @@
 package statestorage
 
 import (
+	"bytes"
 	"encoding/binary"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/samber/lo"
@@ -27,8 +28,10 @@ import (
 type Offset struct {
 	Timestamp      time.Time   `json:"timestamp"`
 	Snapshot       bool        `json:"snapshot"`
+	SnapshotDone   bool        `json:"snapshot_done"`
 	SnapshotName   *string     `json:"snapshot_name,omitempty"`
 	SnapshotOffset int         `json:"snapshot_offset"`
+	SnapshotKeyset []byte      `json:"snapshot_keyset"`
 	LSN            pgtypes.LSN `json:"lsn"`
 }
 
@@ -40,20 +43,42 @@ func (o *Offset) UnmarshalBinary(
 	o.Snapshot = data[8] == 1
 	o.SnapshotOffset = int(binary.BigEndian.Uint32(data[9:]))
 	o.LSN = pgtypes.LSN(binary.BigEndian.Uint64(data[13:]))
-	if o.Snapshot {
-		snapshotNameLength := int(data[21])
+
+	offset := 21
+	hasSnapshotName := false
+	if data[offset] == 1 {
+		hasSnapshotName = true
+	}
+	offset++
+	if hasSnapshotName {
+		snapshotNameLength := int(data[offset])
+		offset++
 		if snapshotNameLength > 0 {
-			o.SnapshotName = lo.ToPtr(string(data[22 : 22+snapshotNameLength]))
+			o.SnapshotName = lo.ToPtr(string(data[offset : offset+snapshotNameLength]))
+			offset += snapshotNameLength
 		}
+	}
+	o.SnapshotDone = data[offset] == 1
+	offset++
+	if len(data) >= offset+1 {
+		length := binary.BigEndian.Uint32(data[offset:])
+		offset += 4
+		o.SnapshotKeyset = make([]byte, length)
+		copy(o.SnapshotKeyset, data[offset:])
+		offset += int(length)
 	}
 	return nil
 }
 
 func (o *Offset) MarshalBinary() ([]byte, error) {
-	size := 21
+	size := 23
 	if o.SnapshotName != nil {
 		size++
 		size += len([]byte(*o.SnapshotName))
+	}
+	if o.SnapshotKeyset != nil && len(o.SnapshotKeyset) > 0 {
+		size += 4 // Add byte array length
+		size += len(o.SnapshotKeyset)
 	}
 	data := make([]byte, size)
 	binary.BigEndian.PutUint64(data[:8], uint64(o.Timestamp.UnixNano()))
@@ -63,11 +88,32 @@ func (o *Offset) MarshalBinary() ([]byte, error) {
 	}
 	binary.BigEndian.PutUint32(data[9:], uint32(o.SnapshotOffset))
 	binary.BigEndian.PutUint64(data[13:], uint64(o.LSN))
+
+	offset := 21
+	data[offset] = 1
+	if o.SnapshotName == nil {
+		data[offset] = 0
+	}
+	offset++
 	if o.SnapshotName != nil {
 		snapshotName := []byte(*o.SnapshotName)
 		snapshotNameLength := len(snapshotName)
-		data[21] = byte(snapshotNameLength)
-		copy(data[22:], snapshotName)
+		data[offset] = byte(snapshotNameLength)
+		offset++
+		copy(data[offset:], snapshotName)
+		offset += len(snapshotName)
+	}
+	data[offset] = 0
+	if o.SnapshotDone {
+		data[offset] = 1
+	}
+	offset++
+	if o.SnapshotKeyset != nil && len(o.SnapshotKeyset) > 0 {
+		length := len(o.SnapshotKeyset)
+		binary.BigEndian.PutUint32(data[offset:], uint32(length))
+		offset += 4
+		copy(data[offset:], o.SnapshotKeyset)
+		offset += length
 	}
 	return data, nil
 }
@@ -84,6 +130,10 @@ func (o *Offset) Equal(
 		return false
 	}
 
+	if o.SnapshotDone != other.SnapshotDone {
+		return false
+	}
+
 	if o.SnapshotOffset != other.SnapshotOffset {
 		return false
 	}
@@ -91,6 +141,14 @@ func (o *Offset) Equal(
 	if (o.SnapshotName == nil && other.SnapshotName != nil) ||
 		(o.SnapshotName != nil && other.SnapshotName == nil) ||
 		(o.SnapshotName != nil && other.SnapshotName != nil && *o.SnapshotName != *other.SnapshotName) {
+		return false
+	}
+
+	if (o.SnapshotKeyset == nil && other.SnapshotKeyset != nil) ||
+		(o.SnapshotKeyset != nil && other.SnapshotKeyset == nil) ||
+		(o.SnapshotKeyset != nil && other.SnapshotKeyset != nil &&
+			(len(o.SnapshotKeyset) != len(other.SnapshotKeyset) ||
+				!bytes.Equal(o.SnapshotKeyset, other.SnapshotKeyset))) {
 		return false
 	}
 

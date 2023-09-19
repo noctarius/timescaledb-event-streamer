@@ -179,9 +179,9 @@ func (s *Snapshotter) StartSnapshotter() {
 		go func(partition int) {
 			for {
 				select {
-				case task := <-s.snapshotQueues[partition]:
-					if err := s.snapshot(task, partition); err != nil {
-						s.logger.Fatalf("snapshotting of task '%+v' failed: %+v", task, err)
+				case t := <-s.snapshotQueues[partition]:
+					if err := s.snapshot(t, partition); err != nil {
+						s.logger.Fatalf("snapshotting of task '%+v' failed: %+v", t, err)
 					}
 				case <-s.shutdownAwaiter.AwaitShutdownChan(uint(partition)):
 					goto shutdown
