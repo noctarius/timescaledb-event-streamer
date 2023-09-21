@@ -27,7 +27,7 @@ import (
 // Hypertable represents a TimescaleDB hypertable definition
 // in the system catalog
 type Hypertable struct {
-	*BaseTable
+	*baseTable
 	id                     int32
 	associatedSchemaName   string
 	associatedTablePrefix  string
@@ -47,7 +47,7 @@ func NewHypertable(
 ) *Hypertable {
 
 	return &Hypertable{
-		BaseTable:              newBaseTable(schemaName, tableName, replicaIdentity),
+		baseTable:              newBaseTable(schemaName, tableName, replicaIdentity),
 		id:                     id,
 		associatedSchemaName:   associatedSchemaName,
 		associatedTablePrefix:  associatedTablePrefix,
@@ -127,7 +127,7 @@ func (h *Hypertable) IsContinuousAggregate() bool {
 // A snapshot index is either the (composite) primary key or
 // a "virtual" index built from the hypertable's dimensions
 func (h *Hypertable) KeyIndexColumns() []schema.ColumnAlike {
-	index, present := (Columns(h.columns)).SnapshotIndex()
+	index, present := (h.Columns()).SnapshotIndex()
 	if !present {
 		return nil
 	}
@@ -151,8 +151,8 @@ func (h *Hypertable) String() string {
 	builder := strings.Builder{}
 	builder.WriteString("{")
 	builder.WriteString(fmt.Sprintf("id:%d ", h.id))
-	builder.WriteString(fmt.Sprintf("schemaName:%s ", h.schemaName))
-	builder.WriteString(fmt.Sprintf("tableName:%s ", h.tableName))
+	builder.WriteString(fmt.Sprintf("schemaName:%s ", h.SchemaName()))
+	builder.WriteString(fmt.Sprintf("tableName:%s ", h.TableName()))
 	builder.WriteString(fmt.Sprintf("associatedSchemaName:%s ", h.associatedSchemaName))
 	builder.WriteString(fmt.Sprintf("associatedTablePrefix:%s ", h.associatedTablePrefix))
 	if h.compressedHypertableId == nil {
@@ -161,7 +161,7 @@ func (h *Hypertable) String() string {
 		builder.WriteString(fmt.Sprintf("compressedHypertableId:%d ", *h.compressedHypertableId))
 	}
 	builder.WriteString(fmt.Sprintf("compressionState:%d ", h.compressionState))
-	builder.WriteString(fmt.Sprintf("replicaIdentity:%s", h.replicaIdentity))
+	builder.WriteString(fmt.Sprintf("replicaIdentity:%s", h.ReplicaIdentity()))
 	if h.viewSchema == nil {
 		builder.WriteString("viewSchema:<nil> ")
 	} else {
@@ -173,9 +173,9 @@ func (h *Hypertable) String() string {
 		builder.WriteString(fmt.Sprintf("viewName:%s ", *h.viewName))
 	}
 	builder.WriteString("columns:[")
-	for i, column := range h.columns {
+	for i, column := range h.Columns() {
 		builder.WriteString(column.String())
-		if i < len(h.columns)-1 {
+		if i < len(h.Columns())-1 {
 			builder.WriteString(" ")
 		}
 	}
@@ -194,7 +194,7 @@ func (h *Hypertable) ApplyChanges(
 ) (applied *Hypertable, changes map[string]string) {
 
 	h2 := &Hypertable{
-		BaseTable:              h.BaseTable.ApplyChanges(schemaName, tableName, replicaIdentity),
+		baseTable:              h.baseTable.ApplyChanges(schemaName, tableName, replicaIdentity),
 		id:                     h.id,
 		associatedSchemaName:   associatedSchemaName,
 		associatedTablePrefix:  associatedTablePrefix,
@@ -213,11 +213,11 @@ func (h *Hypertable) differences(
 	if h.id != new.id {
 		differences["id"] = fmt.Sprintf("%d=>%d", h.id, new.id)
 	}
-	if h.schemaName != new.schemaName {
-		differences["schemaName"] = fmt.Sprintf("%s=>%s", h.schemaName, new.schemaName)
+	if h.SchemaName() != new.SchemaName() {
+		differences["schemaName"] = fmt.Sprintf("%s=>%s", h.SchemaName(), new.SchemaName())
 	}
-	if h.tableName != new.tableName {
-		differences["hypertableName"] = fmt.Sprintf("%s=>%s", h.tableName, new.tableName)
+	if h.TableName() != new.TableName() {
+		differences["hypertableName"] = fmt.Sprintf("%s=>%s", h.TableName(), new.TableName())
 	}
 	if h.associatedSchemaName != new.associatedSchemaName {
 		differences["associatedSchemaName"] = fmt.Sprintf("%s=>%s", h.associatedSchemaName, new.associatedSchemaName)
@@ -240,8 +240,8 @@ func (h *Hypertable) differences(
 	if h.compressionState != new.compressionState {
 		differences["compressionState"] = fmt.Sprintf("%d=>%d", h.compressionState, new.compressionState)
 	}
-	if h.replicaIdentity != new.replicaIdentity {
-		differences["replicaIdentity"] = fmt.Sprintf("%s=>%s", h.replicaIdentity, new.replicaIdentity)
+	if h.ReplicaIdentity() != new.ReplicaIdentity() {
+		differences["replicaIdentity"] = fmt.Sprintf("%s=>%s", h.ReplicaIdentity(), new.ReplicaIdentity())
 	}
 	return differences
 }

@@ -395,9 +395,9 @@ func (sc *systemCatalog) snapshotChunkWithXld(
 
 	if hypertable, present := sc.FindHypertableById(chunk.HypertableId()); present {
 		return sc.snapshotter.EnqueueSnapshot(snapshotting.SnapshotTask{
-			Hypertable: hypertable,
-			Chunk:      chunk,
-			Xld:        xld,
+			Table: hypertable,
+			Chunk: chunk,
+			Xld:   xld,
 		})
 	}
 	return nil
@@ -408,7 +408,7 @@ func (sc *systemCatalog) snapshotHypertable(
 ) error {
 
 	return sc.snapshotter.EnqueueSnapshot(snapshotting.SnapshotTask{
-		Hypertable:   hypertable,
+		Table:        hypertable,
 		SnapshotName: &snapshotName,
 	})
 }
@@ -568,8 +568,8 @@ func (s *snapshottingEventHandler) OnChunkSnapshotFinishedEvent(
 	return nil
 }
 
-func (s *snapshottingEventHandler) OnHypertableSnapshotStartedEvent(
-	snapshotName string, hypertable *systemcatalog.Hypertable,
+func (s *snapshottingEventHandler) OnTableSnapshotStartedEvent(
+	snapshotName string, table systemcatalog.BaseTable,
 ) error {
 
 	stateManager := s.systemCatalog.stateStorageManager
@@ -579,39 +579,39 @@ func (s *snapshottingEventHandler) OnHypertableSnapshotStartedEvent(
 	}
 
 	if snapshotContext != nil {
-		hypertableWatermark, present := snapshotContext.GetWatermark(hypertable)
+		hypertableWatermark, present := snapshotContext.GetWatermark(table)
 		if !present {
-			s.systemCatalog.logger.Infof("Start snapshotting of hypertable '%s'", hypertable.CanonicalName())
+			s.systemCatalog.logger.Infof("Start snapshotting of hypertable '%s'", table.CanonicalName())
 		} else if hypertableWatermark.Complete() {
 			s.systemCatalog.logger.Infof(
-				"Snapshotting for hypertable '%s' already completed, skipping", hypertable.CanonicalName(),
+				"Snapshotting for hypertable '%s' already completed, skipping", table.CanonicalName(),
 			)
 			return s.scheduleNextSnapshotHypertableOrFinish(snapshotName)
 		} else {
-			s.systemCatalog.logger.Infof("Resuming snapshotting of hypertable '%s'", hypertable.CanonicalName())
+			s.systemCatalog.logger.Infof("Resuming snapshotting of hypertable '%s'", table.CanonicalName())
 		}
 	} else {
-		s.systemCatalog.logger.Infof("Start snapshotting of hypertable '%s'", hypertable.CanonicalName())
+		s.systemCatalog.logger.Infof("Start snapshotting of hypertable '%s'", table.CanonicalName())
 	}
 
-	if err := s.systemCatalog.snapshotHypertable(snapshotName, hypertable); err != nil {
+	if err := s.systemCatalog.snapshotHypertable(snapshotName, table.(*systemcatalog.Hypertable)); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (s *snapshottingEventHandler) OnHypertableSnapshotFinishedEvent(
-	snapshotName string, hypertable *systemcatalog.Hypertable,
+func (s *snapshottingEventHandler) OnTableSnapshotFinishedEvent(
+	snapshotName string, table systemcatalog.BaseTable, lsn pgtypes.LSN,
 ) error {
 
 	stateManager := s.systemCatalog.stateStorageManager
 	if err := stateManager.SnapshotContextTransaction(
 		snapshotName, false,
 		func(snapshotContext *watermark.SnapshotContext) error {
-			s.handledHypertables[hypertable.CanonicalName()] = true
+			s.handledHypertables[table.CanonicalName()] = true
 
-			hypertableWatermark, _ := snapshotContext.GetOrCreateWatermark(hypertable)
+			hypertableWatermark, _ := snapshotContext.GetOrCreateWatermark(table)
 			hypertableWatermark.MarkComplete()
 
 			return nil
@@ -620,7 +620,7 @@ func (s *snapshottingEventHandler) OnHypertableSnapshotFinishedEvent(
 		return errors.WrapPrefix(err, "illegal snapshot context state after snapshotting hypertable", 0)
 	}
 
-	s.systemCatalog.logger.Infof("Finished snapshotting for hypertable '%s'", hypertable.CanonicalName())
+	s.systemCatalog.logger.Infof("Finished snapshotting for hypertable '%s'", table.CanonicalName())
 	return s.scheduleNextSnapshotHypertableOrFinish(snapshotName)
 }
 
@@ -649,7 +649,7 @@ func (s *snapshottingEventHandler) OnSnapshottingStartedEvent(
 
 	return s.taskManager.EnqueueTask(func(notificator task.Notificator) {
 		notificator.NotifySnapshottingEventHandler(func(handler eventhandlers.SnapshottingEventHandler) error {
-			return handler.OnHypertableSnapshotStartedEvent(snapshotName, hypertable)
+			return handler.OnTableSnapshotStartedEvent(snapshotName, hypertable)
 		})
 	})
 }
@@ -677,7 +677,7 @@ func (s *snapshottingEventHandler) scheduleNextSnapshotHypertableOrFinish(
 	if nextHypertable := s.nextSnapshotHypertable(); nextHypertable != nil {
 		return s.taskManager.EnqueueTask(func(notificator task.Notificator) {
 			notificator.NotifySnapshottingEventHandler(func(handler eventhandlers.SnapshottingEventHandler) error {
-				return handler.OnHypertableSnapshotStartedEvent(snapshotName, nextHypertable)
+				return handler.OnTableSnapshotStartedEvent(snapshotName, nextHypertable)
 			})
 		})
 	}

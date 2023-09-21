@@ -297,15 +297,15 @@ func (s *snapshottingEventHandler) OnChunkSnapshotFinishedEvent(
 	return nil
 }
 
-func (s *snapshottingEventHandler) OnHypertableSnapshotStartedEvent(
-	_ string, _ *systemcatalog.Hypertable,
+func (s *snapshottingEventHandler) OnTableSnapshotStartedEvent(
+	_ string, _ systemcatalog.BaseTable,
 ) error {
 
 	return nil
 }
 
-func (s *snapshottingEventHandler) OnHypertableSnapshotFinishedEvent(
-	_ string, _ *systemcatalog.Hypertable,
+func (s *snapshottingEventHandler) OnTableSnapshotFinishedEvent(
+	_ string, _ systemcatalog.BaseTable, _ pgtypes.LSN,
 ) error {
 
 	return nil

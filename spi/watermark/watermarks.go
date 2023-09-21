@@ -43,10 +43,10 @@ func NewSnapshotContext(
 }
 
 func (sc *SnapshotContext) GetWatermark(
-	hypertable *systemcatalog.Hypertable,
+	table systemcatalog.BaseTable,
 ) (watermark *Watermark, present bool) {
 
-	w, present := sc.watermarks[hypertable.CanonicalName()]
+	w, present := sc.watermarks[table.CanonicalName()]
 	if !present {
 		return nil, false
 	}
@@ -54,13 +54,13 @@ func (sc *SnapshotContext) GetWatermark(
 }
 
 func (sc *SnapshotContext) GetOrCreateWatermark(
-	hypertable *systemcatalog.Hypertable,
+	table systemcatalog.BaseTable,
 ) (watermark *Watermark, created bool) {
 
-	w, present := sc.watermarks[hypertable.CanonicalName()]
+	w, present := sc.watermarks[table.CanonicalName()]
 	if !present {
-		w = newWatermark(hypertable)
-		sc.watermarks[hypertable.CanonicalName()] = w
+		w = newWatermark(table)
+		sc.watermarks[table.CanonicalName()] = w
 	}
 	return w, !present
 }
@@ -261,11 +261,11 @@ type Watermark struct {
 }
 
 func newWatermark(
-	hypertable *systemcatalog.Hypertable,
+	table systemcatalog.BaseTable,
 ) *Watermark {
 
 	dataTypes := make(map[string]uint32)
-	if index, ok := hypertable.Columns().SnapshotIndex(); ok {
+	if index, ok := table.Columns().SnapshotIndex(); ok {
 		for _, column := range index.Columns() {
 			dataTypes[column.Name()] = column.DataType()
 		}
