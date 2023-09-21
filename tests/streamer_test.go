@@ -619,7 +619,7 @@ func (its *IntegrationTestSuite) TestCompressionEvents() {
 
 			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
 			ctx.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
-				config.TimescaleDB.Events.Compression = true
+				config.TimescaleDB.Events.Compression = lo.ToPtr(true)
 			})
 			return nil
 		}),
@@ -740,8 +740,8 @@ func (its *IntegrationTestSuite) TestCompressionPartialInsertEvents() {
 
 			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
 			ctx.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
-				config.TimescaleDB.Events.Compression = true
-				config.TimescaleDB.Events.Decompression = true
+				config.TimescaleDB.Events.Compression = lo.ToPtr(true)
+				config.TimescaleDB.Events.Decompression = lo.ToPtr(true)
 			})
 			return nil
 		}),
@@ -862,8 +862,8 @@ func (its *IntegrationTestSuite) TestDecompressionEvents() {
 
 			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
 			ctx.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
-				config.TimescaleDB.Events.Compression = true
-				config.TimescaleDB.Events.Decompression = true
+				config.TimescaleDB.Events.Compression = lo.ToPtr(true)
+				config.TimescaleDB.Events.Decompression = lo.ToPtr(true)
 			})
 			return nil
 		}),
@@ -984,8 +984,8 @@ func (its *IntegrationTestSuite) TestCompression_Decompression_SingleTransaction
 
 			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
 			ctx.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
-				config.TimescaleDB.Events.Compression = true
-				config.TimescaleDB.Events.Decompression = true
+				config.TimescaleDB.Events.Compression = lo.ToPtr(true)
+				config.TimescaleDB.Events.Decompression = lo.ToPtr(true)
 			})
 			return nil
 		}),

@@ -132,7 +132,7 @@ type TransactionWindowConfig struct {
 
 type SinkConfig struct {
 	Type       SinkType                     `toml:"type" yaml:"type"`
-	Tombstone  bool                         `toml:"tombstone" yaml:"tombstone"`
+	Tombstone  *bool                        `toml:"tombstone" yaml:"tombstone"`
 	Filters    map[string]EventFilterConfig `toml:"filters" yaml:"filters"`
 	Nats       NatsConfig                   `toml:"nats" yaml:"nats"`
 	Kafka      KafkaConfig                  `toml:"kafka" yaml:"kafka"`
@@ -181,7 +181,7 @@ type NatsConfig struct {
 }
 
 type KafkaSaslConfig struct {
-	Enabled   bool                 `toml:"enabled" yaml:"enabled"`
+	Enabled   *bool                `toml:"enabled" yaml:"enabled"`
 	User      string               `toml:"user" yaml:"user"`
 	Password  string               `toml:"password" yaml:"password"`
 	Mechanism sarama.SASLMechanism `toml:"mechanism" yaml:"mechanism"`
@@ -189,7 +189,7 @@ type KafkaSaslConfig struct {
 
 type KafkaConfig struct {
 	Brokers    []string        `toml:"brokers" yaml:"brokers"`
-	Idempotent bool            `toml:"idempotent" yaml:"idempotent"`
+	Idempotent *bool           `toml:"idempotent" yaml:"idempotent"`
 	Sasl       KafkaSaslConfig `toml:"sasl" yaml:"sasl"`
 	TLS        TLSConfig       `toml:"tls" yaml:"tls"`
 }
@@ -229,7 +229,7 @@ type TopicNamingStrategyConfig struct {
 
 type TLSConfig struct {
 	Enabled    bool               `toml:"enabled" yaml:"enabled"`
-	SkipVerify bool               `toml:"skipverify" yaml:"skipVerify"`
+	SkipVerify *bool              `toml:"skipverify" yaml:"skipVerify"`
 	ClientAuth tls.ClientAuthType `toml:"clientauth" yaml:"clientAuth"`
 }
 
@@ -239,23 +239,23 @@ type IncludedTablesConfig struct {
 }
 
 type TimescaleEventsConfig struct {
-	Read          bool `toml:"read" yaml:"read"`
-	Insert        bool `toml:"insert" yaml:"insert"`
-	Update        bool `toml:"update" yaml:"update"`
-	Delete        bool `toml:"delete" yaml:"delete"`
-	Truncate      bool `toml:"truncate" yaml:"truncate"`
-	Message       bool `toml:"message" yaml:"message"`
-	Compression   bool `toml:"compression" yaml:"compression"`
-	Decompression bool `toml:"decompression" yaml:"decompression"`
+	Read          *bool `toml:"read" yaml:"read"`
+	Insert        *bool `toml:"insert" yaml:"insert"`
+	Update        *bool `toml:"update" yaml:"update"`
+	Delete        *bool `toml:"delete" yaml:"delete"`
+	Truncate      *bool `toml:"truncate" yaml:"truncate"`
+	Message       *bool `toml:"message" yaml:"message"` // deprecated
+	Compression   *bool `toml:"compression" yaml:"compression"`
+	Decompression *bool `toml:"decompression" yaml:"decompression"`
 }
 
 type PostgresqlEventsConfig struct {
-	Read     bool `toml:"read" yaml:"read"`
-	Insert   bool `toml:"insert" yaml:"insert"`
-	Update   bool `toml:"update" yaml:"update"`
-	Delete   bool `toml:"delete" yaml:"delete"`
-	Truncate bool `toml:"truncate" yaml:"truncate"`
-	Message  bool `toml:"message" yaml:"message"`
+	Read     *bool `toml:"read" yaml:"read"`
+	Insert   *bool `toml:"insert" yaml:"insert"`
+	Update   *bool `toml:"update" yaml:"update"`
+	Delete   *bool `toml:"delete" yaml:"delete"`
+	Truncate *bool `toml:"truncate" yaml:"truncate"`
+	Message  *bool `toml:"message" yaml:"message"`
 }
 
 type AwsKinesisConfig struct {
