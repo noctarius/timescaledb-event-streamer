@@ -394,3 +394,117 @@ func Test_Config_Tags_Match_Between_Yaml_Toml(
 
 	recursiveCheck(configValue, "")
 }
+
+func Test_Config_Events_Values(
+	t *testing.T,
+) {
+
+	c := &Config{}
+	c.TimescaleDB.Events.Read = lo.ToPtr(false)
+	c.TimescaleDB.Events.Insert = lo.ToPtr(false)
+	c.TimescaleDB.Events.Update = lo.ToPtr(false)
+	c.TimescaleDB.Events.Delete = lo.ToPtr(false)
+	c.TimescaleDB.Events.Truncate = lo.ToPtr(false)
+	c.TimescaleDB.Events.Message = lo.ToPtr(false)
+	c.TimescaleDB.Events.Compression = lo.ToPtr(false)
+	c.TimescaleDB.Events.Decompression = lo.ToPtr(false)
+
+	c.PostgreSQL.Events.Read = lo.ToPtr(false)
+	c.PostgreSQL.Events.Insert = lo.ToPtr(false)
+	c.PostgreSQL.Events.Update = lo.ToPtr(false)
+	c.PostgreSQL.Events.Delete = lo.ToPtr(false)
+	c.PostgreSQL.Events.Truncate = lo.ToPtr(false)
+	c.PostgreSQL.Events.Message = lo.ToPtr(false)
+
+	assert.False(t, GetOrDefault(
+		c, PropertyHypertableEventsRead, true,
+	))
+	assert.False(t, GetOrDefault(
+		c, PropertyHypertableEventsInsert, true,
+	))
+	assert.False(t, GetOrDefault(
+		c, PropertyHypertableEventsUpdate, true,
+	))
+	assert.False(t, GetOrDefault(
+		c, PropertyHypertableEventsDelete, true,
+	))
+	assert.False(t, GetOrDefault(
+		c, PropertyHypertableEventsTruncate, true,
+	))
+	assert.False(t, GetOrDefault(
+		c, PropertyHypertableEventsCompression, true,
+	))
+	assert.False(t, GetOrDefault(
+		c, PropertyHypertableEventsDecompression, true,
+	))
+
+	assert.False(t, GetOrDefault(
+		c, PropertyPostgresqlEventsRead, true,
+	))
+	assert.False(t, GetOrDefault(
+		c, PropertyPostgresqlEventsInsert, true,
+	))
+	assert.False(t, GetOrDefault(
+		c, PropertyPostgresqlEventsUpdate, true,
+	))
+	assert.False(t, GetOrDefault(
+		c, PropertyPostgresqlEventsDelete, true,
+	))
+	assert.False(t, GetOrDefault(
+		c, PropertyPostgresqlEventsTruncate, true,
+	))
+
+	c.TimescaleDB.Events.Read = lo.ToPtr(true)
+	c.TimescaleDB.Events.Insert = lo.ToPtr(true)
+	c.TimescaleDB.Events.Update = lo.ToPtr(true)
+	c.TimescaleDB.Events.Delete = lo.ToPtr(true)
+	c.TimescaleDB.Events.Truncate = lo.ToPtr(true)
+	c.TimescaleDB.Events.Message = lo.ToPtr(true)
+	c.TimescaleDB.Events.Compression = lo.ToPtr(true)
+	c.TimescaleDB.Events.Decompression = lo.ToPtr(true)
+
+	c.PostgreSQL.Events.Read = lo.ToPtr(true)
+	c.PostgreSQL.Events.Insert = lo.ToPtr(true)
+	c.PostgreSQL.Events.Update = lo.ToPtr(true)
+	c.PostgreSQL.Events.Delete = lo.ToPtr(true)
+	c.PostgreSQL.Events.Truncate = lo.ToPtr(true)
+	c.PostgreSQL.Events.Message = lo.ToPtr(true)
+
+	assert.True(t, GetOrDefault(
+		c, PropertyHypertableEventsRead, false,
+	))
+	assert.True(t, GetOrDefault(
+		c, PropertyHypertableEventsInsert, false,
+	))
+	assert.True(t, GetOrDefault(
+		c, PropertyHypertableEventsUpdate, false,
+	))
+	assert.True(t, GetOrDefault(
+		c, PropertyHypertableEventsDelete, false,
+	))
+	assert.True(t, GetOrDefault(
+		c, PropertyHypertableEventsTruncate, false,
+	))
+	assert.True(t, GetOrDefault(
+		c, PropertyHypertableEventsCompression, false,
+	))
+	assert.True(t, GetOrDefault(
+		c, PropertyHypertableEventsDecompression, false,
+	))
+
+	assert.True(t, GetOrDefault(
+		c, PropertyPostgresqlEventsRead, false,
+	))
+	assert.True(t, GetOrDefault(
+		c, PropertyPostgresqlEventsInsert, false,
+	))
+	assert.True(t, GetOrDefault(
+		c, PropertyPostgresqlEventsUpdate, false,
+	))
+	assert.True(t, GetOrDefault(
+		c, PropertyPostgresqlEventsDelete, false,
+	))
+	assert.True(t, GetOrDefault(
+		c, PropertyPostgresqlEventsTruncate, false,
+	))
+}

@@ -239,23 +239,23 @@ type IncludedTablesConfig struct {
 }
 
 type TimescaleEventsConfig struct {
-	Read          bool `toml:"read" yaml:"read"`
-	Insert        bool `toml:"insert" yaml:"insert"`
-	Update        bool `toml:"update" yaml:"update"`
-	Delete        bool `toml:"delete" yaml:"delete"`
-	Truncate      bool `toml:"truncate" yaml:"truncate"`
-	Message       bool `toml:"message" yaml:"message"`
-	Compression   bool `toml:"compression" yaml:"compression"`
-	Decompression bool `toml:"decompression" yaml:"decompression"`
+	Read          *bool `toml:"read" yaml:"read"`
+	Insert        *bool `toml:"insert" yaml:"insert"`
+	Update        *bool `toml:"update" yaml:"update"`
+	Delete        *bool `toml:"delete" yaml:"delete"`
+	Truncate      *bool `toml:"truncate" yaml:"truncate"`
+	Message       *bool `toml:"message" yaml:"message"` // deprecated
+	Compression   *bool `toml:"compression" yaml:"compression"`
+	Decompression *bool `toml:"decompression" yaml:"decompression"`
 }
 
 type PostgresqlEventsConfig struct {
-	Read     bool `toml:"read" yaml:"read"`
-	Insert   bool `toml:"insert" yaml:"insert"`
-	Update   bool `toml:"update" yaml:"update"`
-	Delete   bool `toml:"delete" yaml:"delete"`
-	Truncate bool `toml:"truncate" yaml:"truncate"`
-	Message  bool `toml:"message" yaml:"message"`
+	Read     *bool `toml:"read" yaml:"read"`
+	Insert   *bool `toml:"insert" yaml:"insert"`
+	Update   *bool `toml:"update" yaml:"update"`
+	Delete   *bool `toml:"delete" yaml:"delete"`
+	Truncate *bool `toml:"truncate" yaml:"truncate"`
+	Message  *bool `toml:"message" yaml:"message"`
 }
 
 type AwsKinesisConfig struct {
