@@ -117,7 +117,7 @@ func (kits *KafkaIntegrationTestSuite) Test_Kafka_Sink() {
 				config.Sink.Type = spiconfig.Kafka
 				config.Sink.Kafka = spiconfig.KafkaConfig{
 					Brokers:    brokers,
-					Idempotent: false,
+					Idempotent: lo.ToPtr(false),
 				}
 			})
 			return nil
