@@ -358,17 +358,17 @@ NATS specific configuration, which is only used if `sink.type` is set to `nats`.
 
 Kafka specific configuration, which is only used if `sink.type` is set to `kafka`.
 
-| Property                    |                                                                                                    Description |       Data Type | Default Value |
-|-----------------------------|---------------------------------------------------------------------------------------------------------------:|----------------:|--------------:|
-| `sink.kafka.brokers`        |                                                                                         The Kafka broker urls. | array of string |   empty array |
-| `sink.kafka.idempotent`     |                                                        The property defines if message handling is idempotent. |         boolean |         false |
-| `sink.kafka.sasl.enabled`   |                                                         The property defines if SASL authorization is enabled. |         boolean |         false | 
-| `sink.kafka.sasl.user`      |                                                             The user value to be used with SASL authorization. |          string |  empty string | 
-| `sink.kafka.sasl.password`  |                                                         The password value to be used with SASL authorization. |          string |  empty string | 
-| `sink.kafka.sasl.mechanism` |                                    The mechanism to be used with SASL authorization. Valid values are `PLAIN`. |          string |       `PLAIN` | 
-| `sink.kafka.tls.enabled`    |                                                                        The property defines if TLS is enabled. |         boolean |         false | 
-| `sink.kafka.tls.skipverify` |                                           The property defines if verification of TLS certificates is skipped. |         boolean |         false | 
-| `sink.kafka.tls.clientauth` | The property defines the client auth value (as defined in [Go](https://pkg.go.dev/crypto/tls#ClientAuthType)). |         boolean |         false | 
+| Property                    |                                                                                                    Description |       Data Type |    Default Value |
+|-----------------------------|---------------------------------------------------------------------------------------------------------------:|----------------:|-----------------:|
+| `sink.kafka.brokers`        |                                                                                         The Kafka broker urls. | array of string |      empty array |
+| `sink.kafka.idempotent`     |                                                        The property defines if message handling is idempotent. |         boolean |            false |
+| `sink.kafka.sasl.enabled`   |                                                         The property defines if SASL authorization is enabled. |         boolean |            false | 
+| `sink.kafka.sasl.user`      |                                                             The user value to be used with SASL authorization. |          string |     empty string | 
+| `sink.kafka.sasl.password`  |                                                         The password value to be used with SASL authorization. |          string |     empty string | 
+| `sink.kafka.sasl.mechanism` |                                    The mechanism to be used with SASL authorization. Valid values are `PLAIN`. |          string |          `PLAIN` | 
+| `sink.kafka.tls.enabled`    |                                                                        The property defines if TLS is enabled. |         boolean |            false | 
+| `sink.kafka.tls.skipverify` |                                           The property defines if verification of TLS certificates is skipped. |         boolean |            false | 
+| `sink.kafka.tls.clientauth` | The property defines the client auth value (as defined in [Go](https://pkg.go.dev/crypto/tls#ClientAuthType)). |             int | 0 (NoClientCert) | 
 
 ### Redis Sink Configuration
 
@@ -391,7 +391,7 @@ Redis specific configuration, which is only used if `sink.type` is set to `redis
 | `sink.redis.timeouts.idle`       |                                          Amount of time in minutes after which client closes idle connections. |       int |                 5 |
 | `sink.redis.tls.enabled`         |                                                                        The property defines if TLS is enabled. |      bool |             false |
 | `sink.redis.tls.skipverify`      |                                           The property defines if verification of TLS certificates is skipped. |      bool |             false |
-| `sink.redis.tls.clientauth`      | The property defines the client auth value (as defined in [Go](https://pkg.go.dev/crypto/tls#ClientAuthType)). |       int |                 0 |
+| `sink.redis.tls.clientauth`      | The property defines the client auth value (as defined in [Go](https://pkg.go.dev/crypto/tls#ClientAuthType)). |       int |  0 (NoClientCert) |
 
 ### AWS Kinesis Sink Configuration
 
@@ -401,7 +401,7 @@ Redis specific configuration, which is only used if `sink.type` is set to `redis
 | `sink.kinesis.stream.create`     |                                                                                                  Defines if the stream should be created at startup if non-existent. The below properties configure the created stream. |   boolean |          true |
 | `sink.kinesis.stream.shardcount` |                                                                                                                                                                   The number if shards to use when creating the stream. |       int |             1 |
 | `sink.kinesis.stream.mode`       | The mode to use when creating the stream. Valid values are `ON_DEMAND`, and `PROVISIONED`. More details in the [AWS documentation](https://docs.aws.amazon.com/kinesis/latest/APIReference/API_StreamModeDetails.html). |    string |  empty string |
-| `sink.kinesis.aws.<...>`         |                                                                                                                            AWS specific content as definied in [AWS service configuration](#aws-service-configuration). |    struct |  empty struct |
+| `sink.kinesis.aws.<...>`         |                                                                                                                             AWS specific content as defined in [AWS service configuration](#aws-service-configuration). |    struct |  empty struct |
 
 ### AWS SQS Sink Configuration
 
@@ -409,10 +409,10 @@ AWS SQS queues when configured as **FIFO** queues. No content based deduplicatio
 is required, since the sink creates a deduplication id based on the LSN,
 transaction id (if available), and content of the message.
 
-| Property             |                                                                                  Description | Data Type | Default Value |
-|----------------------|---------------------------------------------------------------------------------------------:|----------:|--------------:|
-| `sink.sqs.queue.url` |                                                            The URL of the FIFO queue in SQS. |    string |  empty string |
-| `sink.sqs.aws.<...>` | AWS specific content as definied in [AWS service configuration](#aws-service-configuration). |    struct |  empty struct |
+| Property             |                                                                                 Description | Data Type | Default Value |
+|----------------------|--------------------------------------------------------------------------------------------:|----------:|--------------:|
+| `sink.sqs.queue.url` |                                                           The URL of the FIFO queue in SQS. |    string |  empty string |
+| `sink.sqs.aws.<...>` | AWS specific content as defined in [AWS service configuration](#aws-service-configuration). |    struct |  empty struct |
 
 ### AWS Service Configuration
 
@@ -440,11 +440,11 @@ Valid logging levels are `panic`, `fatal`, `error`, `warn`, `notice`, `info`,
 `verbose`, `debug`, and `trace`. Earlier levels include all following ones
 as well.
 
-| Property                       |                                                                                                                                                                   Description |                                             Data Type | Default Value |
-|--------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|------------------------------------------------------:|--------------:|
-| `logging.level`                |                                                                                     This property defines the default logging level. If not defined, default value is `info`. |                                                string |        `info` |
-| `logging.outputs.<...>`        |                                                                              This property defines the outputs for the default logger. By default console logging is enabled. | [output configuration](#logging-output-configuration) |  empty struct |
-| `logging.loggers.<name>.<...>` | This property provides the possibility to override the logging for certain parts of the system. The <name> is the name the logger uses to identify itself in the log mesages. | [sub-logger configuration](#sub-logger-configuration) |  empty struct |
+| Property                       |                                                                                                                                                                    Description |                                             Data Type | Default Value |
+|--------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|------------------------------------------------------:|--------------:|
+| `logging.level`                |                                                                                      This property defines the default logging level. If not defined, default value is `info`. |                                                string |        `info` |
+| `logging.outputs.<...>`        |                                                                               This property defines the outputs for the default logger. By default console logging is enabled. | [output configuration](#logging-output-configuration) |  empty struct |
+| `logging.loggers.<name>.<...>` | This property provides the possibility to override the logging for certain parts of the system. The <name> is the name the logger uses to identify itself in the log messages. | [sub-logger configuration](#sub-logger-configuration) |  empty struct |
 
 ### Sub-Logger Configuration
 

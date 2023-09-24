@@ -150,7 +150,7 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 
 	publishedTables, err := publicationManager.ReadPublishedTables()
 	if err != nil {
-		return erroring.AdaptErrorWithMessage(err, "failed to read published tbales", 25)
+		return erroring.AdaptErrorWithMessage(err, "failed to read published tables", 25)
 	}
 
 	// Get initial list of chunks to add to publication

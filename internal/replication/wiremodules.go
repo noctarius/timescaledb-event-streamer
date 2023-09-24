@@ -62,7 +62,7 @@ var StaticModule = wiring.DefineModule(
 )
 
 var DynamicModule = wiring.DefineModule(
-	"Dynmic",
+	"Dynamic",
 	func(module wiring.Module) {
 		module.Provide(func(c *config.Config) (statestorage.Storage, error) {
 			name := config.GetOrDefault(c, config.PropertyStateStorageType, config.NoneStorage)
