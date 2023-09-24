@@ -37,8 +37,8 @@ sink.type = 'stdout'
 #sink.kafka.sasl.user = '$ConnectionString'
 #sink.kafka.sasl.mechanism = 'PLAIN'
 #sink.kafka.tls.enabled = true
-#sink.kafka.tsl.skipverify = true
-#sink.kafka.tsl.clientauth = 0
+#sink.kafka.tls.skipverify = true
+#sink.kafka.tls.clientauth = 0
 
 #sink.redis.network = 'tcp'
 #sink.redis.address = 'localhost:6379'

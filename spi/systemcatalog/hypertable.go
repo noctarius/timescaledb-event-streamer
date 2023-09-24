@@ -142,7 +142,7 @@ func (h *Hypertable) KeyIndexColumns() []schema.ColumnAlike {
 // continuous aggregate name of the hypertable in the form
 // of <<schema.view>>. This method panics if the hypertable
 // doesn't back a continuous aggregate. A check using
-// IsContinuousAggregate before calling this method is adviced.
+// IsContinuousAggregate before calling this method is advised.
 func (h *Hypertable) CanonicalContinuousAggregateName() string {
 	return canonicalContinuousAggregateName(h)
 }
