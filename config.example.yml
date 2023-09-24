@@ -113,6 +113,17 @@ sink:
     #endpoint: '...'
     #accessKeyId: '...'
     #secretAccessKey: '...'
+    #type: 'http'
+    #http:
+    #  url: "http://localhost:8080"
+    #  authentication:
+    #    type: header
+    #    basic:
+    #      username: test
+    #      password: ...
+    #    header:
+    #      name: "x-api-key"
+    #      value: "..."
   #sessionToken: '...'
 
 topic:
