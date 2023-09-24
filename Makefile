@@ -64,7 +64,7 @@ pg-test:
 	go test -v -race $(shell go list ./... | grep -v 'testsupport' | grep 'tests' | grep -v 'tests/integration') -timeout 40m
 
 .PHONY: integration-test
-integration-test: integration-test-aws-kinesis integration-test-aws-sqs integration-test-kafka integration-test-nats integration-test-redis integration-test-redpanda
+integration-test: integration-test-aws-kinesis integration-test-aws-sqs integration-test-kafka integration-test-nats integration-test-redis integration-test-redpanda  integration-test-http
 
 .PHONY: integration-test-aws-kinesis-test
 integration-test-aws-kinesis:
@@ -89,6 +89,10 @@ integration-test-redis:
 .PHONY: integration-test-redpanda
 integration-test-redpanda:
 	go test -v -race $(shell go list ./... | grep 'tests/integration/redpanda') -timeout 10m
+
+.PHONY: integration-test-http
+integration-test-http:
+	go test -v -race $(shell go list ./... | grep 'tests/integration/http') -timeout 10m
 
 .PHONY: all
 all: build test fmt lint
