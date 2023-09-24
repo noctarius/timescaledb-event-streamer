@@ -41,6 +41,7 @@ const (
 	Redis      SinkType = "redis"
 	AwsKinesis SinkType = "kinesis"
 	AwsSQS     SinkType = "sqs"
+	Http       SinkType = "http"
 )
 
 type NamingStrategyType string
@@ -139,6 +140,7 @@ type SinkConfig struct {
 	Redis      RedisConfig                  `toml:"redis" yaml:"redis"`
 	AwsKinesis AwsKinesisConfig             `toml:"kinesis" yaml:"kinesis"`
 	AwsSqs     AwsSqsConfig                 `toml:"sqs" yaml:"sqs"`
+	Http       HttpConfig                   `toml:"http" yaml:"http"`
 }
 
 type EventFilterConfig struct {
@@ -286,6 +288,36 @@ type AwsConnectionConfig struct {
 	SecretAccessKey string  `toml:"secretaccesskey" yaml:"secretAccessKey"`
 	SessionToken    string  `toml:"sessiontoken" yaml:"sessionToken"`
 }
+
+type HttpConfig struct {
+	Url            string                   `toml:"url" yaml:"url"`
+	Authentication HttpAuthenticationConfig `toml:"authentication" yaml:"authentication"`
+	TLS            TLSConfig                `toml:"tls" yaml:"tls"`
+}
+
+type HttpAuthenticationConfig struct {
+	Type   HttpAuthenticationType         `toml:"type" yaml:"type"`
+	Basic  HttpBasicAuthenticationConfig  `toml:"basic" yaml:"basic"`
+	Header HttpHeaderAuthenticationConfig `toml:"header" yaml:"header"`
+}
+
+type HttpBasicAuthenticationConfig struct {
+	Username string `toml:"username" yaml:"username"`
+	Password string `toml:"password" yaml:"password"`
+}
+
+type HttpHeaderAuthenticationConfig struct {
+	Name  string `toml:"name" yaml:"name"`
+	Value string `toml:"value" yaml:"value"`
+}
+
+type HttpAuthenticationType string
+
+const (
+	NoneAuthentication   HttpAuthenticationType = "none"
+	BasicAuthentication  HttpAuthenticationType = "basic"
+	HeaderAuthentication HttpAuthenticationType = "header"
+)
 
 type Config struct {
 	PostgreSQL   PostgreSQLConfig   `toml:"postgresql" yaml:"postgresql"`
