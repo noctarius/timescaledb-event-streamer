@@ -20,6 +20,7 @@ package http
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/sysconfig"
@@ -29,6 +30,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
+	"net"
 	"net/http"
 	"testing"
 	"time"
@@ -53,15 +55,19 @@ func (hits *HttpIntegrationTestSuite) Test_Http_Sink() {
 		hits.T().Error(err)
 	}
 
-	address := "localhost:8090"
-	endpoint := "/test"
+	listener, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		hits.T().Error(err)
+	}
+
+	server := &http.Server{}
 
 	hits.RunTest(
 		func(ctx testrunner.Context) error {
 			collected := make(chan bool, 1)
 			envelopes := make([]testsupport.Envelope, 0)
 
-			http.HandleFunc(endpoint, func(w http.ResponseWriter, req *http.Request) {
+			http.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
 				decoder := json.NewDecoder(req.Body)
 				envelope := testsupport.Envelope{}
 				err := decoder.Decode(&envelope)
@@ -76,9 +82,9 @@ func (hits *HttpIntegrationTestSuite) Test_Http_Sink() {
 			})
 
 			go func() {
-				if err := http.ListenAndServe(address, nil); err != nil {
-					httpLogger.Fatalf("Unable to listen and serve on %s", address)
-					httpLogger.Fatalf(err.Error())
+				if err := server.Serve(listener); !errors.Is(err, http.ErrServerClosed) {
+					httpLogger.Fatalf("Unable to listen and serve on %s", listener.Addr())
+					hits.T().Error(err)
 				}
 			}()
 
@@ -114,7 +120,7 @@ func (hits *HttpIntegrationTestSuite) Test_Http_Sink() {
 				config.Topic.Prefix = topicPrefix
 				config.Sink.Type = spiconfig.Http
 				config.Sink.Http = spiconfig.HttpConfig{
-					Url: fmt.Sprintf("http://%s%s", address, endpoint),
+					Url: fmt.Sprintf("http://%s/", listener.Addr()),
 				}
 			})
 
@@ -122,7 +128,7 @@ func (hits *HttpIntegrationTestSuite) Test_Http_Sink() {
 		}),
 
 		testrunner.WithTearDown(func(ctx testrunner.Context) error {
-			return nil
+			return server.Shutdown(context.Background())
 		}),
 	)
 }
