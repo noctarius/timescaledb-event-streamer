@@ -28,6 +28,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/sink"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -54,7 +55,9 @@ func newHttpSink(
 ) (sink.Sink, error) {
 
 	transport := http.DefaultTransport.(*http.Transport).Clone()
-	if config.GetOrDefault(c, config.PropertyHttpTlsEnabled, false) {
+	address := config.GetOrDefault(c, config.PropertyHttpUrl, "http://localhost:80")
+	tlsEnabled := strings.HasPrefix(address, "https://")
+	if tlsEnabled {
 		transport.TLSClientConfig = &tls.Config{
 			InsecureSkipVerify: config.GetOrDefault(
 				c, config.PropertyHttpTlsSkipVerify, false,
@@ -65,7 +68,6 @@ func newHttpSink(
 		}
 	}
 
-	address := config.GetOrDefault(c, config.PropertyHttpUrl, "http://localhost:80")
 	headers := make(http.Header)
 
 	authenticationType := config.GetOrDefault(c, config.PropertyHttpAuthenticationType, "none")

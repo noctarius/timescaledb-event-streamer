@@ -416,7 +416,11 @@ transaction id (if available), and content of the message.
 
 ### HTTP Sink Configuration
 
-HTTP specific configuration, which is only used if `sink.type` is set to `http`. This Sink is an HTTP client that `POST`s the events as the payload.
+HTTP specific configuration, which is only used if `sink.type` is set to `http`.
+This Sink is an HTTP client that `POST`s the events as the payload.
+Usage of TLS is inferred automatically from the prefix of the `url`, if `url` has
+the `https://` prefix, then the respective TLS settings will be set according to
+the properties defined in `sink.http.tls`.
 
 | Property                                  |                                                                                                    Description | Data Type |         Default Value |
 |-------------------------------------------|---------------------------------------------------------------------------------------------------------------:|----------:|----------------------:|
@@ -426,7 +430,6 @@ HTTP specific configuration, which is only used if `sink.type` is set to `http`.
 | `sink.http.authentication.basic.password` |                                                                          Maximum number of socket connections. |       int |          empty string |
 | `sink.http.authentication.header.name`    |                                                                    Maximum number of retries before giving up. |       int |          empty string |
 | `sink.http.authentication.header.value`   |                          Minimum backoff between each retry in milliseconds. A value of `-1` disables backoff. |       int |          empty string |
-| `sink.http.tls.enabled`                   |                                                                        The property defines if TLS is enabled. |      bool |                 false |
 | `sink.http.tls.skipverify`                |                                           The property defines if verification of TLS certificates is skipped. |      bool |                 false |
 | `sink.http.tls.clientauth`                | The property defines the client auth value (as defined in [Go](https://pkg.go.dev/crypto/tls#ClientAuthType)). |       int |      0 (NoClientCert) |
 

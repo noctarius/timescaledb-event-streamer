@@ -80,6 +80,8 @@ sink.type = 'stdout'
 #sink.http.authentication.basic.password = '...'
 #sink.http.authentication.header.name = 'x-api-key'
 #sink.http.authentication.header.value = '...'
+#sink.http.tls.skipverify = false
+#sink.http.tls.clientauth = 0
 
 topic.namingstrategy.type = 'debezium'
 topic.prefix = 'timescaledb'

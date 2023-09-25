@@ -120,7 +120,6 @@ const (
 	PropertyHttpBasicAuthenticationPassword     = "sink.http.authentication.basic.password"
 	PropertyHttpHeaderAuthenticationHeaderName  = "sink.http.authentication.header.name"
 	PropertyHttpHeaderAuthenticationHeaderValue = "sink.http.authentication.header.value"
-	PropertyHttpTlsEnabled                      = "sink.http.tls.enabled"
 	PropertyHttpTlsSkipVerify                   = "sink.http.tls.skipverify"
 	PropertyHttpTlsClientAuth                   = "sink.http.tls.clientauth"
 )
