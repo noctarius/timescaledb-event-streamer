@@ -115,7 +115,6 @@ func (h *httpSink) Stop() error {
 func (h *httpSink) Emit(
 	_ sink.Context, _ time.Time, topicName string, key, envelope schema.Struct,
 ) error {
-	delete(envelope, "schema")
 	payload, err := h.encoder.Marshal(envelope)
 	if err != nil {
 		return err
