@@ -69,6 +69,7 @@ func newHttpSink(
 	}
 
 	headers := make(http.Header)
+	headers.Add("Content-Type", "application/json")
 
 	authenticationType := config.GetOrDefault(c, config.PropertyHttpAuthenticationType, "none")
 	switch config.HttpAuthenticationType(authenticationType) {
