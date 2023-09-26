@@ -90,15 +90,11 @@ type SideChannel interface {
 	DetachTablesFromPublication(
 		publicationName string, entities ...systemcatalog.SystemEntity,
 	) error
-	SnapshotVanillaTable(
-		rowDecoderFactory pgtypes.RowDecoderFactory, table systemcatalog.BaseTable,
-		snapshotBatchSize int, cb SnapshotRowCallback,
-	) (lsn pgtypes.LSN, err error)
 	SnapshotChunkTable(
 		rowDecoderFactory pgtypes.RowDecoderFactory, chunk *systemcatalog.Chunk,
 		snapshotBatchSize int, cb SnapshotRowCallback,
 	) (lsn pgtypes.LSN, err error)
-	FetchHypertableSnapshotBatch(
+	FetchTableSnapshotBatch(
 		rowDecoderFactory pgtypes.RowDecoderFactory, table systemcatalog.BaseTable,
 		snapshotName string, snapshotBatchSize int, cb SnapshotRowCallback,
 	) error

@@ -364,13 +364,6 @@ func (sc *sideChannel) DetachTablesFromPublication(
 	})
 }
 
-func (sc *sideChannel) SnapshotVanillaTable(
-	rowDecoderFactory pgtypes.RowDecoderFactory, table systemcatalog.BaseTable,
-	snapshotBatchSize int, cb sidechannel.SnapshotRowCallback,
-) (lsn pgtypes.LSN, err error) {
-
-}
-
 func (sc *sideChannel) SnapshotChunkTable(
 	rowDecoderFactory pgtypes.RowDecoderFactory, chunk *systemcatalog.Chunk,
 	snapshotBatchSize int, cb sidechannel.SnapshotRowCallback,
@@ -399,37 +392,37 @@ func (sc *sideChannel) SnapshotChunkTable(
 	return currentLSN, nil
 }
 
-func (sc *sideChannel) FetchHypertableSnapshotBatch(
+func (sc *sideChannel) FetchTableSnapshotBatch(
 	rowDecoderFactory pgtypes.RowDecoderFactory, table systemcatalog.BaseTable,
 	snapshotName string, snapshotBatchSize int, cb sidechannel.SnapshotRowCallback,
 ) error {
 
 	index, present := table.Columns().SnapshotIndex()
 	if !present {
-		return errors.Errorf("missing snapshotting index for hypertable '%s'", table.CanonicalName())
+		return errors.Errorf("missing snapshotting index for table '%s'", table.CanonicalName())
 	}
 
 	return sc.stateStorageManager.SnapshotContextTransaction(
 		snapshotName, false,
 		func(snapshotContext *watermark.SnapshotContext) error {
-			hypertableWatermark, present := snapshotContext.GetWatermark(table)
+			tableWatermark, present := snapshotContext.GetWatermark(table)
 			if !present {
-				return errors.Errorf("illegal watermark state for hypertable '%s'", table.CanonicalName())
+				return errors.Errorf("illegal watermark state for table '%s'", table.CanonicalName())
 			}
 
-			comparison, success := index.WhereTupleLE(hypertableWatermark.HighWatermark())
+			comparison, success := index.WhereTupleLE(tableWatermark.HighWatermark())
 			if !success {
-				return errors.Errorf("failed encoding watermark: %+v", hypertableWatermark.HighWatermark())
+				return errors.Errorf("failed encoding watermark: %+v", tableWatermark.HighWatermark())
 			}
 
-			if hypertableWatermark.HasValidLowWatermark() {
-				lowWatermarkComparison, success := index.WhereTupleGT(hypertableWatermark.LowWatermark())
+			if tableWatermark.HasValidLowWatermark() {
+				lowWatermarkComparison, success := index.WhereTupleGT(tableWatermark.LowWatermark())
 				if !success {
-					return errors.Errorf("failed encoding watermark: %+v", hypertableWatermark.LowWatermark())
+					return errors.Errorf("failed encoding watermark: %+v", tableWatermark.LowWatermark())
 				}
 
-				sc.logger.Verbosef(
-					"Resuming snapshotting of hypertable '%s' at <<%s>> up to <<%s>>",
+				sc.logger.Infof(
+					"Resuming snapshotting of table '%s' at <<%s>> up to <<%s>>",
 					table.CanonicalName(), lowWatermarkComparison, comparison,
 				)
 
@@ -438,8 +431,8 @@ func (sc *sideChannel) FetchHypertableSnapshotBatch(
 					comparison,
 				)
 			} else {
-				sc.logger.Verbosef(
-					"Starting snapshotting of hypertable '%s' up to <<%s>>",
+				sc.logger.Infof(
+					"Starting snapshotting of table '%s' up to <<%s>>",
 					table.CanonicalName(), comparison,
 				)
 			}
@@ -461,7 +454,7 @@ func (sc *sideChannel) FetchHypertableSnapshotBatch(
 					return false
 				})
 
-				hypertableWatermark.SetLowWatermark(indexValues)
+				tableWatermark.SetLowWatermark(indexValues)
 				return cb(lsn, values)
 			}
 
@@ -479,7 +472,7 @@ func (sc *sideChannel) ReadSnapshotHighWatermark(
 	index, present := table.Columns().SnapshotIndex()
 	if !present {
 		return nil, errors.Errorf(
-			"missing snapshotting index for hypertable '%s'", table.CanonicalName(),
+			"missing snapshotable index for table '%s'", table.CanonicalName(),
 		)
 	}
 
