@@ -42,6 +42,10 @@ func (c Columns) SnapshotIndex() (index *Index, present bool) {
 		return item.IsDimension()
 	})
 
+	if len(dimensionColumns) == 0 {
+		return nil, false
+	}
+
 	functional.Sort(dimensionColumns, func(this, other Column) bool {
 		return *this.dimSeq < *other.dimSeq
 	})

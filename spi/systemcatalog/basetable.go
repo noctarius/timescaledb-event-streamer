@@ -24,7 +24,17 @@ import (
 	"github.com/samber/lo"
 )
 
-type BaseTable struct {
+type BaseTable interface {
+	SystemEntity
+	Columns() Columns
+	TableColumns() []schema.ColumnAlike
+	KeyIndexColumns() []schema.ColumnAlike
+	ReplicaIdentity() pgtypes.ReplicaIdentity
+	SchemaBuilder() schema.Builder
+	ApplyTableSchema(newColumns []Column) (changes map[string]string)
+}
+
+type baseTable struct {
 	*baseSystemEntity
 	tableColumns    []schema.ColumnAlike
 	replicaIdentity pgtypes.ReplicaIdentity
@@ -33,9 +43,9 @@ type BaseTable struct {
 
 func newBaseTable(
 	schemaName, tableName string, replicaIdentity pgtypes.ReplicaIdentity,
-) *BaseTable {
+) *baseTable {
 
-	return &BaseTable{
+	return &baseTable{
 		baseSystemEntity: &baseSystemEntity{
 			schemaName: schemaName,
 			tableName:  tableName,
@@ -48,25 +58,25 @@ func newBaseTable(
 
 // Columns returns a slice with the column definitions
 // of the table
-func (bt *BaseTable) Columns() Columns {
+func (bt *baseTable) Columns() Columns {
 	return bt.columns
 }
 
 // TableColumns returns a slice of ColumnAlike entries
 // representing the columns of this table
-func (bt *BaseTable) TableColumns() []schema.ColumnAlike {
+func (bt *baseTable) TableColumns() []schema.ColumnAlike {
 	return bt.tableColumns
 }
 
 // ReplicaIdentity returns the replica identity (if available),
 // otherwise a pgtypes.UNKNOWN is returned
-func (bt *BaseTable) ReplicaIdentity() pgtypes.ReplicaIdentity {
+func (bt *baseTable) ReplicaIdentity() pgtypes.ReplicaIdentity {
 	return bt.replicaIdentity
 }
 
 // SchemaBuilder returns a SchemaBuilder instance, preconfigured
 // for this table
-func (bt *BaseTable) SchemaBuilder() schema.Builder {
+func (bt *baseTable) SchemaBuilder() schema.Builder {
 	schemaBuilder := schema.NewSchemaBuilder(schema.STRUCT).
 		FieldName(bt.CanonicalName())
 
@@ -79,7 +89,7 @@ func (bt *BaseTable) SchemaBuilder() schema.Builder {
 // ApplyTableSchema applies a new table schema to this
 // table and returns changes to the previously
 // known schema layout.
-func (bt *BaseTable) ApplyTableSchema(
+func (bt *baseTable) ApplyTableSchema(
 	newColumns []Column,
 ) (changes map[string]string) {
 
@@ -148,11 +158,11 @@ func (bt *BaseTable) ApplyTableSchema(
 	return differences
 }
 
-func (bt *BaseTable) ApplyChanges(
+func (bt *baseTable) ApplyChanges(
 	schemaName, tableName string, replicaIdentity pgtypes.ReplicaIdentity,
-) *BaseTable {
+) *baseTable {
 
-	return &BaseTable{
+	return &baseTable{
 		baseSystemEntity: &baseSystemEntity{
 			schemaName: schemaName,
 			tableName:  tableName,

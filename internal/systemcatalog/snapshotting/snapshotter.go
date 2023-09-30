@@ -44,6 +44,7 @@ type snapshotterStats struct {
 
 type snapshotterPartitionStats struct {
 	snapshots struct {
+		pgtables    uint `metric:"pgtables" type:"gauge"`
 		hypertables uint `metric:"hypertable" type:"gauge"`
 		chunks      uint `metric:"chunks" type:"gauge"`
 	} `metric:"snapshots"`
@@ -53,7 +54,7 @@ type snapshotterPartitionStats struct {
 }
 
 type SnapshotTask struct {
-	Hypertable        *systemcatalog.Hypertable
+	Table             systemcatalog.BaseTable
 	Chunk             *systemcatalog.Chunk
 	Xld               *pgtypes.XLogData
 	SnapshotName      *string
@@ -139,7 +140,7 @@ func (s *Snapshotter) EnqueueSnapshot(
 
 		// Partition calculation
 		hasher := fnv.New64a()
-		if _, err := hasher.Write([]byte(t.Hypertable.CanonicalName())); err != nil {
+		if _, err := hasher.Write([]byte(t.Table.CanonicalName())); err != nil {
 			// If we cannot hash, the system will break. That means, we harshly kill the process.
 			panic(err)
 		}
@@ -160,7 +161,7 @@ func (s *Snapshotter) EnqueueSnapshot(
 	if t.Chunk != nil {
 		err := s.taskManager.EnqueueTask(func(notificator task.Notificator) {
 			notificator.NotifySnapshottingEventHandler(func(handler eventhandlers.SnapshottingEventHandler) error {
-				return handler.OnChunkSnapshotStartedEvent(t.Hypertable, t.Chunk)
+				return handler.OnChunkSnapshotStartedEvent(t.Table.(*systemcatalog.Hypertable), t.Chunk)
 			})
 			enqueueSnapshotTask()
 		})
@@ -179,9 +180,9 @@ func (s *Snapshotter) StartSnapshotter() {
 		go func(partition int) {
 			for {
 				select {
-				case task := <-s.snapshotQueues[partition]:
-					if err := s.snapshot(task, partition); err != nil {
-						s.logger.Fatalf("snapshotting of task '%+v' failed: %+v", task, err)
+				case t := <-s.snapshotQueues[partition]:
+					if err := s.snapshot(t, partition); err != nil {
+						s.logger.Fatalf("snapshotting of task '%+v' failed: %+v", t, err)
 					}
 				case <-s.shutdownAwaiter.AwaitShutdownChan(uint(partition)):
 					goto shutdown
@@ -208,6 +209,11 @@ func (s *Snapshotter) snapshot(
 	if task.Chunk != nil {
 		return s.snapshotChunk(task, partition)
 	}
+
+	if _, ok := task.Table.(*systemcatalog.PgTable); ok {
+		return s.snapshotVanillaTable(task, partition)
+	}
+
 	return s.snapshotHypertable(task, partition)
 }
 
@@ -234,11 +240,11 @@ func (s *Snapshotter) snapshotChunk(
 			s.partitionStats[partition].records.total++
 			return s.taskManager.EnqueueTask(func(notificator task.Notificator) {
 				callback := func(handler eventhandlers.RecordReplicationEventHandler) error {
-					return handler.OnReadEvent(lsn, t.Hypertable, t.Chunk, values)
+					return handler.OnReadEvent(lsn, t.Table, t.Chunk, values)
 				}
 				if t.Xld != nil {
 					callback = func(handler eventhandlers.RecordReplicationEventHandler) error {
-						return handler.OnInsertEvent(*t.Xld, t.Hypertable, t.Chunk, values)
+						return handler.OnInsertEvent(*t.Xld, t.Table, t.Chunk, values)
 					}
 				}
 				notificator.NotifyRecordReplicationEventHandler(callback)
@@ -251,7 +257,7 @@ func (s *Snapshotter) snapshotChunk(
 
 	return s.taskManager.EnqueueTaskAndWait(func(notificator task.Notificator) {
 		notificator.NotifySnapshottingEventHandler(func(handler eventhandlers.SnapshottingEventHandler) error {
-			return handler.OnChunkSnapshotFinishedEvent(t.Hypertable, t.Chunk, lsn)
+			return handler.OnChunkSnapshotFinishedEvent(t.Table.(*systemcatalog.Hypertable), t.Chunk, lsn)
 		})
 	})
 }
@@ -263,22 +269,49 @@ func (s *Snapshotter) snapshotHypertable(
 	defer s.statsReporter.Report(s.partitionStats[partition])
 	s.partitionStats[partition].snapshots.hypertables++
 
+	return s.snapshotBaseTable(t, partition)
+}
+
+func (s *Snapshotter) snapshotVanillaTable(
+	t SnapshotTask, partition int,
+) error {
+
+	defer s.statsReporter.Report(s.partitionStats[partition])
+	s.partitionStats[partition].snapshots.pgtables++
+
+	alreadyPublished, err := s.publicationManager.ExistsTableInPublication(t.Table)
+	if err != nil {
+		return errors.Wrap(err, 0)
+	}
+	if !alreadyPublished {
+		if err := s.publicationManager.AttachTablesToPublication(t.Table); err != nil {
+			return errors.Wrap(err, 0)
+		}
+	}
+
+	return s.snapshotBaseTable(t, partition)
+}
+
+func (s *Snapshotter) snapshotBaseTable(
+	t SnapshotTask, partition int,
+) error {
+
 	// tableSnapshotState
 	if err := s.stateStorageManager.SnapshotContextTransaction(
 		*t.SnapshotName, true,
 		func(snapshotContext *watermark.SnapshotContext) error {
-			hypertableWatermark, created := snapshotContext.GetOrCreateWatermark(t.Hypertable)
+			tableWatermark, created := snapshotContext.GetOrCreateWatermark(t.Table)
 
 			// Initialize the watermark or update the high watermark after a restart
 			if created || t.nextSnapshotFetch {
 				highWatermark, err := s.sideChannel.ReadSnapshotHighWatermark(
-					s.typeManager.GetOrPlanRowDecoder, t.Hypertable, *t.SnapshotName,
+					s.typeManager.GetOrPlanRowDecoder, t.Table, *t.SnapshotName,
 				)
 				if err != nil {
 					return errors.Wrap(err, 0)
 				}
 
-				hypertableWatermark.SetHighWatermark(highWatermark)
+				tableWatermark.SetHighWatermark(highWatermark)
 			}
 
 			return nil
@@ -295,23 +328,23 @@ func (s *Snapshotter) snapshotHypertable(
 	return s.stateStorageManager.SnapshotContextTransaction(
 		*t.SnapshotName, false,
 		func(snapshotContext *watermark.SnapshotContext) error {
-			hypertableWatermark, present := snapshotContext.GetWatermark(t.Hypertable)
+			tableWatermark, present := snapshotContext.GetWatermark(t.Table)
 			if !present {
 				return errors.Errorf(
-					"illegal watermark state for hypertable '%s'", t.Hypertable.CanonicalName(),
+					"illegal watermark state for hypertable '%s'", t.Table.CanonicalName(),
 				)
 			}
 
-			if hypertableWatermark.Complete() {
+			if tableWatermark.Complete() {
 				return s.taskManager.EnqueueTaskAndWait(func(notificator task.Notificator) {
 					notificator.NotifySnapshottingEventHandler(func(handler eventhandlers.SnapshottingEventHandler) error {
-						return handler.OnHypertableSnapshotFinishedEvent(*t.SnapshotName, t.Hypertable)
+						return handler.OnTableSnapshotFinishedEvent(*t.SnapshotName, t.Table, 0 /* TODO */)
 					})
 				})
 			}
 
 			return s.EnqueueSnapshot(SnapshotTask{
-				Hypertable:        t.Hypertable,
+				Table:             t.Table,
 				SnapshotName:      t.SnapshotName,
 				nextSnapshotFetch: true,
 			})
@@ -324,8 +357,8 @@ func (s *Snapshotter) runSnapshotFetchBatch(
 ) error {
 
 	iteration := 0
-	return s.sideChannel.FetchHypertableSnapshotBatch(
-		s.typeManager.GetOrPlanRowDecoder, t.Hypertable, *t.SnapshotName, s.snapshotBatchSize,
+	return s.sideChannel.FetchTableSnapshotBatch(
+		s.typeManager.GetOrPlanRowDecoder, t.Table, *t.SnapshotName, s.snapshotBatchSize,
 		func(lsn pgtypes.LSN, values map[string]any) error {
 			s.partitionStats[partition].records.total++
 			iteration++
@@ -336,7 +369,7 @@ func (s *Snapshotter) runSnapshotFetchBatch(
 			return s.taskManager.EnqueueTask(func(notificator task.Notificator) {
 				notificator.NotifyRecordReplicationEventHandler(
 					func(handler eventhandlers.RecordReplicationEventHandler) error {
-						return handler.OnReadEvent(lsn, t.Hypertable, t.Chunk, values)
+						return handler.OnReadEvent(lsn, t.Table, t.Chunk, values)
 					},
 				)
 			})

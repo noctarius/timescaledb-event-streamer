@@ -109,11 +109,11 @@ type SnapshottingEventHandler interface {
 	OnChunkSnapshotFinishedEvent(
 		hypertable *systemcatalog.Hypertable, chunk *systemcatalog.Chunk, snapshot pgtypes.LSN,
 	) error
-	OnHypertableSnapshotStartedEvent(
-		snapshotName string, hypertable *systemcatalog.Hypertable,
+	OnTableSnapshotStartedEvent(
+		snapshotName string, table systemcatalog.BaseTable,
 	) error
-	OnHypertableSnapshotFinishedEvent(
-		snapshotName string, hypertable *systemcatalog.Hypertable,
+	OnTableSnapshotFinishedEvent(
+		snapshotName string, table systemcatalog.BaseTable, lsn pgtypes.LSN,
 	) error
 	OnSnapshottingStartedEvent(
 		snapshotName string,

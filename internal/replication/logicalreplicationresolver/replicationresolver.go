@@ -138,15 +138,15 @@ func (l *logicalReplicationResolver) PostConstruct() error {
 	return nil
 }
 
-func (l *logicalReplicationResolver) OnHypertableSnapshotStartedEvent(
-	_ string, _ *spicatalog.Hypertable,
+func (l *logicalReplicationResolver) OnTableSnapshotStartedEvent(
+	_ string, _ spicatalog.BaseTable,
 ) error {
 
 	return nil
 }
 
-func (l *logicalReplicationResolver) OnHypertableSnapshotFinishedEvent(
-	_ string, _ *spicatalog.Hypertable,
+func (l *logicalReplicationResolver) OnTableSnapshotFinishedEvent(
+	_ string, _ spicatalog.BaseTable, _ pgtypes.LSN,
 ) error {
 
 	return nil

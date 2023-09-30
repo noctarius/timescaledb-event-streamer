@@ -392,38 +392,38 @@ func (sc *sideChannel) SnapshotChunkTable(
 	return currentLSN, nil
 }
 
-func (sc *sideChannel) FetchHypertableSnapshotBatch(
-	rowDecoderFactory pgtypes.RowDecoderFactory, hypertable *systemcatalog.Hypertable,
+func (sc *sideChannel) FetchTableSnapshotBatch(
+	rowDecoderFactory pgtypes.RowDecoderFactory, table systemcatalog.BaseTable,
 	snapshotName string, snapshotBatchSize int, cb sidechannel.SnapshotRowCallback,
 ) error {
 
-	index, present := hypertable.Columns().SnapshotIndex()
+	index, present := table.Columns().SnapshotIndex()
 	if !present {
-		return errors.Errorf("missing snapshotting index for hypertable '%s'", hypertable.CanonicalName())
+		return errors.Errorf("missing snapshotting index for table '%s'", table.CanonicalName())
 	}
 
 	return sc.stateStorageManager.SnapshotContextTransaction(
 		snapshotName, false,
 		func(snapshotContext *watermark.SnapshotContext) error {
-			hypertableWatermark, present := snapshotContext.GetWatermark(hypertable)
+			tableWatermark, present := snapshotContext.GetWatermark(table)
 			if !present {
-				return errors.Errorf("illegal watermark state for hypertable '%s'", hypertable.CanonicalName())
+				return errors.Errorf("illegal watermark state for table '%s'", table.CanonicalName())
 			}
 
-			comparison, success := index.WhereTupleLE(hypertableWatermark.HighWatermark())
+			comparison, success := index.WhereTupleLE(tableWatermark.HighWatermark())
 			if !success {
-				return errors.Errorf("failed encoding watermark: %+v", hypertableWatermark.HighWatermark())
+				return errors.Errorf("failed encoding watermark: %+v", tableWatermark.HighWatermark())
 			}
 
-			if hypertableWatermark.HasValidLowWatermark() {
-				lowWatermarkComparison, success := index.WhereTupleGT(hypertableWatermark.LowWatermark())
+			if tableWatermark.HasValidLowWatermark() {
+				lowWatermarkComparison, success := index.WhereTupleGT(tableWatermark.LowWatermark())
 				if !success {
-					return errors.Errorf("failed encoding watermark: %+v", hypertableWatermark.LowWatermark())
+					return errors.Errorf("failed encoding watermark: %+v", tableWatermark.LowWatermark())
 				}
 
-				sc.logger.Verbosef(
-					"Resuming snapshotting of hypertable '%s' at <<%s>> up to <<%s>>",
-					hypertable.CanonicalName(), lowWatermarkComparison, comparison,
+				sc.logger.Infof(
+					"Resuming snapshotting of table '%s' at <<%s>> up to <<%s>>",
+					table.CanonicalName(), lowWatermarkComparison, comparison,
 				)
 
 				comparison = fmt.Sprintf("%s AND %s",
@@ -431,16 +431,16 @@ func (sc *sideChannel) FetchHypertableSnapshotBatch(
 					comparison,
 				)
 			} else {
-				sc.logger.Verbosef(
-					"Starting snapshotting of hypertable '%s' up to <<%s>>",
-					hypertable.CanonicalName(), comparison,
+				sc.logger.Infof(
+					"Starting snapshotting of table '%s' up to <<%s>>",
+					table.CanonicalName(), comparison,
 				)
 			}
 
 			cursorName := lo.RandomString(15, lo.LowerCaseLettersCharset)
 			cursorQuery := fmt.Sprintf(
 				`DECLARE %s SCROLL CURSOR FOR SELECT * FROM %s WHERE %s ORDER BY %s LIMIT %d`,
-				cursorName, hypertable.CanonicalName(), comparison,
+				cursorName, table.CanonicalName(), comparison,
 				index.AsSqlOrderBy(false), snapshotBatchSize*10,
 			)
 
@@ -454,7 +454,7 @@ func (sc *sideChannel) FetchHypertableSnapshotBatch(
 					return false
 				})
 
-				hypertableWatermark.SetLowWatermark(indexValues)
+				tableWatermark.SetLowWatermark(indexValues)
 				return cb(lsn, values)
 			}
 
@@ -466,19 +466,19 @@ func (sc *sideChannel) FetchHypertableSnapshotBatch(
 }
 
 func (sc *sideChannel) ReadSnapshotHighWatermark(
-	rowDecoderFactory pgtypes.RowDecoderFactory, hypertable *systemcatalog.Hypertable, snapshotName string,
+	rowDecoderFactory pgtypes.RowDecoderFactory, table systemcatalog.BaseTable, snapshotName string,
 ) (values map[string]any, err error) {
 
-	index, present := hypertable.Columns().SnapshotIndex()
+	index, present := table.Columns().SnapshotIndex()
 	if !present {
 		return nil, errors.Errorf(
-			"missing snapshotting index for hypertable '%s'", hypertable.CanonicalName(),
+			"missing snapshotable index for table '%s'", table.CanonicalName(),
 		)
 	}
 
 	query := fmt.Sprintf(
 		queryTemplateSnapshotHighWatermark, index.AsSqlTuple(),
-		hypertable.CanonicalName(), index.AsSqlOrderBy(true),
+		table.CanonicalName(), index.AsSqlOrderBy(true),
 	)
 	if err := sc.newSession(time.Second*10, func(session *session) error {
 		if _, err := session.exec("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ"); err != nil {

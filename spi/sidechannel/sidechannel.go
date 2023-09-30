@@ -94,12 +94,12 @@ type SideChannel interface {
 		rowDecoderFactory pgtypes.RowDecoderFactory, chunk *systemcatalog.Chunk,
 		snapshotBatchSize int, cb SnapshotRowCallback,
 	) (lsn pgtypes.LSN, err error)
-	FetchHypertableSnapshotBatch(
-		rowDecoderFactory pgtypes.RowDecoderFactory, hypertable *systemcatalog.Hypertable,
+	FetchTableSnapshotBatch(
+		rowDecoderFactory pgtypes.RowDecoderFactory, table systemcatalog.BaseTable,
 		snapshotName string, snapshotBatchSize int, cb SnapshotRowCallback,
 	) error
 	ReadSnapshotHighWatermark(
-		rowDecoderFactory pgtypes.RowDecoderFactory, hypertable *systemcatalog.Hypertable, snapshotName string,
+		rowDecoderFactory pgtypes.RowDecoderFactory, table systemcatalog.BaseTable, snapshotName string,
 	) (values map[string]any, err error)
 	ReadReplicaIdentity(
 		schemaName, tableName string,

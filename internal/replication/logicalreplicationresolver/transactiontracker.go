@@ -79,18 +79,18 @@ func (tt *transactionTracker) PostConstruct() error {
 	return nil
 }
 
-func (tt *transactionTracker) OnHypertableSnapshotStartedEvent(
-	snapshotName string, hypertable *spicatalog.Hypertable,
+func (tt *transactionTracker) OnTableSnapshotStartedEvent(
+	snapshotName string, table spicatalog.BaseTable,
 ) error {
 
-	return tt.resolver.OnHypertableSnapshotStartedEvent(snapshotName, hypertable)
+	return tt.resolver.OnTableSnapshotStartedEvent(snapshotName, table)
 }
 
-func (tt *transactionTracker) OnHypertableSnapshotFinishedEvent(
-	snapshotName string, hypertable *spicatalog.Hypertable,
+func (tt *transactionTracker) OnTableSnapshotFinishedEvent(
+	snapshotName string, table spicatalog.BaseTable, lsn pgtypes.LSN,
 ) error {
 
-	return tt.resolver.OnHypertableSnapshotFinishedEvent(snapshotName, hypertable)
+	return tt.resolver.OnTableSnapshotFinishedEvent(snapshotName, table, lsn)
 }
 
 func (tt *transactionTracker) OnSnapshottingStartedEvent(

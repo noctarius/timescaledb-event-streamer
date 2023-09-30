@@ -27,7 +27,7 @@ import (
 // PgTable represents a vanilla PostgreSQL table definition
 // in the system catalog
 type PgTable struct {
-	*BaseTable
+	*baseTable
 	relId uint32
 }
 
@@ -37,7 +37,7 @@ func NewPgTable(
 ) *PgTable {
 
 	return &PgTable{
-		BaseTable: newBaseTable(schemaName, tableName, replicaIdentity),
+		baseTable: newBaseTable(schemaName, tableName, replicaIdentity),
 		relId:     relId,
 	}
 }
@@ -52,7 +52,7 @@ func (t *PgTable) RelId() uint32 {
 // A snapshot index must be the (composite) primary key of
 // the table, since no dimensions exists (as with hypertables),
 func (t *PgTable) KeyIndexColumns() []schema.ColumnAlike {
-	index, present := (Columns(t.columns)).PrimaryKeyIndex()
+	index, present := (t.Columns()).PrimaryKeyIndex()
 	if !present {
 		return nil
 	}
@@ -67,13 +67,13 @@ func (t *PgTable) String() string {
 	builder := strings.Builder{}
 	builder.WriteString("{")
 	builder.WriteString(fmt.Sprintf("relId:%d ", t.relId))
-	builder.WriteString(fmt.Sprintf("schemaName:%s ", t.schemaName))
-	builder.WriteString(fmt.Sprintf("tableName:%s ", t.tableName))
-	builder.WriteString(fmt.Sprintf("replicaIdentity:%s", t.replicaIdentity))
+	builder.WriteString(fmt.Sprintf("schemaName:%s ", t.SchemaName()))
+	builder.WriteString(fmt.Sprintf("tableName:%s ", t.TableName()))
+	builder.WriteString(fmt.Sprintf("replicaIdentity:%s", t.ReplicaIdentity()))
 	builder.WriteString("columns:[")
-	for i, column := range t.columns {
+	for i, column := range t.Columns() {
 		builder.WriteString(column.String())
-		if i < len(t.columns)-1 {
+		if i < len(t.Columns())-1 {
 			builder.WriteString(" ")
 		}
 	}
@@ -89,7 +89,7 @@ func (t *PgTable) ApplyChanges(
 ) (applied *PgTable, changes map[string]string) {
 
 	t2 := &PgTable{
-		BaseTable: t.BaseTable.ApplyChanges(schemaName, tableName, replicaIdentity),
+		baseTable: t.baseTable.ApplyChanges(schemaName, tableName, replicaIdentity),
 		relId:     t.relId,
 	}
 	return t2, t.differences(t2)
@@ -103,14 +103,14 @@ func (t *PgTable) differences(
 	if t.relId != new.relId {
 		differences["relId"] = fmt.Sprintf("%d=>%d", t.relId, new.relId)
 	}
-	if t.schemaName != new.schemaName {
-		differences["schemaName"] = fmt.Sprintf("%s=>%s", t.schemaName, new.schemaName)
+	if t.SchemaName() != new.SchemaName() {
+		differences["schemaName"] = fmt.Sprintf("%s=>%s", t.SchemaName(), new.SchemaName())
 	}
-	if t.tableName != new.tableName {
-		differences["hypertableName"] = fmt.Sprintf("%s=>%s", t.tableName, new.tableName)
+	if t.TableName() != new.TableName() {
+		differences["hypertableName"] = fmt.Sprintf("%s=>%s", t.TableName(), new.TableName())
 	}
-	if t.replicaIdentity != new.replicaIdentity {
-		differences["replicaIdentity"] = fmt.Sprintf("%s=>%s", t.replicaIdentity, new.replicaIdentity)
+	if t.ReplicaIdentity() != new.ReplicaIdentity() {
+		differences["replicaIdentity"] = fmt.Sprintf("%s=>%s", t.ReplicaIdentity(), new.ReplicaIdentity())
 	}
 	return differences
 }
