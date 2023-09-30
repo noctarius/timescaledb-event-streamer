@@ -54,8 +54,9 @@ jobs:
       fail-fast: false
       matrix:
         pg_version: [13, 14, 15]
+        tsdb_version: ["2.11", "latest"]
 
-    name: Tests (Unit / PG) - PG ${{ matrix.pg_version }}
+    name: Tests (Unit / PG) - PG ${{ matrix.pg_version }} / TSDB ${{ matrix.tsdb_version }}
     runs-on: ubuntu-latest
     steps:
     - name: Check out code into the Go module directory
@@ -69,7 +70,7 @@ jobs:
       id: go
 
     - name: Test
-      run: TSES_TEST_PG_VERSION=${{ matrix.pg_version }} make test
+      run: TSES_TEST_PG_VERSION=${{ matrix.pg_version }} TSES_TEST_TSDB_VERSION=${{ matrix.tsdb_version }} make test
 
   integration-test:
     strategy:

@@ -91,9 +91,21 @@ func SetupTimescaleContainer() (testcontainers.Container, *ConfigProvider, error
 		}
 		pgVersion = int(v)
 	}
+	tsdbVersion := "latest"
+	val, present = os.LookupEnv("TSES_TEST_TSDB_VERSION")
+	if present {
+		if val != "latest" {
+			tsdbVersion = val
+		}
+	}
+
+	imageName := fmt.Sprintf("timescale/timescaledb-ha:pg%d-ts%s-all", pgVersion, tsdbVersion)
+	if tsdbVersion == "latest" {
+		imageName = fmt.Sprintf("timescale/timescaledb-ha:pg%d-all", pgVersion)
+	}
 
 	containerRequest := testcontainers.ContainerRequest{
-		Image:        fmt.Sprintf("timescale/timescaledb-ha:pg%d-all", pgVersion),
+		Image:        imageName,
 		ExposedPorts: []string{"5432/tcp"},
 		Cmd:          []string{"-c", "fsync=off", "-c", "wal_level=logical"},
 		WaitingFor: wait.ForAll(
