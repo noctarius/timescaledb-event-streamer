@@ -422,6 +422,14 @@ func initializeSystemCatalog(
 ) (*systemCatalog, error) {
 
 	if err := sc.sideChannel.ReadHypertables(func(hypertable *systemcatalog.Hypertable) error {
+		// Check REPLICA IDENTITY USING INDEX
+		if hypertable.ReplicaIdentity() == pgtypes.INDEX {
+			return errors.Errorf(
+				"REPLICATE IDENTITY USING INDEX isn't fully supported yet, hypertable '%s'",
+				hypertable.CanonicalName(),
+			)
+		}
+
 		// Check if we want to replicate that hypertable
 		if !sc.hypertableReplicationFilter.Enabled(hypertable) {
 			return nil
@@ -461,6 +469,14 @@ func initializeSystemCatalog(
 	}
 
 	if err := sc.sideChannel.ReadVanillaTables(func(table *systemcatalog.PgTable) error {
+		// Check REPLICA IDENTITY USING INDEX
+		if table.ReplicaIdentity() == pgtypes.INDEX {
+			return errors.Errorf(
+				"REPLICATE IDENTITY USING INDEX isn't fully supported yet, table '%s'",
+				table.CanonicalName(),
+			)
+		}
+
 		// Check if we want to replicate that PostgreSQL table
 		if !sc.vanillaReplicationFilter.Enabled(table) {
 			return nil
@@ -485,7 +501,7 @@ func initializeSystemCatalog(
 	}
 
 	// No explicit locking, will not happen concurrently
-	tables := make([]systemcatalog.SystemEntity, 0)
+	tables := make([]systemcatalog.BaseTable, 0)
 	for _, hypertable := range sc.hypertables {
 		tables = append(tables, hypertable)
 	}
@@ -494,7 +510,7 @@ func initializeSystemCatalog(
 	}
 
 	// Sorting by canonical name
-	tables = functional.Sort(tables, func(this, other systemcatalog.SystemEntity) bool {
+	tables = functional.Sort(tables, func(this, other systemcatalog.BaseTable) bool {
 		return strings.Compare(this.CanonicalName(), other.CanonicalName()) < 0
 	})
 
@@ -522,7 +538,9 @@ func initializeSystemCatalog(
 				}
 			}
 		}
-		sc.logger.Infof("  * %s (type: %s)", tableName, tableType)
+		sc.logger.Infof(
+			"  * %s (type: %s, replica identity: %s)", tableName, tableType, table.ReplicaIdentity().Name(),
+		)
 	}
 
 	// Register the snapshot event handler
@@ -578,38 +596,26 @@ func (s *snapshottingEventHandler) OnTableSnapshotStartedEvent(
 		return err
 	}
 
+	infof := func(msg string, table systemcatalog.BaseTable) {
+		tableType := "table"
+		if _, ok := table.(*systemcatalog.Hypertable); ok {
+			tableType = "hypertable"
+		}
+		s.systemCatalog.logger.Infof(msg, tableType, table.CanonicalName())
+	}
+
 	if snapshotContext != nil {
 		tableWatermark, present := snapshotContext.GetWatermark(table)
 		if !present {
-			if _, ok := table.(*systemcatalog.Hypertable); ok {
-				s.systemCatalog.logger.Infof("Start snapshotting of hypertable '%s'", table.CanonicalName())
-			} else {
-				s.systemCatalog.logger.Infof("Start snapshotting of table '%s'", table.CanonicalName())
-			}
+			infof("Start snapshotting of %s '%s'", table)
 		} else if tableWatermark.Complete() {
-			if _, ok := table.(*systemcatalog.Hypertable); ok {
-				s.systemCatalog.logger.Infof(
-					"Snapshotting for hypertable '%s' already completed, skipping", table.CanonicalName(),
-				)
-			} else {
-				s.systemCatalog.logger.Infof(
-					"Snapshotting for table '%s' already completed, skipping", table.CanonicalName(),
-				)
-			}
+			infof("Snapshotting for %s '%s' already completed, skipping", table)
 			return s.scheduleNextSnapshotHypertableOrFinish(snapshotName)
 		} else {
-			if _, ok := table.(*systemcatalog.Hypertable); ok {
-				s.systemCatalog.logger.Infof("Resuming snapshotting of hypertable '%s'", table.CanonicalName())
-			} else {
-				s.systemCatalog.logger.Infof("Resuming snapshotting of table '%s'", table.CanonicalName())
-			}
+			infof("Resuming snapshotting of %s '%s'", table)
 		}
 	} else {
-		if _, ok := table.(*systemcatalog.Hypertable); ok {
-			s.systemCatalog.logger.Infof("Start snapshotting of hypertable '%s'", table.CanonicalName())
-		} else {
-			s.systemCatalog.logger.Infof("Start snapshotting of table '%s'", table.CanonicalName())
-		}
+		infof("Start snapshotting of %s '%s'", table)
 	}
 
 	if err := s.systemCatalog.snapshotBaseTable(snapshotName, table); err != nil {

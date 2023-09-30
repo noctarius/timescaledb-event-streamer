@@ -48,7 +48,7 @@ func TestIntegrationTestSuite(
 	suite.Run(t, new(IntegrationTestSuite))
 }
 
-func (its *IntegrationTestSuite) TestInitialSnapshot_Single_Chunk() {
+func (its *IntegrationTestSuite) Test_Hypertable_InitialSnapshot_Single_Chunk() {
 	waiter := waiting.NewWaiterWithTimeout(time.Second * 30)
 	testSink := testsupport.NewEventCollectorSink(
 		testsupport.WithFilter(
@@ -106,7 +106,7 @@ func (its *IntegrationTestSuite) TestInitialSnapshot_Single_Chunk() {
 	)
 }
 
-func (its *IntegrationTestSuite) TestInitialSnapshot_Multi_Chunk() {
+func (its *IntegrationTestSuite) Test_Hypertable_InitialSnapshot_Multi_Chunk() {
 	waiter := waiting.NewWaiterWithTimeout(time.Second * 60)
 	testSink := testsupport.NewEventCollectorSink(
 		testsupport.WithFilter(
@@ -164,7 +164,7 @@ func (its *IntegrationTestSuite) TestInitialSnapshot_Multi_Chunk() {
 	)
 }
 
-func (its *IntegrationTestSuite) TestCreateEvents() {
+func (its *IntegrationTestSuite) Test_Hypertable_Create_Events() {
 	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
 	testSink := testsupport.NewEventCollectorSink(
 		testsupport.WithFilter(
@@ -257,7 +257,7 @@ func (its *IntegrationTestSuite) TestCreateEvents() {
 	)
 }
 
-func (its *IntegrationTestSuite) TestUpdateEvents() {
+func (its *IntegrationTestSuite) Test_Hypertable_Update_Events() {
 	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
 	testSink := testsupport.NewEventCollectorSink(
 		testsupport.WithFilter(
@@ -350,7 +350,7 @@ func (its *IntegrationTestSuite) TestUpdateEvents() {
 	)
 }
 
-func (its *IntegrationTestSuite) TestDeleteEvents() {
+func (its *IntegrationTestSuite) Test_Hypertable_Delete_Events() {
 	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
 	testSink := testsupport.NewEventCollectorSink(
 		testsupport.WithFilter(
@@ -437,7 +437,7 @@ func (its *IntegrationTestSuite) TestDeleteEvents() {
 	)
 }
 
-func (its *IntegrationTestSuite) TestTruncateEvents() {
+func (its *IntegrationTestSuite) Test_Hypertable_Truncate_Events() {
 	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
 	testSink := testsupport.NewEventCollectorSink(
 		testsupport.WithFilter(
@@ -525,7 +525,7 @@ func (its *IntegrationTestSuite) TestTruncateEvents() {
 	)
 }
 
-func (its *IntegrationTestSuite) TestCompressionEvents() {
+func (its *IntegrationTestSuite) Test_Hypertable_Compression_Events() {
 	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
 	testSink := testsupport.NewEventCollectorSink(
 		testsupport.WithFilter(
@@ -628,7 +628,7 @@ func (its *IntegrationTestSuite) TestCompressionEvents() {
 	)
 }
 
-func (its *IntegrationTestSuite) TestCompressionPartialInsertEvents() {
+func (its *IntegrationTestSuite) Test_Hypertable_Compression_Partial_Insert_Events() {
 	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
 	testSink := testsupport.NewEventCollectorSink(
 		testsupport.WithFilter(
@@ -750,7 +750,7 @@ func (its *IntegrationTestSuite) TestCompressionPartialInsertEvents() {
 	)
 }
 
-func (its *IntegrationTestSuite) TestDecompressionEvents() {
+func (its *IntegrationTestSuite) Test_Hypertable_Decompression_Events() {
 	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
 	testSink := testsupport.NewEventCollectorSink(
 		testsupport.WithFilter(
@@ -872,7 +872,7 @@ func (its *IntegrationTestSuite) TestDecompressionEvents() {
 	)
 }
 
-func (its *IntegrationTestSuite) TestCompression_Decompression_SingleTransaction_Events() {
+func (its *IntegrationTestSuite) Test_Hypertable_Compression_Decompression_SingleTransaction_Events() {
 	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
 	testSink := testsupport.NewEventCollectorSink(
 		testsupport.WithFilter(
@@ -994,7 +994,7 @@ func (its *IntegrationTestSuite) TestCompression_Decompression_SingleTransaction
 	)
 }
 
-func (its *IntegrationTestSuite) TestContinuousAggregateCreateEvents() {
+func (its *IntegrationTestSuite) Test_ContinuousAggregate_Create_Events() {
 	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
 	testSink := testsupport.NewEventCollectorSink(
 		testsupport.WithFilter(
@@ -1083,7 +1083,7 @@ func (its *IntegrationTestSuite) TestContinuousAggregateCreateEvents() {
 	)
 }
 
-func (its *IntegrationTestSuite) TestContinuousAggregate_Scheduled_Refresh_CreateEvents() {
+func (its *IntegrationTestSuite) Test_ContinuousAggregate_Scheduled_Refresh_Create_Events() {
 	waiter := waiting.NewWaiterWithTimeout(time.Second * 30)
 	testSink := testsupport.NewEventCollectorSink(
 		testsupport.WithFilter(
@@ -1192,7 +1192,7 @@ func (its *IntegrationTestSuite) TestContinuousAggregate_Scheduled_Refresh_Creat
 	)
 }
 
-func (its *IntegrationTestSuite) Test_Emit_Logical_Message() {
+func (its *IntegrationTestSuite) Test_General_Emit_Logical_Message() {
 	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
 	testSink := testsupport.NewEventCollectorSink(
 		testsupport.WithFilter(
@@ -1265,7 +1265,7 @@ func (its *IntegrationTestSuite) Test_Emit_Logical_Message() {
 	)
 }
 
-func (its *IntegrationTestSuite) Test_Acknowledge_To_PG_With_Only_Begin_Commit() {
+func (its *IntegrationTestSuite) Test_General_Acknowledge_To_PG_With_Only_Begin_Commit() {
 	waiter := waiting.NewWaiterWithTimeout(time.Second * 60)
 	testSink := testsupport.NewEventCollectorSink(
 		testsupport.WithFilter(
@@ -1371,7 +1371,7 @@ func (its *IntegrationTestSuite) Test_Acknowledge_To_PG_With_Only_Begin_Commit()
 	)
 }
 
-func (its *IntegrationTestSuite) TestVanillaCreateEvents() {
+func (its *IntegrationTestSuite) Test_Vanilla_Create_Events() {
 	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
 	testSink := testsupport.NewEventCollectorSink(
 		testsupport.WithFilter(
@@ -1464,7 +1464,7 @@ func (its *IntegrationTestSuite) TestVanillaCreateEvents() {
 	)
 }
 
-func (its *IntegrationTestSuite) TestVanillaUpdateEvents() {
+func (its *IntegrationTestSuite) Test_Vanilla_Update_Events() {
 	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
 	testSink := testsupport.NewEventCollectorSink(
 		testsupport.WithFilter(
@@ -1557,7 +1557,7 @@ func (its *IntegrationTestSuite) TestVanillaUpdateEvents() {
 	)
 }
 
-func (its *IntegrationTestSuite) TestVanillaDeleteEvents() {
+func (its *IntegrationTestSuite) Test_Vanilla_Delete_Events() {
 	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
 	testSink := testsupport.NewEventCollectorSink(
 		testsupport.WithFilter(
@@ -1644,7 +1644,7 @@ func (its *IntegrationTestSuite) TestVanillaDeleteEvents() {
 	)
 }
 
-func (its *IntegrationTestSuite) TestVanillaTruncateEvents() {
+func (its *IntegrationTestSuite) Test_Vanilla_Truncate_Events() {
 	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
 	testSink := testsupport.NewEventCollectorSink(
 		testsupport.WithFilter(
@@ -1725,6 +1725,894 @@ func (its *IntegrationTestSuite) TestVanillaTruncateEvents() {
 				return err
 			}
 			testrunner.Attribute(ctx, "tableName", tn)
+
+			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
+			return nil
+		}),
+	)
+}
+
+func (its *IntegrationTestSuite) Test_Hypertable_Replica_Identity_Full_Update_Events() {
+	var tableName string
+
+	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
+	testSink := testsupport.NewEventCollectorSink(
+		testsupport.WithFilter(
+			func(_ time.Time, _ string, envelope testsupport.Envelope) bool {
+				return envelope.Payload.Op == schema.OP_CREATE || envelope.Payload.Op == schema.OP_UPDATE
+			},
+		),
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink, _ testsupport.Envelope) {
+			if sink.NumOfEvents()%10 == 0 {
+				waiter.Signal()
+			}
+		}),
+	)
+
+	its.RunTest(
+		func(ctx testrunner.Context) error {
+			tsdbVersion := ctx.TimescaleVersion()
+			if tsdbVersion < version.TSDB_212_VERSION {
+				fmt.Printf("Skipped test, because of TimescaleDB version <2.12 (%s)", tsdbVersion)
+				return nil
+			}
+
+			if _, err := ctx.Exec(
+				context.Background(),
+				fmt.Sprintf("ALTER TABLE %s REPLICA IDENTITY FULL", tableName),
+			); err != nil {
+				return err
+			}
+
+			if _, err := ctx.Exec(context.Background(),
+				fmt.Sprintf(
+					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:09:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
+					tableName,
+				),
+			); err != nil {
+				return err
+			}
+
+			if err := waiter.Await(); err != nil {
+				return err
+			}
+			waiter.Reset()
+
+			if _, err := ctx.Exec(context.Background(),
+				fmt.Sprintf(
+					"UPDATE \"%s\" SET val = val + 10",
+					tableName,
+				),
+			); err != nil {
+				return err
+			}
+
+			if err := waiter.Await(); err != nil {
+				return err
+			}
+
+			// Initial 10 events have to be of type read (same transaction as the chunk creation)
+			for i := 0; i < 10; i++ {
+				expected := i + 1
+				event := testSink.Events()[i]
+				val := int(event.Envelope.Payload.After["val"].(float64))
+				if expected != val {
+					its.T().Errorf("event order inconsistent %d != %d", expected, val)
+					return nil
+				}
+				if event.Envelope.Payload.Op != schema.OP_CREATE {
+					its.T().Errorf("event should be of type 'r' but was %s", event.Envelope.Payload.Op)
+					return nil
+				}
+			}
+
+			// Next 10 events have to be of type update (chunk should already be replicated)
+			for i := 0; i < 10; i++ {
+				expected := i + 11
+				event := testSink.Events()[i+10]
+				val := int(event.Envelope.Payload.After["val"].(float64))
+				if expected != val {
+					its.T().Errorf("event order inconsistent %d != %d", expected, val)
+					return nil
+				}
+				val = int(event.Envelope.Payload.Before["val"].(float64))
+				if expected-10 != val {
+					its.T().Errorf("event before value unexpected %d != %d", expected-10, val)
+					return nil
+				}
+				assert.Equal(its.T(), event.Envelope.Payload.After["ts"], event.Envelope.Payload.Before["ts"])
+				if event.Envelope.Payload.Op != schema.OP_UPDATE {
+					its.T().Errorf("event should be of type 'u' but was %s", event.Envelope.Payload.Op)
+					return nil
+				}
+			}
+
+			return nil
+		},
+
+		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
+			_, tn, err := ctx.CreateHypertable("ts", time.Hour*24,
+				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("val", "integer", false, false, nil),
+			)
+			if err != nil {
+				return err
+			}
+			tableName = tn
+
+			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
+			return nil
+		}),
+	)
+}
+
+func (its *IntegrationTestSuite) Test_Hypertable_Replica_Identity_Full_Delete_Events() {
+	var tableName string
+
+	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
+	testSink := testsupport.NewEventCollectorSink(
+		testsupport.WithFilter(
+			func(_ time.Time, _ string, envelope testsupport.Envelope) bool {
+				return envelope.Payload.Op == schema.OP_CREATE || envelope.Payload.Op == schema.OP_DELETE
+			},
+		),
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink, _ testsupport.Envelope) {
+			if sink.NumOfEvents()%10 == 0 {
+				waiter.Signal()
+			}
+		}),
+	)
+
+	its.RunTest(
+		func(ctx testrunner.Context) error {
+			tsdbVersion := ctx.TimescaleVersion()
+			if tsdbVersion < version.TSDB_212_VERSION {
+				fmt.Printf("Skipped test, because of TimescaleDB version <2.12 (%s)", tsdbVersion)
+				return nil
+			}
+
+			if _, err := ctx.Exec(
+				context.Background(),
+				fmt.Sprintf("ALTER TABLE %s REPLICA IDENTITY FULL", tableName),
+			); err != nil {
+				return err
+			}
+
+			if _, err := ctx.Exec(context.Background(),
+				fmt.Sprintf(
+					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:09:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
+					tableName,
+				),
+			); err != nil {
+				return err
+			}
+
+			if err := waiter.Await(); err != nil {
+				return err
+			}
+			waiter.Reset()
+
+			if _, err := ctx.Exec(context.Background(),
+				fmt.Sprintf(
+					"DELETE FROM \"%s\"", tableName,
+				),
+			); err != nil {
+				return err
+			}
+
+			if err := waiter.Await(); err != nil {
+				return err
+			}
+
+			// Initial 10 events have to be of type read (same transaction as the chunk creation)
+			for i := 0; i < 10; i++ {
+				expected := i + 1
+				event := testSink.Events()[i]
+				val := int(event.Envelope.Payload.After["val"].(float64))
+				if expected != val {
+					its.T().Errorf("event order inconsistent %d != %d", expected, val)
+					return nil
+				}
+				if event.Envelope.Payload.Op != schema.OP_CREATE {
+					its.T().Errorf("event should be of type 'r' but was %s", event.Envelope.Payload.Op)
+					return nil
+				}
+			}
+
+			// Next 10 events have to be of type delete (chunk should already be replicated)
+			for i := 0; i < 10; i++ {
+				event := testSink.Events()[i+10]
+				val := int(event.Envelope.Payload.Before["val"].(float64))
+				if i+1 != val {
+					its.T().Errorf("event before value unexpected %d != %d", i+1, val)
+					return nil
+				}
+				if event.Envelope.Payload.Op != schema.OP_DELETE {
+					its.T().Errorf("event should be of type 'd' but was %s", event.Envelope.Payload.Op)
+					return nil
+				}
+			}
+
+			return nil
+		},
+
+		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
+			_, tn, err := ctx.CreateHypertable("ts", time.Hour*24,
+				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("val", "integer", false, false, nil),
+			)
+			if err != nil {
+				return err
+			}
+			tableName = tn
+
+			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
+			return nil
+		}),
+	)
+}
+
+func (its *IntegrationTestSuite) Ignore_Test_Hypertable_Replica_Identity_Index_Update_Events() {
+	var tableName string
+
+	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
+	testSink := testsupport.NewEventCollectorSink(
+		testsupport.WithFilter(
+			func(_ time.Time, _ string, envelope testsupport.Envelope) bool {
+				return envelope.Payload.Op == schema.OP_CREATE || envelope.Payload.Op == schema.OP_UPDATE
+			},
+		),
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink, _ testsupport.Envelope) {
+			if sink.NumOfEvents()%10 == 0 {
+				waiter.Signal()
+			}
+		}),
+	)
+
+	its.RunTest(
+		func(ctx testrunner.Context) error {
+			tsdbVersion := ctx.TimescaleVersion()
+			if tsdbVersion < version.TSDB_212_VERSION {
+				fmt.Printf("Skipped test, because of TimescaleDB version <2.12 (%s)", tsdbVersion)
+				return nil
+			}
+
+			if _, err := ctx.Exec(
+				context.Background(),
+				fmt.Sprintf("ALTER TABLE %s REPLICA IDENTITY USING INDEX %s_pk", tableName, tableName),
+			); err != nil {
+				return err
+			}
+
+			if _, err := ctx.Exec(context.Background(),
+				fmt.Sprintf(
+					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS key, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:09:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
+					tableName,
+				),
+			); err != nil {
+				return err
+			}
+
+			if err := waiter.Await(); err != nil {
+				return err
+			}
+			waiter.Reset()
+
+			if _, err := ctx.Exec(context.Background(),
+				fmt.Sprintf(
+					"UPDATE \"%s\" SET val = val + 10",
+					tableName,
+				),
+			); err != nil {
+				return err
+			}
+
+			if err := waiter.Await(); err != nil {
+				return err
+			}
+
+			// Initial 10 events have to be of type read (same transaction as the chunk creation)
+			for i := 0; i < 10; i++ {
+				expected := i + 1
+				event := testSink.Events()[i]
+				val := int(event.Envelope.Payload.After["val"].(float64))
+				if expected != val {
+					its.T().Errorf("event order inconsistent %d != %d", expected, val)
+					return nil
+				}
+				if event.Envelope.Payload.Op != schema.OP_CREATE {
+					its.T().Errorf("event should be of type 'r' but was %s", event.Envelope.Payload.Op)
+					return nil
+				}
+			}
+
+			// Next 10 events have to be of type update (chunk should already be replicated)
+			for i := 0; i < 10; i++ {
+				expected := i + 11
+				event := testSink.Events()[i+10]
+				val := int(event.Envelope.Payload.After["val"].(float64))
+				if expected != val {
+					its.T().Errorf("event order inconsistent %d != %d", expected, val)
+					return nil
+				}
+				val = int(event.Envelope.Payload.Before["key"].(float64))
+				if expected-10 != val {
+					its.T().Errorf("event before key unexpected %d != %d", expected-10, val)
+					return nil
+				}
+				assert.Equal(its.T(), event.Envelope.Payload.After["ts"], event.Envelope.Payload.Before["ts"])
+				if event.Envelope.Payload.Op != schema.OP_UPDATE {
+					its.T().Errorf("event should be of type 'u' but was %s", event.Envelope.Payload.Op)
+					return nil
+				}
+			}
+
+			return nil
+		},
+
+		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
+			_, tn, err := ctx.CreateHypertable("ts", time.Hour*24,
+				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("key", "integer", false, false, nil),
+				testsupport.NewColumn("val", "integer", false, false, nil),
+			)
+			if err != nil {
+				return err
+			}
+			tableName = tn
+
+			if _, err := ctx.Exec(
+				context.Background(),
+				fmt.Sprintf("CREATE UNIQUE INDEX %s_pk ON %s (ts, key)", tn, tn),
+			); err != nil {
+				return err
+			}
+
+			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
+			return nil
+		}),
+	)
+}
+
+func (its *IntegrationTestSuite) Ignore_Test_Hypertable_Replica_Identity_Index_Delete_Events() {
+	var tableName string
+
+	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
+	testSink := testsupport.NewEventCollectorSink(
+		testsupport.WithFilter(
+			func(_ time.Time, _ string, envelope testsupport.Envelope) bool {
+				return envelope.Payload.Op == schema.OP_CREATE || envelope.Payload.Op == schema.OP_DELETE
+			},
+		),
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink, _ testsupport.Envelope) {
+			if sink.NumOfEvents()%10 == 0 {
+				waiter.Signal()
+			}
+		}),
+	)
+
+	its.RunTest(
+		func(ctx testrunner.Context) error {
+			tsdbVersion := ctx.TimescaleVersion()
+			if tsdbVersion < version.TSDB_212_VERSION {
+				fmt.Printf("Skipped test, because of TimescaleDB version <2.12 (%s)", tsdbVersion)
+				return nil
+			}
+
+			if _, err := ctx.Exec(
+				context.Background(),
+				fmt.Sprintf("ALTER TABLE %s REPLICA IDENTITY USING INDEX %s_pk", tableName, tableName),
+			); err != nil {
+				return err
+			}
+
+			if _, err := ctx.Exec(context.Background(),
+				fmt.Sprintf(
+					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS key, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:09:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
+					tableName,
+				),
+			); err != nil {
+				return err
+			}
+
+			if err := waiter.Await(); err != nil {
+				return err
+			}
+			waiter.Reset()
+
+			if _, err := ctx.Exec(context.Background(),
+				fmt.Sprintf(
+					"DELETE FROM \"%s\"", tableName,
+				),
+			); err != nil {
+				return err
+			}
+
+			if err := waiter.Await(); err != nil {
+				return err
+			}
+
+			// Initial 10 events have to be of type read (same transaction as the chunk creation)
+			for i := 0; i < 10; i++ {
+				expected := i + 1
+				event := testSink.Events()[i]
+				val := int(event.Envelope.Payload.After["val"].(float64))
+				if expected != val {
+					its.T().Errorf("event order inconsistent %d != %d", expected, val)
+					return nil
+				}
+				if event.Envelope.Payload.Op != schema.OP_CREATE {
+					its.T().Errorf("event should be of type 'r' but was %s", event.Envelope.Payload.Op)
+					return nil
+				}
+			}
+
+			// Next 10 events have to be of type delete (chunk should already be replicated)
+			for i := 0; i < 10; i++ {
+				event := testSink.Events()[i+10]
+				val := int(event.Envelope.Payload.Before["key"].(float64))
+				if i+1 != val {
+					its.T().Errorf("event before value unexpected %d != %d", i+1, val)
+					return nil
+				}
+				if event.Envelope.Payload.Op != schema.OP_DELETE {
+					its.T().Errorf("event should be of type 'd' but was %s", event.Envelope.Payload.Op)
+					return nil
+				}
+			}
+
+			return nil
+		},
+
+		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
+			_, tn, err := ctx.CreateHypertable("ts", time.Hour*24,
+				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("key", "integer", false, false, nil),
+				testsupport.NewColumn("val", "integer", false, false, nil),
+			)
+			if err != nil {
+				return err
+			}
+			tableName = tn
+
+			if _, err := ctx.Exec(
+				context.Background(),
+				fmt.Sprintf("CREATE UNIQUE INDEX %s_pk ON %s (ts, key)", tn, tn),
+			); err != nil {
+				return err
+			}
+
+			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
+			return nil
+		}),
+	)
+}
+
+func (its *IntegrationTestSuite) Test_Vanilla_Replica_Identity_Full_Update_Events() {
+	var tableName string
+
+	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
+	testSink := testsupport.NewEventCollectorSink(
+		testsupport.WithFilter(
+			func(_ time.Time, _ string, envelope testsupport.Envelope) bool {
+				return envelope.Payload.Op == schema.OP_CREATE || envelope.Payload.Op == schema.OP_UPDATE
+			},
+		),
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink, _ testsupport.Envelope) {
+			if sink.NumOfEvents()%10 == 0 {
+				waiter.Signal()
+			}
+		}),
+	)
+
+	its.RunTest(
+		func(ctx testrunner.Context) error {
+			if _, err := ctx.Exec(
+				context.Background(),
+				fmt.Sprintf("ALTER TABLE %s REPLICA IDENTITY FULL", tableName),
+			); err != nil {
+				return err
+			}
+
+			if _, err := ctx.Exec(context.Background(),
+				fmt.Sprintf(
+					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:09:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
+					tableName,
+				),
+			); err != nil {
+				return err
+			}
+
+			if err := waiter.Await(); err != nil {
+				return err
+			}
+			waiter.Reset()
+
+			if _, err := ctx.Exec(context.Background(),
+				fmt.Sprintf(
+					"UPDATE \"%s\" SET val = val + 10",
+					tableName,
+				),
+			); err != nil {
+				return err
+			}
+
+			if err := waiter.Await(); err != nil {
+				return err
+			}
+
+			// Initial 10 events have to be of type read (same transaction as the chunk creation)
+			for i := 0; i < 10; i++ {
+				expected := i + 1
+				event := testSink.Events()[i]
+				val := int(event.Envelope.Payload.After["val"].(float64))
+				if expected != val {
+					its.T().Errorf("event order inconsistent %d != %d", expected, val)
+					return nil
+				}
+				if event.Envelope.Payload.Op != schema.OP_CREATE {
+					its.T().Errorf("event should be of type 'r' but was %s", event.Envelope.Payload.Op)
+					return nil
+				}
+			}
+
+			// Next 10 events have to be of type update (chunk should already be replicated)
+			for i := 0; i < 10; i++ {
+				expected := i + 11
+				event := testSink.Events()[i+10]
+				val := int(event.Envelope.Payload.After["val"].(float64))
+				if expected != val {
+					its.T().Errorf("event order inconsistent %d != %d", expected, val)
+					return nil
+				}
+				val = int(event.Envelope.Payload.Before["val"].(float64))
+				if expected-10 != val {
+					its.T().Errorf("event before value unexpected %d != %d", expected-10, val)
+					return nil
+				}
+				assert.Equal(its.T(), event.Envelope.Payload.After["ts"], event.Envelope.Payload.Before["ts"])
+				if event.Envelope.Payload.Op != schema.OP_UPDATE {
+					its.T().Errorf("event should be of type 'u' but was %s", event.Envelope.Payload.Op)
+					return nil
+				}
+			}
+
+			return nil
+		},
+
+		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
+			_, tn, err := ctx.CreateVanillaTable(
+				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("val", "integer", false, false, nil),
+			)
+			if err != nil {
+				return err
+			}
+			tableName = tn
+
+			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
+			return nil
+		}),
+	)
+}
+
+func (its *IntegrationTestSuite) Test_Vanilla_Replica_Identity_Full_Delete_Events() {
+	var tableName string
+
+	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
+	testSink := testsupport.NewEventCollectorSink(
+		testsupport.WithFilter(
+			func(_ time.Time, _ string, envelope testsupport.Envelope) bool {
+				return envelope.Payload.Op == schema.OP_CREATE || envelope.Payload.Op == schema.OP_DELETE
+			},
+		),
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink, _ testsupport.Envelope) {
+			if sink.NumOfEvents()%10 == 0 {
+				waiter.Signal()
+			}
+		}),
+	)
+
+	its.RunTest(
+		func(ctx testrunner.Context) error {
+			if _, err := ctx.Exec(
+				context.Background(),
+				fmt.Sprintf("ALTER TABLE %s REPLICA IDENTITY FULL", tableName),
+			); err != nil {
+				return err
+			}
+
+			if _, err := ctx.Exec(context.Background(),
+				fmt.Sprintf(
+					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:09:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
+					tableName,
+				),
+			); err != nil {
+				return err
+			}
+
+			if err := waiter.Await(); err != nil {
+				return err
+			}
+			waiter.Reset()
+
+			if _, err := ctx.Exec(context.Background(),
+				fmt.Sprintf(
+					"DELETE FROM \"%s\"", tableName,
+				),
+			); err != nil {
+				return err
+			}
+
+			if err := waiter.Await(); err != nil {
+				return err
+			}
+
+			// Initial 10 events have to be of type read (same transaction as the chunk creation)
+			for i := 0; i < 10; i++ {
+				expected := i + 1
+				event := testSink.Events()[i]
+				val := int(event.Envelope.Payload.After["val"].(float64))
+				if expected != val {
+					its.T().Errorf("event order inconsistent %d != %d", expected, val)
+					return nil
+				}
+				if event.Envelope.Payload.Op != schema.OP_CREATE {
+					its.T().Errorf("event should be of type 'r' but was %s", event.Envelope.Payload.Op)
+					return nil
+				}
+			}
+
+			// Next 10 events have to be of type delete (chunk should already be replicated)
+			for i := 0; i < 10; i++ {
+				event := testSink.Events()[i+10]
+				val := int(event.Envelope.Payload.Before["val"].(float64))
+				if i+1 != val {
+					its.T().Errorf("event before value unexpected %d != %d", i+1, val)
+					return nil
+				}
+				if event.Envelope.Payload.Op != schema.OP_DELETE {
+					its.T().Errorf("event should be of type 'd' but was %s", event.Envelope.Payload.Op)
+					return nil
+				}
+			}
+
+			return nil
+		},
+
+		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
+			_, tn, err := ctx.CreateVanillaTable(
+				testsupport.NewColumn("ts", "timestamptz", false, true, nil),
+				testsupport.NewColumn("val", "integer", false, false, nil),
+			)
+			if err != nil {
+				return err
+			}
+			tableName = tn
+
+			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
+			return nil
+		}),
+	)
+}
+
+func (its *IntegrationTestSuite) Ignore_Test_Vanilla_Replica_Identity_Index_Update_Events() {
+	var tableName string
+
+	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
+	testSink := testsupport.NewEventCollectorSink(
+		testsupport.WithFilter(
+			func(_ time.Time, _ string, envelope testsupport.Envelope) bool {
+				return envelope.Payload.Op == schema.OP_CREATE || envelope.Payload.Op == schema.OP_UPDATE
+			},
+		),
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink, _ testsupport.Envelope) {
+			if sink.NumOfEvents()%10 == 0 {
+				waiter.Signal()
+			}
+		}),
+	)
+
+	its.RunTest(
+		func(ctx testrunner.Context) error {
+			if _, err := ctx.Exec(context.Background(),
+				fmt.Sprintf(
+					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS key, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:09:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
+					tableName,
+				),
+			); err != nil {
+				return err
+			}
+
+			if err := waiter.Await(); err != nil {
+				return err
+			}
+			waiter.Reset()
+
+			if _, err := ctx.Exec(context.Background(),
+				fmt.Sprintf(
+					"UPDATE \"%s\" SET val = val + 10",
+					tableName,
+				),
+			); err != nil {
+				return err
+			}
+
+			if err := waiter.Await(); err != nil {
+				return err
+			}
+
+			// Initial 10 events have to be of type read (same transaction as the chunk creation)
+			for i := 0; i < 10; i++ {
+				expected := i + 1
+				event := testSink.Events()[i]
+				val := int(event.Envelope.Payload.After["val"].(float64))
+				if expected != val {
+					its.T().Errorf("event order inconsistent %d != %d", expected, val)
+					return nil
+				}
+				if event.Envelope.Payload.Op != schema.OP_CREATE {
+					its.T().Errorf("event should be of type 'r' but was %s", event.Envelope.Payload.Op)
+					return nil
+				}
+			}
+
+			// Next 10 events have to be of type update (chunk should already be replicated)
+			for i := 0; i < 10; i++ {
+				expected := i + 11
+				event := testSink.Events()[i+10]
+				val := int(event.Envelope.Payload.After["val"].(float64))
+				if expected != val {
+					its.T().Errorf("event order inconsistent %d != %d", expected, val)
+					return nil
+				}
+				val = int(event.Envelope.Payload.Before["key"].(float64))
+				if expected-10 != val {
+					its.T().Errorf("event before key unexpected %d != %d", expected-10, val)
+					return nil
+				}
+				assert.Equal(its.T(), event.Envelope.Payload.After["ts"], event.Envelope.Payload.Before["ts"])
+				if event.Envelope.Payload.Op != schema.OP_UPDATE {
+					its.T().Errorf("event should be of type 'u' but was %s", event.Envelope.Payload.Op)
+					return nil
+				}
+			}
+
+			return nil
+		},
+
+		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
+			_, tn, err := ctx.CreateVanillaTable(
+				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("key", "integer", false, false, nil),
+				testsupport.NewColumn("val", "integer", false, false, nil),
+			)
+			if err != nil {
+				return err
+			}
+			tableName = tn
+
+			if _, err := ctx.Exec(
+				context.Background(),
+				fmt.Sprintf("CREATE UNIQUE INDEX %s_pk ON %s (ts, key)", tn, tn),
+			); err != nil {
+				return err
+			}
+
+			if _, err := ctx.Exec(
+				context.Background(),
+				fmt.Sprintf("ALTER TABLE %s REPLICA IDENTITY USING INDEX %s_pk", tableName, tableName),
+			); err != nil {
+				return err
+			}
+
+			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
+			return nil
+		}),
+	)
+}
+
+func (its *IntegrationTestSuite) Ignore_Test_Vanilla_Replica_Identity_Index_Delete_Events() {
+	var tableName string
+
+	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
+	testSink := testsupport.NewEventCollectorSink(
+		testsupport.WithFilter(
+			func(_ time.Time, _ string, envelope testsupport.Envelope) bool {
+				return envelope.Payload.Op == schema.OP_CREATE || envelope.Payload.Op == schema.OP_DELETE
+			},
+		),
+		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink, _ testsupport.Envelope) {
+			if sink.NumOfEvents()%10 == 0 {
+				waiter.Signal()
+			}
+		}),
+	)
+
+	its.RunTest(
+		func(ctx testrunner.Context) error {
+			if _, err := ctx.Exec(context.Background(),
+				fmt.Sprintf(
+					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS key, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:09:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
+					tableName,
+				),
+			); err != nil {
+				return err
+			}
+
+			if err := waiter.Await(); err != nil {
+				return err
+			}
+			waiter.Reset()
+
+			if _, err := ctx.Exec(context.Background(),
+				fmt.Sprintf(
+					"DELETE FROM \"%s\"", tableName,
+				),
+			); err != nil {
+				return err
+			}
+
+			if err := waiter.Await(); err != nil {
+				return err
+			}
+
+			// Initial 10 events have to be of type read (same transaction as the chunk creation)
+			for i := 0; i < 10; i++ {
+				expected := i + 1
+				event := testSink.Events()[i]
+				val := int(event.Envelope.Payload.After["val"].(float64))
+				if expected != val {
+					its.T().Errorf("event order inconsistent %d != %d", expected, val)
+					return nil
+				}
+				if event.Envelope.Payload.Op != schema.OP_CREATE {
+					its.T().Errorf("event should be of type 'r' but was %s", event.Envelope.Payload.Op)
+					return nil
+				}
+			}
+
+			// Next 10 events have to be of type delete (chunk should already be replicated)
+			for i := 0; i < 10; i++ {
+				event := testSink.Events()[i+10]
+				val := int(event.Envelope.Payload.Before["key"].(float64))
+				if i+1 != val {
+					its.T().Errorf("event before value unexpected %d != %d", i+1, val)
+					return nil
+				}
+				if event.Envelope.Payload.Op != schema.OP_DELETE {
+					its.T().Errorf("event should be of type 'd' but was %s", event.Envelope.Payload.Op)
+					return nil
+				}
+			}
+
+			return nil
+		},
+
+		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
+			_, tn, err := ctx.CreateVanillaTable(
+				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("key", "integer", false, false, nil),
+				testsupport.NewColumn("val", "integer", false, false, nil),
+			)
+			if err != nil {
+				return err
+			}
+			tableName = tn
+
+			if _, err := ctx.Exec(
+				context.Background(),
+				fmt.Sprintf("CREATE UNIQUE INDEX %s_pk ON %s (ts, key)", tn, tn),
+			); err != nil {
+				return err
+			}
+
+			if _, err := ctx.Exec(
+				context.Background(),
+				fmt.Sprintf("ALTER TABLE %s REPLICA IDENTITY USING INDEX %s_pk", tableName, tableName),
+			); err != nil {
+				return err
+			}
 
 			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
 			return nil

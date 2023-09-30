@@ -128,8 +128,8 @@ func toDefinition(
 	builder.WriteString(column.Name())
 	builder.WriteString(" ")
 	builder.WriteString(column.PgType())
-	if column.IsNullable() {
-		builder.WriteString(" NULL")
+	if !column.IsNullable() {
+		builder.WriteString(" NOT NULL")
 	}
 	if column.DefaultValue() != nil {
 		builder.WriteString(fmt.Sprintf(" DEFAULT '%s'", *column.DefaultValue()))
