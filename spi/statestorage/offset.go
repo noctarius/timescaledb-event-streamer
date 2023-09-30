@@ -65,7 +65,7 @@ func (o *Offset) UnmarshalBinary(
 		offset += 4
 		o.SnapshotKeyset = make([]byte, length)
 		copy(o.SnapshotKeyset, data[offset:])
-		offset += int(length)
+		//TODO: unused right now: offset += int(length)
 	}
 	return nil
 }
@@ -113,7 +113,7 @@ func (o *Offset) MarshalBinary() ([]byte, error) {
 		binary.BigEndian.PutUint32(data[offset:], uint32(length))
 		offset += 4
 		copy(data[offset:], o.SnapshotKeyset)
-		offset += length
+		//TODO: unused right now offset += length
 	}
 	return data, nil
 }
