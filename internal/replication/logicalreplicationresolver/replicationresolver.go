@@ -673,7 +673,7 @@ func (l *logicalReplicationResolver) onChunkDecompressionEvent(
 			return nil
 		}
 
-		if err := l.taskManager.EnqueueTask(func(notificator task.Notificator) {
+		if err := l.taskManager.RunTask(func(notificator task.Notificator) {
 			notificator.NotifyCompressionReplicationEventHandler(
 				func(handler eventhandlers.CompressionReplicationEventHandler) error {
 					return handler.OnChunkDecompressedEvent(xld, uncompressedHypertable, chunk)
