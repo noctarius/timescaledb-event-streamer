@@ -19,6 +19,7 @@ package tests
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"github.com/jackc/pglogrepl"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
@@ -30,6 +31,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/testsupport"
 	"github.com/noctarius/timescaledb-event-streamer/testsupport/testrunner"
 	"github.com/samber/lo"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"testing"
 	"time"
@@ -1190,16 +1192,16 @@ func (its *IntegrationTestSuite) TestContinuousAggregate_Scheduled_Refresh_Creat
 	)
 }
 
-func (its *IntegrationTestSuite) Ignore_TestRollbackEvents() {
+func (its *IntegrationTestSuite) Test_Emit_Logical_Message() {
 	waiter := waiting.NewWaiterWithTimeout(time.Second * 20)
 	testSink := testsupport.NewEventCollectorSink(
 		testsupport.WithFilter(
 			func(_ time.Time, _ string, envelope testsupport.Envelope) bool {
-				return envelope.Payload.Op == schema.OP_READ || envelope.Payload.Op == schema.OP_CREATE
+				return envelope.Payload.Op == schema.OP_MESSAGE
 			},
 		),
 		testsupport.WithPostHook(func(sink *testsupport.EventCollectorSink, _ testsupport.Envelope) {
-			if sink.NumOfEvents()%1000 == 0 {
+			if sink.NumOfEvents() == 1 {
 				waiter.Signal()
 			}
 		}),
@@ -1207,6 +1209,12 @@ func (its *IntegrationTestSuite) Ignore_TestRollbackEvents() {
 
 	its.RunTest(
 		func(ctx testrunner.Context) error {
+			pgVersion := ctx.PostgresqlVersion()
+			if pgVersion < version.PG_14_VERSION {
+				fmt.Printf("Skipped test, because of PostgreSQL version <14.0 (%s)", pgVersion)
+				return nil
+			}
+
 			tx, err := ctx.Begin(context.Background())
 			if err != nil {
 				return err
@@ -1224,18 +1232,18 @@ func (its *IntegrationTestSuite) Ignore_TestRollbackEvents() {
 				return err
 			}
 
-			for i := 0; i < 20; i++ {
-				expected := i + 1
-				event := testSink.Events()[i]
-				val := int(event.Envelope.Payload.After["val"].(float64))
-				if expected != val {
-					its.T().Errorf("event order inconsistent %d != %d", expected, val)
-					return nil
-				}
-				if event.Envelope.Payload.Op != schema.OP_READ {
-					its.T().Errorf("event should be of type 'r' but was %s", event.Envelope.Payload.Op)
-					return nil
-				}
+			event := testSink.Events()[0]
+			assert.NotNil(its.T(), event.Envelope.Payload.Message)
+			assert.Equal(its.T(), event.Envelope.Payload.Message.Prefix, "test-prefix")
+			assert.Equal(its.T(), event.Envelope.Payload.Message.Content, "dGhpcyBpcyBhIHJlcGxpY2F0aW9uIG1lc3NhZ2U=")
+			d, err := base64.StdEncoding.DecodeString(event.Envelope.Payload.Message.Content)
+			if err != nil {
+				return err
+			}
+			assert.Equal(its.T(), "this is a replication message", string(d))
+			if event.Envelope.Payload.Op != schema.OP_MESSAGE {
+				its.T().Errorf("event should be of type 'r' but was %s", event.Envelope.Payload.Op)
+				return nil
 			}
 
 			return nil
@@ -1251,24 +1259,7 @@ func (its *IntegrationTestSuite) Ignore_TestRollbackEvents() {
 			}
 			testrunner.Attribute(ctx, "tableName", tn)
 
-			aggregateName := lo.RandomString(10, lo.LowerCaseLettersCharset)
-			testrunner.Attribute(ctx, "aggregateName", aggregateName)
-
-			if _, err := ctx.Exec(context.Background(),
-				fmt.Sprintf(
-					"CREATE MATERIALIZED VIEW %s WITH (timescaledb.continuous) AS SELECT time_bucket('1 min', t.ts) bucket, max(val) val FROM %s t GROUP BY 1",
-					aggregateName, tn,
-				),
-			); err != nil {
-				return err
-			}
-
 			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
-			ctx.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
-				config.TimescaleDB.Hypertables.Includes = []string{
-					systemcatalog.MakeRelationKey(testsupport.DatabaseSchema, aggregateName),
-				}
-			})
 			return nil
 		}),
 	)
