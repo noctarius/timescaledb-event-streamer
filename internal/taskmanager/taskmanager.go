@@ -27,6 +27,7 @@ import (
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/eventhandlers"
 	"github.com/noctarius/timescaledb-event-streamer/spi/task"
+	"sync/atomic"
 )
 
 type taskManager struct {
@@ -39,7 +40,7 @@ type taskManager struct {
 	logicalHandlers     []eventhandlers.LogicalReplicationEventHandler
 	snapshotHandlers    []eventhandlers.SnapshottingEventHandler
 	shutdownAwaiter     *waiting.ShutdownAwaiter
-	shutdownActive      bool
+	shutdownActive      atomic.Bool
 }
 
 func NewTaskManager(
@@ -65,6 +66,7 @@ func NewTaskManager(
 		logicalHandlers:     make([]eventhandlers.LogicalReplicationEventHandler, 0),
 		snapshotHandlers:    make([]eventhandlers.SnapshottingEventHandler, 0),
 		shutdownAwaiter:     waiting.NewShutdownAwaiter(),
+		shutdownActive:      atomic.Bool{},
 	}
 	return d, nil
 }
@@ -210,7 +212,7 @@ func (d *taskManager) StartDispatcher() {
 }
 
 func (d *taskManager) StopDispatcher() error {
-	d.shutdownActive = true
+	d.shutdownActive.Store(true)
 	d.shutdownAwaiter.SignalShutdown()
 	d.taskQueue.Close()
 	return d.shutdownAwaiter.AwaitDone()
@@ -220,7 +222,7 @@ func (d *taskManager) EnqueueTask(
 	task task.Task,
 ) error {
 
-	if d.shutdownActive {
+	if d.shutdownActive.Load() {
 		return fmt.Errorf("shutdown active, draining only")
 	}
 	d.taskQueue.Send(task)
@@ -231,7 +233,7 @@ func (d *taskManager) EnqueueTaskAndWait(
 	t task.Task,
 ) error {
 
-	if d.shutdownActive {
+	if d.shutdownActive.Load() {
 		return fmt.Errorf("shutdown active, draining only")
 	}
 	done := waiting.NewWaiter()
