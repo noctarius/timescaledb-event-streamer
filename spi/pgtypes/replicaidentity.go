@@ -57,6 +57,20 @@ func (ri ReplicaIdentity) Description() string {
 	return "Unknown REPLICA IDENTITY"
 }
 
+func (ri ReplicaIdentity) Name() string {
+	switch ri {
+	case NOTHING:
+		return "NOTHING"
+	case FULL:
+		return "FULL"
+	case DEFAULT:
+		return "DEFAULT"
+	case INDEX:
+		return "INDEX"
+	}
+	return "Unknown REPLICA IDENTITY"
+}
+
 func AsReplicaIdentity(
 	val string,
 ) ReplicaIdentity {
