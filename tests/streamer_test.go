@@ -896,6 +896,18 @@ func (its *IntegrationTestSuite) Test_Hypertable_Implicit_Decompression_Events_I
 
 	its.RunTest(
 		func(ctx testrunner.Context) error {
+			pgVersion := ctx.PostgresqlVersion()
+			if pgVersion < version.PG_14_VERSION {
+				fmt.Printf("Skipped test, because of PostgreSQL version <14.0 (%s)", pgVersion)
+				return nil
+			}
+
+			tsdbVersion := ctx.TimescaleVersion()
+			if tsdbVersion < version.TSDB_212_VERSION {
+				fmt.Printf("Skipped test, because of TimescaleDB version <2.12 (%s)", tsdbVersion)
+				return nil
+			}
+
 			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:09:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
