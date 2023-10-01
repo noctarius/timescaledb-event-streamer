@@ -92,6 +92,19 @@ found [here](https://raw.githubusercontent.com/noctarius/timescaledb-event-strea
 For a full reference of the existing configuration options, see the [Configuration](#configuration)
 section.
 
+Starting from TimescaleDB 2.12, the extension provides the possibility to use PostgreSQL 14+
+logical replication messages to mark the start and end of decompressions (due to insert,
+update, delete in compressed chunks). If you are on PG14+ and use TimescaleDB 2.12+, you
+should enable those markers.
+
+In your `postgresql.conf`, set the following line:
+```plain
+timescaledb.enable_decompression_logrep_markers=on
+```
+
+This property cannot be set at runtime! After changing this property you have to restart
+your PostgreSQL server instance.
+
 ## Supporting non-privileged users (without postgres user)
 
 In addition to the program itself, a function has to be installed into the database which will
