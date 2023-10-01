@@ -22,55 +22,72 @@ jobs:
     name: "Building, Linting, Formatting"
 
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-    - name: Set up Go
-      uses: actions/setup-go@v3
-      with:
-        go-version: ${{ env.golang-version }}
-      id: go
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ env.golang-version }}
+        id: go
 
-    - name: Lint
-      uses: golangci/golangci-lint-action@v3
-      with:
-        version: ${{ env.golangci-lint-version }}
+      - name: Lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: ${{ env.golangci-lint-version }}
 
-    - name: Format
-      run: |
-        go install github.com/lluissm/license-header-checker/cmd/license-header-checker@v1.4.0
-        make fmt
-        git diff --exit-code .
+      - name: Format
+        run: |
+          go install github.com/lluissm/license-header-checker/cmd/license-header-checker@v1.4.0
+          make fmt
+          git diff --exit-code .
 
-    - name: Build
-      run: make build
+      - name: Build
+        run: make build
 
-    - name: License Check
-      run: |
-        go install github.com/uw-labs/lichen@v0.1.7
-        make license-check
+      - name: License Check
+        run: |
+          go install github.com/uw-labs/lichen@v0.1.7
+          make license-check
+
+  unit-test:
+    name: Tests (Unit)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          cache: false
+          go-version: ${{ env.golang-version }}
+        id: go
+
+      - name: Unit-Test
+        run: make unit-test
 
   test:
     strategy:
       fail-fast: false
       matrix:
-        pg_version: [13, 14, 15]
-        tsdb_version: ["2.11", "latest"]
+        pg_version: [ 13, 14, 15 ]
+        tsdb_version: [ "2.11", "latest" ]
 
-    name: Tests (Unit / PG) - PG ${{ matrix.pg_version }} / TSDB ${{ matrix.tsdb_version }}
+    name: Tests (PG) - PG ${{ matrix.pg_version }} / TSDB ${{ matrix.tsdb_version }}
     runs-on: ubuntu-latest
     steps:
-    - name: Check out code into the Go module directory
-      uses: actions/checkout@v3
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v3
 
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        cache: false
-        go-version: ${{ env.golang-version }}
-      id: go
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          cache: false
+          go-version: ${{ env.golang-version }}
+        id: go
 
-    - name: Test
-      run: TSES_TEST_PG_VERSION=${{ matrix.pg_version }} TSES_TEST_TSDB_VERSION=${{ matrix.tsdb_version }} make test
+      - name: Test
+        run: TSES_TEST_PG_VERSION=${{ matrix.pg_version }} TSES_TEST_TSDB_VERSION=${{ matrix.tsdb_version }} make pg-test
 
   integration-test:
     strategy:
@@ -81,15 +98,15 @@ jobs:
     name: Tests (Int)
     runs-on: ubuntu-latest
     steps:
-    - name: Check out code into the Go module directory
-      uses: actions/checkout@v3
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v3
 
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        cache: false
-        go-version: ${{ env.golang-version }}
-      id: go
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          cache: false
+          go-version: ${{ env.golang-version }}
+        id: go
 
-    - name: Test
-      run: TSES_TEST_PG_VERSION=15 make integration-test-${{ matrix.test }}
+      - name: Test
+        run: TSES_TEST_PG_VERSION=15 make integration-test-${{ matrix.test }}
