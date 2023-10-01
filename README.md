@@ -92,6 +92,19 @@ found [here](https://raw.githubusercontent.com/noctarius/timescaledb-event-strea
 For a full reference of the existing configuration options, see the [Configuration](#configuration)
 section.
 
+Starting from TimescaleDB 2.12, the extension provides the possibility to use PostgreSQL 14+
+logical replication messages to mark the start and end of decompressions (due to insert,
+update, delete in compressed chunks). If you are on PG14+ and use TimescaleDB 2.12+, you
+should enable those markers.
+
+In your `postgresql.conf`, set the following line:
+```plain
+timescaledb.enable_decompression_logrep_markers=on
+```
+
+This property cannot be set at runtime! After changing this property you have to restart
+your PostgreSQL server instance.
+
 ## Supporting non-privileged users (without postgres user)
 
 In addition to the program itself, a function has to be installed into the database which will
@@ -284,8 +297,8 @@ duplicated (`test.some_value` becomes `TEST_SOME__VALUE`).
 | `postgresql.tables.excludes`            | The excludes definition defines which vanilla tables to exclude in the event stream generation. The available patters are explained in [Includes and Excludes Patterns](#includes-and-excludes-patterns). Excludes have precedence over includes. | array of strings |                                   empty array |
 | `postgresql.events.read`                |                                                                                                                                                                             The property defines if read events for vanilla tables are generated. |          boolean |                                          true |
 | `postgresql.events.insert`              |                                                                                                                                                                           The property defines if insert events for vanilla tables are generated. |          boolean |                                          true |
-| `postgresql.events.update`              |                                                                                                                                                                           The property defines if update events for vanilla tables are generated. |          boolean |                                          true |
-| `postgresql.events.delete`              |                                                                                                                                                                           The property defines if delete events for vanilla tables are generated. |          boolean |                                          true |
+| `postgresql.events.update`              |                                                                                    The property defines if update events for vanilla tables are generated. If old values should be captured, `REPLICA IDENTITY FULL` needs to be seton the table. |          boolean |                                          true |
+| `postgresql.events.delete`              |                                                                                    The property defines if delete events for vanilla tables are generated. If old values should be captured, `REPLICA IDENTITY FULL` needs to be seton the table. |          boolean |                                          true |
 | `postgresql.events.truncate`            |                                                                                                                                                                         The property defines if truncate events for vanilla tables are generated. |          boolean |                                          true |
 | `postgresql.events.message`             |                                                                                                                                                                         The property defines if logical replication message events are generated. |          boolean |                                         false |
 
@@ -311,8 +324,8 @@ duplicated (`test.some_value` becomes `TEST_SOME__VALUE`).
 | `timescaledb.hypertables.excludes` | The excludes definition defines which hypertables to exclude in the event stream generation. The available patters are explained in [Includes and Excludes Patterns](#includes-and-excludes-patterns). Excludes have precedence over includes. | array of strings |   empty array |
 | `timescaledb.events.read`          |                                                                                                                                                                             The property defines if read events for hypertables are generated. |          boolean |          true |
 | `timescaledb.events.insert`        |                                                                                                                                                                           The property defines if insert events for hypertables are generated. |          boolean |          true |
-| `timescaledb.events.update`        |                                                                                                                                                                           The property defines if update events for hypertables are generated. |          boolean |          true |
-| `timescaledb.events.delete`        |                                                                                                                                                                           The property defines if delete events for hypertables are generated. |          boolean |          true |
+| `timescaledb.events.update`        |                                                                                    The property defines if update events for hypertables are generated. If old values should be captured, `REPLICA IDENTITY FULL` needs to be seton the table. |          boolean |          true |
+| `timescaledb.events.delete`        |                                                                                    The property defines if delete events for hypertables are generated. If old values should be captured, `REPLICA IDENTITY FULL` needs to be seton the table. |          boolean |          true |
 | `timescaledb.events.truncate`      |                                                                                                                                                                         The property defines if truncate events for hypertables are generated. |          boolean |          true |
 | `timescaledb.events.compression`   |                                                                                                                                                                      The property defines if compression events for hypertables are generated. |          boolean |         false |
 | `timescaledb.events.decompression` |                                                                                                                                                                    The property defines if decompression events for hypertables are generated. |          boolean |         false |
