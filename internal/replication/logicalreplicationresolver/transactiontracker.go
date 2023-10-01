@@ -65,7 +65,7 @@ func newTransactionTracker(
 		relations:                    containers.NewRelationCache[*pgtypes.RelationMessage](),
 		logger:                       logger,
 		resolver:                     resolver,
-		supportsDecompressionMarkers: replicationContext.IsTSDB212GE(),
+		supportsDecompressionMarkers: replicationContext.IsDecompressionMarkingEnabled(),
 	}
 
 	tt.activeTransaction = &transaction{

@@ -169,6 +169,20 @@ func (sc *sideChannel) GetWalLevel() (walLevel string, err error) {
 	return
 }
 
+func (sc *sideChannel) GetReplicationMarkersEnabled() (enabled bool, err error) {
+	var value string
+	err = sc.newSession(time.Second*10, func(session *session) error {
+		return session.queryRow(queryReplicationMarkersEnabled).Scan(&value)
+	})
+	if err != nil {
+		if strings.Contains(err.Error(), "unrecognized configuration parameter") {
+			return false, nil
+		}
+		err = errors.Wrap(err, 0)
+	}
+	return strings.ToLower(value) == "on", nil
+}
+
 func (sc *sideChannel) GetPostgresVersion() (pgVersion version.PostgresVersion, err error) {
 	if err = sc.newSession(time.Second*10, func(session *session) error {
 		var v string

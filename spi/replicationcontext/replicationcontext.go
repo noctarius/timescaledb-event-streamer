@@ -75,6 +75,7 @@ type ReplicationContext interface {
 	IsMinimumTimescaleVersion() bool
 	IsTSDB212GE() bool
 	IsLogicalReplicationEnabled() bool
+	IsDecompressionMarkingEnabled() bool
 
 	ExistsReplicationSlot(
 		slotName string,
