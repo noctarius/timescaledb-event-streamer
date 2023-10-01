@@ -1008,12 +1008,6 @@ func (its *IntegrationTestSuite) Test_Hypertable_Implicit_Decompression_Events_I
 			}
 			testrunner.Attribute(ctx, "tableName", tn)
 
-			var v string
-			if err := ctx.QueryRow(context.Background(), "SHOW timescaledb.enable_decompression_logrep_markers").Scan(&v); err != nil {
-				return err
-			}
-			fmt.Println(v)
-
 			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
 			ctx.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
 				config.TimescaleDB.Events.Compression = lo.ToPtr(true)
