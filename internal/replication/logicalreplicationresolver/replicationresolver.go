@@ -42,6 +42,8 @@ type logicalReplicationResolver struct {
 	typeManager        pgtypes.TypeManager
 	logger             *logging.Logger
 
+	decompressionEventTaskOperation func(task.Task) error
+
 	relations     *containers.RelationCache[*pgtypes.RelationMessage]
 	chunkIdLookup *containers.RelationCache[int32]
 	eventQueues   map[string]*containers.Queue[snapshotCallback]
@@ -78,12 +80,23 @@ func newLogicalReplicationResolver(
 	genHypertableMessageEvent := spiconfig.GetOrDefault(config, spiconfig.PropertyHypertableEventsMessage, true)
 	genPostgresqlMessageEvent := spiconfig.GetOrDefault(config, spiconfig.PropertyPostgresqlEventsMessage, true)
 
+	// There's a difference in the order of event enqueuing pre-, and post TimescaleDB 2.12
+	// due to the introduction of decompression markers. Therefore, pre 2.12 we need to
+	// schedule the decompression event to the end of the operation queue, while with 2.12+
+	// we need to execute it immediately (if decompression markers are enabled that is).
+	decompressionEventTaskOperation := taskManager.EnqueueTask
+	if replicationContext.IsDecompressionMarkingEnabled() {
+		decompressionEventTaskOperation = taskManager.RunTask
+	}
+
 	return &logicalReplicationResolver{
 		replicationContext: replicationContext,
 		systemCatalog:      systemCatalog,
 		taskManager:        taskManager,
 		typeManager:        typeManager,
 		logger:             logger,
+
+		decompressionEventTaskOperation: decompressionEventTaskOperation,
 
 		relations:     containers.NewRelationCache[*pgtypes.RelationMessage](),
 		chunkIdLookup: containers.NewRelationCache[int32](),
@@ -673,7 +686,7 @@ func (l *logicalReplicationResolver) onChunkDecompressionEvent(
 			return nil
 		}
 
-		if err := l.taskManager.EnqueueTask(func(notificator task.Notificator) {
+		if err := l.decompressionEventTaskOperation(func(notificator task.Notificator) {
 			notificator.NotifyCompressionReplicationEventHandler(
 				func(handler eventhandlers.CompressionReplicationEventHandler) error {
 					return handler.OnChunkDecompressedEvent(xld, uncompressedHypertable, chunk)

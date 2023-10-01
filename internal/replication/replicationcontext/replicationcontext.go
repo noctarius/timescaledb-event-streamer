@@ -41,10 +41,11 @@ type replicationContext struct {
 	sideChannel         sidechannel.SideChannel
 	stateStorageManager statestorage.Manager
 
-	snapshotInitialMode     spiconfig.InitialSnapshotMode
-	replicationSlotName     string
-	replicationSlotCreate   bool
-	replicationSlotAutoDrop bool
+	snapshotInitialMode         spiconfig.InitialSnapshotMode
+	replicationSlotName         string
+	replicationSlotCreate       bool
+	replicationSlotAutoDrop     bool
+	decompressionMarkingEnabled bool
 
 	timeline          int32
 	systemId          string
@@ -127,6 +128,14 @@ func NewReplicationContext(
 		return nil, err
 	}
 	replicationContext.walLevel = walLevel
+
+	if replicationContext.IsTSDB212GE() {
+		enabled, err := sideChannel.GetReplicationMarkersEnabled()
+		if err != nil {
+			return nil, err
+		}
+		replicationContext.decompressionMarkingEnabled = enabled
+	}
 
 	return replicationContext, nil
 }
@@ -333,6 +342,10 @@ func (rc *replicationContext) IsTSDB212GE() bool {
 
 func (rc *replicationContext) IsLogicalReplicationEnabled() bool {
 	return rc.walLevel == "logical"
+}
+
+func (rc *replicationContext) IsDecompressionMarkingEnabled() bool {
+	return rc.decompressionMarkingEnabled
 }
 
 // ----> SideChannel functions

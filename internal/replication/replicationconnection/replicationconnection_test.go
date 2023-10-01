@@ -486,3 +486,7 @@ func (t testReplicationContext) ReadReplicationSlot(
 
 	return t.readReplicationSlot(slotName)
 }
+
+func (t testReplicationContext) IsDecompressionMarkingEnabled() bool {
+	return false
+}

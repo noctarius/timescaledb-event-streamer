@@ -18,6 +18,7 @@
 package logicalreplicationresolver
 
 import (
+	"bytes"
 	"github.com/jackc/pglogrepl"
 	"github.com/noctarius/timescaledb-event-streamer/internal/containers"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
@@ -64,7 +65,7 @@ func newTransactionTracker(
 		relations:                    containers.NewRelationCache[*pgtypes.RelationMessage](),
 		logger:                       logger,
 		resolver:                     resolver,
-		supportsDecompressionMarkers: replicationContext.IsTSDB212GE(),
+		supportsDecompressionMarkers: replicationContext.IsDecompressionMarkingEnabled(),
 	}
 
 	tt.activeTransaction = &transaction{
@@ -378,16 +379,22 @@ func (tt *transactionTracker) OnMessageEvent(
 	xld pgtypes.XLogData, msg *pgtypes.LogicalReplicationMessage,
 ) error {
 
+	// Clone content to release the original array which seems to be a slice of the
+	// original byte array from pgx
+	msg.Content = bytes.Clone(msg.Content)
+
 	// If the message is transactional we need to store it into the currently collected
 	// transaction, otherwise we can run it straight away.
 	if msg.IsTransactional() {
-		if msg.Prefix == decompressionMarkerStartId {
-			tt.activeTransaction.ongoingDecompression = true
-			return nil
-		} else if msg.Prefix == decompressionMarkerEndId &&
-			(tt.activeTransaction.active && tt.activeTransaction.ongoingDecompression) {
-			tt.activeTransaction.ongoingDecompression = false
-			return nil
+		if tt.supportsDecompressionMarkers {
+			if msg.Prefix == decompressionMarkerStartId {
+				tt.activeTransaction.ongoingDecompression = true
+				return nil
+			} else if msg.Prefix == decompressionMarkerEndId &&
+				(tt.activeTransaction.active && tt.activeTransaction.ongoingDecompression) {
+				tt.activeTransaction.ongoingDecompression = false
+				return nil
+			}
 		}
 
 		// If we don't want to generate the message events later one, we'll discard it
@@ -428,6 +435,7 @@ func (tt *transactionTracker) startTransaction(
 	tt.activeTransaction = &transaction{
 		transactionTracker: tt,
 		maxSize:            tt.activeTransaction.maxSize,
+		active:             true,
 		xid:                xid,
 		finalLSN:           finalLSN,
 		commitTime:         commitTime,

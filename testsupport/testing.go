@@ -55,13 +55,28 @@ func CreateHypertable(
 		return "", "", err
 	}
 
-	columnDefinitions := make([]string, len(columns))
-	for i, column := range columns {
-		columnDefinitions[i] = toDefinition(column)
+	compositePrimaryKey := lo.Filter(columns, func(column Column, _ int) bool {
+		return column.primaryKey
+	})
+
+	columnDefinitions := lo.Map(columns, func(column Column, _ int) string {
+		return toDefinition(column, len(compositePrimaryKey) > 1)
+	})
+
+	primaryKeyConstraint := ""
+	if len(compositePrimaryKey) > 1 {
+		primaryKeyConstraint = fmt.Sprintf(
+			", PRIMARY KEY (%s)",
+			strings.Join(
+				lo.Map(compositePrimaryKey, func(column Column, _ int) string {
+					return column.Name()
+				}), ",",
+			),
+		)
 	}
 
-	query := fmt.Sprintf("CREATE TABLE \"%s\".\"%s\" (%s)", DatabaseSchema,
-		tableName, strings.Join(columnDefinitions, ", "))
+	query := fmt.Sprintf("CREATE TABLE \"%s\".\"%s\" (%s%s)", DatabaseSchema,
+		tableName, strings.Join(columnDefinitions, ", "), primaryKeyConstraint)
 
 	if _, err := tx.Exec(context.Background(), query); err != nil {
 		tx.Rollback(context.Background())
@@ -92,13 +107,29 @@ func CreateVanillaTable(
 		return "", "", err
 	}
 
+	compositePrimaryKey := lo.Filter(columns, func(column Column, _ int) bool {
+		return column.primaryKey
+	})
+
 	columnDefinitions := make([]string, len(columns))
 	for i, column := range columns {
-		columnDefinitions[i] = toDefinition(column)
+		columnDefinitions[i] = toDefinition(column, len(compositePrimaryKey) > 1)
 	}
 
-	query := fmt.Sprintf("CREATE TABLE \"%s\".\"%s\" (%s)", DatabaseSchema,
-		tableName, strings.Join(columnDefinitions, ", "))
+	primaryKeyConstraint := ""
+	if len(compositePrimaryKey) > 1 {
+		primaryKeyConstraint = fmt.Sprintf(
+			", PRIMARY KEY (%s)",
+			strings.Join(
+				lo.Map(compositePrimaryKey, func(column Column, _ int) string {
+					return column.Name()
+				}), ",",
+			),
+		)
+	}
+
+	query := fmt.Sprintf("CREATE TABLE \"%s\".\"%s\" (%s%s)", DatabaseSchema,
+		tableName, strings.Join(columnDefinitions, ", "), primaryKeyConstraint)
 
 	if _, err := tx.Exec(context.Background(), query); err != nil {
 		tx.Rollback(context.Background())
@@ -121,7 +152,7 @@ func randomTableName() string {
 }
 
 func toDefinition(
-	column Column,
+	column Column, compositePrimaryKey bool,
 ) string {
 
 	builder := strings.Builder{}
@@ -134,7 +165,7 @@ func toDefinition(
 	if column.DefaultValue() != nil {
 		builder.WriteString(fmt.Sprintf(" DEFAULT '%s'", *column.DefaultValue()))
 	}
-	if column.IsPrimaryKey() {
+	if column.IsPrimaryKey() && !compositePrimaryKey {
 		builder.WriteString(" PRIMARY KEY")
 	}
 	return builder.String()

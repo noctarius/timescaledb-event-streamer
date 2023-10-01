@@ -107,7 +107,11 @@ func SetupTimescaleContainer() (testcontainers.Container, *ConfigProvider, error
 	containerRequest := testcontainers.ContainerRequest{
 		Image:        imageName,
 		ExposedPorts: []string{"5432/tcp"},
-		Cmd:          []string{"-c", "fsync=off", "-c", "wal_level=logical"},
+		Cmd: []string{
+			"-c", "fsync=off",
+			"-c", "wal_level=logical",
+			"-c", "timescaledb.enable_decompression_logrep_markers=true",
+		},
 		WaitingFor: wait.ForAll(
 			wait.ForLog("PostgreSQL init process complete; ready for start up."),
 			wait.ForListeningPort("5432/tcp"),

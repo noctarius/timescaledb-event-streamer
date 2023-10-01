@@ -31,6 +31,8 @@ const queryPostgreSqlVersion = `SHOW SERVER_VERSION`
 
 const queryConfiguredWalLevel = `SHOW WAL_LEVEL`
 
+const queryReplicationMarkersEnabled = `SHOW timescaledb.enable_decompression_logrep_markers`
+
 const queryTemplateReadPostgreSqlTypes = `
 SELECT DISTINCT ON (t.typname) sp.nspname, t.typname, t.typinput='array_in'::REGPROC,
                                t.typinput='record_in'::REGPROC,

@@ -63,6 +63,7 @@ type SideChannel interface {
 		databaseName, systemId string, timeline int32, err error,
 	)
 	GetWalLevel() (walLevel string, err error)
+	GetReplicationMarkersEnabled() (enabled bool, err error)
 	GetPostgresVersion() (pgVersion version.PostgresVersion, err error)
 	GetTimescaleDBVersion() (tsdbVersion version.TimescaleVersion, found bool, err error)
 	ReadHypertables(
