@@ -74,6 +74,15 @@ sink.type = 'stdout'
 #sink.sqs.aws.secretaccesskey = '...'
 #sink.sqs.aws.sessiontoken = '...'
 
+#sink.http.url = 'http://localhost:8080'
+#sink.http.authentication.type = 'basic'
+#sink.http.authentication.basic.username = 'test'
+#sink.http.authentication.basic.password = '...'
+#sink.http.authentication.header.name = 'x-api-key'
+#sink.http.authentication.header.value = '...'
+#sink.http.tls.skipverify = false
+#sink.http.tls.clientauth = 0
+
 topic.namingstrategy.type = 'debezium'
 topic.prefix = 'timescaledb'
 

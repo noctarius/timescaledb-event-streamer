@@ -322,7 +322,7 @@ duplicated (`test.some_value` becomes `TEST_SOME__VALUE`).
 
 | Property                    |                                                                                                                                                                                          Description |                 Data Type | Default Value |
 |-----------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|--------------------------:|--------------:|
-| `sink.type`                 |                                                                                          The property defines which sink adapter is to be used. Valid values are `stdout`, `nats`, `kafka`, `redis`. |                    string |      `stdout` |
+| `sink.type`                 |                                                                                  The property defines which sink adapter is to be used. Valid values are `stdout`, `nats`, `kafka`, `redis`, `http`. |                    string |      `stdout` |
 | `sink.tombstone`            |                                                                                                                    The property defines if delete events will be followed up with a tombstone event. |                   boolean |         false |
 | `sink.filters.<name>.<...>` | The filters definition defines filters to be executed against potentially replicated events. This property is a map with the filter name as its key and a [Sink Filter](#sink-filter-configuration). | map of filter definitions |     empty map |
 
@@ -413,6 +413,26 @@ transaction id (if available), and content of the message.
 |----------------------|--------------------------------------------------------------------------------------------:|----------:|--------------:|
 | `sink.sqs.queue.url` |                                                           The URL of the FIFO queue in SQS. |    string |  empty string |
 | `sink.sqs.aws.<...>` | AWS specific content as defined in [AWS service configuration](#aws-service-configuration). |    struct |  empty struct |
+
+### HTTP Sink Configuration
+
+HTTP specific configuration, which is only used if `sink.type` is set to `http`.
+This Sink is an HTTP client that `POST`s the events as the payload.
+Usage of TLS is inferred automatically from the prefix of the `url`, if `url` has
+the `https://` prefix, then the respective TLS settings will be set according to
+the properties defined in `sink.http.tls`.
+
+| Property                                  |                                                                                                    Description | Data Type |         Default Value |
+|-------------------------------------------|---------------------------------------------------------------------------------------------------------------:|----------:|----------------------:|
+| `sink.http.url`                           |             The url where the requests are sent. You have to include the protocol scheme (`http`/`https`) too. |    string | `http://localhost:80` |
+| `sink.http.authentication.type`           |             Type of authentication to use when making the request. Valid values are `none`, `basic`, `header`. |    string |                  none |
+| `sink.http.authentication.basic.username` |           If the authentication type is set to `basic` then this is the username used when making the request. |    string |          empty string |
+| `sink.http.authentication.basic.password` |                                                                          Maximum number of socket connections. |       int |          empty string |
+| `sink.http.authentication.header.name`    |                                                                    Maximum number of retries before giving up. |       int |          empty string |
+| `sink.http.authentication.header.value`   |                          Minimum backoff between each retry in milliseconds. A value of `-1` disables backoff. |       int |          empty string |
+| `sink.http.tls.skipverify`                |                                           The property defines if verification of TLS certificates is skipped. |      bool |                 false |
+| `sink.http.tls.clientauth`                | The property defines the client auth value (as defined in [Go](https://pkg.go.dev/crypto/tls#ClientAuthType)). |       int |      0 (NoClientCert) |
+
 
 ### AWS Service Configuration
 

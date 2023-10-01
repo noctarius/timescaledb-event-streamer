@@ -43,77 +43,91 @@ stateStorage:
 #    parallelsim: 5
 
 sink:
-  #filters:
-  #filterName:
-  #condition: 'value.op == "u" && value.before.id == 2'
-  #default: true
+#  filters:
+#    filterName:
+#      condition: 'value.op == "u" && value.before.id == 2'
+#      default: true
   tombstone: false
   type: 'stdout'
-    #type: 'nats'
-    #nats:
-    #address: 'nats://localhost:4222'
-    #authorization: 'userinfo'
-    #userInfo:
-    #username: 'publisher'
-    #password: '...'
-    #type: 'kafka'
-    #kafka:
-    #brokers:
-    #- 'address:1'
-    #- 'address:2'
-    #sasl:
-    #enabled: true
-    #user: '$ConnectionString'
-    #mechanism: 'PLAIN'
-    #tls:
-    #enabled: true
-    #skipVerify: true
-    #clientAuth: 0
-    #type: 'redis'
-    #redis:
-    #network: 'tcp'
-    #address: 'localhost:6379'
-    #password: '...'
-    #database: 0
-    #poolSize: 0
-    #retries:
-    #maxAttempts: 0
-    #backoff:
-    #min: 8
-    #max: 512
-    #timeouts:
-    #dial: 0
-    #read: 0
-    #write: 0
-    #pool: 0
-    #idle: 0
-    #tls:
-    #enabled: false
-    #skipVerify: false
-    #clientAuth: 0
-    #type: 'kinesis'
-    #kinesis:
-    #stream:
-    #name: 'stream_name'
-    #create: true
-    #shardCount: 10
-    #mode: '...'
-    #aws:
-    #region: '...'
-    #endpoint: '...'
-    #accessKeyId: '...'
-    #secretAccessKey: '...'
-    #sessionToken: '...'
-    #type: 'sqs'
-    #sqs:
-    #queue:
-    #url: 'queue_url'
-    #aws:
-    #region: '...'
-    #endpoint: '...'
-    #accessKeyId: '...'
-    #secretAccessKey: '...'
-  #sessionToken: '...'
+#  type: 'nats'
+#  nats:
+#    address: 'nats://localhost:4222'
+#    authorization: 'userinfo'
+#    userInfo:
+#      username: 'publisher'
+#      password: '...'
+#  type: 'kafka'
+#  kafka:
+#    brokers:
+#    - 'address:1'
+#    - 'address:2'
+#    sasl:
+#      enabled: true
+#      user: '$ConnectionString'
+#      mechanism: 'PLAIN'
+#    tls:
+#      enabled: true
+#      skipVerify: true
+#      clientAuth: 0
+#  type: 'redis'
+#  redis:
+#    network: 'tcp'
+#    address: 'localhost:6379'
+#    password: '...'
+#    database: 0
+#    poolSize: 0
+#    retries:
+#      maxAttempts: 0
+#      backoff:
+#        min: 8
+#        max: 512
+#    timeouts:
+#      dial: 0
+#      read: 0
+#      write: 0
+#      pool: 0
+#      idle: 0
+#    tls:
+#      enabled: false
+#      skipVerify: false
+#      clientAuth: 0
+#  type: 'kinesis'
+#  kinesis:
+#    stream:
+#      name: 'stream_name'
+#      create: true
+#      shardCount: 10
+#      mode: '...'
+#    aws:
+#      region: '...'
+#      endpoint: '...'
+#      accessKeyId: '...'
+#      secretAccessKey: '...'
+#      sessionToken: '...'
+#  type: 'sqs'
+#  sqs:
+#    queue:
+#      url: 'queue_url'
+#    aws:
+#      region: '...'
+#      endpoint: '...'
+#      accessKeyId: '...'
+#      secretAccessKey: '...'
+#      sessionToken: '...'
+#  type: 'http'
+#  http:
+#    url: "http://localhost:8080"
+#    authentication:
+#      type: header
+#      basic:
+#        username: test
+#        password: ...
+#      header:
+#        name: "x-api-key"
+#        value: "..."
+#    tls:
+#      skipVerify: false
+#      clientAuth: 0
 
 topic:
   namingStrategy:

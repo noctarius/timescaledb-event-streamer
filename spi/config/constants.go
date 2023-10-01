@@ -113,4 +113,13 @@ const (
 	PropertySqsAwsAccessKeyId     = "sink.sqs.aws.accesskeyid"
 	PropertySqsAwsSecretAccessKey = "sink.sqs.aws.secretaccesskey"
 	PropertySqsAwsSessionToken    = "sink.sqs.aws.sessiontoken"
+
+	PropertyHttpUrl                             = "sink.http.url"
+	PropertyHttpAuthenticationType              = "sink.http.authentication.type"
+	PropertyHttpBasicAuthenticationUsername     = "sink.http.authentication.basic.username"
+	PropertyHttpBasicAuthenticationPassword     = "sink.http.authentication.basic.password"
+	PropertyHttpHeaderAuthenticationHeaderName  = "sink.http.authentication.header.name"
+	PropertyHttpHeaderAuthenticationHeaderValue = "sink.http.authentication.header.value"
+	PropertyHttpTlsSkipVerify                   = "sink.http.tls.skipverify"
+	PropertyHttpTlsClientAuth                   = "sink.http.tls.clientauth"
 )
