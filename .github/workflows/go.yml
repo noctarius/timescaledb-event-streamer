@@ -76,7 +76,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        test: ["aws-kinesis", "aws-sqs", "kafka", "nats", "redis", "redpanda"]
+        test: ["aws-kinesis", "aws-sqs", "kafka", "nats", "redis", "redpanda", "http"]
 
     name: Tests (Int)
     runs-on: ubuntu-latest
