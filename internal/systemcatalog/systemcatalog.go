@@ -18,10 +18,10 @@
 package systemcatalog
 
 import (
+	"cmp"
 	"fmt"
 	"github.com/go-errors/errors"
 	"github.com/jackc/pgx/v5"
-	"github.com/noctarius/timescaledb-event-streamer/internal/functional"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/snapshotting"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/tablefiltering"
@@ -35,7 +35,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/task"
 	"github.com/noctarius/timescaledb-event-streamer/spi/watermark"
 	"github.com/samber/lo"
-	"strings"
+	"slices"
 	"sync"
 )
 
@@ -510,8 +510,8 @@ func initializeSystemCatalog(
 	}
 
 	// Sorting by canonical name
-	tables = functional.Sort(tables, func(this, other systemcatalog.BaseTable) bool {
-		return strings.Compare(this.CanonicalName(), other.CanonicalName()) < 0
+	slices.SortStableFunc(tables, func(this, other systemcatalog.BaseTable) int {
+		return cmp.Compare(this.CanonicalName(), other.CanonicalName())
 	})
 
 	if err := sc.sideChannel.ReadHypertableSchema(

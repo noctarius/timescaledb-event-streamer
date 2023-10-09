@@ -27,6 +27,7 @@ import (
 	"github.com/inhies/go-bytesize"
 	"github.com/noctarius/timescaledb-event-streamer/internal/erroring"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
+	"github.com/samber/lo"
 	"os"
 	"strings"
 	"sync"
@@ -82,8 +83,7 @@ func InitializeLogging(
 
 	defaultConsoleHandler = newConsoleHandler(logToStdErr)
 
-	defaultConsoleHandlerEnabled =
-		loggingConfig.Outputs.Console.Enabled == nil || *loggingConfig.Outputs.Console.Enabled
+	defaultConsoleHandlerEnabled = lo.FromPtrOr(loggingConfig.Outputs.Console.Enabled, true)
 
 	if _, fileHandler, err := newFileHandler(loggingConfig.Outputs.File); err != nil {
 		return erroring.AdaptError(err, 1)
@@ -145,7 +145,7 @@ func NewLogger(
 	if config, found := loggingConfig.Loggers[name]; found {
 		// Found specific config
 		handlers := make([]slog.Handler, 0)
-		if config.Outputs.Console.Enabled == nil || *config.Outputs.Console.Enabled {
+		if !lo.FromPtrOr(config.Outputs.Console.Enabled, true) {
 			handlers = append(handlers, defaultConsoleHandler)
 		}
 
@@ -397,7 +397,7 @@ func newFileHandler(
 	config spiconfig.LoggerFileConfig,
 ) (bool, *handler.SyncCloseHandler, error) {
 
-	if config.Enabled == nil || !*config.Enabled {
+	if !lo.FromPtrOr(config.Enabled, false) {
 		return false, nil, nil
 	}
 
@@ -413,7 +413,8 @@ func newFileHandler(
 	}
 
 	var fileHandler *handler.SyncCloseHandler
-	if config.Rotate == nil || !*config.Rotate {
+
+	if !lo.FromPtrOr(config.Rotate, false) {
 		if h, err := handler.NewBuffFileHandler(config.Path, 1024, configurator); err != nil {
 			return false, nil, errors.Errorf(
 				fmt.Sprintf("Failed to initialize logfile handler => %s", err.Error()),

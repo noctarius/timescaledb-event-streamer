@@ -898,13 +898,13 @@ func (its *IntegrationTestSuite) Test_Hypertable_Implicit_Decompression_Events_I
 		func(ctx testrunner.Context) error {
 			pgVersion := ctx.PostgresqlVersion()
 			if pgVersion < version.PG_14_VERSION {
-				fmt.Printf("Skipped test, because of PostgreSQL version <14.0 (%s)", pgVersion)
+				fmt.Printf("Skipped test, because of PostgreSQL version <14.0 (%s)\n", pgVersion)
 				return nil
 			}
 
 			tsdbVersion := ctx.TimescaleVersion()
 			if tsdbVersion < version.TSDB_212_VERSION {
-				fmt.Printf("Skipped test, because of TimescaleDB version <2.12 (%s)", tsdbVersion)
+				fmt.Printf("Skipped test, because of TimescaleDB version <2.12 (%s)\n", tsdbVersion)
 				return nil
 			}
 
@@ -1369,7 +1369,7 @@ func (its *IntegrationTestSuite) Test_General_Emit_Logical_Message() {
 		func(ctx testrunner.Context) error {
 			pgVersion := ctx.PostgresqlVersion()
 			if pgVersion < version.PG_14_VERSION {
-				fmt.Printf("Skipped test, because of PostgreSQL version <14.0 (%s)", pgVersion)
+				fmt.Printf("Skipped test, because of PostgreSQL version <14.0 (%s)\n", pgVersion)
 				return nil
 			}
 
@@ -1443,7 +1443,7 @@ func (its *IntegrationTestSuite) Test_General_Acknowledge_To_PG_With_Only_Begin_
 		func(ctx testrunner.Context) error {
 			pgVersion := ctx.PostgresqlVersion()
 			if pgVersion >= version.PG_15_VERSION {
-				fmt.Printf("Skipped test, because of PostgreSQL version <15.0 (%s)", pgVersion)
+				fmt.Printf("Skipped test, because of PostgreSQL version <15.0 (%s)\n", pgVersion)
 				return nil
 			}
 
@@ -1911,7 +1911,7 @@ func (its *IntegrationTestSuite) Test_Hypertable_Replica_Identity_Full_Update_Ev
 		func(ctx testrunner.Context) error {
 			tsdbVersion := ctx.TimescaleVersion()
 			if tsdbVersion < version.TSDB_212_VERSION {
-				fmt.Printf("Skipped test, because of TimescaleDB version <2.12 (%s)", tsdbVersion)
+				fmt.Printf("Skipped test, because of TimescaleDB version <2.12 (%s)\n", tsdbVersion)
 				return nil
 			}
 
@@ -2025,7 +2025,7 @@ func (its *IntegrationTestSuite) Test_Hypertable_Replica_Identity_Full_Delete_Ev
 		func(ctx testrunner.Context) error {
 			tsdbVersion := ctx.TimescaleVersion()
 			if tsdbVersion < version.TSDB_212_VERSION {
-				fmt.Printf("Skipped test, because of TimescaleDB version <2.12 (%s)", tsdbVersion)
+				fmt.Printf("Skipped test, because of TimescaleDB version <2.12 (%s)\n", tsdbVersion)
 				return nil
 			}
 
@@ -2131,7 +2131,7 @@ func (its *IntegrationTestSuite) Ignore_Test_Hypertable_Replica_Identity_Index_U
 		func(ctx testrunner.Context) error {
 			tsdbVersion := ctx.TimescaleVersion()
 			if tsdbVersion < version.TSDB_212_VERSION {
-				fmt.Printf("Skipped test, because of TimescaleDB version <2.12 (%s)", tsdbVersion)
+				fmt.Printf("Skipped test, because of TimescaleDB version <2.12 (%s)\n", tsdbVersion)
 				return nil
 			}
 
@@ -2253,7 +2253,7 @@ func (its *IntegrationTestSuite) Ignore_Test_Hypertable_Replica_Identity_Index_D
 		func(ctx testrunner.Context) error {
 			tsdbVersion := ctx.TimescaleVersion()
 			if tsdbVersion < version.TSDB_212_VERSION {
-				fmt.Printf("Skipped test, because of TimescaleDB version <2.12 (%s)", tsdbVersion)
+				fmt.Printf("Skipped test, because of TimescaleDB version <2.12 (%s)\n", tsdbVersion)
 				return nil
 			}
 

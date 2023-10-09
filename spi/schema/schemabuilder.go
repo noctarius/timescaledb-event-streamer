@@ -18,8 +18,9 @@
 package schema
 
 import (
-	"github.com/noctarius/timescaledb-event-streamer/internal/functional"
+	"cmp"
 	"github.com/samber/lo"
+	"slices"
 	"strconv"
 )
 
@@ -420,8 +421,9 @@ func (s *schemaBuilderImpl) Build() Struct {
 		schemaStruct[FieldNameKeySchema] = s.keySchemaBuilder.Build()
 		schemaStruct[FieldNameValueSchema] = s.valueSchemaBuilder.Build()
 	case STRUCT:
-		fields := functional.Sort(lo.Values(s.fields), func(this, other Field) bool {
-			return this.Index() < other.Index()
+		fields := lo.Values(s.fields)
+		slices.SortStableFunc(fields, func(this, other Field) int {
+			return cmp.Compare(this.Index(), other.Index())
 		})
 
 		fieldSchemas := make([]Struct, 0)

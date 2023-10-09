@@ -271,7 +271,7 @@ func bits2string(
 
 		remaining := v.Len
 		for _, b := range v.Bytes {
-			length := lo.Min([]int32{remaining, 8})
+			length := min(remaining, 8)
 			for i := int32(0); i < length; i++ {
 				zeroOrOne := b >> (7 - i) & 1
 				builder.WriteString(fmt.Sprintf("%c", '0'+zeroOrOne))

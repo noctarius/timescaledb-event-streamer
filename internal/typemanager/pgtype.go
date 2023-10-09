@@ -20,9 +20,9 @@ package typemanager
 import (
 	"fmt"
 	"github.com/go-errors/errors"
-	"github.com/noctarius/timescaledb-event-streamer/internal/functional"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
+	"slices"
 )
 
 type pgType struct {
@@ -221,5 +221,5 @@ func (t *pgType) Equal(
 		t.modifiers == other.Modifiers() &&
 		t.delimiter == other.Delimiter() &&
 		t.schemaType == other.SchemaType() &&
-		functional.ArrayEqual(t.enumValues, other.EnumValues())
+		slices.Equal(t.enumValues, other.EnumValues())
 }

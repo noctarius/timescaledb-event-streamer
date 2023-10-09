@@ -31,6 +31,7 @@ import (
 	spicatalog "github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/task"
 	"github.com/samber/lo"
+	"slices"
 )
 
 type snapshotCallback func(snapshot pgtypes.LSN) error
@@ -469,7 +470,7 @@ func (l *logicalReplicationResolver) OnTruncateEvent(
 		return false
 	})
 	affectedTablesHypertables := lo.Filter(msg.RelationIDs, func(relId uint32, _ int) bool {
-		return !lo.Contains(affectedTablesVanilla, relId) && !lo.Contains(unknownRelations, relId)
+		return !slices.Contains(affectedTablesVanilla, relId) && !lo.Contains(unknownRelations, relId)
 	})
 
 	// FIXME: Truncate support for vanilla tables missing!
@@ -477,7 +478,7 @@ func (l *logicalReplicationResolver) OnTruncateEvent(
 	truncatedTables := make([]schema.TableAlike, 0)
 	for i := 0; i < int(msg.RelationNum); i++ {
 		relId := msg.RelationIDs[i]
-		if lo.Contains(affectedTablesHypertables, relId) {
+		if slices.Contains(affectedTablesHypertables, relId) {
 			if !l.genHypertableTruncateEvent {
 				continue
 			}
@@ -500,7 +501,7 @@ func (l *logicalReplicationResolver) OnTruncateEvent(
 			}
 		}
 
-		if lo.Contains(affectedTablesVanilla, relId) {
+		if slices.Contains(affectedTablesVanilla, relId) {
 			if !l.genPostgresqlTruncateEvent {
 				continue
 			}
