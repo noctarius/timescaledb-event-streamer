@@ -22,8 +22,8 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/testsupport"
-	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/exp/slices"
 	"testing"
 )
 
@@ -100,7 +100,7 @@ func Test_Replicator_Select_Missing_Tables_Random_Selection(
 		index := testsupport.RandomNumber(0, 1000)
 		chunk := knownTables[index]
 
-		if lo.ContainsBy(publishedChunkTables, func(other systemcatalog.SystemEntity) bool {
+		if slices.ContainsFunc(publishedChunkTables, func(other systemcatalog.SystemEntity) bool {
 			return other.CanonicalName() == chunk.CanonicalName()
 		}) {
 			goto retry
@@ -138,13 +138,13 @@ func Test_Replicator_Select_Missing_Tables_Random_Selection(
 	for i := 0; i < 1000; i++ {
 		chunk := knownTables[i]
 
-		if lo.ContainsBy(publishedChunkTables, func(other systemcatalog.SystemEntity) bool {
+		if slices.ContainsFunc(publishedChunkTables, func(other systemcatalog.SystemEntity) bool {
 			return other.CanonicalName() == chunk.CanonicalName()
 		}) {
 			mergeChunkTables = append(mergeChunkTables, chunk)
 		}
 
-		if lo.ContainsBy(neededChunkTables, func(other systemcatalog.SystemEntity) bool {
+		if slices.ContainsFunc(neededChunkTables, func(other systemcatalog.SystemEntity) bool {
 			return other.CanonicalName() == chunk.CanonicalName()
 		}) {
 			mergeChunkTables = append(mergeChunkTables, chunk)

@@ -1104,7 +1104,7 @@ func (dtt *DataTypeTestSuite) Test_DataType_Support() {
 	for _, testCase := range dataTypeTable {
 		dtt.Run(testCase.name, func() {
 			if testCase.missingSupport {
-				dtt.T().Skipf("Datatype %s unsupported", testCase.pgTypeName)
+				dtt.T().Skipf("Datatype %s unsupported\n", testCase.pgTypeName)
 			}
 
 			if testCase.dynamicOid {

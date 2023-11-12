@@ -20,8 +20,8 @@ package wiring
 import (
 	"github.com/go-errors/errors"
 	"github.com/samber/do"
-	"github.com/samber/lo"
 	"reflect"
+	"slices"
 )
 
 var errorReflectiveType = reflect.TypeOf((*error)(nil)).Elem()
@@ -95,7 +95,7 @@ func (m *module) stage1(
 
 	for _, binding := range m.bindings {
 		if binding.invoker == nil {
-			if lo.Contains(injector.ListProvidedServices(), binding.output.name) {
+			if slices.Contains(injector.ListProvidedServices(), binding.output.name) {
 				do.OverrideNamed(injector, binding.output.name, binding.provider)
 			} else {
 				do.ProvideNamed(injector, binding.output.name, binding.provider)

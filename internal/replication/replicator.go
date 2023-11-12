@@ -24,7 +24,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/noctarius/timescaledb-event-streamer/internal/erroring"
 	"github.com/noctarius/timescaledb-event-streamer/internal/eventing/eventemitting"
-	"github.com/noctarius/timescaledb-event-streamer/internal/functional"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/replication/replicationchannel"
 	"github.com/noctarius/timescaledb-event-streamer/internal/stats"
@@ -41,6 +40,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/wiring"
 	"github.com/samber/lo"
 	"github.com/urfave/cli"
+	"slices"
 )
 
 const esPreviouslyKnownChunks = "::previously::known::chunks"
@@ -260,7 +260,7 @@ func (r *Replicator) collectVanillaTablesForPublication(
 
 	r.logger.Debugf(
 		"All interesting tables: %+v",
-		lo.Map(allKnownTables, functional.MappingTransformer(systemcatalog.SystemEntity.CanonicalName)),
+		lo.Map(allKnownTables, extractCanonicalNameMapper),
 	)
 
 	// Filter out published chunks, we're only interested in non TimescaleDB tables
@@ -270,17 +270,17 @@ func (r *Replicator) collectVanillaTablesForPublication(
 
 	r.logger.Debugf(
 		"Tables already in publication: %+v",
-		lo.Map(publishedTables, functional.MappingTransformer(systemcatalog.SystemEntity.CanonicalName)),
+		lo.Map(publishedTables, extractCanonicalNameMapper),
 	)
 
 	initialTables := lo.Filter(allKnownTables, func(item systemcatalog.SystemEntity, _ int) bool {
-		return !lo.ContainsBy(publishedTables, func(other systemcatalog.SystemEntity) bool {
+		return !slices.ContainsFunc(publishedTables, func(other systemcatalog.SystemEntity) bool {
 			return item.CanonicalName() == other.CanonicalName()
 		})
 	})
 	r.logger.Debugf(
 		"Tables to be added publication: %+v",
-		lo.Map(initialTables, functional.MappingTransformer(systemcatalog.SystemEntity.CanonicalName)),
+		lo.Map(initialTables, extractCanonicalNameMapper),
 	)
 	return initialTables, nil
 }
@@ -299,7 +299,7 @@ func (r *Replicator) collectChunksForPublication(
 
 	r.logger.Debugf(
 		"All interesting chunks: %+v",
-		lo.Map(allKnownTables, functional.MappingTransformer(systemcatalog.SystemEntity.CanonicalName)),
+		lo.Map(allKnownTables, extractCanonicalNameMapper),
 	)
 
 	// Filter published chunks to only add new chunks
@@ -309,17 +309,17 @@ func (r *Replicator) collectChunksForPublication(
 
 	r.logger.Debugf(
 		"Chunks already in publication: %+v",
-		lo.Map(publishedTables, functional.MappingTransformer(systemcatalog.SystemEntity.CanonicalName)),
+		lo.Map(publishedTables, extractCanonicalNameMapper),
 	)
 
 	initialChunkTables := lo.Filter(allKnownTables, func(item systemcatalog.SystemEntity, _ int) bool {
-		return !lo.ContainsBy(publishedTables, func(other systemcatalog.SystemEntity) bool {
+		return !slices.ContainsFunc(publishedTables, func(other systemcatalog.SystemEntity) bool {
 			return item.CanonicalName() == other.CanonicalName()
 		})
 	})
 	r.logger.Debugf(
 		"Chunks to be added publication: %+v",
-		lo.Map(initialChunkTables, functional.MappingTransformer(systemcatalog.SystemEntity.CanonicalName)),
+		lo.Map(initialChunkTables, extractCanonicalNameMapper),
 	)
 	return initialChunkTables, nil
 }
@@ -338,7 +338,7 @@ func getKnownVanillaTables(
 
 		// Filter potentially deleted chunks
 		return lo.Filter(candidates, func(item systemcatalog.SystemEntity, index int) bool {
-			return lo.ContainsBy(allTables, func(other systemcatalog.SystemEntity) bool {
+			return slices.ContainsFunc(allTables, func(other systemcatalog.SystemEntity) bool {
 				return item.CanonicalName() == other.CanonicalName()
 			})
 		}), nil
@@ -361,7 +361,7 @@ func getKnownChunks(
 
 		// Filter potentially deleted chunks
 		return lo.Filter(candidates, func(item systemcatalog.SystemEntity, index int) bool {
-			return lo.ContainsBy(allChunks, func(other systemcatalog.SystemEntity) bool {
+			return slices.ContainsFunc(allChunks, func(other systemcatalog.SystemEntity) bool {
 				return item.CanonicalName() == other.CanonicalName()
 			})
 		}), nil
@@ -417,4 +417,11 @@ func encodeKnownTables(
 		}
 	}
 	return buffer.Bytes(), nil
+}
+
+func extractCanonicalNameMapper(
+	item systemcatalog.SystemEntity, _ int,
+) string {
+
+	return item.CanonicalName()
 }
