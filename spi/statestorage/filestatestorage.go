@@ -77,6 +77,13 @@ func NewFileStateStorage(
 		} else {
 			return nil, errors.Wrap(err, 0)
 		}
+
+		fi, err = os.Stat(directory)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return nil, errors.Wrap(err, 0)
+			}
+		}
 	}
 
 	if !fi.IsDir() {
