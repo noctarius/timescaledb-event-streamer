@@ -50,7 +50,7 @@ var (
 func main() {
 	app := &cli.App{
 		Name:  "timescaledb-event-streamer",
-		Usage: "CDC (Chance Data Capture) for TimescaleDB Hypertable",
+		Usage: "CDC (Change Data Capture) for TimescaleDB Hypertable",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:        "config,c",
