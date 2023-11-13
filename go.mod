@@ -13,7 +13,7 @@ require (
 	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/goccy/go-json v0.10.2
 	github.com/gookit/color v1.5.4
-	github.com/gookit/goutil v0.6.12
+	github.com/gookit/goutil v0.6.14
 	github.com/gookit/slog v0.5.4
 	github.com/hashicorp/go-uuid v1.0.3
 	github.com/inhies/go-bytesize v0.0.0-20220417184213-4913239db9cf
