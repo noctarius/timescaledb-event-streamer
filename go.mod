@@ -8,7 +8,7 @@ require (
 	github.com/antonmedv/expr v1.15.3
 	github.com/aws/aws-sdk-go v1.45.19
 	github.com/cenkalti/backoff/v4 v4.2.1
-	github.com/docker/docker v24.0.6+incompatible
+	github.com/docker/docker v24.0.7+incompatible
 	github.com/go-errors/errors v1.5.1
 	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/goccy/go-json v0.10.2
@@ -31,6 +31,7 @@ require (
 	github.com/testcontainers/testcontainers-go/modules/redis v0.25.0
 	github.com/twpayne/go-geom v1.5.2
 	github.com/urfave/cli v1.22.14
+	golang.org/x/exp v0.0.0-20230713183714-613f0c0eb8a1
 	golang.org/x/net v0.18.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -105,7 +106,6 @@ require (
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	github.com/yusufpapurcu/wmi v1.2.3 // indirect
 	golang.org/x/crypto v0.15.0 // indirect
-	golang.org/x/exp v0.0.0-20230713183714-613f0c0eb8a1 // indirect
 	golang.org/x/mod v0.12.0 // indirect
 	golang.org/x/sync v0.3.0 // indirect
 	golang.org/x/sys v0.14.0 // indirect
