@@ -18,6 +18,7 @@
 package pgtypes
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"github.com/jackc/pglogrepl"
@@ -59,7 +60,9 @@ func (m *LogicalReplicationMessage) Decode(
 	low += used
 	contentLength := binary.BigEndian.Uint32(src[low:])
 	low += 4
-	m.Content = src[low : low+int(contentLength)]
+
+	// Clone content to release the original array
+	m.Content = bytes.Clone(src[low : low+int(contentLength)])
 
 	m.SetType(MessageTypeLogicalDecodingMessage)
 

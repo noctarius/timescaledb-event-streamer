@@ -18,7 +18,6 @@
 package logicalreplicationresolver
 
 import (
-	"bytes"
 	"github.com/jackc/pglogrepl"
 	"github.com/noctarius/timescaledb-event-streamer/internal/containers"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
@@ -378,10 +377,6 @@ func (tt *transactionTracker) OnOriginEvent(
 func (tt *transactionTracker) OnMessageEvent(
 	xld pgtypes.XLogData, msg *pgtypes.LogicalReplicationMessage,
 ) error {
-
-	// Clone content to release the original array which seems to be a slice of the
-	// original byte array from pgx
-	msg.Content = bytes.Clone(msg.Content)
 
 	// If the message is transactional we need to store it into the currently collected
 	// transaction, otherwise we can run it straight away.
