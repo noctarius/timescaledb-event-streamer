@@ -29,7 +29,7 @@ require (
 	github.com/testcontainers/testcontainers-go v0.25.0
 	github.com/testcontainers/testcontainers-go/modules/localstack v0.25.0
 	github.com/testcontainers/testcontainers-go/modules/redis v0.25.0
-	github.com/twpayne/go-geom v1.5.2
+	github.com/twpayne/go-geom v1.5.3
 	github.com/urfave/cli v1.22.14
 	golang.org/x/exp v0.0.0-20230713183714-613f0c0eb8a1
 	golang.org/x/net v0.18.0
