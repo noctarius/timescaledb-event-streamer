@@ -1,7 +1,7 @@
 # timescaledb-event-streamer
 
 `timescaledb-event-streamer` is a command line program to create a stream of
-CDC (Chance Data Capture) TimescaleDB™ Hypertable and Continuous Aggregate
+CDC (Change Data Capture) TimescaleDB™ Hypertable and Continuous Aggregate
 events from a PostgreSQL installation running the TimescaleDB extension.
 In addition, it also supports capturing events of vanilla PostgreSQL tables.
 

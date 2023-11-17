@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
-	"github.com/samber/lo"
 )
 
 type BaseTable interface {
@@ -128,7 +127,7 @@ func (bt *baseTable) ApplyTableSchema(
 			} else {
 				// potentially renamed, run look ahead
 				lookAheadSuccessful := false
-				for o := i; o < lo.Min([]int{len(oldColumns), len(newColumns)}); o++ {
+				for o := i; o < min(len(oldColumns), len(newColumns)); o++ {
 					if oldColumns[o].equals(newColumns[o]) {
 						lookAheadSuccessful = true
 					}

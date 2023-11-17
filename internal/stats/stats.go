@@ -20,6 +20,7 @@
 package stats
 
 import (
+	"fmt"
 	"github.com/go-errors/errors"
 	"github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/version"
@@ -48,6 +49,7 @@ func NewStatsService(
 	}
 
 	statsEnabled := config.GetOrDefault(c, config.PropertyStatsEnabled, true)
+	statsPort := config.GetOrDefault(c, config.PropertyStatsPort, 8081)
 	runtimeStatsEnabled := config.GetOrDefault(c, config.PropertyRuntimeStatsEnabled, true)
 
 	engine := stats.NewEngine(version.BinName, statsHandler)
@@ -67,7 +69,7 @@ func NewStatsService(
 		handler:              statsHandler,
 		engine:               engine,
 		server: &http.Server{
-			Addr:    ":8081",
+			Addr:    fmt.Sprintf(":%d", statsPort),
 			Handler: mux,
 		},
 	}

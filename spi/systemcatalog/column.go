@@ -18,11 +18,12 @@
 package systemcatalog
 
 import (
+	"cmp"
 	"fmt"
-	"github.com/noctarius/timescaledb-event-streamer/internal/functional"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/samber/lo"
+	"slices"
 	"strings"
 )
 
@@ -46,8 +47,8 @@ func (c Columns) SnapshotIndex() (index *Index, present bool) {
 		return nil, false
 	}
 
-	functional.Sort(dimensionColumns, func(this, other Column) bool {
-		return *this.dimSeq < *other.dimSeq
+	slices.SortStableFunc(dimensionColumns, func(this, other Column) int {
+		return cmp.Compare(*this.dimSeq, *other.dimSeq)
 	})
 
 	return newIndex(
@@ -58,7 +59,7 @@ func (c Columns) SnapshotIndex() (index *Index, present bool) {
 // HasPrimaryKey returns true if the collection of columns contains
 // one or more primary key column(s)
 func (c Columns) HasPrimaryKey() bool {
-	return lo.ContainsBy(c, func(other Column) bool {
+	return slices.ContainsFunc(c, func(other Column) bool {
 		return other.IsPrimaryKey()
 	})
 }
@@ -76,8 +77,8 @@ func (c Columns) PrimaryKeyIndex() (index *Index, present bool) {
 		return item.IsPrimaryKey()
 	})
 
-	functional.Sort(primaryKeyColumns, func(this, other Column) bool {
-		return *this.keySeq < *other.keySeq
+	slices.SortStableFunc(primaryKeyColumns, func(this, other Column) int {
+		return cmp.Compare(*this.keySeq, *other.keySeq)
 	})
 
 	firstColumn := primaryKeyColumns[0]
@@ -89,7 +90,7 @@ func (c Columns) PrimaryKeyIndex() (index *Index, present bool) {
 // HasReplicaIdentity returns true if the collection of columns contains
 // one or more replica identity column(s)
 func (c Columns) HasReplicaIdentity() bool {
-	return lo.ContainsBy(c, func(other Column) bool {
+	return slices.ContainsFunc(c, func(other Column) bool {
 		return other.IsReplicaIdent()
 	})
 }
@@ -107,8 +108,8 @@ func (c Columns) ReplicaIdentityIndex() (index *Index, present bool) {
 		return item.IsReplicaIdent()
 	})
 
-	functional.Sort(replicaIdentityColumns, func(this, other Column) bool {
-		return *this.keySeq < *other.keySeq
+	slices.SortStableFunc(replicaIdentityColumns, func(this, other Column) int {
+		return cmp.Compare(*this.keySeq, *other.keySeq)
 	})
 
 	firstColumn := replicaIdentityColumns[0]

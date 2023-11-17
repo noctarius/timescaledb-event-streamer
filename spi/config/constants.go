@@ -36,6 +36,7 @@ const (
 	PropertySinkTombstone = "sink.tombstone"
 
 	PropertyStatsEnabled        = "stats.enabled"
+	PropertyStatsPort           = "stats.port"
 	PropertyRuntimeStatsEnabled = "stats.runtime.enabled"
 
 	PropertyStateStorageType     = "statestorage.type"

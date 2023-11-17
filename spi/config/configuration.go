@@ -86,6 +86,7 @@ type InternalConfig struct {
 
 type StatsConfig struct {
 	Enabled *bool              `toml:"enabled" yaml:"enabled"`
+	Port    *int               `toml:"port" yaml:"port"`
 	Runtime RuntimeStatsConfig `toml:"runtime" yaml:"runtime"`
 }
 
