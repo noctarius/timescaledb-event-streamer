@@ -80,6 +80,10 @@ const (
 	PropertyNatsCredentialsSeeds       = "sink.nats.credentials.seeds"
 	PropertyNatsJwt                    = "sink.nats.jwt.jwt"
 	PropertyNatsJwtSeed                = "sink.nats.jwt.seed"
+	PropertyNatsMode                   = "sink.nats.mode"
+	PropertyNatsTimeoutDialTimeout     = "sink.nats.timeouts.dialtimeout"
+	PropertyNatsTimeoutReconnectWait   = "sink.nats.timeouts.reconnectwait"
+	PropertyNatsTimeoutPublishTimeout  = "sink.nats.timeouts.publishtimeout"
 
 	PropertyRedisNetwork           = "sink.redis.network"
 	PropertyRedisAddress           = "sink.redis.address"

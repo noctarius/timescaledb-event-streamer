@@ -366,6 +366,10 @@ NATS specific configuration, which is only used if `sink.type` is set to `nats`.
 | `sink.nats.userinfo.password`       |                                  The password of userinfo authorization details. |           string |  empty string | 
 | `sink.nats.credentials.certificate` |           The path of the certificate file of credentials authorization details. |           string |  empty string | 
 | `sink.nats.credentials.seeds`       |                 The paths of seeding files of credentials authorization details. | array of strings |   empty array | 
+| `sink.nats.mode`                    |               The type of NATS clinent mode (core/jetstream) to publish message. |           string |     jetstream |
+| `sink.nats.timeouts.publishtimeout` |                                                  The timeout to publish message. |              int |             2 |
+| `sink.nats.timeouts.dialtimeout`    |                                            The timeout for Dial on a connection. |              int |             2 |
+| `sink.nats.timeouts.reconnectwait`  |                                        The wait time between reconnect attempts. |              int |             2 |
 
 ### Kafka Sink Configuration
 
