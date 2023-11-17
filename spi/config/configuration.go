@@ -19,10 +19,11 @@ package config
 
 import (
 	"crypto/tls"
-	"github.com/IBM/sarama"
 	"os"
 	"reflect"
 	"strings"
+
+	"github.com/IBM/sarama"
 )
 
 type StateStorageType string
@@ -180,6 +181,14 @@ type NatsConfig struct {
 	UserInfo      NatsUserInfoConfig    `toml:"userinfo" yaml:"userInfo"`
 	Credentials   NatsCredentialsConfig `toml:"credentials" yaml:"credentials"`
 	JWT           NatsJWTConfig         `toml:"jwt" yaml:"jwt"`
+	Mode          string                `toml:"mode" yaml:"mode"`
+	Timeout       NatsTimeoutConfig     `toml:"timeouts" yaml:"timeouts"`
+}
+
+type NatsTimeoutConfig struct {
+	ReconnectWait  int `toml:"reconnectwait" yaml:"reconnectwait"`
+	DialTimeout    int `toml:"dialtimeout" yaml:"dialtimeout"`
+	PublishTimeout int `toml:"publishtimeout" yaml:"publishtimeout"`
 }
 
 type KafkaSaslConfig struct {

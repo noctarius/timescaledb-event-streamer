@@ -20,29 +20,37 @@ package nats
 import (
 	"context"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/nats-io/nats.go"
 	sinkimpl "github.com/noctarius/timescaledb-event-streamer/internal/eventing/sink"
 	config "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/encoding"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/sink"
-	"time"
+)
+
+type (
+	natsSink struct {
+		client  *nats.Conn
+		encoder *encoding.JsonEncoder
+	}
+
+	jetStreamNatsSink struct {
+		natsSink
+		jetStreamContext nats.JetStreamContext
+		publishTimeout   int
+	}
 )
 
 func init() {
 	sinkimpl.RegisterSink(config.NATS, newNatsSink)
 }
 
-type natsSink struct {
-	client           *nats.Conn
-	jetStreamContext nats.JetStreamContext
-	encoder          *encoding.JsonEncoder
-}
-
 func newNatsSink(
 	c *config.Config,
 ) (sink.Sink, error) {
-
 	address := config.GetOrDefault(c, config.PropertyNatsAddress, "nats://localhost:4222")
 	authorization := config.GetOrDefault(c, config.PropertyNatsAuthorization, "userinfo")
 	switch config.NatsAuthorizationType(authorization) {
@@ -65,33 +73,32 @@ func newNatsSink(
 func newNatsSinkWithUserInfo(
 	c *config.Config, address, user, password string,
 ) (sink.Sink, error) {
-
-	return connectJetStreamContext(c, address, nats.UserInfo(user, password))
+	return connectStreamContext(c, address, nats.UserInfo(user, password))
 }
 
 func newNatsSinkWithUserCredentials(
 	c *config.Config, address, userOrChainedFile string, seedFiles ...string,
 ) (sink.Sink, error) {
-
-	return connectJetStreamContext(c, address, nats.UserCredentials(userOrChainedFile, seedFiles...))
+	return connectStreamContext(c, address, nats.UserCredentials(userOrChainedFile, seedFiles...))
 }
 
 func newNatsSinkWithUserJWT(
 	c *config.Config, address, jwt, seed string,
 ) (sink.Sink, error) {
-
-	return connectJetStreamContext(c, address, nats.UserJWTAndSeed(jwt, seed))
+	return connectStreamContext(c, address, nats.UserJWTAndSeed(jwt, seed))
 }
 
-func connectJetStreamContext(
+func connectStreamContext(
 	c *config.Config, address string, options ...nats.Option,
 ) (sink.Sink, error) {
-
+	reconnectWaitTimeout := config.GetOrDefault(c, config.PropertyNatsTimeoutReconnectWait, 2)
+	dialTimeout := config.GetOrDefault(c, config.PropertyNatsTimeoutDialTimeout, 2)
 	options = append(
 		options,
 		nats.Name("event-stream-prototype"),
 		nats.RetryOnFailedConnect(true),
-		nats.ReconnectWait(time.Second*10),
+		nats.ReconnectWait(time.Second*time.Duration(reconnectWaitTimeout)),
+		nats.Timeout(time.Second*time.Duration(dialTimeout)),
 		nats.ReconnectBufSize(1024*1024),
 		nats.MaxReconnects(-1),
 	)
@@ -101,16 +108,26 @@ func connectJetStreamContext(
 		return nil, err
 	}
 
-	jetStreamContext, err := client.JetStream()
-	if err != nil {
-		return nil, err
+	sink := natsSink{
+		client:  client,
+		encoder: encoding.NewJsonEncoderWithConfig(c),
 	}
 
-	return &natsSink{
-		client:           client,
-		jetStreamContext: jetStreamContext,
-		encoder:          encoding.NewJsonEncoderWithConfig(c),
-	}, nil
+	mode := strings.ToLower(config.GetOrDefault(c, config.PropertyNatsMode, "jetstream"))
+	if mode == "jetstream" {
+		jetStreamContext, err := client.JetStream()
+		if err != nil {
+			return nil, err
+		}
+		publishTimeout := config.GetOrDefault(c, config.PropertyNatsTimeoutPublishTimeout, 2)
+		return &jetStreamNatsSink{
+			publishTimeout:   publishTimeout,
+			natsSink:         sink,
+			jetStreamContext: jetStreamContext,
+		}, nil
+	}
+
+	return &sink, nil
 }
 
 func (n *natsSink) Start() error {
@@ -122,29 +139,51 @@ func (n *natsSink) Stop() error {
 	return nil
 }
 
-func (n *natsSink) Emit(
-	_ sink.Context, _ time.Time, topicName string, key, envelope schema.Struct,
-) error {
+func (n *natsSink) getMsg(topicName string, key, envelope schema.Struct) (*nats.Msg, error) {
+	envelopeData, err := n.encoder.Marshal(envelope)
+	if err != nil {
+		return nil, err
+	}
 
 	keyData, err := n.encoder.Marshal(key)
 	if err != nil {
+		return nil, err
+	}
+
+	return &nats.Msg{
+		Subject: topicName,
+		Data:    envelopeData,
+		Header: nats.Header{
+			"key": []string{string(keyData)},
+		},
+	}, nil
+}
+
+func (n *natsSink) Emit(
+	_ sink.Context, _ time.Time, topicName string, key, envelope schema.Struct,
+) error {
+	msg, err := n.getMsg(topicName, key, envelope)
+	if err != nil {
 		return err
 	}
-	envelopeData, err := n.encoder.Marshal(envelope)
+	err = n.client.PublishMsg(msg)
+	return err
+}
+
+func (n *jetStreamNatsSink) Emit(
+	_ sink.Context, _ time.Time, topicName string, key, envelope schema.Struct,
+) error {
+	msg, err := n.getMsg(topicName, key, envelope)
 	if err != nil {
 		return err
 	}
 
-	header := nats.Header{}
-	header.Add("key", string(keyData))
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(n.publishTimeout)*time.Second)
+	defer cancel()
 
 	_, err = n.jetStreamContext.PublishMsg(
-		&nats.Msg{
-			Subject: topicName,
-			Header:  header,
-			Data:    envelopeData,
-		},
-		nats.Context(context.Background()),
+		msg,
+		nats.Context(ctx),
 	)
 	return err
 }
