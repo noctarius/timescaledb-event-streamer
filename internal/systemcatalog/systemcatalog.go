@@ -534,6 +534,7 @@ func initializeSystemCatalog(
 		if hypertable, ok := table.(*systemcatalog.Hypertable); ok {
 			if !hypertable.IsCompressedTable() && sc.IsHypertableSelectedForReplication(hypertable.Id()) {
 				if hypertable.IsContinuousAggregate() {
+					tableName = hypertable.CanonicalContinuousAggregateName()
 					tableType = fmt.Sprintf("Continuous Aggregate => %s", hypertable.CanonicalName())
 				}
 			}
