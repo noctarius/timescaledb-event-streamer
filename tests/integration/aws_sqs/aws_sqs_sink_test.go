@@ -99,7 +99,7 @@ func (asits *AwsSqsIntegrationTestSuite) Test_Aws_Sqs_Sink() {
 							aws.String(sqs.QueueAttributeNameAll),
 						},
 						QueueUrl:            aws.String(address),
-						MaxNumberOfMessages: aws.Int64(1),
+						MaxNumberOfMessages: aws.Int64(10),
 						VisibilityTimeout:   aws.Int64(60),
 					})
 					if err != nil {
