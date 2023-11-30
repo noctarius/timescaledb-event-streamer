@@ -20,6 +20,7 @@ package containers
 import (
 	"context"
 	"fmt"
+
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/localstack"
 )
@@ -33,7 +34,8 @@ func setupLocalStack(
 		req.Env["EAGER_SERVICE_LOADING"] = "1"
 	})
 
-	container, err := localstack.RunContainer(context.Background(), config, customizer)
+	container, err := localstack.RunContainer(context.Background(),
+		config, customizer, testcontainers.WithImage("localstack/localstack:3.0.1"))
 	if err != nil {
 		return nil, err
 	}
