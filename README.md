@@ -105,7 +105,7 @@ timescaledb.enable_decompression_logrep_markers=on
 This property cannot be set at runtime! After changing this property you have to restart
 your PostgreSQL server instance.
 
-## Supporting non-privileged users (without postgres user)
+## Support for non-privileged users (non-superuser roles)
 
 In addition to the program itself, a function has to be installed into the database which will
 be used to generate change events from. The function is used to create the initial logical
@@ -128,6 +128,30 @@ To install the function you can use as following:
 ```bash
 $ wget https://raw.githubusercontent.com/noctarius/timescaledb-event-streamer/main/create_timescaledb_catalog_publication.sql
 $ psql "<connstring>" < create_timescaledb_catalog_publication.sql
+```
+
+## Creating the Replication User
+
+The user used for logical replication needs to have owner permission to the entities, no matter if
+Hypertable, Continuous Aggregate (Materialized Hypertable), or vanilla PostgreSQL table.
+
+That said, when creating a user for logical replication, the new user has to be granted the owner
+as a role, as well as `REPLICATION` attribute set.
+
+The following example assumes the new replication user to be named `repl_user` and the entity's
+owner to be named `pg_user`.
+
+```sql
+CREATE ROLE repl_user LOGIN REPLICATION ENCRYPTED PASSWORD '<<password>>';
+GRANT pg_user TO repl_user;
+```
+
+In your configuration, you would set `repl_user` as the user for replication, as well as the chosen
+password.
+
+```toml
+postgresql.connection = 'postgres://repl_user@<<hostname>>:<<port>>/<<database>>'
+postgresql.password = '<<password>>'
 ```
 
 ## Using timescaledb-event-streamer
