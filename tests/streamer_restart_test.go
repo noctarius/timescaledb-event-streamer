@@ -113,7 +113,7 @@ func (irts *IntegrationRestartTestSuite) Test_Restart_Streamer() {
 
 		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
 			_, tn, err := ctx.CreateHypertable("ts", time.Hour*24,
-				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, true, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
@@ -231,7 +231,7 @@ func (irts *IntegrationRestartTestSuite) Test_Restart_Streamer_After_Backend_Kil
 
 		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
 			_, tn, err := ctx.CreateHypertable("ts", time.Hour*24,
-				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, true, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {

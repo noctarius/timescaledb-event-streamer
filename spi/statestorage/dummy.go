@@ -21,6 +21,7 @@ import (
 	"encoding"
 	"github.com/go-errors/errors"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
+	"sync"
 )
 
 func init() {
@@ -32,12 +33,14 @@ func init() {
 type dummyStateStorage struct {
 	offsets       map[string]*Offset
 	encodedStates map[string][]byte
+	mutex         sync.Mutex
 }
 
 func NewDummyStateStorage() Storage {
 	return &dummyStateStorage{
 		offsets:       make(map[string]*Offset),
 		encodedStates: make(map[string][]byte),
+		mutex:         sync.Mutex{},
 	}
 }
 
@@ -73,6 +76,9 @@ func (d *dummyStateStorage) StateEncoder(
 	name string, encoder encoding.BinaryMarshaler,
 ) error {
 
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
 	data, err := encoder.MarshalBinary()
 	if err != nil {
 		return err
@@ -84,6 +90,9 @@ func (d *dummyStateStorage) StateEncoder(
 func (d *dummyStateStorage) StateDecoder(
 	name string, decoder encoding.BinaryUnmarshaler,
 ) (bool, error) {
+
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
 
 	if data, present := d.encodedStates[name]; present {
 		if err := decoder.UnmarshalBinary(data); err != nil {
@@ -98,6 +107,9 @@ func (d *dummyStateStorage) EncodedState(
 	key string,
 ) (encodedState []byte, present bool) {
 
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
 	encodedState, present = d.encodedStates[key]
 	return
 }
@@ -105,6 +117,9 @@ func (d *dummyStateStorage) EncodedState(
 func (d *dummyStateStorage) SetEncodedState(
 	key string, encodedState []byte,
 ) {
+
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
 
 	d.encodedStates[key] = encodedState
 }

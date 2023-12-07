@@ -19,6 +19,7 @@ package testrunner
 
 import (
 	"context"
+	"fmt"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -35,6 +36,16 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	"time"
 )
+
+type skipTestError struct {
+	msg string
+}
+
+func (ste *skipTestError) Error() string {
+	return ste.msg
+}
+
+var ErrSkipTest = &skipTestError{msg: "Test skipped"}
 
 type PrivilegedContext interface {
 	Exec(
@@ -108,7 +119,8 @@ func GetAttribute[V any](
 }
 
 type testPrivilegedContext struct {
-	pool *pgxpool.Pool
+	pool   *pgxpool.Pool
+	logger *logging.Logger
 }
 
 func (t *testPrivilegedContext) Exec(
@@ -198,6 +210,9 @@ func (t *testContext) ResumeReplicator() error {
 		return nil
 	}
 	if err := t.streamer.Start(); err != nil {
+		if err2 := t.streamer.Stop(); err2 != nil {
+			t.logger.Errorf("Error during early shutdown: %v\n", err2)
+		}
 		return err
 	}
 	t.streamerRunning = true
@@ -239,7 +254,8 @@ func (t *testContext) PrivilegedContext(
 		return err
 	}
 	subTestContext := &testPrivilegedContext{
-		pool: pool,
+		pool:   pool,
+		logger: t.logger,
 	}
 	return fn(subTestContext)
 }
@@ -302,6 +318,44 @@ func (t *testContext) getAttribute(
 }
 
 type testConfigurator func(ctx *testContext)
+
+func WithPostgresVersionCheck(
+	version version.PostgresVersion,
+) testConfigurator {
+
+	return func(ctx *testContext) {
+		ctx.setupFunctions = append(ctx.setupFunctions, func(setupContext SetupContext) error {
+			pgVersion := ctx.PostgresqlVersion()
+			if pgVersion < version {
+				return &skipTestError{
+					msg: fmt.Sprintf(
+						"Skipped test, because of PostgreSQL version <%s (%s)\n", version, pgVersion,
+					),
+				}
+			}
+			return nil
+		})
+	}
+}
+
+func WithTimescaleVersionCheck(
+	version version.TimescaleVersion,
+) testConfigurator {
+
+	return func(ctx *testContext) {
+		ctx.setupFunctions = append(ctx.setupFunctions, func(setupContext SetupContext) error {
+			tsdbVersion := ctx.TimescaleVersion()
+			if tsdbVersion < version {
+				return &skipTestError{
+					msg: fmt.Sprintf(
+						"Skipped test, because of PostgreSQL version <%s (%s)\n", version, tsdbVersion,
+					),
+				}
+			}
+			return nil
+		})
+	}
+}
 
 func WithSetup(
 	fn func(ctx SetupContext) error,
@@ -394,7 +448,8 @@ func (tr *TestRunner) RunTest(
 
 	tc := &testContext{
 		testPrivilegedContext: testPrivilegedContext{
-			pool: pool,
+			pool:   pool,
+			logger: tr.logger,
 		},
 		superuserConfig: tr.superuserConfig,
 		hypertables:     make([]string, 0),
@@ -408,6 +463,10 @@ func (tr *TestRunner) RunTest(
 
 	for _, setupFn := range tc.setupFunctions {
 		if err := setupFn(tc); err != nil {
+			if e, ok := err.(*skipTestError); ok {
+				tr.T().Skip(e.msg)
+				return
+			}
 			tr.T().Fatalf("failed to setup test: %+v", err)
 			return
 		}

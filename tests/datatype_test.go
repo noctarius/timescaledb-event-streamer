@@ -1248,7 +1248,7 @@ func (dtt *DataTypeTestSuite) runDataTypeTest(
 			}
 
 			_, tn, err := setupContext.CreateHypertable("ts", time.Hour*24,
-				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, true, nil),
 				testsupport.NewColumn(columnName, testCase.pgTypeName, true, false, nil),
 			)
 			if err != nil {

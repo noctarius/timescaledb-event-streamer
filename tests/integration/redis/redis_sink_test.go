@@ -133,7 +133,7 @@ func (rits *RedisIntegrationTestSuite) Test_Redis_Sink() {
 
 		testrunner.WithSetup(func(setupContext testrunner.SetupContext) error {
 			sn, tn, err := setupContext.CreateHypertable("ts", time.Hour*24,
-				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, true, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {

@@ -389,6 +389,14 @@ func (sc *systemCatalog) GetAllVanillaTables() []systemcatalog.SystemEntity {
 	return tables
 }
 
+func (sc *systemCatalog) GetAllHypertables() []systemcatalog.SystemEntity {
+	tables := make([]systemcatalog.SystemEntity, 0)
+	for _, table := range sc.hypertables {
+		tables = append(tables, table)
+	}
+	return tables
+}
+
 func (sc *systemCatalog) snapshotChunkWithXld(
 	xld *pgtypes.XLogData, chunk *systemcatalog.Chunk,
 ) error {
@@ -532,6 +540,7 @@ func initializeSystemCatalog(
 		tableName := table.CanonicalName()
 
 		if hypertable, ok := table.(*systemcatalog.Hypertable); ok {
+			tableType = "Hypertable"
 			if !hypertable.IsCompressedTable() && sc.IsHypertableSelectedForReplication(hypertable.Id()) {
 				if hypertable.IsContinuousAggregate() {
 					tableName = hypertable.CanonicalContinuousAggregateName()

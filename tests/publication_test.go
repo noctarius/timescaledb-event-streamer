@@ -95,7 +95,7 @@ func (pts *PublicationTestSuite) Test_Preexisting_Chunks_Added_To_Publication() 
 
 		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
 			_, tn, err := ctx.CreateHypertable("ts", time.Hour,
-				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, true, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
@@ -210,7 +210,7 @@ func (pts *PublicationTestSuite) Test_Reloading_From_Known_Chunks() {
 
 		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
 			_, tn, err := ctx.CreateHypertable("ts", time.Hour,
-				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, true, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
@@ -369,7 +369,7 @@ func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_With_State_Stor
 
 		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
 			_, tn, err := ctx.CreateHypertable("ts", time.Hour,
-				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, true, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
@@ -528,7 +528,7 @@ func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_Without_State_S
 
 		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
 			_, tn, err := ctx.CreateHypertable("ts", time.Hour,
-				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, true, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
