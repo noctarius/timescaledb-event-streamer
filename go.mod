@@ -23,7 +23,7 @@ require (
 	github.com/jackc/pgx/v5 v5.5.0
 	github.com/nats-io/nats.go v1.31.0
 	github.com/samber/do v1.6.0
-	github.com/samber/lo v1.38.1
+	github.com/samber/lo v1.39.0
 	github.com/segmentio/stats/v4 v4.1.0
 	github.com/stretchr/testify v1.8.4
 	github.com/testcontainers/testcontainers-go v0.26.0
