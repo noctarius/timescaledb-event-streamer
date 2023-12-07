@@ -20,6 +20,7 @@ package replication
 import (
 	"bytes"
 	stderrors "errors"
+	"fmt"
 	"github.com/go-errors/errors"
 	"github.com/jackc/pgx/v5"
 	"github.com/noctarius/timescaledb-event-streamer/internal/erroring"
@@ -50,9 +51,9 @@ const esPreviouslyKnownTables = "::previously::known::tables"
 // such as the logical replication connection, the side channel connection,
 // and other services necessary to run the event stream generation.
 type Replicator struct {
-	logger       *logging.Logger
-	config       *sysconfig.SystemConfig
-	shutdownTask func() error
+	logger        *logging.Logger
+	config        *sysconfig.SystemConfig
+	shutdownTasks []func() error
 }
 
 // NewReplicator instantiates a new instance of the Replicator.
@@ -73,6 +74,7 @@ func NewReplicator(
 
 // StartReplication initiates the actual replication process
 func (r *Replicator) StartReplication() *cli.ExitError {
+	r.shutdownTasks = nil
 	container, err := wiring.NewContainer(
 		StaticModule,
 		DynamicModule,
@@ -99,6 +101,9 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 	if err := statsService.Start(); err != nil {
 		return erroring.AdaptError(err, 0)
 	}
+	r.shutdownTasks = append(r.shutdownTasks, func() error {
+		return statsService.Stop()
+	})
 
 	// Start internal dispatching
 	var taskManager task.TaskManager
@@ -106,6 +111,9 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 		return erroring.AdaptError(err, 1)
 	}
 	taskManager.StartDispatcher()
+	r.shutdownTasks = append(r.shutdownTasks, func() error {
+		return taskManager.StopDispatcher()
+	})
 
 	// Start Replication context
 	var replicationContext replicationcontext.ReplicationContext
@@ -115,6 +123,9 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 	if err := replicationContext.StartReplicationContext(); err != nil {
 		return erroring.AdaptErrorWithMessage(err, "failed to start replication context", 18)
 	}
+	r.shutdownTasks = append(r.shutdownTasks, func() error {
+		return replicationContext.StopReplicationContext()
+	})
 
 	// Start event emitter
 	var eventEmitter *eventemitting.EventEmitter
@@ -125,6 +136,9 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 	if err := eventEmitter.Start(); err != nil {
 		return erroring.AdaptErrorWithMessage(err, "failed to start event emitter", 24)
 	}
+	r.shutdownTasks = append(r.shutdownTasks, func() error {
+		return eventEmitter.Stop()
+	})
 
 	// Start the snapshotter
 	var snapshotter *snapshotting.Snapshotter
@@ -132,14 +146,13 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 		return erroring.AdaptError(err, 1)
 	}
 	snapshotter.StartSnapshotter()
+	r.shutdownTasks = append(r.shutdownTasks, func() error {
+		snapshotter.StopSnapshotter()
+		return nil
+	})
 
 	var publicationManager publication.PublicationManager
 	if err := container.Service(&publicationManager); err != nil {
-		return erroring.AdaptError(err, 1)
-	}
-
-	var stateStorageManager statestorage.Manager
-	if err := container.Service(&stateStorageManager); err != nil {
 		return erroring.AdaptError(err, 1)
 	}
 
@@ -147,6 +160,32 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 	if err := container.Service(&systemCatalog); err != nil {
 		return erroring.AdaptError(err, 1)
 	}
+	if issues := r.checkReplicaIdentities(systemCatalog); issues != nil {
+		r.logger.Errorln("Replica Identity issues found:")
+		for _, issue := range issues {
+			r.logger.Errorf("\t* %s", issue)
+		}
+		return cli.NewExitError("stopped", 1)
+	}
+
+	var stateStorageManager statestorage.Manager
+	if err := container.Service(&stateStorageManager); err != nil {
+		return erroring.AdaptError(err, 1)
+	}
+	r.shutdownTasks = append(r.shutdownTasks, func() error {
+		state, err1 := encodeKnownTables(systemCatalog.GetAllChunks())
+		if err1 == nil {
+			stateStorageManager.SetEncodedState(esPreviouslyKnownChunks, state)
+		}
+		state, err2 := encodeKnownTables(systemCatalog.GetAllVanillaTables())
+		if err2 == nil {
+			stateStorageManager.SetEncodedState(esPreviouslyKnownTables, state)
+		}
+		if err1 != nil || err2 != nil {
+			return stderrors.Join(err1, err2)
+		}
+		return nil
+	})
 
 	publishedTables, err := publicationManager.ReadPublishedTables()
 	if err != nil {
@@ -177,24 +216,9 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 	if err := replicationChannel.StartReplicationChannel(initialTables); err != nil {
 		return erroring.AdaptError(err, 16)
 	}
-
-	r.shutdownTask = func() error {
-		snapshotter.StopSnapshotter()
-		err1 := replicationChannel.StopReplicationChannel()
-		err2 := eventEmitter.Stop()
-		state, err3 := encodeKnownTables(systemCatalog.GetAllChunks())
-		if err3 == nil {
-			stateStorageManager.SetEncodedState(esPreviouslyKnownChunks, state)
-		}
-		state, err4 := encodeKnownTables(systemCatalog.GetAllVanillaTables())
-		if err4 == nil {
-			stateStorageManager.SetEncodedState(esPreviouslyKnownTables, state)
-		}
-		err5 := taskManager.StopDispatcher()
-		err6 := replicationContext.StopReplicationContext()
-		err7 := statsService.Stop()
-		return stderrors.Join(err1, err2, err3, err4, err5, err6, err7)
-	}
+	r.shutdownTasks = append(r.shutdownTasks, func() error {
+		return replicationChannel.StopReplicationChannel()
+	})
 
 	return nil
 }
@@ -202,8 +226,79 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 // StopReplication initiates a clean shutdown of the replication process. This
 // call blocks until the shutdown process has finished.
 func (r *Replicator) StopReplication() *cli.ExitError {
-	if r.shutdownTask != nil {
-		return erroring.AdaptError(r.shutdownTask(), 250)
+	if r.shutdownTasks != nil && len(r.shutdownTasks) > 0 {
+		errors := make([]error, 0)
+		for i := len(r.shutdownTasks) - 1; i >= 0; i-- {
+			if err := r.shutdownTasks[i](); err != nil {
+				errors = append(errors, err)
+			}
+		}
+		if len(errors) > 0 {
+			return erroring.AdaptError(stderrors.Join(errors...), 250)
+		}
+	}
+	return nil
+}
+
+func (r *Replicator) checkReplicaIdentities(
+	systemCatalog systemcatalog.SystemCatalog,
+) []string {
+
+	issues := make([]string, 0)
+	for _, hypertable := range systemCatalog.GetAllHypertables() {
+		table := hypertable.(*systemcatalog.Hypertable)
+
+		if table.IsContinuousAggregate() {
+			continue
+		}
+
+		if table.ReplicaIdentity() == pgtypes.FULL {
+			continue
+		}
+
+		columns := table.Columns()
+		if table.ReplicaIdentity() == pgtypes.INDEX && !columns.HasReplicaIdentity() {
+			issues = append(issues, fmt.Sprintf(
+				"Hypertable %s has replica identity INDEX, but no valid index", table.CanonicalName(),
+			))
+			continue
+		}
+
+		if columns.HasPrimaryKey() {
+			continue
+		}
+
+		issues = append(issues, fmt.Sprintf(
+			"Hypertable %s has replica identity DEFAULT, but no valid primary key", table.CanonicalName(),
+		))
+	}
+
+	for _, vanillaTable := range systemCatalog.GetAllVanillaTables() {
+		table := vanillaTable.(systemcatalog.BaseTable)
+
+		if table.ReplicaIdentity() == pgtypes.FULL {
+			continue
+		}
+
+		columns := table.Columns()
+		if table.ReplicaIdentity() == pgtypes.INDEX && !columns.HasReplicaIdentity() {
+			issues = append(issues, fmt.Sprintf(
+				"Table %s has replica identity INDEX, but no valid index", table.CanonicalName(),
+			))
+			continue
+		}
+
+		if columns.HasPrimaryKey() {
+			continue
+		}
+
+		issues = append(issues, fmt.Sprintf(
+			"Table %s has replica identity DEFAULT, but no valid primary key", table.CanonicalName(),
+		))
+	}
+
+	if len(issues) > 0 {
+		return issues
 	}
 	return nil
 }

@@ -89,4 +89,6 @@ type SystemCatalog interface {
 	GetAllChunks() []SystemEntity
 
 	GetAllVanillaTables() []SystemEntity
+
+	GetAllHypertables() []SystemEntity
 }

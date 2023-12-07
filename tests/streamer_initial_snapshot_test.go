@@ -87,7 +87,7 @@ func (its *IntegrationSnapshotTestSuite) TestInitialSnapshot_Hypertable() {
 
 		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
 			_, tn, err := ctx.CreateHypertable("ts", time.Hour*24,
-				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, true, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {

@@ -92,7 +92,7 @@ func (its *IntegrationTestSuite) Test_Hypertable_InitialSnapshot_Single_Chunk() 
 
 		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
 			_, tn, err := ctx.CreateHypertable("ts", time.Hour*24,
-				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, true, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
@@ -150,7 +150,7 @@ func (its *IntegrationTestSuite) Test_Hypertable_InitialSnapshot_Multi_Chunk() {
 
 		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
 			_, tn, err := ctx.CreateHypertable("ts", time.Hour*24,
-				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, true, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
@@ -243,7 +243,7 @@ func (its *IntegrationTestSuite) Test_Hypertable_Create_Events() {
 
 		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
 			_, tn, err := ctx.CreateHypertable("ts", time.Hour*24,
-				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, true, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
@@ -511,7 +511,7 @@ func (its *IntegrationTestSuite) Test_Hypertable_Truncate_Events() {
 
 		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
 			_, tn, err := ctx.CreateHypertable("ts", time.Hour*24,
-				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, true, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
@@ -611,7 +611,7 @@ func (its *IntegrationTestSuite) Test_Hypertable_Compression_Events() {
 
 		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
 			_, tn, err := ctx.CreateHypertable("ts", time.Hour*24,
-				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, true, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
@@ -732,7 +732,7 @@ func (its *IntegrationTestSuite) Test_Hypertable_Compression_Partial_Insert_Even
 
 		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
 			_, tn, err := ctx.CreateHypertable("ts", time.Hour*24,
-				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, true, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
@@ -854,7 +854,7 @@ func (its *IntegrationTestSuite) Test_Hypertable_Decompression_Events() {
 
 		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
 			_, tn, err := ctx.CreateHypertable("ts", time.Hour*24,
-				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, true, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
@@ -896,18 +896,6 @@ func (its *IntegrationTestSuite) Test_Hypertable_Implicit_Decompression_Events_I
 
 	its.RunTest(
 		func(ctx testrunner.Context) error {
-			pgVersion := ctx.PostgresqlVersion()
-			if pgVersion < version.PG_14_VERSION {
-				fmt.Printf("Skipped test, because of PostgreSQL version <14.0 (%s)\n", pgVersion)
-				return nil
-			}
-
-			tsdbVersion := ctx.TimescaleVersion()
-			if tsdbVersion < version.TSDB_212_VERSION {
-				fmt.Printf("Skipped test, because of TimescaleDB version <2.12 (%s)\n", tsdbVersion)
-				return nil
-			}
-
 			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:09:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
@@ -1009,6 +997,9 @@ func (its *IntegrationTestSuite) Test_Hypertable_Implicit_Decompression_Events_I
 
 			return nil
 		},
+
+		testrunner.WithPostgresVersionCheck(version.PG_14_VERSION),
+		testrunner.WithTimescaleVersionCheck(version.TSDB_212_VERSION),
 
 		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
 			_, tn, err := ctx.CreateHypertable("ts", time.Hour*24,
@@ -1134,7 +1125,7 @@ func (its *IntegrationTestSuite) Test_Hypertable_Compression_Decompression_Singl
 
 		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
 			_, tn, err := ctx.CreateHypertable("ts", time.Hour*24,
-				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, true, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
@@ -1210,7 +1201,7 @@ func (its *IntegrationTestSuite) Test_ContinuousAggregate_Create_Events() {
 
 		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
 			_, tn, err := ctx.CreateHypertable("ts", time.Hour*24,
-				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, true, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
@@ -1311,7 +1302,7 @@ func (its *IntegrationTestSuite) Test_ContinuousAggregate_Scheduled_Refresh_Crea
 
 		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
 			_, tn, err := ctx.CreateHypertable("ts", time.Hour*24,
-				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, true, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
@@ -1367,12 +1358,6 @@ func (its *IntegrationTestSuite) Test_General_Emit_Logical_Message() {
 
 	its.RunTest(
 		func(ctx testrunner.Context) error {
-			pgVersion := ctx.PostgresqlVersion()
-			if pgVersion < version.PG_14_VERSION {
-				fmt.Printf("Skipped test, because of PostgreSQL version <14.0 (%s)\n", pgVersion)
-				return nil
-			}
-
 			tx, err := ctx.Begin(context.Background())
 			if err != nil {
 				return err
@@ -1407,9 +1392,11 @@ func (its *IntegrationTestSuite) Test_General_Emit_Logical_Message() {
 			return nil
 		},
 
+		testrunner.WithPostgresVersionCheck(version.PG_14_VERSION),
+
 		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
 			_, tn, err := ctx.CreateHypertable("ts", time.Hour*24,
-				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, true, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
@@ -1441,12 +1428,6 @@ func (its *IntegrationTestSuite) Test_General_Acknowledge_To_PG_With_Only_Begin_
 	replicationSlotName := lo.RandomString(20, lo.LowerCaseLettersCharset)
 	its.RunTest(
 		func(ctx testrunner.Context) error {
-			pgVersion := ctx.PostgresqlVersion()
-			if pgVersion >= version.PG_15_VERSION {
-				fmt.Printf("Skipped test, because of PostgreSQL version <15.0 (%s)\n", pgVersion)
-				return nil
-			}
-
 			tableName := testrunner.GetAttribute[string](ctx, "tableName")
 
 			var lsn1 pglogrepl.LSN
@@ -1496,6 +1477,8 @@ func (its *IntegrationTestSuite) Test_General_Acknowledge_To_PG_With_Only_Begin_
 
 			return nil
 		},
+
+		testrunner.WithPostgresVersionCheck(version.PG_15_VERSION),
 
 		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
 			_, tn, err := ctx.CreateHypertable("ts", time.Hour*6,
@@ -1608,7 +1591,7 @@ func (its *IntegrationTestSuite) Test_Vanilla_Create_Events() {
 
 		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
 			_, tn, err := ctx.CreateVanillaTable(
-				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, true, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
@@ -1876,7 +1859,7 @@ func (its *IntegrationTestSuite) Test_Vanilla_Truncate_Events() {
 
 		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
 			_, tn, err := ctx.CreateVanillaTable(
-				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, true, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
@@ -1909,19 +1892,6 @@ func (its *IntegrationTestSuite) Test_Hypertable_Replica_Identity_Full_Update_Ev
 
 	its.RunTest(
 		func(ctx testrunner.Context) error {
-			tsdbVersion := ctx.TimescaleVersion()
-			if tsdbVersion < version.TSDB_212_VERSION {
-				fmt.Printf("Skipped test, because of TimescaleDB version <2.12 (%s)\n", tsdbVersion)
-				return nil
-			}
-
-			if _, err := ctx.Exec(
-				context.Background(),
-				fmt.Sprintf("ALTER TABLE %s REPLICA IDENTITY FULL", tableName),
-			); err != nil {
-				return err
-			}
-
 			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:09:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
@@ -1988,6 +1958,8 @@ func (its *IntegrationTestSuite) Test_Hypertable_Replica_Identity_Full_Update_Ev
 			return nil
 		},
 
+		testrunner.WithTimescaleVersionCheck(version.TSDB_212_VERSION),
+
 		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
 			_, tn, err := ctx.CreateHypertable("ts", time.Hour*24,
 				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
@@ -1997,6 +1969,13 @@ func (its *IntegrationTestSuite) Test_Hypertable_Replica_Identity_Full_Update_Ev
 				return err
 			}
 			tableName = tn
+
+			if _, err := ctx.Exec(
+				context.Background(),
+				fmt.Sprintf("ALTER TABLE %s REPLICA IDENTITY FULL", tableName),
+			); err != nil {
+				return err
+			}
 
 			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
 			return nil
@@ -2023,19 +2002,6 @@ func (its *IntegrationTestSuite) Test_Hypertable_Replica_Identity_Full_Delete_Ev
 
 	its.RunTest(
 		func(ctx testrunner.Context) error {
-			tsdbVersion := ctx.TimescaleVersion()
-			if tsdbVersion < version.TSDB_212_VERSION {
-				fmt.Printf("Skipped test, because of TimescaleDB version <2.12 (%s)\n", tsdbVersion)
-				return nil
-			}
-
-			if _, err := ctx.Exec(
-				context.Background(),
-				fmt.Sprintf("ALTER TABLE %s REPLICA IDENTITY FULL", tableName),
-			); err != nil {
-				return err
-			}
-
 			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:09:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
@@ -2094,6 +2060,8 @@ func (its *IntegrationTestSuite) Test_Hypertable_Replica_Identity_Full_Delete_Ev
 			return nil
 		},
 
+		testrunner.WithTimescaleVersionCheck(version.TSDB_212_VERSION),
+
 		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
 			_, tn, err := ctx.CreateHypertable("ts", time.Hour*24,
 				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
@@ -2103,6 +2071,13 @@ func (its *IntegrationTestSuite) Test_Hypertable_Replica_Identity_Full_Delete_Ev
 				return err
 			}
 			tableName = tn
+
+			if _, err := ctx.Exec(
+				context.Background(),
+				fmt.Sprintf("ALTER TABLE \"%s\".\"%s\" REPLICA IDENTITY FULL", testsupport.DatabaseSchema, tableName),
+			); err != nil {
+				return err
+			}
 
 			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
 			return nil
@@ -2129,19 +2104,6 @@ func (its *IntegrationTestSuite) Ignore_Test_Hypertable_Replica_Identity_Index_U
 
 	its.RunTest(
 		func(ctx testrunner.Context) error {
-			tsdbVersion := ctx.TimescaleVersion()
-			if tsdbVersion < version.TSDB_212_VERSION {
-				fmt.Printf("Skipped test, because of TimescaleDB version <2.12 (%s)\n", tsdbVersion)
-				return nil
-			}
-
-			if _, err := ctx.Exec(
-				context.Background(),
-				fmt.Sprintf("ALTER TABLE %s REPLICA IDENTITY USING INDEX %s_pk", tableName, tableName),
-			); err != nil {
-				return err
-			}
-
 			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS key, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:09:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
@@ -2208,6 +2170,8 @@ func (its *IntegrationTestSuite) Ignore_Test_Hypertable_Replica_Identity_Index_U
 			return nil
 		},
 
+		testrunner.WithTimescaleVersionCheck(version.TSDB_212_VERSION),
+
 		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
 			_, tn, err := ctx.CreateHypertable("ts", time.Hour*24,
 				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
@@ -2222,6 +2186,13 @@ func (its *IntegrationTestSuite) Ignore_Test_Hypertable_Replica_Identity_Index_U
 			if _, err := ctx.Exec(
 				context.Background(),
 				fmt.Sprintf("CREATE UNIQUE INDEX %s_pk ON %s (ts, key)", tn, tn),
+			); err != nil {
+				return err
+			}
+
+			if _, err := ctx.Exec(
+				context.Background(),
+				fmt.Sprintf("ALTER TABLE %s REPLICA IDENTITY USING INDEX %s_pk", tableName, tableName),
 			); err != nil {
 				return err
 			}
@@ -2251,19 +2222,6 @@ func (its *IntegrationTestSuite) Ignore_Test_Hypertable_Replica_Identity_Index_D
 
 	its.RunTest(
 		func(ctx testrunner.Context) error {
-			tsdbVersion := ctx.TimescaleVersion()
-			if tsdbVersion < version.TSDB_212_VERSION {
-				fmt.Printf("Skipped test, because of TimescaleDB version <2.12 (%s)\n", tsdbVersion)
-				return nil
-			}
-
-			if _, err := ctx.Exec(
-				context.Background(),
-				fmt.Sprintf("ALTER TABLE %s REPLICA IDENTITY USING INDEX %s_pk", tableName, tableName),
-			); err != nil {
-				return err
-			}
-
 			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS key, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:09:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
@@ -2322,6 +2280,8 @@ func (its *IntegrationTestSuite) Ignore_Test_Hypertable_Replica_Identity_Index_D
 			return nil
 		},
 
+		testrunner.WithTimescaleVersionCheck(version.TSDB_212_VERSION),
+
 		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
 			_, tn, err := ctx.CreateHypertable("ts", time.Hour*24,
 				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
@@ -2336,6 +2296,13 @@ func (its *IntegrationTestSuite) Ignore_Test_Hypertable_Replica_Identity_Index_D
 			if _, err := ctx.Exec(
 				context.Background(),
 				fmt.Sprintf("CREATE UNIQUE INDEX %s_pk ON %s (ts, key)", tn, tn),
+			); err != nil {
+				return err
+			}
+
+			if _, err := ctx.Exec(
+				context.Background(),
+				fmt.Sprintf("ALTER TABLE %s REPLICA IDENTITY USING INDEX %s_pk", tableName, tableName),
 			); err != nil {
 				return err
 			}
@@ -2365,13 +2332,6 @@ func (its *IntegrationTestSuite) Test_Vanilla_Replica_Identity_Full_Update_Event
 
 	its.RunTest(
 		func(ctx testrunner.Context) error {
-			if _, err := ctx.Exec(
-				context.Background(),
-				fmt.Sprintf("ALTER TABLE %s REPLICA IDENTITY FULL", tableName),
-			); err != nil {
-				return err
-			}
-
 			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:09:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
@@ -2448,6 +2408,13 @@ func (its *IntegrationTestSuite) Test_Vanilla_Replica_Identity_Full_Update_Event
 			}
 			tableName = tn
 
+			if _, err := ctx.Exec(
+				context.Background(),
+				fmt.Sprintf("ALTER TABLE %s REPLICA IDENTITY FULL", tableName),
+			); err != nil {
+				return err
+			}
+
 			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
 			return nil
 		}),
@@ -2473,13 +2440,6 @@ func (its *IntegrationTestSuite) Test_Vanilla_Replica_Identity_Full_Delete_Event
 
 	its.RunTest(
 		func(ctx testrunner.Context) error {
-			if _, err := ctx.Exec(
-				context.Background(),
-				fmt.Sprintf("ALTER TABLE %s REPLICA IDENTITY FULL", tableName),
-			); err != nil {
-				return err
-			}
-
 			if _, err := ctx.Exec(context.Background(),
 				fmt.Sprintf(
 					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 00:09:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
@@ -2547,6 +2507,13 @@ func (its *IntegrationTestSuite) Test_Vanilla_Replica_Identity_Full_Delete_Event
 				return err
 			}
 			tableName = tn
+
+			if _, err := ctx.Exec(
+				context.Background(),
+				fmt.Sprintf("ALTER TABLE %s REPLICA IDENTITY FULL", tableName),
+			); err != nil {
+				return err
+			}
 
 			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
 			return nil
