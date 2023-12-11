@@ -20,7 +20,7 @@ require (
 	github.com/jackc/pgerrcode v0.0.0-20220416144525-469b46aa5efa
 	github.com/jackc/pgio v1.0.0
 	github.com/jackc/pglogrepl v0.0.0-20230810221841-d0818e1fbef7
-	github.com/jackc/pgx/v5 v5.5.0
+	github.com/jackc/pgx/v5 v5.5.1
 	github.com/nats-io/nats.go v1.31.0
 	github.com/samber/do v1.6.0
 	github.com/samber/lo v1.39.0
