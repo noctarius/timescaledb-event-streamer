@@ -28,7 +28,7 @@ require (
 	github.com/stretchr/testify v1.8.4
 	github.com/testcontainers/testcontainers-go v0.27.0
 	github.com/testcontainers/testcontainers-go/modules/localstack v0.26.0
-	github.com/testcontainers/testcontainers-go/modules/redis v0.26.0
+	github.com/testcontainers/testcontainers-go/modules/redis v0.27.0
 	github.com/twpayne/go-geom v1.5.3
 	github.com/urfave/cli v1.22.14
 	golang.org/x/exp v0.0.0-20230713183714-613f0c0eb8a1
