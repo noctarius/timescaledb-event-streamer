@@ -6,7 +6,7 @@ require (
 	github.com/BurntSushi/toml v1.3.2
 	github.com/IBM/sarama v1.42.1
 	github.com/antonmedv/expr v1.15.5
-	github.com/aws/aws-sdk-go v1.48.15
+	github.com/aws/aws-sdk-go v1.50.12
 	github.com/cenkalti/backoff/v4 v4.2.1
 	github.com/docker/docker v24.0.7+incompatible
 	github.com/go-errors/errors v1.5.1
@@ -20,7 +20,7 @@ require (
 	github.com/jackc/pgerrcode v0.0.0-20220416144525-469b46aa5efa
 	github.com/jackc/pgio v1.0.0
 	github.com/jackc/pglogrepl v0.0.0-20230810221841-d0818e1fbef7
-	github.com/jackc/pgx/v5 v5.5.0
+	github.com/jackc/pgx/v5 v5.5.3
 	github.com/nats-io/nats.go v1.31.0
 	github.com/samber/do v1.6.0
 	github.com/samber/lo v1.39.0
@@ -28,7 +28,7 @@ require (
 	github.com/stretchr/testify v1.8.4
 	github.com/testcontainers/testcontainers-go v0.27.0
 	github.com/testcontainers/testcontainers-go/modules/localstack v0.27.0
-	github.com/testcontainers/testcontainers-go/modules/redis v0.26.0
+	github.com/testcontainers/testcontainers-go/modules/redis v0.27.0
 	github.com/twpayne/go-geom v1.5.3
 	github.com/urfave/cli v1.22.14
 	golang.org/x/exp v0.0.0-20230713183714-613f0c0eb8a1
@@ -106,7 +106,7 @@ require (
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	github.com/yusufpapurcu/wmi v1.2.3 // indirect
-	golang.org/x/crypto v0.16.0 // indirect
+	golang.org/x/crypto v0.17.0 // indirect
 	golang.org/x/mod v0.12.0 // indirect
 	golang.org/x/sync v0.4.0 // indirect
 	golang.org/x/sys v0.15.0 // indirect
