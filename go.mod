@@ -13,8 +13,8 @@ require (
 	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/goccy/go-json v0.10.2
 	github.com/gookit/color v1.5.4
-	github.com/gookit/goutil v0.6.14
-	github.com/gookit/slog v0.5.4
+	github.com/gookit/goutil v0.6.15
+	github.com/gookit/slog v0.5.5
 	github.com/hashicorp/go-uuid v1.0.3
 	github.com/inhies/go-bytesize v0.0.0-20220417184213-4913239db9cf
 	github.com/jackc/pgerrcode v0.0.0-20220416144525-469b46aa5efa
@@ -108,7 +108,7 @@ require (
 	github.com/yusufpapurcu/wmi v1.2.3 // indirect
 	golang.org/x/crypto v0.18.0 // indirect
 	golang.org/x/mod v0.12.0 // indirect
-	golang.org/x/sync v0.4.0 // indirect
+	golang.org/x/sync v0.5.0 // indirect
 	golang.org/x/sys v0.16.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/tools v0.11.0 // indirect
