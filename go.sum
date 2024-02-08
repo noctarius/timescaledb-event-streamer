@@ -260,8 +260,8 @@ github.com/stretchr/testify v1.8.4 h1:CcVxjf3Q8PM0mHUKJCdn+eZZtm5yQwehR5yeSVQQcU
 github.com/stretchr/testify v1.8.4/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXlSw2iwfAo=
 github.com/testcontainers/testcontainers-go v0.27.0 h1:IeIrJN4twonTDuMuBNQdKZ+K97yd7VrmNGu+lDpYcDk=
 github.com/testcontainers/testcontainers-go v0.27.0/go.mod h1:+HgYZcd17GshBUZv9b+jKFJ198heWPQq3KQIp2+N+7U=
-github.com/testcontainers/testcontainers-go/modules/localstack v0.26.0 h1:lpL04dHA9mGFBQLFcV+aEEh1Tf4ohXdIGgoj3J0bacM=
-github.com/testcontainers/testcontainers-go/modules/localstack v0.26.0/go.mod h1:1xkZPpkBu6coI7CyVn3DXUBnsVrZ+fd/Cc8lx6zk2mk=
+github.com/testcontainers/testcontainers-go/modules/localstack v0.27.0 h1:WXwTQYYVh3j865yRkElFKCX6WYwFYNhE+NSCTT2Werk=
+github.com/testcontainers/testcontainers-go/modules/localstack v0.27.0/go.mod h1:XjzTgPyIaJ5Lg5A+9AjdIjqYeUzgEjn+ZEnwWqvpj04=
 github.com/testcontainers/testcontainers-go/modules/redis v0.27.0 h1:DAs9D0BmBPuvEnsY8fWLwQVx5ZGdDNJTj+iK+p5Dj98=
 github.com/testcontainers/testcontainers-go/modules/redis v0.27.0/go.mod h1:xkfSzACp1p97x84TpLR8ZDzSimFv8ZP/pIrX8Nhf2gg=
 github.com/tklauser/go-sysconf v0.3.12 h1:0QaGUFOdQaIVdPgfITYzaTegZvdCjmYO52cSFAEVmqU=
