@@ -21,7 +21,7 @@ require (
 	github.com/jackc/pgio v1.0.0
 	github.com/jackc/pglogrepl v0.0.0-20230810221841-d0818e1fbef7
 	github.com/jackc/pgx/v5 v5.5.3
-	github.com/nats-io/nats.go v1.32.0
+	github.com/nats-io/nats.go v1.33.0
 	github.com/samber/do v1.6.0
 	github.com/samber/lo v1.39.0
 	github.com/segmentio/stats/v4 v4.1.0
