@@ -17,11 +17,15 @@
 
 package containers
 
-import "github.com/noctarius/timescaledb-event-streamer/internal/functional"
+import (
+	"github.com/noctarius/timescaledb-event-streamer/internal/functional"
+	"sync/atomic"
+)
 
 type UnboundedChannel[T any] struct {
-	in  chan<- T
-	out <-chan T
+	in     chan<- T
+	out    <-chan T
+	closed atomic.Bool
 }
 
 func MakeUnboundedChannel[T any](
@@ -60,14 +64,20 @@ func MakeUnboundedChannel[T any](
 		close(out)
 	}()
 	return &UnboundedChannel[T]{
-		in:  in,
-		out: out,
+		in:     in,
+		out:    out,
+		closed: atomic.Bool{},
 	}
 }
 
 func (uc *UnboundedChannel[T]) Send(
 	item T,
 ) {
+
+	// Prevent writing to a closed channel
+	if uc.closed.Load() {
+		return
+	}
 
 	uc.in <- item
 }
@@ -81,5 +91,6 @@ func (uc *UnboundedChannel[T]) ReceiveChannel() <-chan T {
 }
 
 func (uc *UnboundedChannel[T]) Close() {
+	uc.closed.Store(true)
 	close(uc.in)
 }
