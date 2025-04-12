@@ -25,7 +25,7 @@ jobs:
       id-token: write
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Docker Build
         run: docker build . --file Dockerfile --tag ${{ env.docker-registry }}/${{ env.docker-image-name }}:${{ github.ref_name }}
 
@@ -54,13 +54,13 @@ jobs:
       packages: write
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - run: git fetch --force --tags
 
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.golang-version }}
 
