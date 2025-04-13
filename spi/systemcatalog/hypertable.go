@@ -33,7 +33,6 @@ type Hypertable struct {
 	associatedTablePrefix  string
 	compressedHypertableId *int32
 	compressionState       int16
-	distributed            bool
 	continuousAggregate    bool
 	viewSchema             *string
 	viewName               *string
@@ -42,7 +41,7 @@ type Hypertable struct {
 // NewHypertable instantiates a new Hypertable entity
 func NewHypertable(
 	id int32, schemaName, tableName, associatedSchemaName, associatedTablePrefix string,
-	compressedHypertableId *int32, compressionState int16, distributed bool,
+	compressedHypertableId *int32, compressionState int16,
 	viewSchema, viewName *string, replicaIdentity pgtypes.ReplicaIdentity,
 ) *Hypertable {
 
@@ -53,7 +52,6 @@ func NewHypertable(
 		associatedTablePrefix:  associatedTablePrefix,
 		compressedHypertableId: compressedHypertableId,
 		compressionState:       compressionState,
-		distributed:            distributed,
 		continuousAggregate:    isContinuousAggregate(tableName, viewSchema, viewName),
 		viewSchema:             viewSchema,
 		viewName:               viewName,
@@ -109,14 +107,8 @@ func (h *Hypertable) IsCompressedTable() bool {
 	return h.compressionState == 2
 }
 
-// IsDistributed returns true if the hypertable is a
-// distributed hypertable, otherwise false
-func (h *Hypertable) IsDistributed() bool {
-	return h.distributed
-}
-
 // IsContinuousAggregate returns true if the hypertable
-// is a backing hypertable for a continues aggregate,
+// is a backing hypertable for a continuous aggregate,
 // otherwise false
 func (h *Hypertable) IsContinuousAggregate() bool {
 	return h.continuousAggregate
@@ -200,7 +192,6 @@ func (h *Hypertable) ApplyChanges(
 		associatedTablePrefix:  associatedTablePrefix,
 		compressedHypertableId: compressedHypertableId,
 		compressionState:       compressionState,
-		distributed:            h.distributed,
 	}
 	return h2, h.differences(h2)
 }
