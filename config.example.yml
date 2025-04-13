@@ -168,3 +168,9 @@ logging:
       outputs:
         console:
           enabled: false
+
+#stats:
+#  enabled: true
+#  port: 8081
+#  runtime:
+#    enabled: true

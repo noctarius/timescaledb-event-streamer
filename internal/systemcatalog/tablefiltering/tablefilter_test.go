@@ -442,7 +442,6 @@ func makeHypertable(
 		"test",
 		nil,
 		0,
-		false,
 		nil,
 		nil,
 		pgtypes.DEFAULT,

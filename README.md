@@ -522,6 +522,15 @@ as well.
 | `<...>.outputs.file.maxsize`     | This property defines the maximum file size (in bytes) of the log file before rotation. If both, `maxduration` and `maxsize` are defined, `maxduration` has precedence. |       int | 5242880 (5MB) |
 | `<...>.outputs.file.compress`    |                                                                                                     This property defines if the rotated log file should be compressed. |   boolean |         false |
 
+### Stats Configuration
+
+| Property                |                                                                                                                                Description | Data Type | Default Value |
+|-------------------------|-------------------------------------------------------------------------------------------------------------------------------------------:|----------:|--------------:|
+| `stats.enabled`         |                                                       Enables the stats service, it exposes Prometheus metrics on the `/metrics` endpoint. |   boolean |          true |
+| `stats.port`            |                                                                                               Configure the port on which it is available. |       int |          8081 |
+| `stats.runtime.enabled` | Enables metrics about this runtime, see [segmentio/procstats](https://github.com/segmentio/stats?tab=readme-ov-file#processes) for details |   boolean |          true |
+
+
 # Includes and Excludes Patterns
 
 Includes and Excludes can be defined as fully canonical references to hypertables

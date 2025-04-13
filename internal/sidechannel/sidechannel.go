@@ -255,20 +255,19 @@ func (sc *sideChannel) ReadHypertables(
 			var schemaName, hypertableName, associatedSchemaName, associatedTablePrefix string
 			var compressionState int16
 			var compressedHypertableId *int32
-			var distributed bool
 			var viewSchema, viewName *string
 			var replicaIdentity pgtypes.ReplicaIdentity
 
 			if err := row.Scan(&id, &schemaName, &hypertableName, &associatedSchemaName,
 				&associatedTablePrefix, &compressionState, &compressedHypertableId,
-				&distributed, &viewSchema, &viewName, &replicaIdentity); err != nil {
+				&viewSchema, &viewName, &replicaIdentity); err != nil {
 
 				return errors.Wrap(err, 0)
 			}
 
 			hypertable := systemcatalog.NewHypertable(
 				id, schemaName, hypertableName, associatedSchemaName, associatedTablePrefix,
-				compressedHypertableId, compressionState, distributed, viewSchema, viewName, replicaIdentity,
+				compressedHypertableId, compressionState, viewSchema, viewName, replicaIdentity,
 			)
 
 			return cb(hypertable)

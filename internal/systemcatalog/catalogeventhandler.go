@@ -26,7 +26,7 @@ import (
 
 type hypertableDecomposerCallback = func(
 	id int32, schemaName, hypertableName, associatedSchemaName, associatedTablePrefix string,
-	compressedHypertableId *int32, compressionState int16, distributed bool,
+	compressedHypertableId *int32, compressionState int16,
 ) error
 
 type chunkDecomposerCallback = func(id, hypertableId int32, schemaName,
@@ -61,7 +61,7 @@ func (s *systemCatalogReplicationEventHandler) OnHypertableAddedEvent(
 
 	return s.decomposeHypertable(newValues,
 		func(id int32, schemaName, hypertableName, associatedSchemaName, associatedTablePrefix string,
-			compressedHypertableId *int32, compressionState int16, distributed bool) error {
+			compressedHypertableId *int32, compressionState int16) error {
 
 			var viewSchema, viewName *string
 			if systemcatalog.IsContinuousAggregateHypertable(hypertableName) {
@@ -80,7 +80,7 @@ func (s *systemCatalogReplicationEventHandler) OnHypertableAddedEvent(
 
 			h := systemcatalog.NewHypertable(
 				id, schemaName, hypertableName, associatedSchemaName, associatedTablePrefix,
-				compressedHypertableId, compressionState, distributed, viewSchema, viewName, replicaIdentity,
+				compressedHypertableId, compressionState, viewSchema, viewName, replicaIdentity,
 			)
 
 			if err := s.systemCatalog.RegisterHypertable(h); err != nil {
@@ -101,7 +101,7 @@ func (s *systemCatalogReplicationEventHandler) OnHypertableUpdatedEvent(
 
 	return s.decomposeHypertable(newValues,
 		func(id int32, schemaName, hypertableName, associatedSchemaName, associatedTablePrefix string,
-			compressedHypertableId *int32, compressionState int16, distributed bool) error {
+			compressedHypertableId *int32, compressionState int16) error {
 
 			if hypertable, present := s.systemCatalog.FindHypertableById(id); present {
 				replicaIdentity, err := s.systemCatalog.sideChannel.ReadReplicaIdentity(
@@ -251,16 +251,12 @@ func (s *systemCatalogReplicationEventHandler) decomposeHypertable(
 	associatedSchemaName := values["associated_schema_name"].(string)
 	associatedTablePrefix := values["associated_table_prefix"].(string)
 	compressionState := values["compression_state"].(int16)
-	var distributed bool
-	if v, ok := values["replication_factor"].(int16); ok {
-		distributed = v > 0
-	}
 	var compressedHypertableId *int32
 	if v, ok := values["compressed_hypertable_id"].(int32); ok {
 		compressedHypertableId = &v
 	}
 	return cb(id, schemaName, hypertableName, associatedSchemaName, associatedTablePrefix,
-		compressedHypertableId, compressionState, distributed,
+		compressedHypertableId, compressionState,
 	)
 }
 

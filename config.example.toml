@@ -116,3 +116,7 @@ logging.outputs.file.maxduration = 600 #seconds
 logging.outputs.file.compress = true
 logging.loggers.LogicalReplicationResolver.level = 'debug'
 logging.loggers.LogicalReplicationResolver.outputs.console.enabled = false
+
+#stats.enabled = true
+#stats.port = 8081
+#stats.runtime.enabled = true
