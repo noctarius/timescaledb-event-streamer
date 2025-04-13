@@ -105,8 +105,7 @@ WHERE slot_name = $1`
 // region Hypertable / Chunk Related Queries
 const queryReadHypertables = `
 SELECT h1.id, h1.schema_name, h1.table_name, h1.associated_schema_name, h1.associated_table_prefix,
-	 h1.compression_state, h1.compressed_hypertable_id, coalesce(h2.is_distributed, false),
-	 ca.user_view_schema, ca.user_view_name, c.relreplident
+	 h1.compression_state, h1.compressed_hypertable_id, ca.user_view_schema, ca.user_view_name, c.relreplident
 FROM _timescaledb_catalog.hypertable h1
 LEFT JOIN timescaledb_information.hypertables h2
 	 ON h2.hypertable_schema = h1.schema_name
