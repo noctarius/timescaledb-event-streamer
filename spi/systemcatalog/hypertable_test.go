@@ -41,7 +41,7 @@ func TestSchemaDifferences_Added_Column(
 		NewColumn("test3", 10, -1, fooType, false, nil),
 		NewColumn("test4", 10, -1, fooType, false, nil),
 	}
-	hypertable := NewHypertable(1, "", "", "", "", nil, 0, false, nil, nil, pgtypes.DEFAULT)
+	hypertable := NewHypertable(1, "", "", "", "", nil, 0, nil, nil, pgtypes.DEFAULT)
 	hypertable.ApplyTableSchema(oldColumns)
 	differences := hypertable.ApplyTableSchema(newColumns)
 
@@ -73,7 +73,7 @@ func TestSchemaDifferences_Renamed_Column(
 		NewColumn("test4", 10, -1, fooType, false, nil),
 		NewColumn("test3", 10, -1, fooType, false, nil),
 	}
-	hypertable := NewHypertable(1, "", "", "", "", nil, 0, false, nil, nil, pgtypes.DEFAULT)
+	hypertable := NewHypertable(1, "", "", "", "", nil, 0, nil, nil, pgtypes.DEFAULT)
 	hypertable.ApplyTableSchema(oldColumns)
 	differences := hypertable.ApplyTableSchema(newColumns)
 
@@ -105,7 +105,7 @@ func TestSchemaDifferences_Renamed_Last_Column(
 		NewColumn("test2", 10, -1, fooType, false, nil),
 		NewColumn("test4", 10, -1, fooType, false, nil),
 	}
-	hypertable := NewHypertable(1, "", "", "", "", nil, 0, false, nil, nil, pgtypes.DEFAULT)
+	hypertable := NewHypertable(1, "", "", "", "", nil, 0, nil, nil, pgtypes.DEFAULT)
 	hypertable.ApplyTableSchema(oldColumns)
 	differences := hypertable.ApplyTableSchema(newColumns)
 
@@ -136,7 +136,7 @@ func TestSchemaDifferences_Dropped_Column(
 		NewColumn("test1", 10, -1, fooType, false, nil),
 		NewColumn("test3", 12, -1, fooType, false, nil),
 	}
-	hypertable := NewHypertable(1, "", "", "", "", nil, 0, false, nil, nil, pgtypes.DEFAULT)
+	hypertable := NewHypertable(1, "", "", "", "", nil, 0, nil, nil, pgtypes.DEFAULT)
 	hypertable.ApplyTableSchema(oldColumns)
 	differences := hypertable.ApplyTableSchema(newColumns)
 
@@ -167,7 +167,7 @@ func TestSchemaDifferences_Dropped_Last_Column(
 		NewColumn("test1", 10, -1, fooType, false, nil),
 		NewColumn("test2", 10, -1, fooType, false, nil),
 	}
-	hypertable := NewHypertable(1, "", "", "", "", nil, 0, false, nil, nil, pgtypes.DEFAULT)
+	hypertable := NewHypertable(1, "", "", "", "", nil, 0, nil, nil, pgtypes.DEFAULT)
 	hypertable.ApplyTableSchema(oldColumns)
 	differences := hypertable.ApplyTableSchema(newColumns)
 
