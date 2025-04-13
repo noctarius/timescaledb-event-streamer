@@ -73,7 +73,7 @@ const queryCreatePublication = "SELECT create_timescaledb_catalog_publication($1
 
 const queryTemplateDropPublication = "DROP PUBLICATION IF EXISTS %s"
 
-const queryCheckPublicationExists = "SELECT TRUE FROM pg_publication WHERE pubname = $1"
+const queryCheckPublicationExists = "SELECT true FROM pg_publication WHERE pubname = $1"
 
 const queryReadExistingAlreadyPublishedTables = `
 SELECT pt.schemaname, pt.tablename
@@ -81,7 +81,7 @@ FROM pg_catalog.pg_publication_tables pt
 WHERE pt.pubname = $1`
 
 const queryCheckTableExistsInPublication = `
-SELECT TRUE
+SELECT true
 FROM pg_catalog.pg_publication_tables pt
 WHERE pt.pubname = $1
   AND pt.schemaname = $2
@@ -96,7 +96,7 @@ FROM pg_catalog.pg_replication_slots prs
 WHERE slot_name = $1`
 
 const queryCheckReplicationSlotExists = `
-SELECT TRUE
+SELECT true
 FROM pg_catalog.pg_replication_slots prs
 WHERE slot_name = $1`
 
@@ -125,27 +125,27 @@ FROM _timescaledb_catalog.chunk c1
 LEFT JOIN timescaledb_information.chunks c2
        ON c2.chunk_schema = c1.schema_name
       AND c2.chunk_name = c1.table_name
-ORDER BY c1.hypertable_id, c1.compressed_chunk_id NULLS FIRST, c2.range_start`
+ORDER BY c1.hypertable_id, c1.compressed_chunk_id nulls first, c2.range_start`
 
 const queryReadHypertableSchema = `
 SELECT
    c.column_name,
    t.oid::int,
    a.atttypmod,
-   CASE WHEN c.is_nullable = 'YES' THEN TRUE ELSE FALSE END AS nullable,
-   COALESCE(p.indisprimary, FALSE) AS is_primary_key,
+   CASE WHEN c.is_nullable = 'YES' THEN true ELSE false END AS nullable,
+   coalesce(p.indisprimary, false) AS is_primary_key,
    p.key_seq,
    c.column_default,
-   COALESCE(p.indisreplident, FALSE) AS is_replica_ident,
+   coalesce(p.indisreplident, false) AS is_replica_ident,
    p.index_name,
    CASE o.option & 1 WHEN 1 THEN 'DESC' ELSE 'ASC' END AS index_column_order,
    CASE o.option & 2 WHEN 2 THEN 'NULLS FIRST' ELSE 'NULLS LAST' END AS index_nulls_order,
    d.column_name IS NOT NULL AS is_dimension,
-   COALESCE(d.aligned, FALSE) AS dim_aligned,
+   coalesce(d.aligned, false) AS dim_aligned,
    CASE WHEN d.interval_length IS NULL THEN 'space' ELSE 'time' END AS dim_type,
-   CASE WHEN d.column_name IS NOT NULL THEN rank() over (ORDER BY d.id) END,
-   C.character_maximum_length
-FROM information_schema.columns C
+   CASE WHEN d.column_name IS NOT NULL THEN rank() over (order by d.id) END,
+   c.character_maximum_length
+FROM information_schema.columns c
 LEFT JOIN (
     SELECT
         cl.relname,
@@ -164,18 +164,18 @@ LEFT JOIN (
       AND i.indrelid = cl.oid
       AND i.indexrelid = cl2.oid
       AND i.indisprimary
-) p ON p.attname = C.column_name AND p.nspname = C.table_schema AND p.relname = C.table_name AND p.attnum = (p.keys).x
-LEFT JOIN pg_catalog.pg_namespace nt ON nt.nspname = C.udt_schema
-LEFT JOIN pg_catalog.pg_type t ON t.typnamespace = nt.oid AND t.typname = C.udt_name
-LEFT JOIN pg_catalog.pg_namespace nc ON nc.nspname = C.table_schema
-LEFT JOIN pg_catalog.pg_class cl ON cl.relname = C.table_name AND cl.relnamespace = nc.oid
-LEFT JOIN pg_catalog.pg_attribute a ON a.attrelid = cl.oid AND a.attnum = C.ordinal_position
-LEFT JOIN unnest (p.indoption) WITH ORDINALITY o (OPTION, ORDINALITY) ON p.attnum = o.ordinality
-LEFT JOIN _timescaledb_catalog.hypertable h ON h.schema_name = C.table_schema AND h.table_name = C.table_name
-LEFT JOIN _timescaledb_catalog.dimension d ON d.hypertable_id = h.id AND d.column_name = C.column_name
-WHERE C.table_schema = $1
-  AND C.table_name = $2
-ORDER BY C.ordinal_position`
+) p ON p.attname = c.column_name AND p.nspname = c.table_schema AND p.relname = c.table_name AND p.attnum = (p.keys).x
+LEFT JOIN pg_catalog.pg_namespace nt ON nt.nspname = c.udt_schema
+LEFT JOIN pg_catalog.pg_type t ON t.typnamespace = nt.oid AND t.typname = c.udt_name
+LEFT JOIN pg_catalog.pg_namespace nc ON nc.nspname = c.table_schema
+LEFT JOIN pg_catalog.pg_class cl ON cl.relname = c.table_name AND cl.relnamespace = nc.oid
+LEFT JOIN pg_catalog.pg_attribute a ON a.attrelid = cl.oid AND a.attnum = c.ordinal_position
+LEFT JOIN unnest (p.indoption) WITH ORDINALITY o (option, ordinality) ON p.attnum = o.ordinality
+LEFT JOIN _timescaledb_catalog.hypertable h ON h.schema_name = c.table_schema AND h.table_name = c.table_name
+LEFT JOIN _timescaledb_catalog.dimension d ON d.hypertable_id = h.id AND d.column_name = c.column_name
+WHERE c.table_schema = $1
+  AND c.table_name = $2
+ORDER BY c.ordinal_position`
 
 const queryReadContinuousAggregateInformation = `
 SELECT ca.user_view_schema, ca.user_view_name
@@ -189,7 +189,7 @@ const queryReadReplicaIdentity = `
 SELECT c.relreplident::text
 FROM pg_catalog.pg_class c
 LEFT JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
-WHERE n.nspname=$1 AND c.relname=$2`
+WHERE n.nspname=$1 and c.relname=$2`
 
 const queryTemplateSnapshotHighWatermark = `
 SELECT %s
@@ -205,7 +205,7 @@ SELECT a.attname,
        a.atttypmod,
        a.attnotnull
 FROM pg_catalog.pg_attribute a
-RIGHT JOIN pg_catalog.pg_class pc ON pc.reltype = $1
+RIGHT JOIN pg_catalog.pg_class pc on pc.reltype = $1
 WHERE a.attrelid = pc.oid AND a.attnum > 0 AND NOT a.attisdropped
 ORDER BY a.attnum`
 
@@ -226,16 +226,16 @@ SELECT
    c.column_name,
    t.oid::int,
    a.atttypmod,
-   CASE WHEN c.is_nullable = 'YES' THEN TRUE ELSE FALSE END AS nullable,
-   COALESCE(p.indisprimary, FALSE) AS is_primary_key,
+   CASE WHEN c.is_nullable = 'YES' THEN true ELSE false END AS nullable,
+   coalesce(p.indisprimary, false) AS is_primary_key,
    p.key_seq,
    c.column_default,
-   COALESCE(p.indisreplident, FALSE) AS is_replica_ident,
+   coalesce(p.indisreplident, false) AS is_replica_ident,
    p.index_name,
    CASE o.option & 1 WHEN 1 THEN 'DESC' ELSE 'ASC' END AS index_column_order,
    CASE o.option & 2 WHEN 2 THEN 'NULLS FIRST' ELSE 'NULLS LAST' END AS index_nulls_order,
-   C.character_maximum_length
-FROM information_schema.columns C
+   c.character_maximum_length
+FROM information_schema.columns c
 LEFT JOIN (
     SELECT
         cl.relname,
@@ -254,15 +254,15 @@ LEFT JOIN (
       AND i.indrelid = cl.oid
       AND i.indexrelid = cl2.oid
       AND i.indisprimary
-) p ON p.attname = C.column_name AND p.nspname = C.table_schema AND p.relname = C.table_name AND p.attnum = (p.keys).x
-LEFT JOIN pg_catalog.pg_namespace nt ON nt.nspname = C.udt_schema
-LEFT JOIN pg_catalog.pg_type t ON t.typnamespace = nt.oid AND t.typname = C.udt_name
-LEFT JOIN pg_catalog.pg_namespace nc ON nc.nspname = C.table_schema
-LEFT JOIN pg_catalog.pg_class cl ON cl.relname = C.table_name AND cl.relnamespace = nc.oid
-LEFT JOIN pg_catalog.pg_attribute a ON a.attrelid = cl.oid AND a.attnum = C.ordinal_position
-LEFT JOIN unnest (p.indoption) WITH ORDINALITY o (OPTION, ORDINALITY) ON p.attnum = o.ordinality
-WHERE C.table_schema = $1
-  AND C.table_name = $2
-ORDER BY C.ordinal_position`
+) p ON p.attname = c.column_name AND p.nspname = c.table_schema AND p.relname = c.table_name AND p.attnum = (p.keys).x
+LEFT JOIN pg_catalog.pg_namespace nt ON nt.nspname = c.udt_schema
+LEFT JOIN pg_catalog.pg_type t ON t.typnamespace = nt.oid AND t.typname = c.udt_name
+LEFT JOIN pg_catalog.pg_namespace nc ON nc.nspname = c.table_schema
+LEFT JOIN pg_catalog.pg_class cl ON cl.relname = c.table_name AND cl.relnamespace = nc.oid
+LEFT JOIN pg_catalog.pg_attribute a ON a.attrelid = cl.oid AND a.attnum = c.ordinal_position
+LEFT JOIN unnest (p.indoption) WITH ORDINALITY o (option, ordinality) ON p.attnum = o.ordinality
+WHERE c.table_schema = $1
+  AND c.table_name = $2
+ORDER BY c.ordinal_position`
 
 // endregion
