@@ -27,6 +27,7 @@ sink.type = 'stdout'
 
 #sink.type = 'nats'
 #sink.nats.address = 'nats://localhost:4222'
+#sink.nats.timeout = 5
 #sink.nats.authorization = "userinfo"
 #sink.nats.userinfo.username = 'publisher'
 #sink.nats.userinfo.password = '...'

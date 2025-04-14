@@ -53,6 +53,7 @@ sink:
 #  nats:
 #    address: 'nats://localhost:4222'
 #    authorization: 'userinfo'
+#    timeout: 5
 #    userInfo:
 #      username: 'publisher'
 #      password: '...'

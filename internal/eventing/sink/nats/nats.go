@@ -37,6 +37,7 @@ type natsSink struct {
 	client           *nats.Conn
 	jetStreamContext nats.JetStreamContext
 	encoder          *encoding.JsonEncoder
+	timeout          time.Duration
 }
 
 func newNatsSink(
@@ -106,10 +107,16 @@ func connectJetStreamContext(
 		return nil, err
 	}
 
+	timeout := time.Second * 5
+	if c.Sink.Nats.Timeout != 0 {
+		timeout = time.Second * time.Duration(c.Sink.Nats.Timeout)
+	}
+
 	return &natsSink{
 		client:           client,
 		jetStreamContext: jetStreamContext,
 		encoder:          encoding.NewJsonEncoderWithConfig(c),
+		timeout:          timeout,
 	}, nil
 }
 
@@ -138,13 +145,16 @@ func (n *natsSink) Emit(
 	header := nats.Header{}
 	header.Add("key", string(keyData))
 
+	ctx, cancel := context.WithTimeout(context.Background(), n.timeout)
+	defer cancel()
+
 	_, err = n.jetStreamContext.PublishMsg(
 		&nats.Msg{
 			Subject: topicName,
 			Header:  header,
 			Data:    envelopeData,
 		},
-		nats.Context(context.Background()),
+		nats.Context(ctx),
 	)
 	return err
 }

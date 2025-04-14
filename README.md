@@ -386,6 +386,7 @@ NATS specific configuration, which is only used if `sink.type` is set to `nats`.
 |-------------------------------------|---------------------------------------------------------------------------------:|-----------------:|--------------:|
 | `sink.nats.address`                 | The NATS connection address, according to the NATS connection string definition. |           string |  empty string |
 | `sink.nats.authorization`           | The NATS authorization type. Valued values are `userinfo`, `credentials`, `jwt`. |           string |  empty string |
+| `sink.nats.timeout`                 |                         Publish timeout for events to NATS JetStream in seconds. |           string |             5 |
 | `sink.nats.userinfo.username`       |                                  The username of userinfo authorization details. |           string |  empty string | 
 | `sink.nats.userinfo.password`       |                                  The password of userinfo authorization details. |           string |  empty string | 
 | `sink.nats.credentials.certificate` |           The path of the certificate file of credentials authorization details. |           string |  empty string | 

@@ -181,6 +181,7 @@ type NatsConfig struct {
 	UserInfo      NatsUserInfoConfig    `toml:"userinfo" yaml:"userInfo"`
 	Credentials   NatsCredentialsConfig `toml:"credentials" yaml:"credentials"`
 	JWT           NatsJWTConfig         `toml:"jwt" yaml:"jwt"`
+	Timeout       uint8                 `toml:"timeout" yaml:"timeout"`
 }
 
 type KafkaSaslConfig struct {
