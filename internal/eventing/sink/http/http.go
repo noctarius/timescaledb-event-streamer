@@ -23,7 +23,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	sinkimpl "github.com/noctarius/timescaledb-event-streamer/internal/eventing/sink"
-	config "github.com/noctarius/timescaledb-event-streamer/spi/config"
+	"github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/encoding"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/sink"
@@ -128,6 +128,12 @@ func (h *httpSink) Emit(
 	}
 
 	req.Header = *h.headers
-	_, err = h.client.Do(req)
+	resp, err := h.client.Do(req)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("http: non-2xx response status code: %d", resp.StatusCode)
+	}
 	return err
 }
