@@ -1,6 +1,7 @@
 module github.com/noctarius/timescaledb-event-streamer
 
 go 1.21
+toolchain go1.24.1
 
 require (
 	github.com/BurntSushi/toml v1.3.2
@@ -21,7 +22,7 @@ require (
 	github.com/jackc/pgio v1.0.0
 	github.com/jackc/pglogrepl v0.0.0-20230810221841-d0818e1fbef7
 	github.com/jackc/pgx/v5 v5.5.3
-	github.com/nats-io/nats.go v1.32.0
+	github.com/nats-io/nats.go v1.41.1
 	github.com/samber/do v1.6.0
 	github.com/samber/lo v1.39.0
 	github.com/segmentio/stats/v4 v4.1.0
@@ -74,7 +75,7 @@ require (
 	github.com/jcmturner/rpc/v2 v2.0.3 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/josharian/native v1.1.0 // indirect
-	github.com/klauspost/compress v1.17.11 // indirect
+	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mdlayher/genetlink v1.3.2 // indirect
@@ -86,7 +87,7 @@ require (
 	github.com/moby/sys/user v0.1.0 // indirect
 	github.com/moby/term v0.5.0 // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
-	github.com/nats-io/nkeys v0.4.7 // indirect
+	github.com/nats-io/nkeys v0.4.9 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/onsi/ginkgo v1.16.5 // indirect
 	github.com/onsi/gomega v1.27.6 // indirect
