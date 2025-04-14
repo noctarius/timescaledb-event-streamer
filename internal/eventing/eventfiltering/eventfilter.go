@@ -18,8 +18,8 @@
 package eventfiltering
 
 import (
-	"github.com/antonmedv/expr"
-	"github.com/antonmedv/expr/vm"
+	"github.com/expr-lang/expr"
+	"github.com/expr-lang/expr/vm"
 	"github.com/go-errors/errors"
 	"github.com/noctarius/timescaledb-event-streamer/internal/systemcatalog/tablefiltering"
 	"github.com/noctarius/timescaledb-event-streamer/spi/config"
