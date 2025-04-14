@@ -226,7 +226,7 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 // StopReplication initiates a clean shutdown of the replication process. This
 // call blocks until the shutdown process has finished.
 func (r *Replicator) StopReplication() *cli.ExitError {
-	if r.shutdownTasks != nil && len(r.shutdownTasks) > 0 {
+	if len(r.shutdownTasks) > 0 {
 		errors := make([]error, 0)
 		for i := len(r.shutdownTasks) - 1; i >= 0; i-- {
 			if err := r.shutdownTasks[i](); err != nil {

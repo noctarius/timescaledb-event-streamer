@@ -315,7 +315,7 @@ func (w *Watermark) SetLowWatermark(
 }
 
 func (w *Watermark) HasValidLowWatermark() bool {
-	return w.low != nil && len(w.low) > 0
+	return len(w.low) > 0
 }
 
 func (w *Watermark) DataTypes() map[string]uint32 {

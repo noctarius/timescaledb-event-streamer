@@ -160,7 +160,7 @@ func (m *module) Provide(
 	}
 
 	mayReturnError := false
-	if 2 == t.NumOut() {
+	if t.NumOut() == 2 {
 		errorType := t.Out(1)
 		if !errorType.ConvertibleTo(errorReflectiveType) {
 			panic(errors.Errorf("Type %s has two return values, but the second one isn't an error", t.String()))
@@ -235,7 +235,7 @@ func (m *module) Invoke(
 	}
 
 	mayReturnError := false
-	if 1 == t.NumOut() {
+	if t.NumOut() == 1 {
 		errorType := t.Out(0)
 		if !errorType.ConvertibleTo(errorReflectiveType) {
 			panic(errors.Errorf("Type %s has two return values, but the second one isn't an error", t.String()))

@@ -392,10 +392,12 @@ func GetOrDefault[V any](
 	defaultValueType := reflect.TypeOf(defaultValue)
 	isPtr := defaultValueType.Kind() == reflect.Ptr
 
-	if !element.IsZero() &&
-		!(element.Kind() == reflect.Ptr && element.IsNil()) {
-
+	if !element.IsZero() {
 		if element.Kind() == reflect.Ptr {
+			if element.IsNil() {
+				return defaultValue
+			}
+
 			if isPtr {
 				return element.Convert(defaultValueType).Interface().(V)
 			}
@@ -428,8 +430,10 @@ func findEnvProperty[V any](
 	if val, ok := os.LookupEnv(envVarName); ok {
 		v := reflect.ValueOf(val)
 		cv := v.Convert(t)
-		if !cv.IsZero() &&
-			!(cv.Kind() == reflect.Ptr && cv.IsNil()) {
+		if !cv.IsZero() {
+			if cv.Kind() == reflect.Ptr && cv.IsNil() {
+				return defaultValue, false
+			}
 			return cv.Interface().(V), true
 		}
 	}

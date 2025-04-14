@@ -47,7 +47,7 @@ func newStdoutSink(
 			if err != nil {
 				return err
 			}
-			_, err = os.Stdout.WriteString(fmt.Sprintf("%s\n", string(data)))
+			_, err = fmt.Fprintf(os.Stdout, "%s\n", string(data))
 			return err
 		},
 	), nil

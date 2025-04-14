@@ -28,7 +28,6 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/replicationcontext"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
-	spicatalog "github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/task"
 	"github.com/samber/lo"
 	"slices"
@@ -153,14 +152,14 @@ func (l *logicalReplicationResolver) PostConstruct() error {
 }
 
 func (l *logicalReplicationResolver) OnTableSnapshotStartedEvent(
-	_ string, _ spicatalog.BaseTable,
+	_ string, _ systemcatalog.BaseTable,
 ) error {
 
 	return nil
 }
 
 func (l *logicalReplicationResolver) OnTableSnapshotFinishedEvent(
-	_ string, _ spicatalog.BaseTable, _ pgtypes.LSN,
+	_ string, _ systemcatalog.BaseTable, _ pgtypes.LSN,
 ) error {
 
 	return nil
@@ -179,7 +178,7 @@ func (l *logicalReplicationResolver) OnSnapshottingFinishedEvent() error {
 }
 
 func (l *logicalReplicationResolver) OnChunkSnapshotStartedEvent(
-	_ *spicatalog.Hypertable, chunk *spicatalog.Chunk,
+	_ *systemcatalog.Hypertable, chunk *systemcatalog.Chunk,
 ) error {
 
 	l.eventQueues[chunk.CanonicalName()] = containers.NewQueue[snapshotCallback](1_000_000)
@@ -188,7 +187,7 @@ func (l *logicalReplicationResolver) OnChunkSnapshotStartedEvent(
 }
 
 func (l *logicalReplicationResolver) OnChunkSnapshotFinishedEvent(
-	_ *spicatalog.Hypertable, chunk *spicatalog.Chunk, snapshot pgtypes.LSN,
+	_ *systemcatalog.Hypertable, chunk *systemcatalog.Chunk, snapshot pgtypes.LSN,
 ) error {
 
 	queue := l.eventQueues[chunk.CanonicalName()]
@@ -266,18 +265,18 @@ func (l *logicalReplicationResolver) OnInsertEvent(
 		l.logger.Fatalf("unknown relation ID %d", msg.RelationID)
 	}
 
-	if spicatalog.IsHypertableEvent(rel) {
+	if systemcatalog.IsHypertableEvent(rel) {
 		return l.onHypertableInsertEvent(xld, msg)
 	}
 
-	if spicatalog.IsChunkEvent(rel) {
+	if systemcatalog.IsChunkEvent(rel) {
 		return l.onChunkInsertEvent(xld, msg)
 	}
 
 	var table schema.TableAlike
 	var chunk *systemcatalog.Chunk
 
-	if spicatalog.IsVanillaTable(rel) {
+	if systemcatalog.IsVanillaTable(rel) {
 		if !l.genPostgresqlInsertEvent {
 			return nil
 		}
@@ -321,11 +320,11 @@ func (l *logicalReplicationResolver) OnUpdateEvent(
 	if !present {
 		l.logger.Fatalf("unknown relation ID %d", msg.RelationID)
 	}
-	if spicatalog.IsHypertableEvent(rel) {
+	if systemcatalog.IsHypertableEvent(rel) {
 		return l.onHypertableUpdateEvent(xld, msg)
 	}
 
-	if spicatalog.IsChunkEvent(rel) {
+	if systemcatalog.IsChunkEvent(rel) {
 		chunkId := msg.NewValues["id"].(int32)
 		if chunk, present := l.systemCatalog.FindChunkById(chunkId); present {
 			if chunk.Status() == 0 && (msg.NewValues["status"].(int32)) == 1 {
@@ -341,7 +340,7 @@ func (l *logicalReplicationResolver) OnUpdateEvent(
 	var table schema.TableAlike
 	var chunk *systemcatalog.Chunk
 
-	if spicatalog.IsVanillaTable(rel) {
+	if systemcatalog.IsVanillaTable(rel) {
 		if !l.genPostgresqlUpdateEvent {
 			return nil
 		}
@@ -387,18 +386,18 @@ func (l *logicalReplicationResolver) OnDeleteEvent(
 		l.logger.Fatalf("unknown relation ID %d", msg.RelationID)
 	}
 
-	if spicatalog.IsHypertableEvent(rel) {
+	if systemcatalog.IsHypertableEvent(rel) {
 		return l.onHypertableDeleteEvent(xld, msg)
 	}
 
-	if spicatalog.IsChunkEvent(rel) {
+	if systemcatalog.IsChunkEvent(rel) {
 		return l.onChunkDeleteEvent(xld, msg)
 	}
 
 	var table schema.TableAlike
 	var chunk *systemcatalog.Chunk
 
-	if spicatalog.IsVanillaTable(rel) {
+	if systemcatalog.IsVanillaTable(rel) {
 		if !l.genPostgresqlDeleteEvent {
 			return nil
 		}
@@ -465,7 +464,7 @@ func (l *logicalReplicationResolver) OnTruncateEvent(
 	})
 	affectedTablesVanilla := lo.Filter(msg.RelationIDs, func(relId uint32, _ int) bool {
 		if relation, present := l.relations.Get(relId); present {
-			return spicatalog.IsVanillaTable(relation)
+			return systemcatalog.IsVanillaTable(relation)
 		}
 		return false
 	})
@@ -488,7 +487,7 @@ func (l *logicalReplicationResolver) OnTruncateEvent(
 				l.logger.Fatalf("unknown relation ID %d", msg.RelationIDs[i])
 			}
 
-			if spicatalog.IsHypertableEvent(rel) || spicatalog.IsChunkEvent(rel) {
+			if systemcatalog.IsHypertableEvent(rel) || systemcatalog.IsChunkEvent(rel) {
 				// Catalog tables shouldn't be truncated; EVER!
 				continue
 			}
@@ -647,7 +646,7 @@ func (l *logicalReplicationResolver) onChunkDeleteEvent(
 }
 
 func (l *logicalReplicationResolver) onChunkCompressionEvent(
-	xld pgtypes.XLogData, chunk *spicatalog.Chunk,
+	xld pgtypes.XLogData, chunk *systemcatalog.Chunk,
 ) error {
 
 	hypertableId := chunk.HypertableId()
@@ -673,7 +672,7 @@ func (l *logicalReplicationResolver) onChunkCompressionEvent(
 }
 
 func (l *logicalReplicationResolver) onChunkDecompressionEvent(
-	xld pgtypes.XLogData, chunk *spicatalog.Chunk,
+	xld pgtypes.XLogData, chunk *systemcatalog.Chunk,
 ) error {
 
 	hypertableId := chunk.HypertableId()
@@ -701,7 +700,7 @@ func (l *logicalReplicationResolver) onChunkDecompressionEvent(
 }
 
 func (l *logicalReplicationResolver) enqueueOrExecute(
-	chunk *spicatalog.Chunk, xld pgtypes.XLogData, fn func() error,
+	chunk *systemcatalog.Chunk, xld pgtypes.XLogData, fn func() error,
 ) error {
 
 	if l.isSnapshotting(chunk) {
@@ -720,7 +719,7 @@ func (l *logicalReplicationResolver) enqueueOrExecute(
 }
 
 func (l *logicalReplicationResolver) isSnapshotting(
-	chunk *spicatalog.Chunk,
+	chunk *systemcatalog.Chunk,
 ) bool {
 
 	if chunk == nil {
@@ -733,7 +732,7 @@ func (l *logicalReplicationResolver) isSnapshotting(
 
 func (l *logicalReplicationResolver) resolveChunkAndHypertable(
 	chunkOid uint32, schemaName, tableName string,
-) (*spicatalog.Chunk, *spicatalog.Hypertable, bool) {
+) (*systemcatalog.Chunk, *systemcatalog.Hypertable, bool) {
 
 	var chunk *systemcatalog.Chunk
 
