@@ -63,3 +63,18 @@ func Test_RelationCache_Set_LowerBound_Update(
 	assert.True(t, present)
 	assert.Equal(t, msg3, msg3Back)
 }
+
+func Test_RelationCache_Set_Panic(
+	t *testing.T,
+) {
+	cache := NewRelationCache[int32]()
+	cache.Get(0)
+}
+
+func Test_RelationCache_Set_Panic_2(
+	t *testing.T,
+) {
+	cache := NewRelationCache[uint32]()
+	cache.Set(5, 5)
+	cache.Get(1)
+}

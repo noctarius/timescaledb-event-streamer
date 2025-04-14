@@ -50,6 +50,14 @@ func (rc *RelationCache[V]) Get(
 		return rc.empty, false
 	}
 
+	if oid < rc.lowerBound {
+		return rc.empty, false
+	}
+
+	if len(rc.cache) == 0 {
+		return rc.empty, false
+	}
+
 	if v := rc.cache[rc.location(oid, rc.lowerBound)]; v != nil {
 		return *v, true
 	}
