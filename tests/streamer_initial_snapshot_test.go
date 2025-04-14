@@ -199,14 +199,14 @@ func (its *IntegrationSnapshotTestSuite) TestInitialSnapshot_Vanilla_Table() {
 			ctx.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
 				config.PostgreSQL.Snapshot.Initial = lo.ToPtr(spiconfig.InitialOnly)
 				config.PostgreSQL.Snapshot.BatchSize = 100
-				config.Config.PostgreSQL.ReplicationSlot.Name = lo.RandomString(20, lo.LowerCaseLettersCharset)
-				config.Config.PostgreSQL.ReplicationSlot.Create = lo.ToPtr(true)
-				config.Config.PostgreSQL.ReplicationSlot.AutoDrop = lo.ToPtr(false)
-				config.Config.PostgreSQL.Publication.Name = lo.RandomString(10, lo.LowerCaseLettersCharset)
-				config.Config.PostgreSQL.Publication.Create = lo.ToPtr(true)
-				config.Config.PostgreSQL.Publication.AutoDrop = lo.ToPtr(false)
-				config.Config.StateStorage.Type = spiconfig.FileStorage
-				config.Config.StateStorage.FileStorage.Path = tempFile
+				config.PostgreSQL.ReplicationSlot.Name = lo.RandomString(20, lo.LowerCaseLettersCharset)
+				config.PostgreSQL.ReplicationSlot.Create = lo.ToPtr(true)
+				config.PostgreSQL.ReplicationSlot.AutoDrop = lo.ToPtr(false)
+				config.PostgreSQL.Publication.Name = lo.RandomString(10, lo.LowerCaseLettersCharset)
+				config.PostgreSQL.Publication.Create = lo.ToPtr(true)
+				config.PostgreSQL.Publication.AutoDrop = lo.ToPtr(false)
+				config.StateStorage.Type = spiconfig.FileStorage
+				config.StateStorage.FileStorage.Path = tempFile
 			})
 			return nil
 		}),

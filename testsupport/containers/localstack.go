@@ -29,13 +29,13 @@ func setupLocalStack(
 	config testcontainers.CustomizeRequestOption,
 ) (*localstack.LocalStackContainer, error) {
 
-	customizer := testcontainers.CustomizeRequestOption(func(req *testcontainers.GenericContainerRequest) {
+	customizer := testcontainers.CustomizeRequestOption(func(req *testcontainers.GenericContainerRequest) error {
 		req.Env["PERSISTENCE"] = "1"
 		req.Env["EAGER_SERVICE_LOADING"] = "1"
+		return nil
 	})
 
-	container, err := localstack.RunContainer(context.Background(),
-		config, customizer, testcontainers.WithImage("localstack/localstack:3.0.1"))
+	container, err := localstack.Run(context.Background(), "localstack/localstack:3.0.1", config, customizer)
 	if err != nil {
 		return nil, err
 	}
@@ -47,10 +47,11 @@ func SetupLocalStackWithSQS(
 	region, queueName string,
 ) (testcontainers.Container, string, string, error) {
 
-	customizer := testcontainers.CustomizeRequestOption(func(req *testcontainers.GenericContainerRequest) {
+	customizer := testcontainers.CustomizeRequestOption(func(req *testcontainers.GenericContainerRequest) error {
 		req.Env["SQS_ENDPOINT_STRATEGY"] = "path"
 		req.Env["SQS_DISABLE_CLOUDWATCH_METRICS"] = "1"
 		req.Env["SERVICES"] = "sqs"
+		return nil
 	})
 
 	container, err := setupLocalStack(customizer)
@@ -75,8 +76,9 @@ func SetupLocalStackWithSQS(
 }
 
 func SetupLocalStackWithKinesis() (testcontainers.Container, string, error) {
-	customizer := testcontainers.CustomizeRequestOption(func(req *testcontainers.GenericContainerRequest) {
+	customizer := testcontainers.CustomizeRequestOption(func(req *testcontainers.GenericContainerRequest) error {
 		req.Env["SERVICES"] = "kinesis"
+		return nil
 	})
 
 	container, err := setupLocalStack(customizer)

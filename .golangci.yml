@@ -1,24 +1,39 @@
-issues:
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - errcheck
-        - dupl
-    - path: testsupport/
-      linters:
-        - errcheck
-        - dupl
-    - path: tests/
-      linters:
-        - dupl
-        - unused
-run:
-  timeout: 5m
+version: "2"
 linters:
   enable:
     - asasalint
     - asciicheck
     - contextcheck
     - dupl
-    - exportloopref
     - nilerr
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - dupl
+          - errcheck
+        path: _test\.go
+      - linters:
+          - dupl
+          - errcheck
+        path: testsupport/
+      - linters:
+          - dupl
+          - unused
+        path: tests/
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

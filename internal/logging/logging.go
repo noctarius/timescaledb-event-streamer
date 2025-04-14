@@ -417,7 +417,7 @@ func newFileHandler(
 	if !lo.FromPtrOr(config.Rotate, false) {
 		if h, err := handler.NewBuffFileHandler(config.Path, 1024, configurator); err != nil {
 			return false, nil, errors.Errorf(
-				fmt.Sprintf("Failed to initialize logfile handler => %s", err.Error()),
+				"Failed to initialize logfile handler => %s", err.Error(),
 			)
 		} else {
 			fileHandler = h
@@ -429,7 +429,7 @@ func newFileHandler(
 			seconds := rotatefile.RotateTime((time.Second * time.Duration(*config.MaxDuration)).Seconds())
 			if h, err := handler.NewTimeRotateFileHandler(config.Path, seconds, configurator); err != nil {
 				return false, nil, errors.Errorf(
-					fmt.Sprintf("Failed to initialize logfile handler => %s", err.Error()),
+					"Failed to initialize logfile handler => %s", err.Error(),
 				)
 			} else {
 				fileHandler = h
@@ -443,7 +443,7 @@ func newFileHandler(
 			bs, err := bytesize.Parse(*config.MaxSize)
 			if err != nil {
 				return false, nil, errors.Errorf(
-					fmt.Sprintf("Failed to parse max size property '%s' => %s", *config.MaxSize, err.Error()),
+					"Failed to parse max size property '%s' => %s", *config.MaxSize, err.Error(),
 				)
 			}
 			maxSize = bs
@@ -451,7 +451,7 @@ func newFileHandler(
 
 		if h, err := handler.NewSizeRotateFileHandler(config.Path, int(maxSize), configurator); err != nil {
 			return false, nil, errors.Errorf(
-				fmt.Sprintf("Failed to initialize logfile handler => %s", err.Error()),
+				"Failed to initialize logfile handler => %s", err.Error(),
 			)
 		} else {
 			fileHandler = h

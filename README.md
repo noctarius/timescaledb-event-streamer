@@ -75,7 +75,7 @@ docker run \
 
 ## Installation from Source
 
-`timescaledb-event-streamer` requires the [Go runtime (version 1.20+)](https://go.dev/doc/install)
+`timescaledb-event-streamer` requires the [Go runtime (version 1.24+)](https://go.dev/doc/install)
 to be installed. With this requirement satisfied, the installation can be
 kicked off using:
 

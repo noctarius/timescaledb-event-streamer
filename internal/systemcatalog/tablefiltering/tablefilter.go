@@ -231,14 +231,14 @@ func parseToken(
 		if char == '\\' && isQuoted {
 			if i < len(runedToken)-1 {
 				peekNextChar := runedToken[i+1]
-				if peekNextChar == '*' {
-					builder.WriteString("\\*")
-					i++
-				} else if peekNextChar == '?' {
-					builder.WriteString("\\?")
-					i++
-				} else if peekNextChar == '+' {
-					builder.WriteString("\\+")
+				switch peekNextChar {
+				case '*':
+					fallthrough
+				case '?':
+					fallthrough
+				case '+':
+					builder.WriteString("\\")
+					builder.WriteRune(peekNextChar)
 					i++
 				}
 			}

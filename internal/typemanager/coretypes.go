@@ -353,12 +353,14 @@ var coreTypeMap = map[uint32]typeRegistration{
 	pgtypes.XmlOID: {
 		schemaType: schema.STRING,
 		typeFactory: func(_ *pgtype.Map, typ pgtypes.PgType) *pgtype.Type {
-			return &pgtype.Type{Name: "xml", OID: pgtypes.XmlOID, Codec: pgtypes.XmlCodec{}}
+			return &pgtype.Type{Name: "xml", OID: pgtypes.XmlOID, Codec: &pgtype.TextCodec{}}
 		},
+		overrideExistingCodec: true,
 	},
 	pgtypes.XmlArrayOID: {
-		schemaType: schema.ARRAY,
-		oidElement: pgtypes.XmlOID,
+		schemaType:            schema.ARRAY,
+		oidElement:            pgtypes.XmlOID,
+		overrideExistingCodec: true,
 	},
 	pgtype.PointOID: {
 		schemaType: schema.STRING,

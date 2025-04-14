@@ -607,11 +607,12 @@ func timestamprange2string(
 ) (any, error) {
 
 	return range2string(value, func(value any) (string, error) {
-		if oid == pgtype.TstzrangeOID {
+		switch oid {
+		case pgtype.TstzrangeOID:
 			oid = pgtype.TimestamptzOID
-		} else if oid == pgtype.TsrangeOID {
+		case pgtype.TsrangeOID:
 			oid = pgtype.TimestampOID
-		} else if oid == pgtype.DaterangeOID {
+		case pgtype.DaterangeOID:
 			oid = pgtype.DateOID
 		}
 		s, err := timestamp2text(oid, value)

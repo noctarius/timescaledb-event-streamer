@@ -25,7 +25,6 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/replicationcontext"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
-	spicatalog "github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/task"
 	"time"
 )
@@ -80,14 +79,14 @@ func (tt *transactionTracker) PostConstruct() error {
 }
 
 func (tt *transactionTracker) OnTableSnapshotStartedEvent(
-	snapshotName string, table spicatalog.BaseTable,
+	snapshotName string, table systemcatalog.BaseTable,
 ) error {
 
 	return tt.resolver.OnTableSnapshotStartedEvent(snapshotName, table)
 }
 
 func (tt *transactionTracker) OnTableSnapshotFinishedEvent(
-	snapshotName string, table spicatalog.BaseTable, lsn pgtypes.LSN,
+	snapshotName string, table systemcatalog.BaseTable, lsn pgtypes.LSN,
 ) error {
 
 	return tt.resolver.OnTableSnapshotFinishedEvent(snapshotName, table, lsn)
@@ -105,14 +104,14 @@ func (tt *transactionTracker) OnSnapshottingFinishedEvent() error {
 }
 
 func (tt *transactionTracker) OnChunkSnapshotStartedEvent(
-	hypertable *spicatalog.Hypertable, chunk *spicatalog.Chunk,
+	hypertable *systemcatalog.Hypertable, chunk *systemcatalog.Chunk,
 ) error {
 
 	return tt.resolver.OnChunkSnapshotStartedEvent(hypertable, chunk)
 }
 
 func (tt *transactionTracker) OnChunkSnapshotFinishedEvent(
-	hypertable *spicatalog.Hypertable, chunk *spicatalog.Chunk, snapshot pgtypes.LSN,
+	hypertable *systemcatalog.Hypertable, chunk *systemcatalog.Chunk, snapshot pgtypes.LSN,
 ) error {
 
 	return tt.resolver.OnChunkSnapshotFinishedEvent(hypertable, chunk, snapshot)
@@ -199,8 +198,8 @@ func (tt *transactionTracker) OnInsertEvent(
 		// we can already ignore the event here and prevent it from hogging memory while we wait
 		// for the transaction to be completely transmitted
 		if !tt.resolver.genHypertableInsertEvent &&
-			!spicatalog.IsHypertableEvent(relation) &&
-			!spicatalog.IsChunkEvent(relation) {
+			!systemcatalog.IsHypertableEvent(relation) &&
+			!systemcatalog.IsChunkEvent(relation) {
 
 			return nil
 		}
@@ -212,8 +211,8 @@ func (tt *transactionTracker) OnInsertEvent(
 		// re-inserted, uncompressed rows that were already replicated into events in the past.
 		if (tt.activeTransaction.decompressionUpdate != nil ||
 			tt.activeTransaction.ongoingDecompression) &&
-			!spicatalog.IsHypertableEvent(relation) &&
-			!spicatalog.IsChunkEvent(relation) {
+			!systemcatalog.IsHypertableEvent(relation) &&
+			!systemcatalog.IsChunkEvent(relation) {
 
 			return nil
 		}
@@ -248,7 +247,7 @@ func (tt *transactionTracker) OnUpdateEvent(
 	}
 
 	if relation, present := tt.relations.Get(msg.RelationID); present {
-		if spicatalog.IsChunkEvent(relation) {
+		if systemcatalog.IsChunkEvent(relation) {
 			chunkId := msg.NewValues["id"].(int32)
 			if chunk, present := tt.systemCatalog.FindChunkById(chunkId); present {
 				oldChunkStatus := chunk.Status()
@@ -277,7 +276,7 @@ func (tt *transactionTracker) OnUpdateEvent(
 		// we can already ignore the event here and prevent it from hogging memory while we wait
 		// for the transaction to be completely transmitted
 		if !tt.resolver.genHypertableUpdateEvent &&
-			!spicatalog.IsHypertableEvent(relation) {
+			!systemcatalog.IsHypertableEvent(relation) {
 
 			return nil
 		}
@@ -311,8 +310,8 @@ func (tt *transactionTracker) OnDeleteEvent(
 		// we can already ignore the event here and prevent it from hogging memory while we wait
 		// for the transaction to be completely transmitted
 		if !tt.resolver.genHypertableDeleteEvent &&
-			!spicatalog.IsHypertableEvent(relation) &&
-			!spicatalog.IsChunkEvent(relation) {
+			!systemcatalog.IsHypertableEvent(relation) &&
+			!systemcatalog.IsChunkEvent(relation) {
 
 			return nil
 		}

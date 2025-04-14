@@ -20,7 +20,7 @@ package statestorage
 import (
 	"encoding"
 	"encoding/binary"
-	"github.com/docker/docker/pkg/ioutils"
+	"github.com/docker/docker/pkg/atomicwriter"
 	"github.com/go-errors/errors"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/waiting"
@@ -144,7 +144,7 @@ func (f *fileStateStorage) Save() error {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 
-	writer, err := ioutils.NewAtomicFileWriter(f.path, 0777)
+	writer, err := atomicwriter.New(f.path, 0777)
 	if err != nil {
 		return errors.Wrap(err, 0)
 	}

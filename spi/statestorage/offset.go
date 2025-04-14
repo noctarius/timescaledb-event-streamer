@@ -45,10 +45,7 @@ func (o *Offset) UnmarshalBinary(
 	o.LSN = pgtypes.LSN(binary.BigEndian.Uint64(data[13:]))
 
 	offset := 21
-	hasSnapshotName := false
-	if data[offset] == 1 {
-		hasSnapshotName = true
-	}
+	hasSnapshotName := data[offset] == 1
 	offset++
 	if hasSnapshotName {
 		snapshotNameLength := int(data[offset])
@@ -76,7 +73,7 @@ func (o *Offset) MarshalBinary() ([]byte, error) {
 		size++
 		size += len([]byte(*o.SnapshotName))
 	}
-	if o.SnapshotKeyset != nil && len(o.SnapshotKeyset) > 0 {
+	if len(o.SnapshotKeyset) > 0 {
 		size += 4 // Add byte array length
 		size += len(o.SnapshotKeyset)
 	}
@@ -108,7 +105,7 @@ func (o *Offset) MarshalBinary() ([]byte, error) {
 		data[offset] = 1
 	}
 	offset++
-	if o.SnapshotKeyset != nil && len(o.SnapshotKeyset) > 0 {
+	if len(o.SnapshotKeyset) > 0 {
 		length := len(o.SnapshotKeyset)
 		binary.BigEndian.PutUint32(data[offset:], uint32(length))
 		offset += 4

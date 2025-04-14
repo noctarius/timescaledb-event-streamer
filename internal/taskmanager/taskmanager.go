@@ -250,7 +250,7 @@ func (d *taskManager) RunTask(
 
 	notificator := &immediateNotificator{dispatcher: d}
 	task(notificator)
-	if notificator.errors == nil || len(notificator.errors) == 0 {
+	if len(notificator.errors) == 0 {
 		return nil
 	}
 	return stderrors.Join(notificator.errors...)
