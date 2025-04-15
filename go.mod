@@ -31,7 +31,7 @@ require (
 	github.com/testcontainers/testcontainers-go v0.36.0
 	github.com/testcontainers/testcontainers-go/modules/localstack v0.36.0
 	github.com/testcontainers/testcontainers-go/modules/redis v0.36.0
-	github.com/twpayne/go-geom v1.6.0
+	github.com/twpayne/go-geom v1.6.1
 	github.com/urfave/cli v1.22.16
 	golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0
 	golang.org/x/net v0.39.0
