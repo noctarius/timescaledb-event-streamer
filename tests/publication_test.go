@@ -593,9 +593,15 @@ func (pts *PublicationTestSuite) Test_Dropped_Chunks_Should_Be_Ignored() {
 				return err
 			}
 
-			if _, err := ctx.Exec(context.Background(),
-				"INSERT INTO _timescaledb_catalog.chunk(hypertable_id, schema_name, table_name, compressed_chunk_id, dropped, status, osm_chunk, creation_time) VALUES (1, '_timescaledb_internal', '_hyper_1_427_chunk', null, true, 0, false, now())",
-			); err != nil {
+			var insertDroppedChunkQuery string
+
+			if ctx.TimescaleVersion().Compare(21200) >= 0 {
+				insertDroppedChunkQuery = "INSERT INTO _timescaledb_catalog.chunk(hypertable_id, schema_name, table_name, compressed_chunk_id, dropped, status, osm_chunk, creation_time) VALUES (1, '_timescaledb_internal', '_hyper_1_427_chunk', NULL, TRUE, 0, FALSE, NOW())"
+			} else {
+				insertDroppedChunkQuery = "INSERT INTO _timescaledb_catalog.chunk(hypertable_id, schema_name, table_name, compressed_chunk_id, dropped, status, osm_chunk) VALUES (1, '_timescaledb_internal', '_hyper_1_427_chunk', null, true, 0, false)"
+			}
+
+			if _, err := ctx.Exec(context.Background(), insertDroppedChunkQuery); err != nil {
 				return err
 			}
 
