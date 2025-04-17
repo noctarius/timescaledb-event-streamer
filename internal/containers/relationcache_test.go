@@ -64,17 +64,21 @@ func Test_RelationCache_Set_LowerBound_Update(
 	assert.Equal(t, msg3, msg3Back)
 }
 
-func Test_RelationCache_Set_Panic(
+func Test_RelationCache_Empty_Case(
 	t *testing.T,
 ) {
 	cache := NewRelationCache[int32]()
-	cache.Get(0)
+	res, present := cache.Get(0)
+	assert.False(t, present)
+	assert.Equal(t, cache.empty, res)
 }
 
-func Test_RelationCache_Set_Panic_2(
+func Test_RelationCache_Index_Less_Than_LowerBound(
 	t *testing.T,
 ) {
 	cache := NewRelationCache[uint32]()
 	cache.Set(5, 5)
-	cache.Get(1)
+	res, present := cache.Get(1)
+	assert.False(t, present)
+	assert.Equal(t, cache.empty, res)
 }

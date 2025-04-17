@@ -375,7 +375,9 @@ func (sc *systemCatalog) GetAllChunks() []systemcatalog.SystemEntity {
 	chunkTables := make([]systemcatalog.SystemEntity, 0)
 	for _, chunk := range sc.chunks {
 		if sc.IsHypertableSelectedForReplication(chunk.HypertableId()) {
-			chunkTables = append(chunkTables, chunk)
+			if !chunk.Dropped() {
+				chunkTables = append(chunkTables, chunk)
+			}
 		}
 	}
 	return chunkTables

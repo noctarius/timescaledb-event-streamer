@@ -276,6 +276,17 @@ func SetupTimescaleContainer() (testcontainers.Container, *ConfigProvider, error
 	); err != nil {
 		return nil, nil, err
 	}
+	timescaledbLogger.Verbosef("Grant permissions to default user for timescaledb catalog")
+	if err := exec(
+		fmt.Sprintf("GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA %s TO %s", "_timescaledb_catalog", tsdbUser),
+	); err != nil {
+		return nil, nil, err
+	}
+	if err := exec(
+		fmt.Sprintf("GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA %s TO %s", "_timescaledb_catalog", tsdbUser),
+	); err != nil {
+		return nil, nil, err
+	}
 	timescaledbLogger.Verbosef("Drop existing publication")
 
 	// Create initial publication function
