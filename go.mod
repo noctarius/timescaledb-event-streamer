@@ -9,7 +9,7 @@ require (
 	github.com/IBM/sarama v1.45.1
 	github.com/aws/aws-sdk-go v1.55.6
 	github.com/cenkalti/backoff/v4 v4.3.0
-	github.com/docker/docker v28.0.4+incompatible
+	github.com/docker/docker v28.1.0+incompatible
 	github.com/expr-lang/expr v1.17.2
 	github.com/go-errors/errors v1.5.1
 	github.com/go-redis/redis v6.15.9+incompatible
@@ -84,9 +84,11 @@ require (
 	github.com/mdlayher/socket v0.5.1 // indirect
 	github.com/mdlayher/taskstats v0.0.0-20241218144709-977b30d474ce // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
+	github.com/moby/go-archive v0.1.0 // indirect
 	github.com/moby/patternmatcher v0.6.0 // indirect
-	github.com/moby/sys/sequential v0.5.0 // indirect
-	github.com/moby/sys/user v0.1.0 // indirect
+	github.com/moby/sys/atomicwriter v0.1.0 // indirect
+	github.com/moby/sys/sequential v0.6.0 // indirect
+	github.com/moby/sys/user v0.4.0 // indirect
 	github.com/moby/sys/userns v0.1.0 // indirect
 	github.com/moby/term v0.5.0 // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
