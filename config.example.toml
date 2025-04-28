@@ -10,7 +10,7 @@ postgresql.password = '...'
 #postgresql.snapshot.initial = 'always'
 #postgresql.transaction.window.enabled = true
 #postgresql.transaction.window.timeout = 60
-#postgresql.transaction.window.maxsize = 100000
+#postgresql.transaction.window.maxsize = 10000
 
 statestorage.type = 'file'
 statestorage.file.path = '/tmp/statestorage.dat'

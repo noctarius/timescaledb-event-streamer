@@ -16,7 +16,7 @@ postgresql:
 #    window:
 #      enabled: true
 #      timeout: 60
-#      maxSize: 100000
+#      maxSize: 10000
 
   tables:
     excludes:
