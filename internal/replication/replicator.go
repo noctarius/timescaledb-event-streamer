@@ -35,6 +35,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/publication"
 	"github.com/noctarius/timescaledb-event-streamer/spi/replicationcontext"
+	"github.com/noctarius/timescaledb-event-streamer/spi/sidechannel"
 	"github.com/noctarius/timescaledb-event-streamer/spi/statestorage"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/task"
@@ -214,6 +215,12 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 		return erroring.AdaptError(err, 1)
 	}
 	if err := replicationChannel.StartReplicationChannel(initialTables); err != nil {
+		if errors.Is(err, sidechannel.ErrNoRestartPointInReplicationSlot) {
+			return erroring.AdaptErrorWithMessage(err,
+				"No restart LSN available in replication slot. Cannot resume, replicated data would have gaps.",
+				30,
+			)
+		}
 		return erroring.AdaptError(err, 16)
 	}
 	r.shutdownTasks = append(r.shutdownTasks, func() error {
