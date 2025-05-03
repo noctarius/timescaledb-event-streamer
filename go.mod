@@ -7,7 +7,7 @@ toolchain go1.24.2
 require (
 	github.com/BurntSushi/toml v1.5.0
 	github.com/IBM/sarama v1.45.1
-	github.com/aws/aws-sdk-go v1.55.6
+	github.com/aws/aws-sdk-go v1.55.7
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/docker/docker v28.0.4+incompatible
 	github.com/expr-lang/expr v1.17.2
