@@ -20,8 +20,8 @@ package statestorage
 import (
 	"encoding"
 	"encoding/binary"
-	"github.com/docker/docker/pkg/atomicwriter"
 	"github.com/go-errors/errors"
+	"github.com/moby/sys/atomicwriter"
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/internal/waiting"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
