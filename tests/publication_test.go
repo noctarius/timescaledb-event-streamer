@@ -564,6 +564,56 @@ func (pts *PublicationTestSuite) Test_Fixing_Broken_Publications_Without_State_S
 	)
 }
 
+func (pts *PublicationTestSuite) Test_Dropped_Chunks_Should_Be_Ignored() {
+	testSink := testsupport.NewEventCollectorSink()
+	publicationName := lo.RandomString(10, lo.LowerCaseLettersCharset)
+
+	var tableName string
+	pts.RunTest(
+		func(ctx testrunner.Context) error {
+			return nil
+		},
+
+		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
+			_, tn, err := ctx.CreateHypertable("ts", time.Hour,
+				testsupport.NewColumn("ts", "timestamptz", false, true, nil),
+				testsupport.NewColumn("val", "integer", false, false, nil),
+			)
+			if err != nil {
+				return err
+			}
+			tableName = tn
+
+			if _, err := ctx.Exec(context.Background(),
+				fmt.Sprintf(
+					"INSERT INTO \"%s\" SELECT ts, ROW_NUMBER() OVER (ORDER BY ts) AS val FROM GENERATE_SERIES('2023-03-25 00:00:00'::TIMESTAMPTZ, '2023-03-25 23:59:59'::TIMESTAMPTZ, INTERVAL '1 minute') t(ts)",
+					tableName,
+				),
+			); err != nil {
+				return err
+			}
+
+			var insertDroppedChunkQuery string
+
+			if ctx.TimescaleVersion().Compare(21200) >= 0 {
+				insertDroppedChunkQuery = "INSERT INTO _timescaledb_catalog.chunk(hypertable_id, schema_name, table_name, compressed_chunk_id, dropped, status, osm_chunk, creation_time) VALUES (1, '_timescaledb_internal', '_hyper_1_427_chunk', NULL, TRUE, 0, FALSE, NOW())"
+			} else {
+				insertDroppedChunkQuery = "INSERT INTO _timescaledb_catalog.chunk(hypertable_id, schema_name, table_name, compressed_chunk_id, dropped, status, osm_chunk) VALUES (1, '_timescaledb_internal', '_hyper_1_427_chunk', null, true, 0, false)"
+			}
+
+			if _, err := ctx.Exec(context.Background(), insertDroppedChunkQuery); err != nil {
+				return err
+			}
+
+			ctx.AddSystemConfigConfigurator(testSink.SystemConfigConfigurator)
+			ctx.AddSystemConfigConfigurator(func(config *sysconfig.SystemConfig) {
+				config.PostgreSQL.Publication.Name = publicationName
+			})
+			return nil
+		}),
+	)
+}
+
 func readAllAndPublishedChunks(
 	ctx testrunner.Context, tableName, publicationName string,
 ) (
