@@ -4,7 +4,7 @@ FROM golang:alpine
 RUN mkdir /root/builder \
     && apk update \
     && apk add git build-base \
-    && go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+    && go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
 
 COPY go.mod go.sum /root/builder/
 RUN cd /root/builder \
