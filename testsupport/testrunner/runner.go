@@ -435,6 +435,20 @@ func (tr *TestRunner) TearDownSuite() {
 	logging.WithCaller = tr.withCaller
 }
 
+func (tr *TestRunner) StopContainer() {
+	if tr.container != nil {
+		tr.container.Terminate(context.Background())
+		for {
+			time.Sleep(time.Second)
+			state, _ := tr.container.State(context.Background())
+			if state == nil {
+				break
+			}
+		}
+		tr.container = nil
+	}
+}
+
 func (tr *TestRunner) RunTest(
 	testFn func(context Context) error, configurators ...testConfigurator,
 ) {
