@@ -375,6 +375,10 @@ func WithTearDown(
 	}
 }
 
+func (tr *TestRunner) Logger() *logging.Logger {
+	return tr.logger
+}
+
 func (tr *TestRunner) SetupSuite() {
 	tr.withCaller = logging.WithCaller
 	logging.WithCaller = true

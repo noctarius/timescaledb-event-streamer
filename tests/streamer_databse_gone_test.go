@@ -49,20 +49,43 @@ func (irts *IntegrationDatabaseGoneTestSuite) Test_Streamer_Shutdown_After_Conta
 
 	irts.RunTest(
 		func(ctx testrunner.Context) error {
-			if _, err := ctx.Exec(context.Background(),
-				fmt.Sprintf(
-					"INSERT INTO \"%s\" (ts, val) VALUES ('2023-02-25 00:00:00', 1)",
-					testrunner.GetAttribute[string](ctx, "tableName"),
-				),
+			if _, err := ctx.Exec(context.Background(), fmt.Sprintf(`
+				CREATE OR REPLACE PROCEDURE insert_random_datapoints() 
+				LANGUAGE plpgsql AS $$
+				DECLARE 
+				BEGIN
+				LOOP
+					CALL insert_one_datapoint();
+					PERFORM PG_SLEEP(1);
+				END LOOP;
+				END;
+				$$;
+
+				CREATE OR REPLACE PROCEDURE insert_one_datapoint()
+				LANGUAGE plpgsql AS $$
+				DECLARE
+				BEGIN
+					INSERT INTO "%s" (ts, val) VALUES (NOW(), RANDOM() * 100);
+					COMMIT;
+				END;
+				$$;`, testrunner.GetAttribute[string](ctx, "tableName")),
 			); err != nil {
 				return err
 			}
+
+			go func() {
+				if _, err := ctx.Exec(context.Background(),
+					"CALL insert_random_datapoints();",
+				); err != nil {
+					irts.Logger().Warnf("Inner go routine killed: %s", err)
+				}
+			}()
 
 			if err := waiter.Await(); err != nil {
 				return err
 			}
 
-			irts.TestRunner.StopContainer()
+			irts.StopContainer()
 
 			if err := ctx.PauseReplicator(); err != nil {
 				return err
@@ -73,13 +96,17 @@ func (irts *IntegrationDatabaseGoneTestSuite) Test_Streamer_Shutdown_After_Conta
 
 		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
 			_, tn, err := ctx.CreateHypertable("ts", time.Hour*24,
-				testsupport.NewColumn("ts", "timestamptz", false, true, nil),
+				testsupport.NewColumn("ts", "timestamptz", false, false, nil),
 				testsupport.NewColumn("val", "integer", false, false, nil),
 			)
 			if err != nil {
 				return err
 			}
 			testrunner.Attribute(ctx, "tableName", tn)
+
+			if _, err := ctx.Exec(context.Background(), fmt.Sprintf("ALTER table \"%s\" REPLICA IDENTITY FULL", tn)); err != nil {
+				return err
+			}
 
 			tempFile, err := testsupport.CreateTempFile("restart-replicator")
 			if err != nil {
