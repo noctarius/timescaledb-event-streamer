@@ -29,7 +29,7 @@ require (
 	github.com/segmentio/stats/v4 v4.8.0
 	github.com/stretchr/testify v1.10.0
 	github.com/testcontainers/testcontainers-go v0.37.0
-	github.com/testcontainers/testcontainers-go/modules/localstack v0.36.0
+	github.com/testcontainers/testcontainers-go/modules/localstack v0.37.0
 	github.com/testcontainers/testcontainers-go/modules/redis v0.37.0
 	github.com/twpayne/go-geom v1.6.1
 	github.com/urfave/cli v1.22.16
