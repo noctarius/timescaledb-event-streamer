@@ -137,14 +137,16 @@ func (rc *ReplicationConnection) StartReplication(
 }
 
 func (rc *ReplicationConnection) StopReplication() error {
-	_, err := pglogrepl.SendStandbyCopyDone(context.Background(), rc.conn)
-	if e, ok := err.(*pgconn.PgError); ok {
-		if e.Code == pgerrcode.InternalError {
-			return nil
+	if !rc.conn.IsClosed() {
+		_, err := pglogrepl.SendStandbyCopyDone(context.Background(), rc.conn)
+		if e, ok := err.(*pgconn.PgError); ok {
+			if e.Code == pgerrcode.InternalError {
+				return nil
+			}
 		}
-	}
-	if err != nil {
-		return errors.Wrap(err, 0)
+		if err != nil {
+			return errors.Wrap(err, 0)
+		}
 	}
 	return nil
 }

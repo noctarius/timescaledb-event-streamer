@@ -375,6 +375,10 @@ func WithTearDown(
 	}
 }
 
+func (tr *TestRunner) Logger() *logging.Logger {
+	return tr.logger
+}
+
 func (tr *TestRunner) SetupSuite() {
 	tr.withCaller = logging.WithCaller
 	logging.WithCaller = true
@@ -433,6 +437,20 @@ func (tr *TestRunner) TearDownSuite() {
 		tr.container.Terminate(context.Background())
 	}
 	logging.WithCaller = tr.withCaller
+}
+
+func (tr *TestRunner) StopContainer() {
+	if tr.container != nil {
+		tr.container.Terminate(context.Background())
+		for {
+			time.Sleep(time.Second)
+			state, _ := tr.container.State(context.Background())
+			if state == nil {
+				break
+			}
+		}
+		tr.container = nil
+	}
 }
 
 func (tr *TestRunner) RunTest(
