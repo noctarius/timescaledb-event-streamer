@@ -19,6 +19,7 @@ package replicationconnection
 
 import (
 	"context"
+	errors0 "errors"
 	"fmt"
 	"github.com/go-errors/errors"
 	"github.com/jackc/pgerrcode"
@@ -28,6 +29,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/logging"
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/replicationcontext"
+	"github.com/noctarius/timescaledb-event-streamer/spi/sidechannel"
 	"time"
 )
 
@@ -222,6 +224,9 @@ func (rc *ReplicationConnection) locateRestartLSN() (pgtypes.LSN, error) {
 	pluginName, slotType, pgRestartLSN, confirmedFlushLSN, err :=
 		rc.replicationContext.ReadReplicationSlot(replicationSlotName)
 	if err != nil {
+		if errors0.Is(err, sidechannel.ErrNoRestartPointInReplicationSlot) {
+			return 0, err
+		}
 		return 0, errors.Wrap(err, 0)
 	}
 

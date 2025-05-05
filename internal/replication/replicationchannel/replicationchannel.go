@@ -29,6 +29,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/pgtypes"
 	"github.com/noctarius/timescaledb-event-streamer/spi/publication"
 	"github.com/noctarius/timescaledb-event-streamer/spi/replicationcontext"
+	"github.com/noctarius/timescaledb-event-streamer/spi/sidechannel"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/task"
 	"sync/atomic"
@@ -129,6 +130,9 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 
 	slotName, snapshotName, createdReplicationSlot, err := replicationConnection.CreateReplicationSlot()
 	if err != nil {
+		if errors.Is(err, sidechannel.ErrNoRestartPointInReplicationSlot) {
+			return err
+		}
 		return fmt.Errorf("CreateReplicationSlot failed: %s", err)
 	} else if createdReplicationSlot {
 		rc.logger.Println("Created replication slot:", slotName)

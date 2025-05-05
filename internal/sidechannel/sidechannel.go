@@ -587,18 +587,26 @@ func (sc *sideChannel) ReadReplicationSlot(
 ) (pluginName, slotType string, restartLsn, confirmedFlushLsn pgtypes.LSN, err error) {
 
 	err = sc.newSession(time.Second*10, func(session *session) error {
-		var restart, confirmed string
+		var restart, confirmed *string
 		if err := session.queryRow(queryReadReplicationSlot, slotName).Scan(
 			&pluginName, &slotType, &restart, &confirmed,
 		); err != nil {
 			return err
 		}
-		lsn, err := pglogrepl.ParseLSN(restart)
+
+		// In case the streamer was offline for an extended period of time,
+		// PG might have removed the _restart_lsn_ due to `max_slot_wal_keep_size`
+		// and/or `wal_keep_size` being set.
+		if restart == nil {
+			return sidechannel.ErrNoRestartPointInReplicationSlot
+		}
+
+		lsn, err := pglogrepl.ParseLSN(*restart)
 		if err != nil {
 			return errors.Wrap(err, 0)
 		}
 		restartLsn = pgtypes.LSN(lsn)
-		lsn, err = pglogrepl.ParseLSN(confirmed)
+		lsn, err = pglogrepl.ParseLSN(*confirmed)
 		if err != nil {
 			return errors.Wrap(err, 0)
 		}
