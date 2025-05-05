@@ -9,7 +9,6 @@ require (
 	github.com/IBM/sarama v1.45.1
 	github.com/aws/aws-sdk-go v1.55.7
 	github.com/cenkalti/backoff/v4 v4.3.0
-	github.com/docker/docker v28.1.1+incompatible
 	github.com/expr-lang/expr v1.17.2
 	github.com/go-errors/errors v1.5.1
 	github.com/go-redis/redis v6.15.9+incompatible
@@ -23,6 +22,7 @@ require (
 	github.com/jackc/pgio v1.0.0
 	github.com/jackc/pglogrepl v0.0.0-20250331215543-51ad596ee12f
 	github.com/jackc/pgx/v5 v5.7.4
+	github.com/moby/sys/atomicwriter v0.1.0
 	github.com/nats-io/nats.go v1.41.2
 	github.com/samber/do v1.6.0
 	github.com/samber/lo v1.50.0
@@ -30,7 +30,7 @@ require (
 	github.com/stretchr/testify v1.10.0
 	github.com/testcontainers/testcontainers-go v0.37.0
 	github.com/testcontainers/testcontainers-go/modules/localstack v0.36.0
-	github.com/testcontainers/testcontainers-go/modules/redis v0.36.0
+	github.com/testcontainers/testcontainers-go/modules/redis v0.37.0
 	github.com/twpayne/go-geom v1.6.1
 	github.com/urfave/cli v1.22.16
 	golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0
@@ -48,6 +48,7 @@ require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.5 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
+	github.com/docker/docker v28.1.1+incompatible // indirect
 	github.com/docker/go-connections v0.5.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/eapache/go-resiliency v1.7.0 // indirect
@@ -79,6 +80,7 @@ require (
 	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20240226150601-1dcf7310316a // indirect
 	github.com/magiconair/properties v1.8.10 // indirect
+	github.com/mdelapenya/tlscert v0.2.0 // indirect
 	github.com/mdlayher/genetlink v1.3.2 // indirect
 	github.com/mdlayher/netlink v1.7.2 // indirect
 	github.com/mdlayher/socket v0.5.1 // indirect
@@ -86,7 +88,6 @@ require (
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/go-archive v0.1.0 // indirect
 	github.com/moby/patternmatcher v0.6.0 // indirect
-	github.com/moby/sys/atomicwriter v0.1.0 // indirect
 	github.com/moby/sys/sequential v0.6.0 // indirect
 	github.com/moby/sys/user v0.4.0 // indirect
 	github.com/moby/sys/userns v0.1.0 // indirect
