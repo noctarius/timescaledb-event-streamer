@@ -24,6 +24,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/internal/waiting"
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
+	"github.com/noctarius/timescaledb-event-streamer/spi/version"
 	"github.com/noctarius/timescaledb-event-streamer/testsupport"
 	"github.com/noctarius/timescaledb-event-streamer/testsupport/testrunner"
 	"github.com/samber/lo"
@@ -110,6 +111,8 @@ func (irts *IntegrationDatabaseGoneTestSuite) Test_Streamer_Shutdown_After_Conta
 
 			return nil
 		},
+
+		testrunner.WithTimescaleVersionCheck(version.TSDB_212_VERSION),
 
 		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
 			_, tn, err := ctx.CreateHypertable("ts", time.Hour*24,
