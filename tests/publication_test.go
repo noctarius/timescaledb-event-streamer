@@ -25,6 +25,7 @@ import (
 	spiconfig "github.com/noctarius/timescaledb-event-streamer/spi/config"
 	"github.com/noctarius/timescaledb-event-streamer/spi/schema"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
+	"github.com/noctarius/timescaledb-event-streamer/spi/version"
 	"github.com/noctarius/timescaledb-event-streamer/testsupport"
 	"github.com/noctarius/timescaledb-event-streamer/testsupport/testrunner"
 	"github.com/samber/lo"
@@ -92,6 +93,8 @@ func (pts *PublicationTestSuite) Test_Preexisting_Chunks_Added_To_Publication() 
 
 			return nil
 		},
+
+		testrunner.WithTimescaleVersionCheck(version.TSDB_212_VERSION),
 
 		testrunner.WithSetup(func(ctx testrunner.SetupContext) error {
 			_, tn, err := ctx.CreateHypertable("ts", time.Hour,
