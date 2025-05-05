@@ -23,7 +23,7 @@ require (
 	github.com/jackc/pglogrepl v0.0.0-20250331215543-51ad596ee12f
 	github.com/jackc/pgx/v5 v5.7.4
 	github.com/moby/sys/atomicwriter v0.1.0
-	github.com/nats-io/nats.go v1.41.2
+	github.com/nats-io/nats.go v1.42.0
 	github.com/samber/do v1.6.0
 	github.com/samber/lo v1.50.0
 	github.com/segmentio/stats/v4 v4.8.0
