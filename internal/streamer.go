@@ -27,6 +27,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/plugins"
 	"github.com/samber/lo"
 	"github.com/urfave/cli"
+	"os"
 
 	// Register built-in naming strategies
 	_ "github.com/noctarius/timescaledb-event-streamer/spi/namingstrategy"
@@ -98,8 +99,11 @@ func NewStreamer(
 	}, nil
 }
 
-func (s *Streamer) Start() *cli.ExitError {
-	return s.replicator.StartReplication()
+func (s *Streamer) Start(
+	signalChannel chan<- os.Signal,
+) *cli.ExitError {
+
+	return s.replicator.StartReplication(signalChannel)
 }
 
 func (s *Streamer) Stop() *cli.ExitError {

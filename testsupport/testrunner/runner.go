@@ -34,6 +34,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/suite"
 	"github.com/testcontainers/testcontainers-go"
+	"os"
 	"time"
 )
 
@@ -209,7 +210,8 @@ func (t *testContext) ResumeReplicator() error {
 	if t.streamerRunning {
 		return nil
 	}
-	if err := t.streamer.Start(); err != nil {
+	c := make(chan os.Signal, 1)
+	if err := t.streamer.Start(c); err != nil {
 		if err2 := t.streamer.Stop(); err2 != nil {
 			t.logger.Errorf("Error during early shutdown: %v\n", err2)
 		}

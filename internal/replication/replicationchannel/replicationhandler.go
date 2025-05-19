@@ -104,6 +104,9 @@ func newReplicationHandler(
 }
 
 func (rh *replicationHandler) stopReplicationHandler() error {
+	if rh.loopDead.Load() {
+		return nil
+	}
 	rh.logger.Println("Starting to shutdown")
 	rh.shutdownAwaiter.SignalShutdown()
 	if rh.loopDead.Load() {
@@ -126,6 +129,7 @@ func (rh *replicationHandler) startReplicationHandler(
 		case <-rh.shutdownAwaiter.AwaitShutdownChan():
 			runtime.UnlockOSThread()
 			rh.shutdownAwaiter.SignalDone()
+			rh.loopDead.Store(true)
 			return nil
 		default:
 		}
