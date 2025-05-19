@@ -175,7 +175,7 @@ func start(
 		done.Signal()
 	}()
 
-	if err := streamer.Start(); err != nil {
+	if err := streamer.Start(signals); err != nil {
 		if err2 := streamer.Stop(); err2 != nil {
 			fmt.Fprintf(log, "Error during early shutdown: %v\n", err2)
 		}

@@ -91,6 +91,9 @@ func (uc *UnboundedChannel[T]) ReceiveChannel() <-chan T {
 }
 
 func (uc *UnboundedChannel[T]) Close() {
+	if uc.closed.Load() {
+		return
+	}
 	uc.closed.Store(true)
 	close(uc.in)
 }

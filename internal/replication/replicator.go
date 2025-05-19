@@ -42,6 +42,7 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/wiring"
 	"github.com/samber/lo"
 	"github.com/urfave/cli"
+	"os"
 	"slices"
 )
 
@@ -74,7 +75,10 @@ func NewReplicator(
 }
 
 // StartReplication initiates the actual replication process
-func (r *Replicator) StartReplication() *cli.ExitError {
+func (r *Replicator) StartReplication(
+	signalChannel chan<- os.Signal,
+) *cli.ExitError {
+
 	r.shutdownTasks = nil
 	container, err := wiring.NewContainer(
 		StaticModule,
@@ -103,6 +107,7 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 		return erroring.AdaptError(err, 0)
 	}
 	r.shutdownTasks = append(r.shutdownTasks, func() error {
+		r.logger.Infof("Shutting down statistics service")
 		return statsService.Stop()
 	})
 
@@ -113,6 +118,7 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 	}
 	taskManager.StartDispatcher()
 	r.shutdownTasks = append(r.shutdownTasks, func() error {
+		r.logger.Infof("Shutting down internal dispatching")
 		return taskManager.StopDispatcher()
 	})
 
@@ -125,6 +131,7 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 		return erroring.AdaptErrorWithMessage(err, "failed to start replication context", 18)
 	}
 	r.shutdownTasks = append(r.shutdownTasks, func() error {
+		r.logger.Infof("Shutting down replication context")
 		return replicationContext.StopReplicationContext()
 	})
 
@@ -138,6 +145,7 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 		return erroring.AdaptErrorWithMessage(err, "failed to start event emitter", 24)
 	}
 	r.shutdownTasks = append(r.shutdownTasks, func() error {
+		r.logger.Infof("Shutting down event emitter")
 		return eventEmitter.Stop()
 	})
 
@@ -148,6 +156,7 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 	}
 	snapshotter.StartSnapshotter()
 	r.shutdownTasks = append(r.shutdownTasks, func() error {
+		r.logger.Infof("Shutting down snapshotter")
 		snapshotter.StopSnapshotter()
 		return nil
 	})
@@ -174,6 +183,7 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 		return erroring.AdaptError(err, 1)
 	}
 	r.shutdownTasks = append(r.shutdownTasks, func() error {
+		r.logger.Infof("Shutting down state storage manager")
 		state, err1 := encodeKnownTables(systemCatalog.GetAllChunks())
 		if err1 == nil {
 			stateStorageManager.SetEncodedState(esPreviouslyKnownChunks, state)
@@ -214,7 +224,7 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 	if err := container.Service(&replicationChannel); err != nil {
 		return erroring.AdaptError(err, 1)
 	}
-	if err := replicationChannel.StartReplicationChannel(initialTables); err != nil {
+	if err := replicationChannel.StartReplicationChannel(initialTables, signalChannel); err != nil {
 		if errors.Is(err, sidechannel.ErrNoRestartPointInReplicationSlot) {
 			return erroring.AdaptErrorWithMessage(err,
 				"No restart LSN available in replication slot. Cannot resume, replicated data would have gaps.",
@@ -224,6 +234,7 @@ func (r *Replicator) StartReplication() *cli.ExitError {
 		return erroring.AdaptError(err, 16)
 	}
 	r.shutdownTasks = append(r.shutdownTasks, func() error {
+		r.logger.Infof("Shutting down replication channel")
 		return replicationChannel.StopReplicationChannel()
 	})
 

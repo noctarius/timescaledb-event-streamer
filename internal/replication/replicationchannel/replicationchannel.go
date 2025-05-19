@@ -32,7 +32,9 @@ import (
 	"github.com/noctarius/timescaledb-event-streamer/spi/sidechannel"
 	"github.com/noctarius/timescaledb-event-streamer/spi/systemcatalog"
 	"github.com/noctarius/timescaledb-event-streamer/spi/task"
+	"os"
 	"sync/atomic"
+	"syscall"
 )
 
 // ReplicationChannel represents the database connection and handler loop
@@ -85,6 +87,7 @@ func (rc *ReplicationChannel) StopReplicationChannel() error {
 // and starts the logical replication handler loop.
 func (rc *ReplicationChannel) StartReplicationChannel(
 	initialTables []systemcatalog.SystemEntity,
+	signalChannel chan<- os.Signal,
 ) error {
 
 	handler, err := newReplicationHandler(rc.replicationContext, rc.typeManager, rc.taskManager, rc.statsReporter)
@@ -181,7 +184,7 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 			if err != nil {
 				rc.logger.Fatalf("Issue handling WAL stream: %s", err)
 			}
-			rc.shutdownAwaiter.SignalShutdown()
+			signalChannel <- syscall.SIGINT
 		}()
 
 		stopReplication = func() {
@@ -249,12 +252,12 @@ func (rc *ReplicationChannel) StartReplicationChannel(
 	}
 
 	go func() {
-		// Mark the current replication channel as shutting down
-		rc.shutdownRequested.Store(true)
-
 		if err := rc.shutdownAwaiter.AwaitShutdown(); err != nil {
 			rc.logger.Errorf("shutdown failed: %+v", err)
 		}
+
+		// Mark the current replication channel as shutting down
+		rc.shutdownRequested.Store(true)
 
 		// Stop potentially started replication before going on
 		stopReplication()
