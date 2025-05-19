@@ -21,7 +21,7 @@ require (
 	github.com/jackc/pgerrcode v0.0.0-20240316143900-6e2875d9b438
 	github.com/jackc/pgio v1.0.0
 	github.com/jackc/pglogrepl v0.0.0-20250331215543-51ad596ee12f
-	github.com/jackc/pgx/v5 v5.7.4
+	github.com/jackc/pgx/v5 v5.7.5
 	github.com/moby/sys/atomicwriter v0.1.0
 	github.com/nats-io/nats.go v1.42.0
 	github.com/samber/do v1.6.0
