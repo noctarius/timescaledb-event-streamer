@@ -9,7 +9,7 @@ require (
 	github.com/IBM/sarama v1.45.1
 	github.com/aws/aws-sdk-go v1.55.7
 	github.com/cenkalti/backoff/v4 v4.3.0
-	github.com/expr-lang/expr v1.17.2
+	github.com/expr-lang/expr v1.17.4
 	github.com/go-errors/errors v1.5.1
 	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/goccy/go-json v0.10.5
